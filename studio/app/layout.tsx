@@ -80,9 +80,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 				
 				<NextIntlClientProvider locale={locale} messages={messages}>
 					<Providers session={session}>
-						<div className="min-h-screen">
+						<div className="min-h-screen py-10">
 							<Header />
-							<div className="mx-auto max-w-5xl px-6 py-10">{children}</div>
+							<div className="mx-auto max-w-5xl px-6">{children}</div>
 						</div>
 					</Providers>
 				</NextIntlClientProvider>

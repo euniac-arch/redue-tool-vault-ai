@@ -47,39 +47,30 @@ export function Header() {
 	const closeMenu = () => setIsMenuOpen(false);
 
 	return (
-		<header className="print:hidden sticky top-0 z-50 w-full border-b border-zinc-200/60 bg-white/90 backdrop-blur-sm">
-			<div className="relative mx-auto flex h-14 w-[90%] max-w-6xl items-center justify-between gap-4 md:h-16">
-				{/* Logo */}
-				<a href="/" className="relative z-10 flex shrink-0 items-center gap-2.5" onClick={closeMenu}>
-					<span className="rounded-lg bg-zinc-900 px-2.5 py-1 text-sm font-bold tracking-tight text-white">
-						REDUE
-					</span>
-					<span className="hidden text-sm font-medium text-zinc-500 sm:inline">{t('tagline')}</span>
+		<header className="print:hidden relative z-50 mb-10 w-full">
+			{/* Top bar — original brand styles (no grey/white chrome) */}
+			<div className="relative mx-auto flex w-[90%] max-w-6xl items-center justify-between gap-4">
+				<a href="/" className="relative z-10 flex shrink-0 items-center gap-2" onClick={closeMenu}>
+					<span className="rounded-lg bg-accent px-2 py-1 text-sm font-bold text-white">REDUE</span>
+					<span className="hidden text-sm font-semibold text-slate-300 sm:inline">{t('tagline')}</span>
 				</a>
 
-				{/* Desktop nav */}
-				<nav className="hidden items-center gap-1 md:flex" aria-label="Primary">
+				<nav className="hidden items-center gap-5 text-sm font-semibold text-slate-400 md:flex" aria-label="Primary">
 					{NAV_ITEMS.map((item) => (
-						<a
-							key={item.href}
-							href={item.href}
-							className="rounded-full px-3 py-1.5 text-sm font-medium text-zinc-700 transition-colors duration-200 hover:text-black"
-						>
+						<a key={item.href} href={item.href} className="transition-colors hover:text-white">
 							{t(item.key)}
 						</a>
 					))}
 				</nav>
 
-				{/* Desktop actions */}
-				<div className="hidden items-center gap-3 md:flex">
-					<LocaleSwitcher variant="light" />
-					<HeaderAuth variant="light" />
+				<div className="hidden items-center gap-4 md:flex">
+					<LocaleSwitcher />
+					<HeaderAuth />
 				</div>
 
-				{/* Mobile hamburger / close */}
 				<button
 					type="button"
-					className="relative z-10 flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 transition-colors duration-200 hover:bg-zinc-100 hover:text-black md:hidden"
+					className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white md:hidden"
 					aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
 					aria-expanded={isMenuOpen}
 					aria-controls="mobile-nav"
@@ -99,26 +90,26 @@ export function Header() {
 
 			{/* Mobile overlay */}
 			<div
-				className={`fixed inset-0 z-40 bg-black/20 transition-opacity duration-300 md:hidden ${
+				className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden ${
 					isMenuOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
 				}`}
 				aria-hidden={!isMenuOpen}
 				onClick={closeMenu}
 			/>
 
-			{/* Mobile slide-in panel */}
+			{/* Mobile slide-in panel — dark page-matching surface */}
 			<div
 				id="mobile-nav"
-				className={`fixed inset-y-0 right-0 z-50 flex w-[min(100%,20rem)] flex-col bg-white/95 shadow-2xl backdrop-blur-md transition-transform duration-300 ease-out md:hidden ${
+				className={`fixed inset-y-0 right-0 z-50 flex w-[min(100%,20rem)] flex-col border-l border-white/[0.08] bg-[#0C0D0E]/95 shadow-2xl backdrop-blur-md transition-transform duration-300 ease-out md:hidden ${
 					isMenuOpen ? 'translate-x-0' : 'translate-x-full'
 				}`}
 				aria-hidden={!isMenuOpen}
 			>
-				<div className="flex h-14 items-center justify-between border-b border-zinc-200/60 px-5">
-					<span className="text-sm font-semibold text-zinc-900">Menu</span>
+				<div className="flex h-14 items-center justify-between border-b border-white/[0.08] px-5">
+					<span className="text-sm font-semibold text-slate-200">Menu</span>
 					<button
 						type="button"
-						className="flex h-10 w-10 items-center justify-center rounded-full text-zinc-700 transition-colors duration-200 hover:bg-zinc-100 hover:text-black"
+						className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors duration-300 hover:bg-white/5 hover:text-white"
 						aria-label="Close menu"
 						onClick={closeMenu}
 					>
@@ -128,24 +119,24 @@ export function Header() {
 					</button>
 				</div>
 
-				<nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-4 py-5" aria-label="Mobile">
+				<nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4" aria-label="Mobile">
 					{NAV_ITEMS.map((item) => (
 						<a
 							key={item.href}
 							href={item.href}
 							onClick={closeMenu}
-							className="rounded-xl px-3 py-3 text-base font-medium text-zinc-700 transition-colors duration-200 hover:bg-zinc-100 hover:text-black"
+							className="rounded-lg px-3 py-3 text-base font-semibold text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white"
 						>
 							{t(item.key)}
 						</a>
 					))}
 				</nav>
 
-				<div className="flex flex-col gap-3 border-t border-zinc-200/60 px-4 py-5">
+				<div className="flex flex-col gap-3 border-t border-white/[0.08] px-4 py-5">
 					<div className="flex justify-start">
-						<LocaleSwitcher variant="light" />
+						<LocaleSwitcher />
 					</div>
-					<HeaderAuth variant="light" stacked onNavigate={closeMenu} />
+					<HeaderAuth stacked onNavigate={closeMenu} />
 				</div>
 			</div>
 		</header>
