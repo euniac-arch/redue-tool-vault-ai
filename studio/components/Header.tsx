@@ -55,7 +55,7 @@ export function Header() {
 			<div className="relative mx-auto flex w-[90%] max-w-6xl items-center justify-between gap-4">
 				<a href="/" className="relative z-10 flex shrink-0 items-center gap-2" onClick={closeMenu}>
 					<span className="rounded-lg bg-accent px-2 py-1 text-sm font-bold text-white">REDUE</span>
-					<span className="hidden text-sm font-semibold text-slate-300 sm:inline">{t('tagline')}</span>
+					<span className="hidden text-sm font-semibold text-slate-300 min-[320px]:inline">{t('tagline')}</span>
 				</a>
 
 				<nav
