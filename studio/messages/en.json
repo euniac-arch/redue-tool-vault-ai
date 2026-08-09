@@ -1,0 +1,88 @@
+{
+	"nav": {
+		"tagline": "AI-Powered SEO & GEO Auto-Injection Platform",
+		"scanner": "Scanner",
+		"portfolio": "Portfolio",
+		"enterprise": "Enterprise",
+		"reseller": "Reseller",
+		"wpPlugin": "WP Plugin",
+		"autonomous": "AI Autonomous",
+		"login": "Log in / Sign up",
+		"mypage": "My Page",
+		"admin": "Admin Backoffice",
+		"developer": "Developer API",
+		"upgrade": "Buy credits / Upgrade",
+		"logout": "Log out",
+		"credits": "{count} credits left"
+	},
+	"hero": {
+		"badge": "Free · No sign-up required",
+		"title1": "Is your site actually",
+		"titleHighlight": "visible",
+		"title2": "to AI search engines?",
+		"description": "Just paste your URL — we'll instantly audit SEO basics, web performance, schema markup, accessibility, and GEO (AI recognition).",
+		"placeholder": "https://your-website.com",
+		"button": "🚀 Free SEO & AI GEO audit in 10 seconds",
+		"buttonLoading": "Redirecting to your report..."
+	},
+	"dashboard": {
+		"title": "Developer WordPress Direct Scanner",
+		"description": "Point this at a local WordPress folder to auto-detect the CMS, pick the injection target file, and actually write the SoftwareApplication / WebSite master schema block. (The free audit above is a sales tool that instantly reports on any URL; this tool performs the real file injection.)"
+	},
+	"audit": {
+		"backToHome": "← Back to home",
+		"scoreHeaderLabel": "SEO & GEO Comprehensive Audit Report",
+		"categoryGridTitle": "5 Core Category Scores",
+		"findingsTitle": "Detailed Findings",
+		"loadingTitle": "🚀 Running free SEO & GEO audit scan...",
+		"failedTitle": "Audit failed",
+		"retry": "Try again",
+		"scannedAt": "Scanned at {time} · HTTP status {status} · response time {ms}ms",
+		"noUrl": "No URL to audit. Please enter a site URL on the home page.",
+		"cta": {
+			"line1": "Fixing these issues yourself would take a developer about 3 days of work.",
+			"line2Pre": "Run the REDUE AI master injector and get to a",
+			"line2Highlight": "98/100 (fully optimized)",
+			"line2Post": "score in one second.",
+			"button": "⚡ Optimize in 1 second (${priceUsd}/mo · first run free on signup)",
+			"footnote": "Just want to look around first? Signing up automatically grants one free run."
+		},
+		"share": {
+			"kakao": "💬 Share on KakaoTalk",
+			"copied": "✅ Link copied",
+			"pdf": "📄 Export PDF",
+			"pdfLoading": "Generating PDF..."
+		}
+	},
+	"mypage": {
+		"title": "My Page",
+		"description": "Track your plan, credits, injection/backup history, and payments at a glance.",
+		"currentPlan": "Current plan",
+		"remainingCredits": "Credits remaining",
+		"totalInjections": "Sites optimized",
+		"historyTitle": "Injection & backup history",
+		"paymentsTitle": "Payments & receipts",
+		"noHistory": "No injections yet. Run your first scan from the dashboard.",
+		"noPayments": "No payment history yet.",
+		"developerCard": {
+			"title": "Developer API",
+			"description": "Issue API keys for external integrations and manage usage.",
+			"link": "Go to Developer Center →"
+		},
+		"resellerCard": {
+			"title": "White-label reseller",
+			"description": "Resell under your brand and manage sub-account credits.",
+			"link": "Open reseller dashboard →"
+		},
+		"table": {
+			"target": "Target domain / path",
+			"cms": "CMS type",
+			"patchedAt": "Patched at",
+			"score": "Score",
+			"backup": "Backup",
+			"detail": "Detail",
+			"downloadBackup": "Download original.zip",
+			"viewDetail": "View Audit Details"
+		}
+	}
+}

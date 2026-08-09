@@ -1,0 +1,11 @@
+# REDUE AI Studio (Next.js pipeline app)
+studio/node_modules
+studio/.next
+studio/.data
+studio/next-env.d.ts
+
+# Auth / payments secrets & local DB (Step 5)
+studio/.env
+studio/.env.local
+studio/prisma/dev.db
+studio/prisma/dev.db-journal

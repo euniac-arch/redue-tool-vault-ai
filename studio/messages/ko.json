@@ -1,0 +1,88 @@
+{
+	"nav": {
+		"tagline": "AI 기반 SEO & GEO 자동 주입",
+		"scanner": "스캐너",
+		"portfolio": "포트폴리오",
+		"enterprise": "엔터프라이즈",
+		"reseller": "리셀러",
+		"wpPlugin": "WP 플러그인",
+		"autonomous": "AI 자율 운영",
+		"login": "로그인 / 회원가입",
+		"mypage": "마이페이지",
+		"admin": "Admin 백오피스",
+		"developer": "개발자 API 관리",
+		"upgrade": "크레딧 충전 / 업그레이드",
+		"logout": "로그아웃",
+		"credits": "잔여 크레딧 {count}회"
+	},
+	"hero": {
+		"badge": "무료 · 회원가입 불필요",
+		"title1": "내 사이트, AI 검색엔진에",
+		"titleHighlight": "보이고",
+		"title2": "있을까요?",
+		"description": "URL 하나만 입력하면 SEO 기초 · 웹 성능 · 스키마 마크업 · 접근성 · GEO(AI 인식) 5대 항목을 실시간으로 진단해 드립니다.",
+		"placeholder": "https://your-website.com",
+		"button": "🚀 10초 만에 무료 SEO & AI GEO 진단하기",
+		"buttonLoading": "진단 페이지로 이동 중..."
+	},
+	"dashboard": {
+		"title": "개발자용 워드프레스 직접 스캐너",
+		"description": "내 서버의 워드프레스 폴더 경로를 직접 지정해 CMS를 자동 판별하고, 주입 대상 파일을 선택한 뒤 SoftwareApplication / WebSite 마스터 스키마 블록을 실제로 주입합니다. (위 무료 진단은 URL만으로 즉시 리포트를 보여주는 영업용 도구이며, 이 도구는 실제 파일 주입까지 수행합니다.)"
+	},
+	"audit": {
+		"backToHome": "← 메인으로",
+		"scoreHeaderLabel": "SEO & GEO 종합 진단 리포트",
+		"categoryGridTitle": "5대 세부 항목 점수",
+		"findingsTitle": "진단 세부 진단표",
+		"loadingTitle": "🚀 무료 SEO & GEO 진단 스캔 진행 중...",
+		"failedTitle": "진단에 실패했습니다",
+		"retry": "다시 시도하기",
+		"scannedAt": "진단 시각 {time} · 응답 상태 {status} · 응답 속도 {ms}ms",
+		"noUrl": "진단할 URL이 없습니다. 메인 페이지에서 사이트 주소를 입력해 주세요.",
+		"cta": {
+			"line1": "위 문제점들을 직접 수정하려면 개발자 3일 분량의 작업이 필요합니다.",
+			"line2Pre": "REDUE AI 마스터 주입기를 실행하면",
+			"line2Highlight": "1초 만에 98점(최적화 완료)",
+			"line2Post": "으로 전환됩니다.",
+			"button": "⚡ 1초 만에 최적화 주입하기 ({price}원 / 가입 시 1회 무료)",
+			"footnote": "결제 없이 먼저 둘러보고 싶다면 가입만으로 1회 무료 체험이 자동 지급됩니다."
+		},
+		"share": {
+			"kakao": "💬 카카오톡 공유",
+			"copied": "✅ 링크가 복사되었습니다",
+			"pdf": "📄 PDF 출력",
+			"pdfLoading": "PDF 생성 중..."
+		}
+	},
+	"mypage": {
+		"title": "마이페이지",
+		"description": "요금제, 크레딧, 주입/백업 및 결제 내역을 한눈에 확인하세요.",
+		"currentPlan": "이용 중인 요금제",
+		"remainingCredits": "잔여 크레딧",
+		"totalInjections": "총 주입 완료 사이트",
+		"historyTitle": "주입 및 백업 히스토리",
+		"paymentsTitle": "결제 및 영수증 내역",
+		"noHistory": "아직 주입 내역이 없습니다. 대시보드에서 첫 스캔을 실행해 보세요.",
+		"noPayments": "결제 내역이 없습니다.",
+		"developerCard": {
+			"title": "개발자 API 관리",
+			"description": "외부 연동용 API Key를 발급하고 사용량을 관리하세요.",
+			"link": "개발자 센터로 이동 →"
+		},
+		"resellerCard": {
+			"title": "화이트레이블 리셀러",
+			"description": "자사 브랜드로 서비스를 재판매하고 하위 고객사 크레딧을 관리하세요.",
+			"link": "리셀러 대시보드 →"
+		},
+		"table": {
+			"target": "타겟 도메인 / 경로",
+			"cms": "CMS 유형",
+			"patchedAt": "패치 일시",
+			"score": "점수",
+			"backup": "백업",
+			"detail": "상세",
+			"downloadBackup": "원본 백업.zip 다운로드",
+			"viewDetail": "상세 점수표 보기"
+		}
+	}
+}
