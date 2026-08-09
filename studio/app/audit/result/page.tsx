@@ -10,8 +10,17 @@ import { AuditFindingsList } from '@/components/AuditFindingsList';
 import { AuditLoading } from '@/components/AuditLoading';
 import { AuditScoreHeader } from '@/components/AuditScoreHeader';
 import { AuditShareBar } from '@/components/AuditShareBar';
+import { ImpactPreviewSection } from '@/components/ImpactPreviewSection';
 import { PricingModal } from '@/components/PricingModal';
 import type { AuditReport } from '@/lib/site-auditor';
+
+function siteLabelFromUrl(raw: string): string {
+	try {
+		return new URL(raw).hostname.replace(/^www\./, '') || raw;
+	} catch {
+		return raw.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] || raw;
+	}
+}
 
 export default function AuditResultPage() {
 	return (
@@ -103,6 +112,8 @@ function AuditResultContent() {
 							<h2 className="text-sm font-bold text-slate-200">{t('findingsTitle')}</h2>
 							<AuditFindingsList findings={report.findings} />
 						</section>
+
+						<ImpactPreviewSection siteName={siteLabelFromUrl(report.url)} />
 
 						<AuditCtaBox onOpenPricing={() => setPricingOpen(true)} />
 					</div>

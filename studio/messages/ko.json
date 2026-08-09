@@ -39,6 +39,56 @@
 		"retry": "다시 시도하기",
 		"scannedAt": "진단 시각 {time} · 응답 상태 {status} · 응답 속도 {ms}ms",
 		"noUrl": "진단할 URL이 없습니다. 메인 페이지에서 사이트 주소를 입력해 주세요.",
+		"impact": {
+			"title": "점수 개선 시 기대되는 실무적 변화 및 비즈니스 효과",
+			"subtitle": "단순히 점수를 올리는 것이 아니라, AI 검색 및 구글 상단 노출 알고리즘을 선점합니다.",
+			"before": {
+				"badge": "Before",
+				"label": "개선 전 · 현재 점수 상태",
+				"scoreHint": "현재",
+				"google": "구글 검색 결과",
+				"googleDetail": "단순 텍스트 2줄만 밋밋하게 표시됩니다.",
+				"ai": "AI 검색 (Perplexity / ChatGPT)",
+				"aiDetail": "출처 인용이 누락되거나 답변에서 제외됩니다.",
+				"discover": "Google Discover 노출",
+				"discoverDetail": "피드 추천 신호가 미비해 노출 기회가 거의 없습니다."
+			},
+			"after": {
+				"badge": "After",
+				"label": "REDUE AI 주입 후 · 98점 최적화",
+				"scoreHint": "98점",
+				"google": "구글 검색 결과",
+				"googleDetail": "기자/작성자명, 발행일, 탐색경로, 리치 스니펫 배지가 적용된 카드형 결과로 노출됩니다.",
+				"ai": "AI 검색 (Perplexity / ChatGPT)",
+				"aiDetail": "출처: {site} 으로 우선 인용되며 답변 상단에 추천됩니다.",
+				"discover": "Google Discover 노출",
+				"discoverDetail": "모바일 디스커버 피드 자동 추천 알고리즘 가산점을 획득합니다."
+			},
+			"mock": {
+				"beforeTitle": "기본 페이지 제목",
+				"beforeDesc": "메타 설명이 없거나 빈약해 검색 결과에서 차별화가 거의 없습니다.",
+				"afterTitle": "전문가가 검증한 핵심 인사이트 리포트",
+				"afterDesc": "구조화된 데이터로 강화된 설명이 리치 결과와 함께 노출되어 클릭을 유도합니다.",
+				"breadcrumb": "인사이트 › 리포트",
+				"richBadge": "리치 결과",
+				"author": "작성자 · REDUE",
+				"date": "발행일 · 2026.08.10"
+			},
+			"benefits": {
+				"ai": {
+					"title": "AI 검색엔진(ChatGPT·Perplexity) 인용률 급증",
+					"body": "AI가 답변을 생성할 때 가장 신뢰할 수 있는 데이터 구조(NewsArticle / Person)로 즉시 인식되어 유기적 AI 트래픽을 독점합니다."
+				},
+				"ctr": {
+					"title": "검색 결과 클릭률(CTR) 및 브랜드 신뢰도 상승",
+					"body": "검색 결과에 저자/카테고리/리치 결과가 풍부하게 노출되어, 동일한 검색 순위에서도 유저들의 실제 클릭을 2~3배 끌어올립니다."
+				},
+				"eeat": {
+					"title": "E-E-A-T 점수 확보로 검색 순위 급락 방지",
+					"body": "구글 검색 알고리즘 대형 업데이트 시에도 사이트가 하락하지 않는 강력한 SEO 방어력을 갖추게 됩니다."
+				}
+			}
+		},
 		"cta": {
 			"line1": "위 문제점들을 직접 수정하려면 개발자 3일 분량의 작업이 필요합니다.",
 			"line2Pre": "REDUE AI 마스터 주입기를 실행하면",

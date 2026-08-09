@@ -39,6 +39,56 @@
 		"retry": "Try again",
 		"scannedAt": "Scanned at {time} · HTTP status {status} · response time {ms}ms",
 		"noUrl": "No URL to audit. Please enter a site URL on the home page.",
+		"impact": {
+			"title": "Practical changes & business impact after score improvement",
+			"subtitle": "This isn’t just about a higher score — it’s about owning AI search and Google top-visibility signals.",
+			"before": {
+				"badge": "Before",
+				"label": "Current score state",
+				"scoreHint": "Now",
+				"google": "Google search results",
+				"googleDetail": "Only a plain two-line text snippet appears.",
+				"ai": "AI search (Perplexity / ChatGPT)",
+				"aiDetail": "Citations are missing — or your site is left out of answers entirely.",
+				"discover": "Google Discover exposure",
+				"discoverDetail": "Weak feed signals mean almost no Discover opportunities."
+			},
+			"after": {
+				"badge": "After",
+				"label": "After REDUE AI injection · 98 optimized",
+				"scoreHint": "98 pts",
+				"google": "Google search results",
+				"googleDetail": "Author name, publish date, breadcrumbs, and rich-snippet badges show as a visual card.",
+				"ai": "AI search (Perplexity / ChatGPT)",
+				"aiDetail": "Cited first as Source: {site} and recommended near the top of answers.",
+				"discover": "Google Discover exposure",
+				"discoverDetail": "Earns boosts in mobile Discover’s auto-recommendation algorithms."
+			},
+			"mock": {
+				"beforeTitle": "Generic page title",
+				"beforeDesc": "Missing or thin meta description — almost no differentiation in search results.",
+				"afterTitle": "Expert-verified insight report",
+				"afterDesc": "Structured-data-enhanced copy appears with rich results to drive more clicks.",
+				"breadcrumb": "Insights › Report",
+				"richBadge": "Rich result",
+				"author": "Author · REDUE",
+				"date": "Published · Aug 10, 2026"
+			},
+			"benefits": {
+				"ai": {
+					"title": "Surge in AI search citations (ChatGPT · Perplexity)",
+					"body": "AI instantly recognizes trusted data structures (NewsArticle / Person) when generating answers — so you capture organic AI traffic."
+				},
+				"ctr": {
+					"title": "Higher SERP CTR & brand trust",
+					"body": "Author, category, and rich results surface in search — lifting real clicks 2–3× even at the same rank."
+				},
+				"eeat": {
+					"title": "E-E-A-T strength to resist ranking drops",
+					"body": "Build durable SEO defense so your site holds up through major Google algorithm updates."
+				}
+			}
+		},
 		"cta": {
 			"line1": "Fixing these issues yourself would take a developer about 3 days of work.",
 			"line2Pre": "Run the REDUE AI master injector and get to a",
