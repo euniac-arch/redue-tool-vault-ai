@@ -34,9 +34,8 @@ export function FreeAuditHero() {
 				<span className="mt-1 block font-black text-white">{t('titleLine2')}</span>
 			</h1>
 
-			<p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
-				<span className="block">{t('descriptionLine1')}</span>
-				<span className="block">{t('descriptionLine2')}</span>
+			<p className="mt-4 max-w-2xl break-keep text-sm leading-relaxed text-slate-300 sm:text-base">
+				{t('description')}
 			</p>
 
 			<form
