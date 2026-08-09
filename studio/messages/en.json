@@ -9,6 +9,8 @@
 		"wpPlugin": "WP Plugin",
 		"autonomous": "AI Autonomous",
 		"login": "Log in / Sign up",
+		"signIn": "Log in",
+		"signUp": "Sign up",
 		"mypage": "My Page",
 		"admin": "Admin Backoffice",
 		"developer": "Developer API",

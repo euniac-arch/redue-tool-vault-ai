@@ -18,8 +18,9 @@ function LoginForm() {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const callbackUrl = searchParams.get('callbackUrl') || '/';
+	const initialMode: Mode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
 
-	const [mode, setMode] = useState<Mode>('signin');
+	const [mode, setMode] = useState<Mode>(initialMode);
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [name, setName] = useState('');

@@ -9,6 +9,8 @@
 		"wpPlugin": "WP 플러그인",
 		"autonomous": "AI 자율 운영",
 		"login": "로그인 / 회원가입",
+		"signIn": "로그인",
+		"signUp": "회원가입",
 		"mypage": "마이페이지",
 		"admin": "Admin 백오피스",
 		"developer": "개발자 API 관리",
