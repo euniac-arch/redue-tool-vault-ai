@@ -131,9 +131,9 @@ export function GeoCitationAlgorithmSection({ domain, reportData }: GeoCitationA
 						</>
 					) : (
 						t.rich('callout', {
-							domain: (chunks) => (
+							domain: (children) => (
 								<span className="font-mono font-bold text-rose-200">
-									{domain || chunks}
+									{children}
 								</span>
 							),
 						})
