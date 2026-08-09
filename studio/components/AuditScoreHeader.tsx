@@ -15,42 +15,76 @@ interface AuditScoreHeaderProps {
 	maxScore: number;
 	status: AuditOverallStatus;
 	statusLabel: string;
+	schemaCoverage?: number;
+	geoCitationScore?: number;
 }
 
-export function AuditScoreHeader({ url, score, maxScore, status, statusLabel }: AuditScoreHeaderProps) {
+function MetricCard({ label, value, hint }: { label: string; value: number; hint: string }) {
+	const color = value >= 70 ? 'text-emerald-400' : value >= 40 ? 'text-amber-400' : 'text-rose-400';
+	return (
+		<div className="rounded-xl border border-white/[0.08] bg-black/20 px-4 py-3">
+			<p className="text-[10px] uppercase tracking-wide text-slate-500">{label}</p>
+			<p className={`mt-1 text-2xl font-extrabold tabular-nums ${color}`}>{value}</p>
+			<p className="text-[11px] text-slate-500">{hint}</p>
+		</div>
+	);
+}
+
+export function AuditScoreHeader({
+	url,
+	score,
+	maxScore,
+	status,
+	statusLabel,
+	schemaCoverage,
+	geoCitationScore,
+}: AuditScoreHeaderProps) {
 	const t = useTranslations('audit');
 	const styles = STATUS_STYLES[status];
-	const percent = Math.min(100, Math.max(0, (score / maxScore) * 100));
+	const percent = maxScore > 0 ? Math.min(100, Math.max(0, (score / maxScore) * 100)) : 0;
 
 	return (
-		<div className={`flex flex-col gap-5 rounded-2xl border border-white/[0.08] ${styles.bg} p-6 ring-1 ${styles.ring} sm:flex-row sm:items-center sm:justify-between`}>
-			<div className="flex flex-col gap-1">
-				<p className="text-xs uppercase tracking-wide text-slate-500">{t('scoreHeaderLabel')}</p>
-				<p className="max-w-md truncate font-mono text-sm text-slate-300">{url}</p>
-				<div className="mt-2 flex items-center gap-3">
-					<span className={`text-5xl font-extrabold tabular-nums ${styles.text}`}>{score.toFixed(1)}</span>
-					<span className="text-lg text-slate-400">/ {maxScore}점</span>
-					<span className={`rounded-full px-3 py-1 text-xs font-bold ${styles.badge}`}>{statusLabel}</span>
+		<div className={`flex flex-col gap-5 rounded-2xl border border-white/[0.08] ${styles.bg} p-6 ring-1 ${styles.ring}`}>
+			<div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+				<div className="flex flex-col gap-1">
+					<p className="text-xs uppercase tracking-wide text-slate-500">{t('scoreHeaderLabel')}</p>
+					<p className="max-w-md truncate font-mono text-sm text-slate-300">{url}</p>
+					<div className="mt-2 flex flex-wrap items-center gap-3">
+						<span className={`text-5xl font-extrabold tabular-nums ${styles.text}`}>{score.toFixed(1)}</span>
+						<span className="text-lg text-slate-400">/ {maxScore}</span>
+						<span className={`rounded-full px-3 py-1 text-xs font-bold ${styles.badge}`}>{statusLabel}</span>
+					</div>
+				</div>
+
+				<div className="relative flex h-28 w-28 items-center justify-center">
+					<svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
+						<circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
+						<circle
+							cx="60"
+							cy="60"
+							r="52"
+							fill="none"
+							strokeWidth="12"
+							strokeLinecap="round"
+							className={styles.text}
+							stroke="currentColor"
+							strokeDasharray={`${(percent / 100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
+						/>
+					</svg>
+					<p className="absolute text-xl font-bold text-white">{Math.round(percent)}%</p>
 				</div>
 			</div>
 
-			<div className="relative flex h-28 w-28 items-center justify-center">
-				<svg viewBox="0 0 120 120" className="h-28 w-28 -rotate-90">
-					<circle cx="60" cy="60" r="52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="12" />
-					<circle
-						cx="60"
-						cy="60"
-						r="52"
-						fill="none"
-						strokeWidth="12"
-						strokeLinecap="round"
-						className={styles.text}
-						stroke="currentColor"
-						strokeDasharray={`${(percent / 100) * 2 * Math.PI * 52} ${2 * Math.PI * 52}`}
-					/>
-				</svg>
-				<p className="absolute text-xl font-bold text-white">{Math.round(percent)}%</p>
-			</div>
+			{(schemaCoverage != null || geoCitationScore != null) && (
+				<div className="grid gap-3 sm:grid-cols-2">
+					{schemaCoverage != null && (
+						<MetricCard label={t('schemaCoverageLabel')} value={schemaCoverage} hint={t('schemaCoverageHint')} />
+					)}
+					{geoCitationScore != null && (
+						<MetricCard label={t('geoCitationLabel')} value={geoCitationScore} hint={t('geoCitationHint')} />
+					)}
+				</div>
+			)}
 		</div>
 	);
 }

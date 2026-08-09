@@ -1,12 +1,139 @@
+@import 'pretendard/dist/web/static/pretendard-dynamic-subset.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html {
-	color-scheme: dark;
+@layer base {
+	html {
+		color-scheme: dark;
+		font-family:
+			Pretendard,
+			-apple-system,
+			BlinkMacSystemFont,
+			system-ui,
+			Roboto,
+			'Helvetica Neue',
+			'Segoe UI',
+			'Apple SD Gothic Neo',
+			'Noto Sans KR',
+			'Malgun Gothic',
+			sans-serif;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+	}
+
+	body {
+		background: #0c0d0e;
+		color: #e2e8f0;
+		font-family: inherit;
+	}
+
+	/* Ensure UI chrome inherits Pretendard even when nested utilities reset fonts */
+	button,
+	input,
+	textarea,
+	select {
+		font-family: inherit;
+	}
 }
 
-body {
-	background: #0c0d0e;
-	color: #e2e8f0;
+/* ─── A4 B2B Technical Audit Report (print / PDF) ─── */
+@media print {
+	html {
+		color-scheme: light;
+	}
+
+	body {
+		background: #ffffff !important;
+		color: #0b1c2c !important;
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+	}
+
+	@page {
+		size: A4;
+		margin: 16mm 14mm 18mm 14mm;
+
+		@bottom-center {
+			content: 'REDUE AI · Technical Audit Report · ' counter(page);
+			font-size: 9px;
+			color: #64748b;
+		}
+	}
+
+	.print\:hidden,
+	header.relative,
+	nav,
+	.LocaleSwitcher,
+	button,
+	a[href='/login'] {
+		display: none !important;
+	}
+
+	.print\:block {
+		display: block !important;
+	}
+
+	.audit-print-header,
+	.audit-print-footer {
+		display: block !important;
+		color: #0b1c2c !important;
+	}
+
+	.audit-report-body,
+	.audit-report-section {
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+
+	.audit-report-section {
+		border-color: #cbd5e1 !important;
+		background: #ffffff !important;
+		color: #0b1c2c !important;
+		box-shadow: none !important;
+	}
+
+	.audit-report-section h2,
+	.audit-report-section p,
+	.audit-report-section li,
+	.audit-report-section td,
+	.audit-report-section th,
+	.audit-report-section span {
+		color: inherit;
+	}
+
+	pre {
+		border: 1px solid #cbd5e1 !important;
+		background: #f8fafc !important;
+		color: #0f172a !important;
+		max-height: none !important;
+		overflow: visible !important;
+		white-space: pre-wrap !important;
+	}
+
+	table {
+		break-inside: auto;
+	}
+
+	tr {
+		break-inside: avoid;
+		page-break-inside: avoid;
+	}
+
+	a {
+		text-decoration: none !important;
+		color: inherit !important;
+	}
+
+	.max-w-5xl {
+		max-width: none !important;
+		padding: 0 !important;
+	}
+
+	.min-h-screen {
+		min-height: 0 !important;
+		padding-top: 0 !important;
+		padding-bottom: 0 !important;
+	}
 }

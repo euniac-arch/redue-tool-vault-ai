@@ -1,7 +1,8 @@
 {
 	"nav": {
-		"tagline": "AI-Powered SEO & GEO Auto-Injection Platform",
-		"scanner": "Scanner",
+		"tagline": "Precision SEO & GEO Audit Engine",
+		"scanner": "Audit Engine",
+		"auditHistory": "Audit history",
 		"portfolio": "Portfolio",
 		"enterprise": "Enterprise",
 		"reseller": "Reseller",
@@ -16,42 +17,335 @@
 		"credits": "{count} credits left"
 	},
 	"hero": {
-		"badge": "Free · No sign-up required",
-		"title1": "Is your site actually",
-		"titleHighlight": "visible",
-		"title2": "to AI search engines?",
-		"description": "Just paste your URL — we'll instantly audit SEO basics, web performance, schema markup, accessibility, and GEO (AI recognition).",
-		"placeholder": "https://your-website.com",
-		"button": "🚀 Free SEO & AI GEO audit in 10 seconds",
-		"buttonLoading": "Redirecting to your report..."
+		"badge": "Free · 10-second precision audit · No sign-up",
+		"title": "Beyond being found — become the company AI recommends",
+		"titleLine1": "Beyond being found —",
+		"titleLine2": "become the company AI recommends",
+		"description": "Audit Google SEO and AI search across ChatGPT, Gemini, and Perplexity in one pass. In a 10-second precision analysis, we find the core blockers of search visibility and AI citation · recommendation.",
+		"descriptionLine1": "Audit Google SEO and AI search across ChatGPT, Gemini, and Perplexity in one pass.",
+		"descriptionLine2": "In a 10-second precision analysis, we find the core blockers of search visibility and AI citation · recommendation.",
+		"placeholder": "https://your-company.com",
+		"button": "Start audit now",
+		"buttonLoading": "Opening your audit...",
+		"formHint": "Paste a URL to get an instant SEO · schema · GEO (AI citation) defect report.",
+		"whyCardsSectionTitle": "Impact of SEO · GEO optimization",
+		"whyCardsSectionSubtitle": "Business outcomes you can expect after fixing what the audit finds.",
+		"whyCards": {
+			"citation": {
+				"title": "ChatGPT · Perplexity citations",
+				"subtitle": "Win AI answer placement",
+				"description": "We diagnose schema so ChatGPT and Perplexity can cite your brand and products as a primary source when generating answers."
+			},
+			"eeat": {
+				"title": "Google & AI trust signals",
+				"subtitle": "Secure E-E-A-T credibility",
+				"description": "We check organization knowledge-graph and author-profile schema so you don’t miss algorithm trust boosts."
+			},
+			"report": {
+				"title": "10-second precision report",
+				"subtitle": "Instant remediation backlog",
+				"description": "Developer-grade parsing delivers a P1–P5 priority guide your agency or internal team can act on immediately."
+			}
+		}
 	},
 	"dashboard": {
-		"title": "Developer WordPress Direct Scanner",
-		"description": "Point this at a local WordPress folder to auto-detect the CMS, pick the injection target file, and actually write the SoftwareApplication / WebSite master schema block. (The free audit above is a sales tool that instantly reports on any URL; this tool performs the real file injection.)"
+		"title": "Precision SEO & GEO Audit Engine",
+		"description": "A developer-grade audit engine that parses HTML/JSON-LD directly — no external LLM calls.",
+		"engineBadge": "Precision Audit Engine",
+		"engineTitle": "Deep source-level diagnosis",
+		"engineDescription": "From meta lengths and heading skips to JSON-LD required fields, image alt coverage, and AI-crawler robots rules — we extract evidence from the live DOM and report Pass / Fail / Warning.",
+		"engineHistoryCta": "View recent audits",
+		"enginePillars": {
+			"meta": {
+				"title": "Meta & headings",
+				"body": "Validate title/description length, canonical coherence, H1 duplicates, and hierarchy skips from source."
+			},
+			"schema": {
+				"title": "JSON-LD schema",
+				"body": "Cross-check Organization, Article, and Person required fields by detected type."
+			},
+			"geo": {
+				"title": "GEO & E-E-A-T",
+				"body": "Score citation readiness via FAQ/HowTo, author graphs, and AI-bot robots signals."
+			}
+		}
 	},
 	"audit": {
 		"backToHome": "← Back to home",
-		"scoreHeaderLabel": "SEO & GEO Comprehensive Audit Report",
+		"backToHistory": "← Back to audit history",
+		"scoreHeaderLabel": "SEO & GEO Precision Audit Report",
 		"categoryGridTitle": "5 Core Category Scores",
-		"findingsTitle": "Detailed Findings",
-		"loadingTitle": "🚀 Running free SEO & GEO audit scan...",
+		"checklistTitle": "Detailed audit checklist",
+		"checklistSubtitle": "Click any item to inspect detected source evidence, why it scored down, and the practical upside of fixing it.",
+		"findingsTitle": "Priority fixes",
+		"findingsEmpty": "✅ No major defects found. Looking strong.",
+		"detectedSchemas": "Detected schemas",
+		"schemaCoverageLabel": "Schema coverage",
+		"schemaCoverageHint": "Share of target Schema.org types detected",
+		"geoCitationLabel": "AI citation readiness",
+		"geoCitationHint": "Perplexity / ChatGPT Search citation signal index",
+		"loadingTitle": "Precision SEO & GEO audit engine running",
+		"loadingTerminalTitle": "redue-audit — precision parser",
+		"loadingProgress": "scan progress",
 		"failedTitle": "Audit failed",
 		"retry": "Try again",
 		"scannedAt": "Scanned at {time} · HTTP status {status} · response time {ms}ms",
 		"noUrl": "No URL to audit. Please enter a site URL on the home page.",
+		"printFooter": "This report was generated by the REDUE AI precision audit engine. Inquiries: contact@redue.ai",
+		"b2b": {
+			"execBadge": "Executive Summary",
+			"execTitle": "Executive summary — technical risk at a glance",
+			"execSubtitle": "Compressed for decision-makers who need to approve remediation in under 30 seconds.",
+			"metricScore": "Overall technical score",
+			"metricGeo": "AI citation readiness",
+			"metricGeoHint": "ChatGPT / Perplexity citation signals",
+			"metricDefects": "Technical SEO defects",
+			"metricDefectsHint": "Fail {fail} · Warn {warning}",
+			"metricSchema": "Schema coverage {schema}%",
+			"lossTitle": "Business losses if the status quo continues",
+			"loss": {
+				"ai": "Loss of top-answer citation opportunities in ChatGPT/Perplexity — a growth channel stays closed.",
+				"ctr": "Missing rich results and bylines hardens CTR losses even at the same rank.",
+				"eeat": "Weak E-E-A-T (author/publisher) raises rank-volatility risk during algorithm updates.",
+				"geoCritical": "GEO citation index is in the danger zone — AI search traffic is leaking to competitors.",
+				"geoWarn": "GEO signals are incomplete. Without FAQ/author graphs, AI citation conversion stalls."
+			},
+			"techBadge": "Technical Evidence",
+			"techTitle": "Technical evidence & details",
+			"techSubtitle": "Not estimates — evidence extracted directly from live HTML/JSON-LD.",
+			"statH1": "H1 count",
+			"statAlt": "Images missing alt",
+			"statAltHint": "Coverage {pct}%",
+			"statJsonLd": "JSON-LD blocks",
+			"statTypes": "{count} types detected",
+			"statHeading": "Heading skips",
+			"statSkipYes": "Detected",
+			"statSkipNo": "None",
+			"missingTitle": "Missing required schema fields",
+			"missingFields": "missing",
+			"snippetTitle": "Extracted JSON-LD source snippets",
+			"snippetEmpty": "❌ No JSON-LD schema detected. NewsArticle / Organization / Person markup is required.",
+			"actionBadge": "Actionable Solution",
+			"actionTitle": "Remediation plan & work guide",
+			"actionSubtitle": "Auto-sorted P1→P5. P3 (GEO-MUST) items are the core AI-search citation work.",
+			"actionEmpty": "No defects requiring immediate action.",
+			"colPriority": "Priority",
+			"colIssue": "Issue & evidence",
+			"colDifficulty": "Difficulty",
+			"colEffect": "Business impact & AI citation upside",
+			"geoMustBadge": "[GEO REQUIRED] AI search optimization core",
+			"priorityLabel": {
+				"critical": "CRITICAL",
+				"high": "HIGH",
+				"geoMust": "GEO-MUST",
+				"eeat": "E-E-A-T",
+				"enhance": "ENHANCE"
+			},
+			"difficulty": {
+				"easy": "Easy",
+				"medium": "Medium",
+				"hard": "Hard"
+			},
+			"effects": {
+				"generic": "Strengthens technical SEO and GEO signals for search and AI visibility.",
+				"title": "Higher SERP CTR and a clearer baseline for AI summaries",
+				"metaDescription": "Higher SERP CTR and a clearer baseline for AI summaries",
+				"singleH1": "Sharper topical focus for indexing and AI understanding",
+				"jsonld": "Removes total structured-data absence — a prerequisite for AI parsing",
+				"canonical": "Consolidates duplicate-URL signals onto the preferred page",
+				"organization": "Better Google/AI knowledge-graph matching and brand trust",
+				"websiteSchema": "Clearer site hierarchy speeds indexing of inner pages",
+				"faqHowto": "Q&A-unit parsing sharply raises ChatGPT/Perplexity top-answer citations",
+				"article": "Enables article cards/rich results and AI news-style source attribution",
+				"newsArticle": "Stronger Discover and AI news-answer entry signals",
+				"aiBots": "Meets the minimum bar for GEO traffic by allowing AI crawlers",
+				"person": "Stronger author verification, update resilience, and E-E-A-T",
+				"eeat": "Author/publisher graphs raise trusted AI citation odds",
+				"imageAlt": "Image-search traffic and accessibility compliance",
+				"htmlLang": "Cleaner language targeting and accessibility scoring",
+				"headingStructure": "Stronger document outline for long-tail and section citations",
+				"headingSkip": "Semantic headings improve a11y and section-level AI citations",
+				"ogTags": "Complete social previews lift referral CTR",
+				"responseTime": "Faster responses reduce bounce and stabilize rankings",
+				"pageWeight": "Lighter documents improve mobile LCP and SEO",
+				"renderBlocking": "Faster first paint improves perceived speed and conversion",
+				"crawlableText": "Supplies citable body paragraphs for AI answers"
+			}
+		},
+		"email": {
+			"badge": "B2B Report Delivery",
+			"title": "Email the precision report",
+			"subtitle": "Send a summary plus the full web-report link to a stakeholder.",
+			"email": "Recipient email",
+			"contactName": "Contact name (optional)",
+			"contactPlaceholder": "Jane Kim",
+			"companyName": "Company (optional)",
+			"companyPlaceholder": "Acme Inc.",
+			"submit": "Send report email",
+			"sending": "Sending…",
+			"success": "Report delivery request completed.",
+			"error": "Delivery failed. Please try again shortly.",
+			"footnote": "The email includes a ‘Request 1:1 expert optimization’ CTA to continue the sales conversation."
+		},
+		"checklist": {
+			"pass": "Pass",
+			"fail": "Fail",
+			"warning": "Warn",
+			"filterAll": "All {count}",
+			"filterFail": "Fail {count}",
+			"filterWarning": "Warn {count}",
+			"filterPass": "Pass {count}",
+			"evidence": "Detected evidence",
+			"why": "Why this was flagged",
+			"impact": "Practical upside of fixing it",
+			"empty": "No checklist items."
+		},
+		"history": {
+			"title": "Recent audits",
+			"totalCount": "{count} total",
+			"guestHint": "Guest history is stored in this browser only (max 10)",
+			"searchPlaceholder": "Search by URL…",
+			"filterAll": "All",
+			"filterHealthy": "Healthy",
+			"filterNeedsImprovement": "Needs work",
+			"viewResult": "View result",
+			"rescan": "Re-scan",
+			"delete": "Delete",
+			"deleteConfirm": "Confirm delete",
+			"deleteCancel": "Cancel",
+			"deleting": "Deleting…",
+			"deleteFailed": "Couldn't delete. Please try again.",
+			"newAudit": "New audit",
+			"backToHome": "← Back to home",
+			"emptyTitle": "Run your first SEO & GEO audit",
+			"emptyDescription": "Paste a URL for a precision HTML/JSON-LD report — results are saved here automatically.",
+			"emptyCta": "Start free audit",
+			"noMatches": "No audits match your filters."
+		},
+		"impact": {
+			"title": "Practical changes & business impact after score improvement",
+			"subtitle": "This isn’t just about a higher score — it’s about owning <hl>AI search and Google top-visibility signals</hl>.",
+			"before": {
+				"badge": "Before",
+				"label": "Before · current state",
+				"scoreHint": "Now",
+				"google": "Google search results",
+				"googleDetail": "Only a plain two-line text snippet appears.",
+				"ai": "AI search (Perplexity / ChatGPT)",
+				"aiDetail": "Citations are missing — or your site is left out of answers entirely.",
+				"discover": "Google Discover exposure",
+				"discoverDetail": "Weak feed signals mean almost no Discover opportunities."
+			},
+			"after": {
+				"badge": "After",
+				"label": "After schema & E-E-A-T hardening · top-signal ready",
+				"scoreHint": "Optimized",
+				"sparkleBadge": "✨ Rich results after schema · E-E-A-T",
+				"citationBadge": "Primary cited source: {site}",
+				"google": "Google search results",
+				"googleDetail": "Author name, publish date, breadcrumbs, and rich-snippet badges show as a visual card.",
+				"ai": "AI search (Perplexity / ChatGPT)",
+				"aiDetail": "Cited first as Source: {site} and recommended near the top of answers.",
+				"discover": "Google Discover exposure",
+				"discoverDetail": "Earns boosts in mobile Discover’s auto-recommendation algorithms."
+			},
+			"mock": {
+				"beforeTitle": "Generic page title",
+				"beforeDesc": "Missing or thin meta description — almost no differentiation in search results.",
+				"afterTitle": "Expert-verified insight report",
+				"afterDesc": "Structured-data-enhanced copy appears with rich results to drive more clicks.",
+				"breadcrumb": "Insights › Report",
+				"richBadge": "Rich result",
+				"author": "Author · REDUE",
+				"date": "Published · Aug 10, 2026"
+			},
+			"benefitsHeading": "Three core gains after optimization",
+			"benefits": {
+				"ai": {
+					"title": "Surge in AI search citations (ChatGPT · Perplexity)",
+					"body": "AI instantly recognizes trusted data structures (NewsArticle / Person) when generating answers — so you capture organic AI traffic."
+				},
+				"ctr": {
+					"title": "Higher SERP CTR & brand trust",
+					"body": "Author, category, and rich results surface in search — lifting real clicks 2–3× even at the same rank."
+				},
+				"eeat": {
+					"title": "E-E-A-T strength to resist ranking drops",
+					"body": "Build durable SEO defense so your site holds up through major Google algorithm updates."
+				}
+			}
+		},
+		"geoAlgorithm": {
+			"badge": "GEO Citation Algorithm",
+			"title": "How does AI find and recommend your business from a customer’s search?",
+			"subtitle": "The 3-step GEO algorithm ChatGPT and Perplexity use to cite your brand as the top answer card",
+			"step1": {
+				"stepLabel": "Step 1 · Location & brand entity matching",
+				"badge": "Organization / LocalBusiness Schema",
+				"heading": "Fusing local & brand knowledge graphs",
+				"description": "AI parses the search locale and your brand name as one trusted entity. Organization, LocalBusiness, and Geo schemas must be complete before AI maps and recommendation systems ingest you."
+			},
+			"step2": {
+				"stepLabel": "Step 2 · Question–answer parsing",
+				"badge": "FAQPage & Product/Service Schema",
+				"heading": "Owning Q&A-unit citation sources",
+				"description": "When users search “best / recommended [service] near me,” AI prioritizes FAQPage schema on your site and cites it as the top Source in the answer."
+			},
+			"step3": {
+				"stepLabel": "Step 3 · Publisher expertise verification",
+				"badge": "E-E-A-T & Person Schema",
+				"heading": "E-E-A-T publisher expertise boost",
+				"description": "AI wants verified leadership and author signals. Without an organization profile and expert Person knowledge graph, ranking algorithms apply trust penalties."
+			},
+			"callout": "Right now, {domain} is blocking AI citation signals because Step 1–3 schemas are incomplete."
+		},
+		"aiSimulator": {
+			"badge": "AI Search Simulator",
+			"title": "Live AI search recommendation simulation",
+			"subtitle": "How ChatGPT and Perplexity treat your brand — before vs after GEO optimization",
+			"modelName": "ChatGPT · Perplexity",
+			"modelHint": "AI Search · Answer mode",
+			"engineLabel": "AI Search",
+			"copy": "Copy",
+			"share": "Share",
+			"sourcesLabel": "Sources",
+			"before": {
+				"badge": "GEO off — {brandName} citation signals blocked",
+				"answerLead": "There are several {category} providers in the {location} area. Based on generic portals and reviews, common options include:",
+				"bullet1": "Directory listings for {category} businesses with high search volume",
+				"bullet2": "Unbranded mentions scattered across portal news and blogs",
+				"bullet3": "Review-site leaders without clear official schema/entity signals",
+				"answerClose": "Without structured data and a brand knowledge graph, there is no basis to cite {brandName} as the top answer.",
+				"source1": "portal-news.example",
+				"source2": "blog-reviews.example",
+				"sourceMissing": "{brandName} ({domain}) — not cited"
+			},
+			"after": {
+				"badge": "GEO optimized — {brandName} owns the top answer card",
+				"answerLead": "In the {location} area, the verified top recommendation for {category} is <brand>{brandName}</brand>. Official schema parsing shows:",
+				"bullet1": "{brandName} — Organization/LocalBusiness matches brand & location in the knowledge graph ({domain})",
+				"bullet2": "FAQPage Q&A aligns with “{category} recommendation” queries as answer units",
+				"bullet3": "Person & E-E-A-T signals confirm publisher expertise for a trust boost",
+				"answerClose": "So AI cites {brandName} ({domain}) first in the top answer card and Sources row.",
+				"sourcePrimary": "✨ {brandName} ({domain})",
+				"sourceSecondary": "schema.org · FAQ"
+			}
+		},
 		"cta": {
-			"line1": "Fixing these issues yourself would take a developer about 3 days of work.",
-			"line2Pre": "Run the REDUE AI master injector and get to a",
-			"line2Highlight": "98/100 (fully optimized)",
-			"line2Post": "score in one second.",
-			"button": "⚡ Optimize in 1 second (${priceUsd}/mo · first run free on signup)",
-			"footnote": "Just want to look around first? Signing up automatically grants one free run."
+			"line1": "Every checklist item is grounded in live HTML/JSON-LD evidence — not an LLM guess.",
+			"line2Pre": "Fix the flagged causes and you strengthen both",
+			"line2Highlight": "rich results and AI citation signals",
+			"line2Post": "together.",
+			"buttonHistory": "Review in audit history",
+			"buttonRescan": "Audit another URL",
+			"footnote": "Share the report link so teammates can open the same precision findings."
 		},
 		"share": {
 			"kakao": "💬 Share on KakaoTalk",
 			"copied": "✅ Link copied",
-			"pdf": "📄 Export PDF",
-			"pdfLoading": "Generating PDF..."
+			"pdf": "📄 A4 PDF / Print report",
+			"pdfLoading": "Generating PDF...",
+			"email": "✉️ Email precision report / send to client"
 		}
 	},
 	"mypage": {

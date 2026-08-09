@@ -72,8 +72,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 	]);
 
 	return (
-		<html lang={locale}>
-			<body>
+		<html lang={locale} className="font-sans antialiased">
+			<body className="font-sans antialiased">
 				<Script
         id="redue-schema-jsonld"
         type="application/ld+json"
@@ -83,7 +83,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 				<NextIntlClientProvider locale={locale} messages={messages}>
 					<Providers session={session}>
 						<div className="min-h-screen py-10">
-							<header className="relative mx-auto mb-10 grid w-[90%] grid-cols-[1fr_auto_1fr] items-center gap-4">
+							<header className="print:hidden relative mx-auto mb-10 grid w-[90%] grid-cols-[1fr_auto_1fr] items-center gap-4">
 								<a href="/" className="flex items-center gap-2 justify-self-start">
 									<span className="rounded-lg bg-accent px-2 py-1 text-sm font-bold text-white">REDUE</span>
 									<span className="text-sm font-semibold text-slate-300">{t('tagline')}</span>
@@ -91,6 +91,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 								<nav className="flex items-center justify-center gap-5 text-sm font-semibold text-slate-400">
 									<a href="/" className="hover:text-white">
 										{t('scanner')}
+									</a>
+									<a href="/audit/history" className="hover:text-white">
+										{t('auditHistory')}
 									</a>
 									<a href="/portfolio" className="hover:text-white">
 										{t('portfolio')}
