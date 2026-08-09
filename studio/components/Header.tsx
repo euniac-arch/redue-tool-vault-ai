@@ -14,6 +14,9 @@ const NAV_ITEMS = [
 	{ href: '/builder/wp-plugin', key: 'wpPlugin' as const },
 ] as const;
 
+/** Desktop nav shows at this width and above; hamburger below it. */
+const DESKTOP_NAV_MIN = 1100;
+
 export function Header() {
 	const t = useTranslations('nav');
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -36,7 +39,7 @@ export function Header() {
 	}, [isMenuOpen]);
 
 	useEffect(() => {
-		const media = window.matchMedia('(min-width: 768px)');
+		const media = window.matchMedia(`(min-width: ${DESKTOP_NAV_MIN}px)`);
 		const onChange = () => {
 			if (media.matches) setIsMenuOpen(false);
 		};
@@ -55,7 +58,10 @@ export function Header() {
 					<span className="hidden text-sm font-semibold text-slate-300 sm:inline">{t('tagline')}</span>
 				</a>
 
-				<nav className="hidden items-center gap-5 text-sm font-semibold text-slate-400 md:flex" aria-label="Primary">
+				<nav
+					className="hidden items-center gap-5 text-sm font-semibold text-slate-400 min-[1100px]:flex"
+					aria-label="Primary"
+				>
 					{NAV_ITEMS.map((item) => (
 						<a key={item.href} href={item.href} className="transition-colors hover:text-white">
 							{t(item.key)}
@@ -63,14 +69,14 @@ export function Header() {
 					))}
 				</nav>
 
-				<div className="hidden items-center gap-4 md:flex">
+				<div className="hidden items-center gap-4 min-[1100px]:flex">
 					<LocaleSwitcher />
 					<HeaderAuth />
 				</div>
 
 				<button
 					type="button"
-					className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white md:hidden"
+					className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white min-[1100px]:hidden"
 					aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
 					aria-expanded={isMenuOpen}
 					aria-controls="mobile-nav"
@@ -90,7 +96,7 @@ export function Header() {
 
 			{/* Mobile overlay */}
 			<div
-				className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden ${
+				className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 min-[1100px]:hidden ${
 					isMenuOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
 				}`}
 				aria-hidden={!isMenuOpen}
@@ -100,7 +106,7 @@ export function Header() {
 			{/* Mobile slide-in panel — dark page-matching surface */}
 			<div
 				id="mobile-nav"
-				className={`fixed inset-y-0 right-0 z-50 flex w-[min(100%,20rem)] flex-col border-l border-white/[0.08] bg-[#0C0D0E]/95 shadow-2xl backdrop-blur-md transition-transform duration-300 ease-out md:hidden ${
+				className={`fixed inset-y-0 right-0 z-50 flex w-[min(100%,20rem)] flex-col border-l border-white/[0.08] bg-[#0C0D0E]/95 shadow-2xl backdrop-blur-md transition-transform duration-300 ease-out min-[1100px]:hidden ${
 					isMenuOpen ? 'translate-x-0' : 'translate-x-full'
 				}`}
 				aria-hidden={!isMenuOpen}
