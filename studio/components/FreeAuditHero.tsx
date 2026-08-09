@@ -5,10 +5,8 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 
 /**
- * The Step 7 lead-magnet: a large, no-login-required URL input that any
- * visitor (병원장, 대표, 마케터...) can use to trigger a real live scan of
- * their own site. Submitting routes straight to `/audit/result`, which
- * performs the scan and renders the shareable report.
+ * Persuasive B2B hero: outcome-led headline → URL scan CTA.
+ * Value cards sit outside this box on the landing page.
  */
 export function FreeAuditHero() {
 	const t = useTranslations('hero');
@@ -26,31 +24,43 @@ export function FreeAuditHero() {
 	}
 
 	return (
-		<section className="flex flex-col items-center gap-5 rounded-3xl border border-white/[0.08] bg-gradient-to-br from-accent/15 via-white/[0.02] to-cyan-400/10 px-6 py-14 text-center">
-			<span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300">
+		<section className="flex flex-col items-center rounded-3xl border border-white/[0.08] bg-gradient-to-br from-accent/20 via-[#0B1220] to-indigo-950/40 px-5 py-12 text-center sm:px-8 sm:py-14">
+			<span className="rounded-full border border-accent/40 bg-accent/15 px-3 py-1 text-xs font-bold text-accent-light">
 				{t('badge')}
 			</span>
-			<h1 className="whitespace-nowrap text-xl font-extrabold text-white sm:text-3xl md:text-4xl">
-				{t('title1')} <span className="text-accent-light">{t('titleHighlight')}</span> {t('title2')}
+
+			<h1 className="mt-5 max-w-4xl text-2xl font-extrabold leading-snug tracking-tight text-white sm:text-3xl md:text-4xl md:leading-tight">
+				<span className="block">{t('titleLine1')}</span>
+				<span className="mt-1 block font-black text-white">{t('titleLine2')}</span>
 			</h1>
-			<p className="max-w-xl text-sm text-slate-400">{t('description')}</p>
-			<form onSubmit={handleSubmit} className="grid w-full max-w-3xl grid-cols-1 gap-2.5 sm:grid-cols-2">
+
+			<p className="mt-4 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">
+				<span className="block">{t('descriptionLine1')}</span>
+				<span className="block">{t('descriptionLine2')}</span>
+			</p>
+
+			<form
+				onSubmit={handleSubmit}
+				className="mt-8 grid w-full max-w-3xl grid-cols-1 gap-2.5 sm:grid-cols-[1fr_auto]"
+			>
 				<input
 					type="text"
 					required
 					value={url}
 					onChange={(event) => setUrl(event.target.value)}
 					placeholder={t('placeholder')}
-					className="w-full rounded-xl border border-white/[0.08] bg-black/40 px-4 py-3.5 text-sm text-slate-100 outline-none focus:border-accent"
+					className="w-full rounded-xl border border-white/[0.1] bg-black/50 px-4 py-3.5 text-sm text-slate-100 outline-none ring-accent/0 transition focus:border-accent focus:ring-2 focus:ring-accent/30"
 				/>
 				<button
 					type="submit"
 					disabled={submitting}
-					className="w-full whitespace-nowrap rounded-xl bg-accent px-6 py-3.5 text-sm font-bold text-white shadow-lg shadow-accent/30 transition hover:bg-accent-light disabled:opacity-50"
+					className="w-full whitespace-nowrap rounded-xl bg-accent px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-accent/35 transition hover:bg-accent-light disabled:opacity-50 sm:w-auto"
 				>
 					{submitting ? t('buttonLoading') : t('button')}
 				</button>
 			</form>
+
+			<p className="mt-3 text-[11px] text-slate-500">{t('formHint')}</p>
 		</section>
 	);
 }

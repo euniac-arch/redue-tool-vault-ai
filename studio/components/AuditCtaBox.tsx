@@ -1,41 +1,34 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
-import { useSession } from 'next-auth/react';
-import { PLANS } from '@/lib/plans';
 
-interface AuditCtaBoxProps {
-	onOpenPricing: () => void;
-}
-
-export function AuditCtaBox({ onOpenPricing }: AuditCtaBoxProps) {
+/** Post-audit CTA focused on the precision diagnosis product — no WP inject pitch. */
+export function AuditCtaBox() {
 	const t = useTranslations('audit.cta');
-	const router = useRouter();
-	const { status } = useSession();
-
-	function handleClick() {
-		if (status !== 'authenticated') {
-			router.push('/login?callbackUrl=/');
-			return;
-		}
-		onOpenPricing();
-	}
 
 	return (
-		<div className="flex flex-col gap-4 rounded-2xl border border-accent/30 bg-gradient-to-br from-accent/15 via-accent/5 to-transparent p-6">
+		<div className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] via-accent/10 to-cyan-500/5 p-6">
 			<div>
 				<p className="text-sm font-semibold text-slate-300">{t('line1')}</p>
 				<p className="mt-1 text-lg font-bold text-white">
 					{t('line2Pre')} <span className="text-accent-light">{t('line2Highlight')}</span> {t('line2Post')}
 				</p>
 			</div>
-			<button
-				onClick={handleClick}
-				className="w-fit rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-lg shadow-accent/30 transition hover:bg-accent-light"
-			>
-				{t('button', { price: PLANS.pro.price.toLocaleString(), priceUsd: PLANS.pro.priceUsd })}
-			</button>
+			<div className="flex flex-wrap gap-2">
+				<Link
+					href="/audit/history"
+					className="rounded-xl bg-accent px-6 py-3 text-sm font-bold text-white shadow-lg shadow-accent/30 transition hover:bg-accent-light"
+				>
+					{t('buttonHistory')}
+				</Link>
+				<Link
+					href="/"
+					className="rounded-xl border border-white/[0.08] bg-white/5 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10"
+				>
+					{t('buttonRescan')}
+				</Link>
+			</div>
 			<p className="text-xs text-slate-500">{t('footnote')}</p>
 		</div>
 	);

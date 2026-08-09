@@ -13,6 +13,8 @@ export function AuditCategoryGrid({ categories }: { categories: AuditCategory[] 
 		<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 			{categories.map((category) => {
 				const pass = category.status === 'PASS';
+				const failCount = category.checks.filter((c) => (c.status ?? (c.passed ? 'pass' : 'fail')) === 'fail').length;
+				const warnCount = category.checks.filter((c) => c.status === 'warning').length;
 				return (
 					<div
 						key={category.id}
@@ -33,7 +35,12 @@ export function AuditCategoryGrid({ categories }: { categories: AuditCategory[] 
 						<p className="text-sm font-bold text-white">{category.label}</p>
 						<p className={`text-xs ${pass ? 'text-emerald-300' : 'text-rose-300'}`}>{category.statusNote}</p>
 						<p className="mt-auto text-xs text-slate-500">
-							{category.score}/{category.maxScore}점
+							{category.score}/{category.maxScore}
+							{(failCount > 0 || warnCount > 0) && (
+								<span className="ml-1 text-slate-600">
+									· {failCount}F/{warnCount}W
+								</span>
+							)}
 						</p>
 					</div>
 				);

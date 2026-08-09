@@ -22,10 +22,9 @@ async function resolveLang(explicit?: string): Promise<AuditLang> {
 }
 
 /**
- * POST /api/audit/scan — the Step 7 lead-magnet endpoint. Deliberately public
- * (no auth required): a prospect only needs to paste their URL to get a real,
- * live scan. Every scan is logged to `AuditLead` (best-effort, never blocks
- * the response) so sales can follow up on who checked their score.
+ * POST /api/audit/scan — public lead-magnet endpoint. Returns the live report
+ * plus `id` of the persisted AuditLead so the client can deep-link to
+ * `/audit/result?id=…` without re-scanning.
  */
 export async function POST(request: Request) {
 	const body = (await request.json().catch(() => ({}))) as AuditScanBody;
@@ -47,8 +46,10 @@ export async function POST(request: Request) {
 	}
 
 	const session = await getServerSession(authOptions);
-	prisma.auditLead
-		.create({
+	let auditId: string | null = null;
+
+	try {
+		const lead = await prisma.auditLead.create({
 			data: {
 				url: report.url,
 				score: report.score,
@@ -57,10 +58,11 @@ export async function POST(request: Request) {
 				reportJson: JSON.stringify(report),
 				userId: session?.user?.id ?? null,
 			},
-		})
-		.catch(() => {
-			// Lead logging is best-effort — never fail the visitor-facing report over it.
 		});
+		auditId = lead.id;
+	} catch {
+		// Lead logging is best-effort — never fail the visitor-facing report over it.
+	}
 
-	return NextResponse.json(report);
+	return NextResponse.json({ ...report, id: auditId });
 }
