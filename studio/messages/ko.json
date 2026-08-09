@@ -227,6 +227,7 @@
 		"impact": {
 			"title": "점수 개선 시 기대되는 실무적 변화 및 비즈니스 효과",
 			"subtitle": "단순히 점수를 올리는 것이 아니라, <hl>AI 검색 및 구글 상단 노출 알고리즘을 선점</hl>합니다.",
+			"itemsHeading": "실측 결함 진단 (Before) ➔ 스키마·E-E-A-T 최적화 처방 (After)",
 			"before": {
 				"badge": "Before",
 				"label": "개선 전 · 현재 상태",
@@ -250,6 +251,12 @@
 				"aiDetail": "출처: {site} 으로 우선 인용되며 답변 상단에 추천됩니다.",
 				"discover": "Google Discover 노출",
 				"discoverDetail": "모바일 디스커버 피드 자동 추천 알고리즘 가산점을 획득합니다."
+			},
+			"preview": {
+				"heading": "✨ 최적화 후 실제 검색엔진 노출 예시 (Rich Result & AI Preview)",
+				"subtitle": "위 처방이 적용되었을 때 구글 SERP와 AI 검색에 실제로 어떻게 보이는지 시뮬레이션합니다.",
+				"serpLabel": "Google SERP · Rich Result",
+				"aiLabel": "AI Search · Perplexity / ChatGPT"
 			},
 			"mock": {
 				"beforeTitle": "기본 페이지 제목",

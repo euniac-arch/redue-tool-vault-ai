@@ -106,7 +106,7 @@ async function generateWithAnthropic(input: GeoNarrativeRequest): Promise<GeoNar
 		},
 		body: JSON.stringify({
 			model: process.env.ANTHROPIC_GEO_MODEL?.trim() || 'claude-3-5-haiku-20241022',
-			max_tokens: 1400,
+			max_tokens: 2000,
 			temperature: 0.25,
 			system: SYSTEM_PROMPT,
 			messages: [{ role: 'user', content: buildUserPrompt(input) }],

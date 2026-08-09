@@ -1,7 +1,11 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
-import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
+import { useLocale, useTranslations } from 'next-intl';
+import {
+	getDefaultImpactItems,
+	type GeoNarrativeImpactItem,
+	type GeoNarrativeReport,
+} from '@/lib/audit/geo-narrative';
 
 interface ImpactPreviewSectionProps {
 	siteName?: string;
@@ -46,23 +50,24 @@ const BENEFIT_RINGS = [
 
 const BENEFIT_ICONS = ['🤖', '📈', '🛡️'] as const;
 
+function resolveImpactItems(
+	reportData: GeoNarrativeReport | null | undefined,
+	lang: 'ko' | 'en',
+): GeoNarrativeImpactItem[] {
+	const fromApi = reportData?.impactItems?.filter(
+		(item) => item?.channelTitle && item?.currentIssue && item?.improvedState,
+	);
+	if (fromApi && fromApi.length >= 2) {
+		return fromApi.slice(0, 5);
+	}
+	return getDefaultImpactItems(lang);
+}
+
 export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }: ImpactPreviewSectionProps) {
 	const t = useTranslations('audit.impact');
-
-	const beforeItems = [
-		{ label: t('before.google'), detail: t('before.googleDetail') },
-		{
-			label: t('before.ai'),
-			detail: reportData?.beforeImpact || t('before.aiDetail'),
-		},
-		{ label: t('before.discover'), detail: t('before.discoverDetail') },
-	] as const;
-
-	const afterItems = [
-		{ label: t('after.google'), detail: t('after.googleDetail') },
-		{ label: t('after.ai'), detail: t('after.aiDetail', { site: siteName }) },
-		{ label: t('after.discover'), detail: t('after.discoverDetail') },
-	] as const;
+	const locale = useLocale();
+	const lang = locale === 'en' ? 'en' : 'ko';
+	const impactItems = resolveImpactItems(reportData, lang);
 
 	const benefits = reportData?.afterBenefits?.length
 		? reportData.afterBenefits.slice(0, 3).map((b, i) => ({
@@ -138,42 +143,46 @@ export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }:
 			) : null}
 
 			<div className="flex flex-col gap-6">
+				{/* ── Before panel ── */}
 				<div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
-					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-950/50 px-4 py-3 sm:px-5">
-						<span className="inline-flex items-center gap-1.5 rounded-md border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-bold text-rose-300/90">
-							<CrossIcon />
-							{t('before.label')}
-						</span>
-						<span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[10px] font-medium text-slate-500">
+					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-500/20 bg-rose-500/[0.07] px-4 py-3.5 sm:px-5">
+						<div className="flex flex-wrap items-center gap-2">
+							<span className="inline-flex items-center gap-1 rounded-md bg-rose-500 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-lg shadow-rose-500/25">
+								<CrossIcon />
+								{t('before.badge')}
+							</span>
+							<span className="text-sm font-bold text-white">{t('before.label')}</span>
+						</div>
+						<span className="rounded-full border border-rose-400/30 bg-rose-500/15 px-2.5 py-1 text-[11px] font-extrabold text-rose-200">
 							{t('before.scoreHint')}
 						</span>
 					</div>
 
 					<div className="flex flex-col gap-4 p-4 sm:p-5">
 						{reportData?.beforeImpact ? (
-							<div className="rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-3.5 py-3 text-[12px] leading-relaxed text-rose-100/85">
+							<div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.08] px-3.5 py-3 text-[13px] leading-relaxed text-rose-50">
 								{reportData.beforeImpact}
 							</div>
 						) : null}
 
-						<div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 grayscale-[0.35]">
-							<p className="truncate font-mono text-[11px] text-slate-600">{siteName}</p>
-							<p className="mt-1.5 text-sm font-medium text-slate-500">{t('mock.beforeTitle')}</p>
-							<p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-slate-600">{t('mock.beforeDesc')}</p>
+						<div className="rounded-xl border border-slate-700 bg-slate-950/70 p-4">
+							<p className="truncate font-mono text-[11px] text-slate-400">{siteName}</p>
+							<p className="mt-1.5 text-sm font-medium text-slate-300">{t('mock.beforeTitle')}</p>
+							<p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-slate-400">{t('mock.beforeDesc')}</p>
 						</div>
 
 						<ul className="flex flex-col gap-2">
-							{beforeItems.map((item) => (
+							{impactItems.map((item) => (
 								<li
-									key={item.label}
-									className="flex gap-2.5 rounded-xl border border-slate-800 bg-slate-950/40 px-3.5 py-3"
+									key={`before-${item.id}`}
+									className="flex gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/[0.05] px-3.5 py-3"
 								>
-									<span className="mt-0.5 text-rose-400/80">
+									<span className="mt-0.5 text-rose-400">
 										<CrossIcon />
 									</span>
 									<div>
-										<p className="text-xs font-semibold text-slate-400">{item.label}</p>
-										<p className="mt-0.5 text-[11px] leading-relaxed text-slate-600">{item.detail}</p>
+										<p className="text-sm font-bold text-slate-100">{item.channelTitle}</p>
+										<p className="mt-0.5 text-[12px] leading-relaxed text-slate-300">{item.currentIssue}</p>
 									</div>
 								</li>
 							))}
@@ -187,6 +196,7 @@ export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }:
 					</div>
 				</div>
 
+				{/* ── After panel (1:1 synced with Before impactItems) ── */}
 				<div className="flex flex-col overflow-hidden rounded-2xl border border-indigo-500/50 bg-gradient-to-b from-indigo-950/40 via-slate-900 to-slate-950 shadow-[0_0_30px_rgba(99,102,241,0.15)] ring-1 ring-indigo-400/20">
 					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-500/30 bg-indigo-500/10 px-4 py-3.5 sm:px-5">
 						<div className="flex flex-wrap items-center gap-2">
@@ -242,22 +252,22 @@ export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }:
 								{t('after.citationBadge', { site: siteName })}
 							</span>
 							<p className="mt-2 text-[12px] leading-relaxed text-slate-400">
-								{reportData?.aiSimulator.afterAnswer || t('after.aiDetail', { site: siteName })}
+								{reportData?.aiSimulator?.afterAnswer || t('after.aiDetail', { site: siteName })}
 							</p>
 						</div>
 
 						<ul className="flex flex-col gap-2">
-							{afterItems.map((item) => (
+							{impactItems.map((item) => (
 								<li
-									key={item.label}
+									key={`after-${item.id}`}
 									className="flex gap-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.07] px-3.5 py-3"
 								>
 									<span className="mt-0.5 text-indigo-300">
 										<CheckIcon />
 									</span>
 									<div>
-										<p className="text-sm font-bold text-white">{item.label}</p>
-										<p className="mt-0.5 text-[12px] leading-relaxed text-slate-300">{item.detail}</p>
+										<p className="text-sm font-bold text-white">{item.channelTitle}</p>
+										<p className="mt-0.5 text-[12px] leading-relaxed text-slate-300">{item.improvedState}</p>
 									</div>
 								</li>
 							))}

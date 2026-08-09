@@ -227,6 +227,7 @@
 		"impact": {
 			"title": "Practical changes & business impact after score improvement",
 			"subtitle": "This isn’t just about a higher score — it’s about owning <hl>AI search and Google top-visibility signals</hl>.",
+			"itemsHeading": "Live defect diagnosis (Before) ➔ Schema · E-E-A-T prescription (After)",
 			"before": {
 				"badge": "Before",
 				"label": "Before · current state",
@@ -250,6 +251,12 @@
 				"aiDetail": "Cited first as Source: {site} and recommended near the top of answers.",
 				"discover": "Google Discover exposure",
 				"discoverDetail": "Earns boosts in mobile Discover’s auto-recommendation algorithms."
+			},
+			"preview": {
+				"heading": "✨ Post-optimization search exposure (Rich Result & AI Preview)",
+				"subtitle": "A visual simulation of how Google SERP and AI search look after the prescription above is applied.",
+				"serpLabel": "Google SERP · Rich Result",
+				"aiLabel": "AI Search · Perplexity / ChatGPT"
 			},
 			"mock": {
 				"beforeTitle": "Generic page title",
