@@ -1,5 +1,10 @@
 import type { CheerioAPI } from 'cheerio';
-import { extractOfficialBrandName } from '@/lib/audit/brand-name';
+import { dedupeRepeatedPhrase, extractOfficialBrandName } from '@/lib/audit/brand-name';
+import {
+	extractJsonLdScriptBodies,
+	normalizeSchemaType,
+	sanitizeJsonLdRaw,
+} from '@/lib/audit/parser';
 
 /** @deprecated Prefer industryType; kept for backward-compatible stored reports. */
 export type SiteVertical = 'dental' | 'medical' | 'local' | 'b2b';
@@ -205,6 +210,7 @@ const PRIMARY_KEYWORD_RULES: KeywordRule[] = [
 	{ pattern: /이비인후|ent\s*clinic/i, ko: '이비인후과', en: 'ENT clinic', industry: 'MEDICAL', medicalKind: 'clinic' },
 	{ pattern: /산부인|obstetric|gynecol/i, ko: '산부인과', en: 'OB/GYN', industry: 'MEDICAL', medicalKind: 'clinic' },
 	{ pattern: /정형외과|orthopedic/i, ko: '정형외과', en: 'orthopedics', industry: 'MEDICAL', medicalKind: 'clinic' },
+	{ pattern: /중입자|암치료|암센터|탄소이온|carbon.?ion|proton.?therap|cancer\s*(clinic|center|treatment)/i, ko: '암치료 클리닉', en: 'cancer clinic', industry: 'MEDICAL', medicalKind: 'clinic' },
 	{ pattern: /병원|의원|클리닉|clinic|hospital|medical/i, ko: '병원', en: 'clinic', industry: 'MEDICAL', medicalKind: 'clinic' },
 	// —— B2B / manufacturing ——
 	{ pattern: /냉동식품|냉동\s*제조|frozen\s*food/i, ko: '냉동식품 제조', en: 'frozen food manufacturing', industry: 'B2B_MFG' },
@@ -272,11 +278,15 @@ function asArray<T>(value: T | T[] | undefined | null): T[] {
 }
 
 function typeList(node: Record<string, unknown>): string[] {
-	return asArray(node['@type']).filter((t): t is string => typeof t === 'string');
+	return asArray(node['@type'])
+		.filter((t): t is string => typeof t === 'string')
+		.map(normalizeSchemaType)
+		.filter(Boolean);
 }
 
 function hasType(node: Record<string, unknown>, type: string): boolean {
-	return typeList(node).some((t) => t === type || t.endsWith(`/${type}`));
+	const want = normalizeSchemaType(type);
+	return typeList(node).some((t) => t === want);
 }
 
 function cleanText(value: unknown, max = 120): string {
@@ -305,21 +315,35 @@ function flattenJsonLd(value: unknown, out: Record<string, unknown>[]): void {
 	}
 	if (typeof value !== 'object') return;
 	const obj = value as Record<string, unknown>;
-	if (obj['@graph']) flattenJsonLd(obj['@graph'], out);
+	const graph = obj['@graph'];
+	if (graph != null) {
+		flattenJsonLd(graph, out);
+		if (typeList(obj).length === 0) return;
+	}
 	out.push(obj);
 }
 
-function readNodes($: CheerioAPI): Record<string, unknown>[] {
+function readNodes($: CheerioAPI, rawHtml?: string): Record<string, unknown>[] {
 	const nodes: Record<string, unknown>[] = [];
-	$('script[type="application/ld+json"]').each((_, el) => {
-		const raw = $(el).contents().text().trim();
-		if (!raw) return;
+	let bodies = extractJsonLdScriptBodies(rawHtml ?? '');
+	if (bodies.length === 0) {
+		const fromDom: string[] = [];
+		$('script').each((_, el) => {
+			const type = (($(el).attr('type') || '') + '').toLowerCase();
+			if (!type.includes('ld+json')) return;
+			const body = sanitizeJsonLdRaw($(el).contents().text() || $(el).html() || '');
+			if (body) fromDom.push(body);
+		});
+		bodies = fromDom;
+	}
+
+	for (const raw of bodies) {
 		try {
 			flattenJsonLd(JSON.parse(raw), nodes);
 		} catch {
 			/* ignore invalid blocks */
 		}
-	});
+	}
 	return nodes;
 }
 
@@ -495,7 +519,12 @@ export function resolveSiteMetadata(meta: SiteMetadata): SiteMetadata {
  * Extracts brand / primaryKeyword / location / industryType from live HTML + JSON-LD.
  * Deterministic heuristics only — no LLM.
  */
-export function extractSiteMetadata($: CheerioAPI, pageUrl: string, lang: AuditLang = 'ko'): SiteMetadata {
+export function extractSiteMetadata(
+	$: CheerioAPI,
+	pageUrl: string,
+	lang: AuditLang = 'ko',
+	rawHtml?: string,
+): SiteMetadata {
 	const domain = domainFromUrl(pageUrl);
 	const title = cleanText($('title').first().text(), 160);
 	const metaDescription = cleanText($('meta[name="description"]').attr('content'), 240);
@@ -506,7 +535,7 @@ export function extractSiteMetadata($: CheerioAPI, pageUrl: string, lang: AuditL
 	const h2List = collectHeadings($, 'h2', 8);
 	const h1 = h1List[0] || '';
 
-	const nodes = readNodes($);
+	const nodes = readNodes($, rawHtml);
 	const orgLike = nodes.filter(
 		(n) =>
 			hasType(n, 'Organization') ||
@@ -549,12 +578,26 @@ export function extractSiteMetadata($: CheerioAPI, pageUrl: string, lang: AuditL
 		...schemaTypes,
 	].join(' ');
 
-	const brandName = extractOfficialBrandName(
-		[schemaNames[0], ogSiteName, ogTitle, title, h1].filter(Boolean).join(' | '),
-		domain,
-		cleanBrandCandidate(schemaNames[0] || '', domain) ||
-			cleanBrandCandidate(ogSiteName, domain) ||
-			undefined,
+	// Unique brand candidates first — joining identical schema/og/title values then
+	// stripping separators was producing "Brand Brand" site names.
+	const brandSourceParts: string[] = [];
+	const seenBrandNorm = new Set<string>();
+	for (const part of [schemaNames[0], ogSiteName, ogTitle, title, h1]) {
+		const cleaned = cleanText(part, 80);
+		if (!cleaned) continue;
+		const norm = cleaned.replace(/\s+/g, '').toLowerCase();
+		if (seenBrandNorm.has(norm)) continue;
+		seenBrandNorm.add(norm);
+		brandSourceParts.push(cleaned);
+	}
+	const brandName = dedupeRepeatedPhrase(
+		extractOfficialBrandName(
+			brandSourceParts.join(' | '),
+			domain,
+			cleanBrandCandidate(schemaNames[0] || '', domain) ||
+				cleanBrandCandidate(ogSiteName, domain) ||
+				undefined,
+		),
 	);
 
 	const textRule = matchKeywordRule(corpus);

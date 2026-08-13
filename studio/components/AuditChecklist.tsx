@@ -20,7 +20,6 @@ interface AuditChecklistProps {
 export function AuditChecklist({ checks }: AuditChecklistProps) {
 	const t = useTranslations('audit.checklist');
 	const [filter, setFilter] = useState<'all' | AuditCheckStatus>('all');
-	const [openId, setOpenId] = useState<string | null>(null);
 
 	const filtered = useMemo(() => {
 		if (filter === 'all') return checks;
@@ -74,37 +73,30 @@ export function AuditChecklist({ checks }: AuditChecklistProps) {
 				{filtered.map((item) => {
 					const status = item.status ?? (item.passed ? 'pass' : 'fail');
 					const ui = STATUS_UI[status] ?? STATUS_UI.fail;
-					const open = openId === item.id;
-					const expandable = Boolean(item.why || item.impact || item.evidence);
+					const hasDetail = Boolean(item.why || item.impact || item.evidence);
 
 					return (
 						<li key={item.id} className={`rounded-xl border bg-white/[0.03] ${ui.border}`}>
-							<button
-								type="button"
-								disabled={!expandable}
-								onClick={() => setOpenId(open ? null : item.id)}
-								className="flex w-full items-start gap-3 px-4 py-3 text-left disabled:cursor-default"
-							>
-								<span className={`mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${ui.badge}`}>
+							<div className="flex w-full items-start gap-3 px-4 py-3 text-left">
+								<span
+									className={`mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${ui.badge}`}
+								>
 									{t(ui.labelKey)}
 								</span>
 								<div className="min-w-0 flex-1">
 									<p className="text-sm font-semibold text-slate-100">{item.label}</p>
 									{item.evidence && (
-										<p className="mt-1 truncate font-mono text-[11px] text-slate-500">{item.evidence}</p>
+										<p className="mt-1 break-all font-mono text-[11px] text-slate-500">{item.evidence}</p>
 									)}
 								</div>
-								{expandable && (
-									<span className="mt-0.5 shrink-0 text-xs text-slate-500">{open ? '▲' : '▼'}</span>
-								)}
-							</button>
+							</div>
 
-							{open && (
+							{hasDetail && (
 								<div className="space-y-3 border-t border-white/[0.06] px-4 py-3 text-xs text-slate-400">
 									{item.evidence && (
 										<div>
 											<p className="mb-1 font-bold uppercase tracking-wide text-slate-500">{t('evidence')}</p>
-											<pre className="overflow-x-auto rounded-lg bg-black/40 px-3 py-2 font-mono text-[11px] text-cyan-200/90 whitespace-pre-wrap">
+											<pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-black/40 px-3 py-2 font-mono text-[11px] text-cyan-200/90">
 												{item.evidence}
 											</pre>
 										</div>

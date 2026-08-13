@@ -3,7 +3,9 @@
 		"tagline": "정밀 SEO & GEO 진단 엔진",
 		"scanner": "진단 엔진",
 		"auditHistory": "진단 내역",
+		"geoOptimization": "GEO 최적화",
 		"portfolio": "포트폴리오",
+		"contact": "작업 문의",
 		"enterprise": "엔터프라이즈",
 		"reseller": "리셀러",
 		"wpPlugin": "WP 플러그인",
@@ -13,40 +15,43 @@
 		"signUp": "회원가입",
 		"mypage": "마이페이지",
 		"admin": "Admin 백오피스",
+		"adminButton": "관리자",
 		"developer": "개발자 API 관리",
 		"upgrade": "크레딧 충전 / 업그레이드",
 		"logout": "로그아웃",
 		"credits": "잔여 크레딧 {count}회"
 	},
 	"hero": {
-		"badge": "무료 · 10초 정밀 진단 · 회원가입 불필요",
-		"title": "검색되는 회사를 넘어 AI가 추천하는 회사로",
-		"titleLine1": "검색되는 회사를 넘어",
-		"titleLine2": "AI가 추천하는 회사로",
-		"description": "구글 SEO부터 ChatGPT·Gemini·Perplexity의 AI 검색까지 한 번에 진단합니다. 10초 정밀 분석으로 검색 노출과 AI 인용·추천을 막는 핵심 원인을 찾아드립니다.",
-		"descriptionLine1": "구글 SEO부터 ChatGPT·Gemini·Perplexity의 AI 검색까지 한 번에 진단합니다.",
-		"descriptionLine2": "10초 정밀 분석으로 검색 노출과 AI 인용·추천을 막는 핵심 원인을 찾아드립니다.",
+		"badge": "무료 · 회원가입 없이 · 10초 정밀 진단",
+		"title": "검색되는 회사를 넘어, AI가 추천하는 회사로.",
+		"titleLine1": "검색되는 회사를 넘어,",
+		"titleLine2": "AI가 추천하는 회사로.",
+		"description": "Google 검색부터 ChatGPT·Gemini·Perplexity까지, 검색엔진과 AI가 우리 사이트를 어떻게 이해하고 있는지 정밀 진단합니다. 10초 안에 SEO · GEO · Schema · E-E-A-T 핵심 결함과 개선 우선순위를 확인하세요.",
+		"descriptionLine1": "Google 검색부터 ChatGPT·Gemini·Perplexity까지, 검색엔진과 AI가 우리 사이트를 어떻게 이해하고 있는지 정밀 진단합니다.",
+		"descriptionLine2": "10초 안에 SEO · GEO · Schema · E-E-A-T 핵심 결함과 개선 우선순위를 확인하세요.",
 		"placeholder": "https://your-company.com",
-		"button": "지금 바로 진단하기",
+		"button": "10초 정밀 진단 시작",
 		"buttonLoading": "진단 페이지로 이동 중...",
+		"invalidUrl": "유효한 도메인 또는 URL을 입력해 주세요.",
+		"launchError": "진단을 시작하지 못했습니다. 도메인을 확인한 뒤 다시 시도해 주세요.",
 		"formHint": "URL만 입력하면 SEO · 스키마 · GEO(AI 인용) 결함 리포트가 즉시 생성됩니다.",
-		"whyCardsSectionTitle": "SEO·GEO 적용 시 효과",
-		"whyCardsSectionSubtitle": "진단 후 개선하면 바로 체감되는 비즈니스 성과입니다.",
+		"whyCardsSectionTitle": "진단하면 무엇을 알 수 있나요?",
+		"whyCardsSectionSubtitle": "진단 결과물 기준으로, 지금 바로 확인할 수 있는 핵심입니다.",
 		"whyCards": {
-			"citation": {
-				"title": "ChatGPT · Perplexity 인용",
+			"aiTrust": {
+				"title": "AI 검색 신뢰도",
 				"subtitle": "AI 검색엔진 인용 선점",
-				"description": "ChatGPT, Perplexity가 답변을 생성할 때 귀사 브랜드와 제품을 최우선 출처로 인용하도록 스키마 구조를 진단합니다."
+				"description": "ChatGPT · Gemini · Perplexity 등 생성형 AI가 사이트를 정확히 이해하고 답변의 출처로 인용하기 쉬운 구조인지 분석합니다."
 			},
-			"eeat": {
-				"title": "구글 & AI 알고리즘 가산점",
-				"subtitle": "E-E-A-T 신뢰도 확보",
-				"description": "기업 지식 그래프와 저자 프로필 스키마를 정밀 구축하여 검색엔진 알고리즘의 신뢰 가산점 누락을 방지합니다."
+			"techScore": {
+				"title": "SEO · GEO 기술 점수",
+				"subtitle": "온페이지 & 스키마 정밀 검증",
+				"description": "Meta · Title · Description · H1-H3 · Canonical · Robots · JSON-LD 등 검색엔진 최적화 상태를 항목별로 정밀 분석합니다."
 			},
-			"report": {
-				"title": "10초 정밀 결함 리포트",
-				"subtitle": "즉시 개선 백로그 제공",
-				"description": "개발자 도구 수준의 정밀 파싱을 통해 외주 및 내부 개발팀이 즉시 반영 가능한 P1~P5 우선순위 가이드를 제공합니다."
+			"defects": {
+				"title": "핵심 결함 & 개선 우선순위",
+				"subtitle": "즉시 개선 가이드 제공",
+				"description": "발견된 결함을 비즈니스 영향도와 해결 난이도 기준으로 분류하여, 즉시 조치가 필요한 P1~P5 우선순위를 제공합니다."
 			}
 		}
 	},
@@ -54,64 +59,461 @@
 		"title": "정밀 SEO & GEO 진단 엔진",
 		"description": "외부 LLM API 없이 HTML/JSON-LD를 직접 파싱하는 개발자 도구형 진단 엔진입니다.",
 		"engineBadge": "Precision Audit Engine",
-		"engineTitle": "소스 코드를 샅샅이 훑는 정밀 진단",
-		"engineDescription": "메타 길이·헤딩 비약·JSON-LD 필수 속성·이미지 alt 비율·AI 크롤러 허용 여부까지, 실제 DOM에서 증거를 추출해 Pass / Fail / Warning으로 보고합니다.",
+		"engineTitle": "10초 만에 사이트의 검색 경쟁력을 정밀 분석합니다",
+		"engineDescription": "단순히 HTML 존재 여부만 체크하는 것이 아니라 실제 DOM 구조, 메타데이터, JSON-LD, SEO·GEO 요소를 종합 분석하여 검색엔진과 AI 인용을 막는 핵심 병목을 찾아냅니다.",
 		"engineHistoryCta": "최근 진단 내역 보기",
 		"enginePillars": {
 			"meta": {
-				"title": "메타 · 헤딩 구조",
-				"body": "title/description 길이, Canonical 정합, H1 중복·헤딩 비약을 소스 기준으로 검증합니다."
+				"title": "SEO 기술 구조",
+				"body": "Title/Description 길이, Canonical 정합, H1 중복·헤딩 구조, Sitemap/Robots 접근성 검증"
 			},
 			"schema": {
-				"title": "JSON-LD 스키마",
-				"body": "Organization·Article·Person 필수 필드 누락을 타입별로 대조합니다."
+				"title": "Schema & Semantic",
+				"body": "Organization, Article, Product, FAQ, LocalBusiness 필수 필드 누락 및 JSON-LD 타당성 검증"
 			},
 			"geo": {
-				"title": "GEO · E-E-A-T",
-				"body": "FAQ/HowTo·저자 그래프·AI 봇 robots 신호로 인용 친화도를 산출합니다."
+				"title": "GEO & AI 신뢰",
+				"body": "E-E-A-T 지표, 저자/발행자 프로필, AI 크롤러 허용 여부, 인용 친화 콘텐츠 구조 산출"
 			}
+		}
+	},
+	"landing": {
+		"whyDiagnose": {
+			"title": "검색되는 것과 AI가 추천하는 것은 다릅니다",
+			"body": "기존 검색엔진 최적화(SEO)만으로는 ChatGPT·Gemini·Perplexity 같은 생성형 AI 검색 환경에 완전 대응하기 어렵습니다. REDUE는 검색엔진이 이해하는 기술 구조와 AI가 신뢰하고 인용하기 쉬운 신호를 함께 분석합니다.",
+			"from": "\"검색되는가?\"",
+			"to": "\"AI가 이해·신뢰·인용하는가?\""
+		},
+		"process": {
+			"title": "진단은 이렇게 진행됩니다",
+			"steps": {
+				"url": "URL 입력",
+				"analyze": "10초 자동 분석",
+				"diagnose": "SEO·GEO·Schema 진단",
+				"extract": "핵심 결함 추출",
+				"report": "AI 검색 경쟁력 리포트"
+			}
+		},
+		"preview": {
+			"label": "진단 결과 예시",
+			"aiTrustLabel": "AI 검색 신뢰도",
+			"aiTrustScore": "58 / 100",
+			"aiTrustGrade": "C+",
+			"techScoreLabel": "SEO·GEO 기술 점수",
+			"techScoreValue": "64 / 100",
+			"techScoreGrade": "보통",
+			"summary": "⚠️ 주요 결함 8건 발견 | 🎯 핵심 결함 보완 시 +18점 개선 가능"
+		},
+		"closing": {
+			"title": "우리 사이트는 AI에게 어떻게 평가되고 있을까요?",
+			"button": "무료 정밀 진단 시작하기"
 		}
 	},
 	"audit": {
 		"backToHome": "← 메인으로",
 		"backToHistory": "← 진단 목록으로 돌아가기",
-		"scoreHeaderLabel": "SEO & GEO 정밀 진단 리포트",
+		"scoreHeaderLabel": "⚙️ SEO·GEO·Schema 진단 결과",
 		"categoryGridTitle": "5대 세부 항목 점수",
 		"checklistTitle": "세부 진단 체크리스트",
-		"checklistSubtitle": "항목을 클릭하면 감지된 소스 증거, 감점 원인, 개선 시 실무 이득을 확인할 수 있습니다.",
+		"checklistSubtitle": "감지된 소스 증거, 감점 원인, 개선 시 실무 이득을 상시 표출합니다.",
+		"scoreDistribution": {
+			"dualAriaLabel": "AI 검색 신뢰도(GEO)와 검색 기술 최적화(SEO) 점수 요약",
+			"measuredTitle": "📍 실시간 SEO · GEO 종합 실측 진단 결과",
+			"measuredSubtitle": "아래 두 지수는 현재 상태의 실측 수치입니다. 시뮬레이터(패치 후 예상)와는 별개입니다.",
+			"reputationCardTitle": "🌐 AI 검색 신뢰도 · GEO",
+			"reputationCardSubtitle": "외부 검색·AI가 평가하는 브랜드 신뢰 및 인용 기반",
+			"schemaCardTitle": "⚙️ 검색 기술 최적화 · SEO/GEO/Schema",
+			"schemaCardSubtitle": "사이트 내부의 검색엔진·AI 검색 대응 기술 완성도",
+			"title": "122점 알고리즘 가중치 구성 비율",
+			"subtitle": "총 122점 만점 기준 각 정밀 평가 영역별 배점 비율입니다. (SEO 29점 | 성능 30점 | 스키마 37점 | GEO 26점)",
+			"totalBadge": "총 {total} 만점",
+			"totalTooltip": "SEO 기술 기본기(29) + 웹 성능 & 접근성(30) + 스키마 구조화 데이터(37) + GEO & E-E-A-T 신호(26) = 총 122 만점 산정 가중치",
+			"weightLegend": "SEO 29점 | 성능 30점 | 스키마 37점 | GEO 26점 = 총 122점",
+			"seo": "SEO 기술 기본기",
+			"perfA11y": "웹 성능 & 접근성",
+			"schema": "스키마 구조화 데이터",
+			"geo": "GEO & E-E-A-T 신호",
+			"perfDetail": "응답속도·Core Web Vitals·접근성 지수",
+			"bonusNote": "가산 반영 100%",
+			"mainScoreSuffix": "/ 100",
+			"mainScoreUnit": "{score}",
+			"statusWithPercentile": "{icon} {status} · 상위 {percentile}%",
+			"algoBadge": "📊 알고리즘 정밀 실측: {score} / {max}",
+			"algoBadgeCompact": "정밀 실측 {score} / {max}",
+			"algoTooltip": "SEO 기술 기본기(29) + 웹 성능 & 접근성(30) + 스키마 구조화 데이터(37) + GEO & E-E-A-T 신호(26) = 총 122 만점 산정 가중치",
+			"rowPctScore": "{pct}",
+			"rowRawScore": "({score} / {max})",
+			"rowRawScoreBonus": "({score} / {max} · 가산 완비)",
+			"categoryPctScore": "{pct}"
+		},
+		"pageSpeed": {
+			"cardsBadge": "PageSpeed Insights",
+			"cardsTitle": "실측 4대 핵심 지표",
+			"cardsAriaLabel": "PageSpeed Insights 성능·접근성·권장사항·SEO 점수",
+			"strategyLabel": "{strategy} 실측",
+			"strategyNames": {
+				"desktop": "PC",
+				"mobile": "Mobile"
+			},
+			"tabDesktop": "🖥️ PC 실측",
+			"tabMobile": "📱 Mobile 실측",
+			"tabAriaLabel": "PageSpeed 측정 기기 전환",
+			"officialPsiLink": "🌐 Google PageSpeed Insights 공식 실측 페이지 바로가기 ↗",
+			"categories": {
+				"performance": "성능 (Performance)",
+				"accessibility": "접근성 (Accessibility)",
+				"bestPractices": "권장사항 (Best Practices)",
+				"seo": "검색엔진 최적화 (SEO)"
+			},
+			"tiers": {
+				"poor": "위험",
+				"needsImprovement": "개선필요",
+				"good": "양호"
+			},
+			"precisionBadge": "웹 성능 & 접근성 · PageSpeed 실측",
+			"precisionTitle": "Core Web Vitals & 리소스 정밀 진단",
+			"precisionSubtitle": "4대 핵심 지표 → Core Web Vitals → 이미지·캐시·LCP·JS 실행 진단 및 맞춤형 해결 가이드를 제공합니다.",
+			"measuring": "구글 Core Web Vitals 및 성능 실측 데이터 측정 중...",
+			"measuringHint": "PageSpeed Insights API · 성능·접근성·권장사항·SEO · LCP · TBT/INP · CLS · 보통 10~15초",
+			"progressStepLabel": "{current} / {total}",
+			"progressSteps": {
+				"step1": "구글 Headless Chrome 엔진으로 모바일 렌더링 측정 시작 중...",
+				"step2": "Core Web Vitals (LCP, TBT, CLS) 지표 수집 및 리소스 분석 중...",
+				"step3": "PageSpeed 실측 데이터 파싱 및 맞춤형 해결 가이드 생성 중..."
+			},
+			"vitalsTitle": "Core Web Vitals",
+			"resourcesStageTitle": "리소스 정밀 진단 (이미지·캐시·LCP·JS)",
+			"accordion": {
+				"issuesDetected": "감지된 이슈 {count}건",
+				"noIssues": "이슈 없음",
+				"showDetails": "자세히 보기",
+				"collapse": "접기"
+			},
+			"vitals": {
+				"lcp": "LCP · 최대 콘텐츠 렌더링",
+				"fcp": "FCP · 첫 콘텐츠 렌더링",
+				"tbt": "TBT / INP · 총 차단 시간",
+				"cls": "CLS · 누적 레이아웃 이동"
+			},
+			"vitalThreshold": {
+				"lcp": "기준: 2.5s 이하",
+				"fcp": "기준: 1.8s 이하",
+				"tbt": "기준: 200ms 이하",
+				"cls": "기준: 0.1 이하"
+			},
+			"resources": {
+				"renderBlocking": "렌더링 차단 스크립트 / CSS",
+				"images": "대용량·미최적화 이미지 (압축 · WebP · 반응형 크기)",
+				"fonts": "미최적화 폰트 (CDN·서브셋 절감 예상)",
+				"cache": "캐시 수명 미흡 (Browser Caching & TTL)",
+				"cacheTotalSave": "총 절감 가능 {size}",
+				"scripts": "JS 실행 시간 (TBT 원인 · bootup-time)",
+				"mainThread": "메인 스레드 작업 분해",
+				"lcpWarningTitle": "LCP 크리티컬 경로 경고",
+				"colFile": "파일",
+				"colSize": "용량",
+				"colWasted": "절감 예상",
+				"colDelay": "지연",
+				"colWebpSave": "WebP 절감",
+				"colCdnSave": "CDN 절감",
+				"colInsight": "구글 실측 인사이트",
+				"colTtl": "캐시 TTL",
+				"colOrigin": "출처",
+				"colCpu": "CPU 시간",
+				"colScripting": "스크립팅",
+				"colTask": "작업",
+				"colDuration": "소요 시간",
+				"originFirst": "퍼스트파티",
+				"originThird": "서드파티",
+				"originUnknown": "기타",
+				"emptyBlocking": "렌더링 차단 리소스가 감지되지 않았습니다.",
+				"emptyImages": "대용량·미최적화 이미지가 감지되지 않았습니다.",
+				"emptyFonts": "대용량 폰트 기회가 감지되지 않았습니다.",
+				"emptyCache": "짧은 캐시 수명 리소스가 감지되지 않았습니다.",
+				"emptyScripts": "높은 CPU 점유 스크립트가 감지되지 않았습니다.",
+				"emptyMainThread": "메인 스레드 병목이 감지되지 않았습니다."
+			},
+			"guidesTitle": "문제점별 맞춤형 실전 해결 가이드",
+			"guidesSubtitle": "감점·경고 항목만 표시됩니다. 코드를 복사해 바로 적용하세요.",
+			"guidesAllGood": "PageSpeed 핵심 지표가 양호합니다. 추가 필수 패치가 없습니다.",
+			"copy": "복사",
+			"copied": "복사됨",
+			"errorTitle": "PageSpeed 실측을 가져오지 못했습니다",
+			"errorHint": "HTML·스키마 진단은 정상입니다. 잠시 후 새로고침하거나 pagespeed.web.dev에서 수동 확인하세요.",
+			"guides": {
+				"deferJs": {
+					"title": "대용량·경로 차단 JS — defer & DOMContentLoaded",
+					"desc": "동기 스크립트를 defer로 전환하고, 무거운 초기화는 DOM 준비 후에만 실행하세요."
+				},
+				"fontCdn": {
+					"title": "대용량 폰트 — Pretendard CDN / 서브셋",
+					"desc": "로컬 풀셋 woff2 대신 서브셋 CDN을 쓰면 전송량을 크게 줄일 수 있습니다."
+				},
+				"webpLcp": {
+					"title": "이미지 최적화 — WebP & LCP fetchpriority",
+					"desc": "히어로(LCP) 이미지는 WebP로 변환하고 fetchpriority=\"high\"로 우선 로드하세요."
+				},
+				"a11y": {
+					"title": "접근성 — aria-label & 색상 대비",
+					"desc": "아이콘-only 컨트롤에 접근 가능한 이름을 주고하고, 본문 대비 4.5:1 이상을 유지하세요."
+				},
+				"htaccess": {
+					"title": "서버/보안 — HTTPS 리디렉션 & 브라우저 캐싱",
+					"desc": "HTTP→HTTPS 301과 정적 자산 Expires/Cache-Control을 .htaccess에 적용하세요."
+				}
+			}
+		},
 		"findingsTitle": "우선 개선 항목",
 		"findingsEmpty": "✅ 주요 결함이 발견되지 않았습니다. 이미 훌륭한 상태입니다.",
 		"detectedSchemas": "감지된 스키마",
-		"schemaCoverageLabel": "스키마 커버리지",
-		"schemaCoverageHint": "목표 Schema.org 타입 대비 감지 비율",
-		"geoCitationLabel": "AI 인용 친화도",
-		"geoCitationHint": "Perplexity / ChatGPT Search 인용 신호 지수",
 		"loadingTitle": "정밀 SEO & GEO 진단 엔진 가동 중",
+		"loadingRescanTitle": "🔄 실시간 재진단 중...",
 		"loadingTerminalTitle": "redue-audit — precision parser",
 		"loadingProgress": "scan progress",
 		"failedTitle": "진단에 실패했습니다",
+		"deletedOrMissing": "삭제되었거나 존재하지 않는 진단 내역입니다.",
+		"deletedOrMissingRedirect": "잠시 후 진단 페이지로 이동합니다…",
 		"retry": "다시 시도하기",
 		"scannedAt": "진단 시각 {time} · 응답 상태 {status} · 응답 속도 {ms}ms",
 		"noUrl": "진단할 URL이 없습니다. 메인 페이지에서 사이트 주소를 입력해 주세요.",
 		"printFooter": "본 보고서는 REDUE AI 정밀 진단 엔진에 의해 생성되었습니다. 작업 문의: contact@redue.ai",
+		"tabs": {
+			"geo": "AI 검색 신뢰도 · GEO 진단 결과",
+			"onpage": "SEO·GEO·Schema 진단 결과"
+		},
+		"geoScore": {
+			"badge": "GEO Score",
+			"title": "🌐 AI 검색 신뢰도 · GEO 종합 점수",
+			"summaryTitle": "🌐 AI 검색 신뢰도 · GEO 진단 결과",
+			"scoreSuffix": "/ 100",
+			"percentileLabel": "상위 {percentile}%",
+			"gradeLabel": "{grade} 등급",
+			"thresholdTitle": "🎯 AI 추천 상위 노출 기준선",
+			"minExposureLabel": "최소 노출 기준",
+			"minExposureValue": "{threshold} 이상",
+			"minExposureAchieved": "현재 진입 완료",
+			"minExposureShort": "진입 전 · {points} 부족",
+			"topRecommendationLabel": "안정적 상위 추천",
+			"topRecommendationValue": "{threshold} 이상",
+			"topRecommendationHint": "★ {points} 보완 시 1페이지 상위 추천권 진입",
+			"topRecommendationAchieved": "이미 상위 추천권입니다",
+			"pdfButton": "📄 PDF 보고서 다운로드",
+			"disclaimer": "* 외부 평판 데이터는 공개 웹 신호를 기반으로 한 AI 추정치이며, 실데이터 연동 시 자동으로 갱신됩니다."
+		},
+		"aiEngines": {
+			"title": "AI 검색엔진별 노출 현황 및 원인 분석",
+			"subtitle": "Why & Status"
+		},
+		"brandTrust": {
+			"title": "AI 브랜드 인식 & 정보 신뢰도 (E-E-A-T)",
+			"keywordsLabel": "AI 주요 연관 키워드",
+			"missingKeywordLabel": "필수 키워드 누락",
+			"napLabel": "NAP 정보 일치율"
+		},
+		"digitalFootprint": {
+			"title": "외부 데이터 수집 현황 (Digital Footprint)",
+			"googleLabel": "구글 검색 언급 문서",
+			"googleBenchmarkHint": "지역 평균 {benchmark}건 대비",
+			"naverLabel": "네이버 블로그/카페",
+			"bingLabel": "Bing Places 프로필",
+			"bingRegistered": "등록됨",
+			"bingNotRegistered": "미등록"
+		},
+		"digitalFootprintReport": {
+			"navLabel": "디지털 풋프린트 진단 상세",
+			"tabGoogle": "🌐 구글 언급 문서 ({count}건)",
+			"tabNaver": "📝 네이버 최신성 ({count}건)",
+			"tabBing": "📍 Bing Places ({status})",
+			"bingRegistered": "등록됨",
+			"bingNotRegistered": "미등록",
+			"howtoTitle": "💡 단계별 실행 해법 (How-to)",
+			"google": {
+				"statusWarning": "⚠️ 진단 상태: 수집 문서량 부족 (현재 {count}건 / 지역 평균 {avg}건)",
+				"statusOk": "✅ 진단 상태: 수집 문서량 양호 (현재 {count}건 / 지역 평균 {avg}건)",
+				"statusBodyWarn": "구글 및 AI 크롤러가 수집할 수 있는 외부 웹 문서(언론 보도, 위키, 외부 블로그 등)에서의 브랜드 언급(Brand Mention / Unlinked Citation) 절대량이 부족합니다.",
+				"statusBodyOk": "외부 웹 문서에서의 브랜드 언급량이 지역 평균 수준 이상으로 유지되고 있어, 구글·AI 크롤러의 수집 여건이 양호합니다.",
+				"howto1Title": "보도자료 정기 배포:",
+				"howto1Body": "주요 일간지 및 건강/의료 전문 매체에 월 1~2회 이상 브랜드명이 명확히 포함된 보도자료 배포",
+				"howto2Title": "학술/협회 DB 등록:",
+				"howto2Body": "의료 연구소 관련 외부 웹사이트 및 건강 정보 포털에 프로필/서비스 정보 등록",
+				"howto3Title": "외부 백링크 확장:",
+				"howto3Body": "전문 칼럼 및 인터뷰 기사를 통해 공식 도메인 URL 인용 확보"
+			},
+			"naver": {
+				"statusDanger": "🚨 진단 상태: 최근 3개월간 최신 리뷰 및 신규 포스팅 부재 (현재 {count}건)",
+				"statusOk": "✅ 진단 상태: 네이버 최신성 신호 양호 (현재 {count}건)",
+				"statusBodyWarn": "네이버 지식베이스 및 ChatGPT/Perplexity의 한글 검색 로봇은 네이버 블로그/카페의 <strong>최신성(Recency)</strong>을 핵심 신호로 평가합니다.",
+				"statusBodyOk": "네이버 블로그/카페 언급량이 충분해 한글 AI 검색의 최신성 신호가 상대적으로 안정적입니다.",
+				"howto1Title": "주기적 원고 발행:",
+				"howto1Body": "최소 주 1~2회 브랜드명 및 주요 치료법 키워드가 포함된 네이버 블로그 포스팅 지속 유지",
+				"howto2Title": "커뮤니티 언급 확대:",
+				"howto2Body": "네이버 지식iN, 관련 환우 카페 등에 신뢰성 있는 전문 답변 포스팅 및 언급 확보",
+				"howto3Title": "자동 포스팅 파이프라인 도입:",
+				"howto3Body": "API/AI 기반 원고 작성 자동화를 구축하여 최신성 지표 지속 유지"
+			},
+			"bing": {
+				"statusDanger": "🚨 진단 상태: Bing Places 프로필 미등록 (ChatGPT 검색 노출 차단)",
+				"statusOk": "✅ 진단 상태: Bing Places 프로필 등록 완료",
+				"statusBodyWarn": "ChatGPT의 실시간 웹 검색 엔진은 Bing(빙) 기반으로 동작합니다. Bing Places 미등록 시 위치/상담 정보 카드가 생성되지 않습니다.",
+				"statusBodyOk": "Bing Places 프로필이 등록되어 ChatGPT 검색의 위치·상담 정보 카드 노출 여건이 확보되어 있습니다.",
+				"howto1Title": "Bing Places 접속:",
+				"howto1Body": "공식 사이트(bingplaces.com) 접속 후 공식 계정으로 로그인",
+				"howto2Title": "프로필 정보 입력:",
+				"howto2Body": "상호명, 주소, 전화번호, 진료 시간, 대표 웹사이트 URL 입력",
+				"howto3Title": "구글 프로필 동기화:",
+				"howto3Body": "기존 Google 비즈니스 프로필 데이터를 1분 만에 동기화 가능"
+			}
+		},
+		"geoActionPlan": {
+			"title": "85(상위 노출) 달성을 위한 단계별 보완 전략",
+			"subtitle": "Action Plan",
+			"urgentBadge": "긴급",
+			"recommendedBadge": "권장",
+			"pointGain": "+{points}"
+		},
+		"jsonldSnippets": {
+			"badge": "Ready-to-Paste Code",
+			"title": "바로 적용 가능한 구조화 데이터(JSON-LD) 교정 코드",
+			"subtitle": "진단에서 누락·미완으로 확인된 스키마만 골라, <head>에 바로 붙여넣을 수 있는 예시 코드를 제공합니다.",
+			"copy": "코드 복사",
+			"copied": "복사됨 ✓",
+			"empty": "✅ 핵심 스키마(Organization / Article / Person / FAQPage)가 모두 정상 적용되어 있어 추가로 제안할 교정 코드가 없습니다."
+		},
+		"keywordRecommend": {
+			"badge": "GEO · SEO Keyword Pipeline",
+			"title": "GEO/SEO 타깃 키워드 추천",
+			"subtitle": "ChatGPT·Perplexity·Gemini 사용자가 실제로 물을 법한 AI 질문 프롬프트를 중심으로, 브랜드·전환·로컬 LSI 키워드까지 한 번에 제안합니다.",
+			"geoAiBadge": "GEO AI",
+			"copyHint": "칩 클릭 시 바로 복사",
+			"copied": "복사됨",
+			"categories": {
+				"geoPrompt": {
+					"title": "AI 질문 프롬프트",
+					"desc": "AI 검색 의도 · 문장형/질문형 키워드"
+				},
+				"primary": {
+					"title": "메인 타겟 키워드",
+					"desc": "브랜드 · 핵심 엔티티"
+				},
+				"longTail": {
+					"title": "구매 전환 롱테일",
+					"desc": "상담 · 견적 · 비교 의도"
+				},
+				"lsiLocal": {
+					"title": "LSI 연관 & 로컬",
+					"desc": "연관 검색어 · 지역 기반"
+				}
+			}
+		},
+		"execRisks": {
+			"lossLabel": "비즈니스 손실",
+			"moreIssues": "외 {count}건 추가 결함",
+			"badgeTier": {
+				"critical": "치명적 결함",
+				"major": "주요 결함",
+				"caution": "주의 결함"
+			},
+			"themes": {
+				"ai": {
+					"loss": "AI 검색(ChatGPT·Perplexity) 인용 후보에서 제외되어 신규 유입 채널이 원천 봉쇄됩니다"
+				},
+				"ctr": {
+					"loss": "구글 리치결과(배지·FAQ·작성자) 미노출로 경쟁사 대비 클릭률(CTR)이 하락합니다"
+				},
+				"eeat": {
+					"loss": "E-E-A-T(저자·발행자) 지식그래프 부재로 알고리즘 업데이트 시 순위 급락 리스크가 커집니다"
+				},
+				"tech": {
+					"loss": "페이지 속도·접근성 결함으로 이탈률이 상승하고 전환율이 떨어집니다"
+				}
+			}
+		},
+		"targetEntity": {
+			"ariaLabel": "진단 대상 사이트 명세",
+			"badge": "TARGET ENTITY AUDIT REPORT",
+			"domain": "도메인",
+			"category": "진단 카테고리",
+			"cms": "감지 CMS",
+			"scannedAt": "진단 일시",
+			"liveBadge": "실시간",
+			"tip": "TIP",
+			"security": "보안 프로토콜",
+			"securityTip": "HTTPS는 검색·AI 신뢰 신호의 기본입니다. 미적용 시 브라우저 경고와 순위 감점 위험이 커집니다.",
+			"httpsOn": "HTTPS 적용 완료",
+			"httpsOnBadge": "🟢 안전",
+			"httpsOff": "HTTPS 미적용",
+			"httpsOffBadge": "🔴 위험",
+			"serverLocation": "서버 호스팅 위치",
+			"serverLocationTip": "서버 위치는 지연(Latency)과 로컬 SEO 신호에 영향을 줍니다. 주요 타깃 시장과 가까운 리전일수록 유리합니다.",
+			"ttfb": "서버 응답 속도(TTFB)",
+			"ttfbTip": "TTFB(Time To First Byte)는 서버가 첫 바이트를 보내기까지 걸린 시간입니다. 200ms 이하를 권장하며, 지연 시 이탈률이 올라갑니다.",
+			"ttfbBadgeGood": "기준: 200ms 이하 · 양호",
+			"ttfbBadgeWarn": "기준: 200ms 이하 · 개선필요",
+			"ttfbBadgeBad": "기준: 200ms 이하 · 지연 위험",
+			"ttfbBadgeUnknown": "기준: 200ms 이하",
+			"indexStatus": "검색 및 AI 수집 상태",
+			"indexStatusAllowedHint": "네이버·구글 포털 검색 노출과 ChatGPT·Perplexity 등 AI 검색 답변에 정상 활용될 수 있습니다.",
+			"indexStatusBlockedHint": "검색 포털·AI 엔진이 이 페이지를 읽지 못하도록 설정되어 있어 검색·AI 답변 노출이 제한될 수 있습니다.",
+			"viewport": "모바일 가독성 / 뷰포트",
+			"viewportTip": "viewport 메타 태그가 없으면 모바일에서 화면이 축소·깨져 보일 수 있습니다. 검색·AI 엔진도 모바일 친화도를 중요하게 봅니다.",
+			"viewportOn": "모바일 화면 최적화 완료",
+			"viewportOnBadge": "정상",
+			"viewportOff": "모바일 화면 깨짐 리스크",
+			"viewportOffBadge": "누락",
+			"viewportUnknown": "미확인",
+			"viewportUnknownBadge": "재진단 권장"
+		},
 		"b2b": {
 			"execBadge": "Executive Summary",
-			"execTitle": "경영진 요약 — 기술적 리스크 한눈에 보기",
+			"execTitle": "🎯 AI 검색 경쟁력 핵심 진단",
 			"execSubtitle": "의사결정자가 30초 안에 수주/개선 필요성을 판단할 수 있도록 핵심 지표만 압축했습니다.",
-			"metricScore": "종합 기술 점수",
-			"metricGeo": "AI 검색 인용 친화도",
-			"metricGeoHint": "ChatGPT / Perplexity 인용 신호",
-			"metricDefects": "기술적 SEO 결함",
-			"metricDefectsHint": "Fail {fail} · Warn {warning}",
-			"metricSchema": "스키마 커버리지 {schema}%",
-			"lossTitle": "현재 상태 유지 시 예상되는 비즈니스 손실",
-			"loss": {
-				"ai": "AI 검색(ChatGPT·Perplexity) 답변 상단 인용 기회 박탈 — 신규 유입 채널이 원천 차단됩니다.",
-				"ctr": "구글 리치결과·작성자 배지 미노출로 동일 순위 대비 클릭률(CTR) 하락이 고착화됩니다.",
-				"eeat": "E-E-A-T(저자·발행자) 신호 부재 시 알고리즘 업데이트에 따른 순위 급락 리스크가 커집니다.",
-				"geoCritical": "GEO 인용 지수가 위험 구간입니다. AI 검색 트래픽을 경쟁사에 양보하는 구조입니다.",
-				"geoWarn": "GEO 신호가 불완전합니다. FAQ/저자 그래프를 보강하지 않으면 AI 인용 전환이 지연됩니다."
+			"execInsight": {
+				"geo": "기술 최적화는 {seoScore}점이지만, AI 외부 신뢰도는 {geoScore}점입니다. 현재는 기술보다 AI가 신뢰하고 인용할 수 있는 외부 신뢰 신호 개선이 우선입니다.",
+				"seo": "AI 외부 신뢰도는 {geoScore}점이지만, 온페이지 기술 최적화가 {seoScore}점으로 미흡합니다. 검색엔진이 구조를 쉽게 파악할 수 있는 기술적 보완이 시급합니다.",
+				"balanced": "AI 외부 신뢰도 {geoScore}점과 온페이지 기술 최적화 {seoScore}점이 비슷한 수준입니다. 점수 격차보다 핵심 결함 보완이 경쟁력 상승의 지름길입니다.",
+				"bothWeak": "AI 외부 신뢰도 {geoScore}점, 온페이지 기술 최적화 {seoScore}점 모두 경쟁 기준에 미달합니다. 기술 구조와 외부 신뢰 신호를 함께 끌어올리는 것이 우선입니다.",
+				"bothStrong": "AI 외부 신뢰도 {geoScore}점, 온페이지 기술 최적화 {seoScore}점으로 검색·인용 기반이 안정적입니다. 남은 결함을 보완하면 경쟁력을 한 단계 더 끌어올릴 수 있습니다."
 			},
+			"execJudgmentLabel": "🔎 핵심 판정",
+			"execJudgment": {
+				"geo": "기술 기반은 확보되어 있지만, AI 외부 신뢰 신호가 부족해 검색·인용 경쟁력의 성장을 제한하고 있습니다.",
+				"seo": "외부 신뢰 신호는 형성되어 있으나, 온페이지 기술 최적화가 미흡해 검색엔진·AI가 사이트 구조를 안정적으로 해석하기 어렵습니다.",
+				"balanced": "기술 최적화와 외부 신뢰 신호의 격차는 크지 않습니다. 핵심 결함 보완이 검색·인용 경쟁력 상승의 우선 과제입니다.",
+				"bothWeak": "기술 최적화와 AI 외부 신뢰 신호가 모두 부족해, 검색·인용 경쟁력의 기반이 아직 확보되지 않았습니다.",
+				"bothStrong": "기술 기반과 외부 신뢰 신호가 균형 있게 확보되어 있습니다. 남은 핵심 결함을 보완하면 경쟁력을 추가로 끌어올릴 수 있습니다."
+			},
+			"execUrgency": {
+				"urgent": "⚠️ 개선 시급",
+				"priority": "⚠️ 우선 개선 필요",
+				"stable": "🟢 경쟁력 양호"
+			},
+			"execPotentialGain": "🎯 핵심 결함 보완 시 +{gain}점 상승 가능",
+			"execPotentialAchieved": "🎯 현재 측정 기준에서 핵심 결함 보완 여지는 제한적입니다",
+			"exposureCompareTitle": "최적화 잠재력 시뮬레이터",
+			"exposureCurrentLabel": "현재 AI 실측 노출 점수",
+			"exposureTargetLabel": "최적화 패치 후 예상 점수",
+			"exposureScoreSuffix": "/ 100",
+			"exposureGain": "+{gain} 상승 🚀",
+			"exposureAchieved": "🎉 이미 목표 달성",
+			"exposureTier": {
+				"danger": "노출 위험",
+				"partial": "부분 노출",
+				"top": "상위 추천 선점"
+			},
+			"exposureTierWithPercentile": "{icon} {tier} · 상위 {percentile}%",
+			"exposureTargetTier": "🟢 상위 추천 선점 · 상위 {percentile}% 진입",
+			"exposureFooterNote": "💡 현재 온페이지 스키마 결함({count}건)을 패치할 경우, 외부 평판 지수와 결합하여 AI 상단 인용 확률이 {target}점으로 대폭 상승합니다.",
+			"exposureFooterNoteClean": "💡 온페이지 스키마 결함이 거의 없습니다. 현재 실측 기반으로도 AI 상단 인용 여건이 {target}점 수준입니다.",
+			"statusBadge": {
+				"CRITICAL": "AI 노출 위험 단계",
+				"POOR": "AI 노출 위험 단계",
+				"FAIR": "개선 시급",
+				"GOOD": "부분 노출 · 보완 권장",
+				"EXCELLENT": "AI 인용 최적화 양호"
+			},
+			"execGoalGap": "🎯 +{gap} 보완 시 AI 상위 인용권 진입 가능",
+			"execGoalAchieved": "🎯 이미 AI 상위 인용권에 진입했습니다",
+			"lossTitle": "현재 상태 유지 시 예상되는 비즈니스 손실",
 			"techBadge": "Technical Evidence",
 			"techTitle": "기술적 증거 및 세부 내역",
 			"techSubtitle": "추정값이 아니라, 현재 페이지 HTML/JSON-LD에서 직접 추출한 증거입니다.",
@@ -123,6 +525,8 @@
 			"statHeading": "헤딩 비약",
 			"statSkipYes": "감지됨",
 			"statSkipNo": "없음",
+			"statRenderBlocking": "렌더링 차단 스크립트",
+			"statRenderBlockingHint": "async/defer 미적용 · 권장 ≤5개",
 			"missingTitle": "스키마 필수 속성 누락 명세",
 			"missingFields": "누락 필드",
 			"snippetTitle": "추출된 JSON-LD 소스 조각",
@@ -205,13 +609,15 @@
 		"history": {
 			"title": "최근 진단 내역",
 			"totalCount": "전체 {count}건",
-			"guestHint": "비회원 기록은 이 브라우저에만 저장됩니다 (최대 10건)",
+			"guestHint": "서버에 저장된 최근 진단과 이 브라우저 기록을 함께 표시합니다",
 			"searchPlaceholder": "URL로 검색…",
 			"filterAll": "전체",
 			"filterHealthy": "양호",
 			"filterNeedsImprovement": "개선 필요",
 			"viewResult": "결과 보기",
 			"rescan": "재진단",
+			"rescanning": "🔄 실시간 재진단 중...",
+			"rescanFailed": "재진단에 실패했습니다. 잠시 후 다시 시도해 주세요.",
 			"delete": "삭제",
 			"deleteConfirm": "정말 삭제",
 			"deleteCancel": "취소",
@@ -225,12 +631,18 @@
 			"noMatches": "검색 조건에 맞는 진단 내역이 없습니다."
 		},
 		"impact": {
-			"title": "점수 개선 시 기대되는 실무적 변화 및 비즈니스 효과",
-			"subtitle": "단순히 점수를 올리는 것이 아니라, <hl>AI 검색 및 구글 상단 노출 알고리즘을 선점</hl>합니다.",
+			"guideBadge": "Live Criteria Report",
+			"title": "📊 SEO · GEO 핵심 요구기준 vs 현재 상태 실시간 비교",
+			"subtitle": "필수 6대 체크리스트를 실시간 진단(audit)과 1:1 매핑해 현재 상태를 표시하고, 패치 후 AI·구글 노출 이득을 제시합니다.",
+			"evidenceExampleBadge": "패치 적용 전 초기 진단 결함 예시",
 			"itemsHeading": "실측 결함 진단 (Before) ➔ 스키마·E-E-A-T 최적화 처방 (After)",
+			"statusOk": "🟢 정상/해결됨",
+			"statusNeedsWork": "🔴 개선 필요",
+			"coreChecklistHeading": "SEO/GEO 필수 6대 체크리스트 · 실시간 현재 상태",
+			"whyMattersHint": "이 항목이 AI 노출에 중요한 이유",
 			"before": {
-				"badge": "Before",
-				"label": "개선 전 · 현재 상태",
+				"badge": "실시간 검출 상태",
+				"label": "Before · 핵심 가이드 + 현재 상태",
 				"scoreHint": "현재",
 				"google": "구글 검색 결과",
 				"googleDetail": "단순 텍스트 2줄만 밋밋하게 표시됩니다.",
@@ -240,17 +652,75 @@
 				"discoverDetail": "피드 추천 신호가 미비해 노출 기회가 거의 없습니다."
 			},
 			"after": {
-				"badge": "After",
-				"label": "스키마·E-E-A-T 정비 후 · 상위권 신호",
+				"badge": "최적화 패치 적용 후 실질적 노출 이득",
+				"label": "After · AI 정답 카드·구글 리치결과",
 				"scoreHint": "최적화",
-				"sparkleBadge": "✨ 스키마·E-E-A-T 적용 후 리치 결과",
+				"sparkleBadge": "✨ 해결 항목 기준 실질 이득",
 				"citationBadge": "우선 인용 출처: {site}",
+				"gainsHeading": "해결된(또는 해결 예정) 항목 기준 노출 이득",
+				"allHealthyNote": "필수 6대 항목이 모두 정상입니다. 아래는 유지 시 기대되는 노출 이득입니다.",
 				"google": "구글 검색 결과",
 				"googleDetail": "기자/작성자명, 발행일, 탐색경로, 리치 스니펫 배지가 적용된 카드형 결과로 노출됩니다.",
 				"ai": "AI 검색 (Perplexity / ChatGPT)",
 				"aiDetail": "출처: {site} 으로 우선 인용되며 답변 상단에 추천됩니다.",
 				"discover": "Google Discover 노출",
 				"discoverDetail": "모바일 디스커버 피드 자동 추천 알고리즘 가산점을 획득합니다."
+			},
+			"coreItems": {
+				"canonical": {
+					"label": "Canonical URL 정합성",
+					"why": "정규 URL이 없으면 구글·AI가 동일 콘텐츠를 중복으로 취급해 랭킹·인용 신호가 분산됩니다."
+				},
+				"heading-hierarchy": {
+					"label": "헤딩 계층 구조 (H1~H4)",
+					"why": "H1~H4 계층이 명확해야 AI가 주제·섹션을 파싱해 정답 카드 문단으로 인용할 수 있습니다."
+				},
+				"render-blocking": {
+					"label": "렌더링 차단 스크립트",
+					"why": "렌더 차단 스크립트가 많으면 크롤·LCP가 지연되어 AI·검색봇의 수집 우선순위가 떨어집니다."
+				},
+				"article-schema": {
+					"label": "Article / NewsArticle 스키마",
+					"why": "Article·NewsArticle 스키마는 ChatGPT/Perplexity가 콘텐츠를 신뢰 출처로 인식하는 핵심 신호입니다."
+				},
+				"faq-schema": {
+					"label": "FAQPage 인용 스키마",
+					"why": "FAQPage는 질문-답변 단위로 AI 상단 정답 출처를 선점하는 GEO 핵심 스키마입니다."
+				},
+				"image-alt": {
+					"label": "이미지 alt 커버리지",
+					"why": "alt 텍스트는 이미지 맥락을 텍스트로 전달해 AI·검색이 시각 콘텐츠를 이해·인용하게 합니다."
+				}
+			},
+			"gains": {
+				"schemaAi": {
+					"title": "AI 정답 카드 출처 선점",
+					"body": "Hospital/Organization/Person/FAQPage 등 스키마 적용으로 Perplexity·ChatGPT 상단 정답 출처를 선점합니다."
+				},
+				"canonicalRich": {
+					"title": "구글 리치결과 · CTR 상승",
+					"body": "Canonical·메타 최적화로 구글 검색 리치결과(Rich Results) 노출과 CTR이 함께 상승합니다."
+				},
+				"headingParse": {
+					"title": "주제 파싱·인용 문단 확보",
+					"body": "H1~H4 계층 정비로 AI가 핵심 섹션을 정확히 잘라 답변 문단으로 인용합니다."
+				},
+				"speedCrawl": {
+					"title": "크롤·수집 우선순위 회복",
+					"body": "렌더 차단 스크립트 완화로 LCP·수집 속도가 개선되어 검색·AI 봇 방문 우선순위가 회복됩니다."
+				},
+				"imageAlt": {
+					"title": "시각 콘텐츠 인용 가능",
+					"body": "이미지 alt 커버리지 확보로 멀티모달·검색 결과가 브랜드 이미지를 함께 노출합니다."
+				},
+				"articleSchema": {
+					"title": "Article 신뢰 출처 인식",
+					"body": "Article/NewsArticle 스키마로 AI가 콘텐츠를 공식 인사이트 출처로 우선 인식합니다."
+				},
+				"faqSchema": {
+					"title": "FAQ 정답 Q&A 선점",
+					"body": "FAQPage 스키마로 유저 질문에 대한 AI 답변 상단 Source로 인용됩니다."
+				}
 			},
 			"preview": {
 				"heading": "✨ 최적화 후 실제 검색엔진 노출 예시 (Rich Result & AI Preview)",
@@ -347,14 +817,72 @@
 			"line2Post": "가 함께 강해집니다.",
 			"buttonHistory": "진단 내역에서 다시 보기",
 			"buttonRescan": "다른 URL 진단하기",
+			"adminSolveTitle": "관리자 · 전문가 워크스페이스",
+			"adminSolveHint": "현재 진단 JSON을 해결 워크스페이스로 전달합니다. 관리자 로그인 후 CMS별 교정 코드를 바로 적용할 수 있습니다.",
+			"adminSolveButton": "🚀 전문가용 해결 코드 생성하기 (관리자 로그인)",
 			"footnote": "리포트 링크를 공유하면 팀원도 동일한 정밀 진단 결과를 확인할 수 있습니다."
 		},
+		"verification": {
+			"title": "공식 SEO · 스키마 검증 툴",
+			"subtitle": "현재 진단 URL로 공식 도구에서 즉시 재검증하세요. 새 탭에서 열립니다.",
+			"openInNewTab": "새 탭에서 열기",
+			"tools": {
+				"pagespeed": "Google PageSpeed Insights",
+				"schemaValidator": "Schema.org 구조화 데이터 검증기",
+				"richResults": "Google Rich Results Test",
+				"seoptimer": "SEOptimer 리포트"
+			}
+		},
 		"share": {
-			"kakao": "💬 카카오톡 공유",
-			"copied": "✅ 링크가 복사되었습니다",
-			"pdf": "📄 A4 PDF / 인쇄 보고서",
+			"kakao": "카카오톡 공유",
+			"kakaoShort": "카카오톡",
+			"copied": "링크가 복사되었습니다",
+			"copiedShort": "복사됨",
+			"pdf": "A4 PDF / 인쇄 보고서",
+			"pdfShort": "PDF",
 			"pdfLoading": "PDF 생성 중...",
-			"email": "✉️ 이메일로 정밀 보고서 받기 / 업체에 전송"
+			"email": "이메일 정밀 보고서 미리보기",
+			"emailShort": "이메일 미리보기",
+			"contact": "문의하기",
+			"contactShort": "문의",
+			"floatingAria": "보고서 빠른 작업"
+		},
+		"scrollspy": {
+			"ariaLabel": "리포트 목차",
+			"summary": "Executive Summary",
+			"scores": "5대 세부 항목 점수",
+			"pagespeed": "PageSpeed · Core Web Vitals",
+			"evidence": "기술적 증거 및 세부 내역",
+			"liveCriteria": "GEO 핵심 요구기준 비교",
+			"geoAlgorithm": "GEO 인용 알고리즘",
+			"aiSimulator": "AI 검색 추천 시뮬레이터",
+			"jsonldCode": "구조화 데이터(JSON-LD) 교정 코드",
+			"checklist": "세부 진단 체크리스트",
+			"actionable": "개선 제안 및 작업 가이드",
+			"keywordRecommend": "GEO/SEO 타깃 키워드 추천",
+			"officialTools": "공식 SEO·스키마 검증 툴"
+		},
+		"reportFooter": {
+			"ariaLabel": "사업자 정보 및 정책",
+			"brandName": "AI Studio",
+			"tagline": "AI 검색엔진 최적화(GEO) & SEO 전문 진단 솔루션",
+			"ceoLabel": "대표자명",
+			"ceo": "박성준",
+			"phoneLabel": "전화번호",
+			"phone": "010-3210-9801",
+			"bizNoLabel": "사업자등록번호",
+			"bizNo": "693-03-00235",
+			"mailOrderLabel": "통신판매업신고",
+			"mailOrder": "제 2026-부산사하-0000호",
+			"addressLabel": "주소",
+			"address": "부산광역시 사하구 구평동 서포로 30번길 이편한세상사하1차 102동 2803호",
+			"hoursLabel": "고객센터 / 상담시간",
+			"hours": "평일 09:00 ~ 18:00 (주말/공휴일 휴무)",
+			"policiesAria": "정책 및 약관",
+			"privacy": "개인정보처리방침",
+			"terms": "서비스 이용약관",
+			"emailRefusal": "이메일무단수집거부",
+			"copyright": "Copyright © REDUE AI. All rights reserved."
 		}
 	},
 	"mypage": {

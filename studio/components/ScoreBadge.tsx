@@ -20,11 +20,11 @@ export function ScoreBadge({ score, maxScore, status, statusLabel }: ScoreBadgeP
 		<div className={`flex items-center gap-5 rounded-2xl border border-white/10 ${styles.bg} px-6 py-5 ring-1 ${styles.ring}`}>
 			<div className="flex flex-col items-center justify-center rounded-xl bg-black/20 px-4 py-3">
 				<span className={`text-4xl font-extrabold tabular-nums ${styles.text}`}>{score}</span>
-				<span className="text-[11px] uppercase tracking-wide text-slate-400">/ {maxScore}점</span>
+				<span className="text-[11px] uppercase tracking-wide text-slate-400">/ {maxScore}</span>
 			</div>
 			<div>
 				<p className={`text-lg font-bold ${styles.text}`}>{statusLabel}</p>
-				<p className="text-sm text-slate-400">REDUE AI SEO &amp; GEO Studio 진단 점수 ({score}점)</p>
+				<p className="text-sm text-slate-400">REDUE AI SEO &amp; GEO Studio 진단 점수 ({score})</p>
 			</div>
 		</div>
 	);

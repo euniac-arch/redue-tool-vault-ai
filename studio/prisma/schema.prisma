@@ -141,7 +141,114 @@ model AuditLead {
   statusLabel String
   reportJson  String
   userId      String? // set when the visitor was already signed in
+  projectId   String? // optional link to admin Project workspace
   createdAt   DateTime @default(now())
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+}
+
+/// Admin project workspace (ported from redue-seo-inspector-ai projects table).
+model Project {
+  id                String   @id @default(cuid())
+  name              String
+  targetUrl         String
+  cmsType           String   @default("UNKNOWN")
+  category          String   @default("SOLUTIONS") // MEDICAL | CORPORATE | COMMERCE | PUBLIC | SOLUTIONS
+  status            String   @default("ACTIVE") // ACTIVE | ARCHIVED
+  thumbnailUrl      String?
+  latestScore       Int?
+  latestSeoScore    Int?
+  latestGeoScore    Int?
+  latestSchemaScore Int?
+  latestAuditId     String?
+  auditCount        Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  auditLeads AuditLead[]
+}
+
+/// Admin crawling collected sites (해외 확장 대비: country / region / industry / targetTag).
+model CrawledSite {
+  id          String   @id @default(cuid())
+  url         String
+  siteName    String
+  /// KR | US | JP | GLOBAL
+  country     String   @default("KR")
+  /// e.g. "부산", "부산 해운대구", "California"
+  region      String?
+  /// MEDICAL_CLINIC | LODGING_TRAVEL | PROFESSIONAL_LEGAL | MANUFACTURING_B2B | COMMERCE | EDUCATION_WEDDING | OTHER
+  category    String   @default("OTHER")
+  /// NEW_PROSPECT | EXISTING_CLIENT | COMPETITOR
+  targetTag   String?
+  /// PENDING | ANALYZING | DONE | FAILED
+  status      String   @default("PENDING")
+  /// success | warning | failed — 수집 품질 배지용 (optional)
+  collectStatus String?
+  menuPath    String?
+  title       String?
+  snippet     String?
+  errorMessage String?
+  crawledAt   DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([country, region])
+  @@index([category])
+  @@index([targetTag])
+  @@index([status])
+  @@index([crawledAt])
+}
+
+/// Unique-by-root-domain lead store. searchKeywords is a JSON string array
+/// (SQLite has no native scalar lists / enums).
+/// status: PENDING | DIAGNOSED | CONTACTED | EXCLUDED
+model TargetSite {
+  id             String   @id @default(cuid())
+  /// Normalized root domain (eTLD+1), e.g. "example.co.jp"
+  domain         String   @unique
+  originalUrl    String
+  status         String   @default("PENDING")
+  /// JSON string[] of search keywords that surfaced this domain
+  searchKeywords String   @default("[]")
+  /// Representative email extracted from homepage / contact pages
+  email          String?
+  /// Contact-form page URL when no email was found
+  contactFormUrl String?
+  /// Representative phone (tel: href / footer)
+  phoneNumber    String?
+  /// Canonical business address (homepage / footer / contact / JSON-LD)
+  address        String?
+  /// KakaoTalk channel or open-chat URL (pf.kakao.com / open.kakao.com)
+  kakaoChannelUrl String?
+  /// Instagram profile URL
+  instagramUrl   String?
+  /// Naver TalkTalk URL (talk.naver.com)
+  naverTalkUrl   String?
+  /// Google rating (Places / later enrichment)
+  googleRating   Float?
+  /// Google review count
+  googleReviewCount Int?
+  /// Last successful HTML fetch + email/form parse
+  lastScrapedAt  DateTime?
+  /// Company address snippet extracted from homepage / footer / contact / about
+  parsedAddress  String?
+  /// True when address could not be parsed — keep the lead, flag for admin review
+  checkLocationNeeded Boolean @default(false)
+  /// Precision SEO/GEO diagnosis JSON (AuditReport)
+  diagnosisReport String?
+  diagnosedAt     DateTime?
+  /// Firestore audit_projects / Prisma AuditLead id for /audit/result?id=
+  auditLeadId     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  lastSearchedAt DateTime @default(now())
+
+  @@index([status])
+  @@index([lastSearchedAt])
+  @@index([lastScrapedAt])
+  @@index([phoneNumber])
+  @@map("target_sites")
 }
 
 // External developer PaaS API (Step 8) — a user can mint one or more secret

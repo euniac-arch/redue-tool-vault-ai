@@ -4,7 +4,14 @@
  */
 
 import { extractOfficialBrandName, looksLikeKeywordBrand } from '@/lib/audit/brand-name';
+import {
+	buildCoreChecklistSummaryText,
+	buildCoreTechnicalFailsFromReport,
+} from '@/lib/audit/core-checklist';
+import { buildExternalReputationFromFails, type GeoExternalReputationReport } from '@/lib/audit/geo-score';
 import type { AuditCheckItem, AuditReport } from '@/lib/site-auditor';
+
+export { buildCoreTechnicalFailsFromReport };
 
 export interface GeoNarrativeBenefit {
 	title: string;
@@ -36,6 +43,8 @@ export interface GeoNarrativeReport {
 	aiSimulator: GeoNarrativeAiSimulator;
 	/** Echo of evidence used (for UI/debug). */
 	technicalFails?: string[];
+	/** AI external-reputation & GEO score panel — always populated (LLM-enriched or heuristic fallback). */
+	externalReputation?: GeoExternalReputationReport;
 }
 
 export interface GeoNarrativeRequest {
@@ -55,8 +64,20 @@ export interface GeoNarrativeRequest {
 
 export { extractOfficialBrandName } from '@/lib/audit/brand-name';
 
-/** Build evidence lines that mirror the Technical Evidence / checklist UI. */
-export function buildTechnicalFailsFromReport(report: AuditReport): string[] {
+/**
+ * Evidence lines for GEO narrative — bound 1:1 to the live SEO/GEO 6-core checklist
+ * (Canonical, Heading, Script Defer, NewsArticle, FAQPage, Image Alt).
+ * Only 🔴 (fail/warning) items are included; never invents stale "JSON-LD blocks = 0" when badges are 🟢.
+ */
+export function buildTechnicalFailsFromReport(
+	report: AuditReport,
+	lang: 'ko' | 'en' = 'ko',
+): string[] {
+	return buildCoreTechnicalFailsFromReport(report, lang);
+}
+
+/** @deprecated Prefer buildTechnicalFailsFromReport — kept for broader technical evidence dumps. */
+export function buildAllTechnicalFailsFromReport(report: AuditReport): string[] {
 	const m = report.metrics;
 	const checks: AuditCheckItem[] = report.checklist?.length
 		? report.checklist
@@ -129,6 +150,24 @@ export function buildTechnicalFailsFromReport(report: AuditReport): string[] {
 			case 'og-tags':
 				push('Open Graph tags incomplete');
 				break;
+			case 'render-blocking':
+				push(
+					typeof m?.renderBlockingScripts === 'number'
+						? `Render-blocking scripts = ${m.renderBlockingScripts}`
+						: 'Render-blocking scripts present',
+				);
+				break;
+			case 'image-alt':
+				push(
+					typeof m?.imageAltCoveragePct === 'number'
+						? `Image alt coverage = ${m.imageAltCoveragePct}%`
+						: 'Image alt text incomplete',
+				);
+				break;
+			case 'heading-skip':
+			case 'heading-structure':
+				push('Heading hierarchy gaps (H1–H4)');
+				break;
 			default: {
 				const evidence = check.evidence?.replace(/\s+/g, ' ').trim();
 				const label = check.label?.replace(/\s+/g, ' ').trim();
@@ -139,13 +178,6 @@ export function buildTechnicalFailsFromReport(report: AuditReport): string[] {
 				}
 			}
 		}
-	}
-
-	if (m) {
-		if (m.h1Count === 0) push('No <h1> tag detected');
-		if (!m.metaDescriptionLength) push('Meta description missing');
-		if (!m.jsonLdBlockCount) push('JSON-LD blocks = 0');
-		if (!m.schemaTypes?.length) push('No Schema.org types detected');
 	}
 
 	return lines.slice(0, 16);
@@ -160,26 +192,34 @@ Your task is to analyze the client's actual technical fail evidence and generate
    - Medical/Dental: MUST use ["Dentist","MedicalClinic","FAQPage"] or ["Hospital","MedicalBusiness","FAQPage"] or ["Dentist","MedicalCondition","Person"]. NEVER use "Article" or "NewsArticle" as the primary schema for hospitals/clinics.
    - E-commerce: ["Product","Offer","AggregateRating"]
    - B2B/Corporate: ["Organization","Service","FAQPage"]
-3. EVIDENCE-BASED ANALYSIS: The "beforeImpact", "beforeAnswer", and each impactItems[].currentIssue MUST explicitly reference the actual technicalFails provided (e.g., mention that "H1 tag missing" or "JSON-LD blocks = 0" is the direct reason AI engines cannot index their treatments/services).
+3. EVIDENCE-BASED ANALYSIS (6-CORE CHECKLIST ONLY):
+   - technicalFails lists ONLY 🔴 items from the live 6-core checklist: Canonical, Heading hierarchy, Render-blocking scripts, NewsArticle/Article, FAQPage, Image Alt.
+   - "beforeImpact", "beforeAnswer", and each impactItems[].currentIssue MUST cite ONLY those listed technicalFails. NEVER invent stale fails such as "JSON-LD blocks = 0", "Meta description missing", or "Open Graph incomplete" unless they appear in technicalFails.
+   - If technicalFails is empty (all 6 items 🟢): beforeImpact MUST be an After-success report (confirm structured data / FAQPage / NewsArticle / SEO essentials are fully applied; brand is favorable for AI answer-card citation). beforeAnswer may briefly note the brand is already structured; do NOT invent defects.
 4. IMPACT ITEMS (Before–After channels) — CRITICAL:
-   - Analyze crawled evidence (Meta tags, Canonical, Schema.org/JSON-LD, Open Graph, LCP/speed, robots/AI bots, E-E-A-T/Person, etc.).
-   - Select ONLY channels where a real defect was found. Exclude healthy channels entirely.
-   - Produce between 2 and 5 items (never fewer than 2, never more than 5).
+   - Select ONLY channels matching a real defect in technicalFails. Exclude healthy channels entirely.
+   - When technicalFails is empty: return 2 maintenance/upside impactItems focused on keeping the healthy state (no fabricated current defects).
+   - Otherwise produce between 2 and 5 items (never fewer than 2, never more than 5).
    - Each item is a 1:1 cause→solution pair:
-     * currentIssue = diagnosed technical defect + business harm (e.g. "Schema.org 미비로 AI 크롤러 거부", "OG 태그 누락으로 메신저 공유 시 브랜드 신뢰도 하락", "Canonical URL 불일치로 구글 검색색인 탈락").
-     * improvedState = concrete upside AFTER schema·E-E-A-T hardening / technical SEO fix, with top-visibility signals (e.g. "MedicalBusiness/FAQ 스키마 적용으로 Perplexity 정답 카드 인용률 300% 상승", "맞춤 OG 썸네일로 카카오톡 공유 클릭률 증대").
-   - channelTitle must name the affected surface (e.g. "구글 검색 / Canonical", "AI 검색 · Schema.org", "소셜/OG 공유", "페이지 속도·LCP", "E-E-A-T / Person").
+     * currentIssue = diagnosed technical defect + business harm tied to a listed fail.
+     * improvedState = concrete upside AFTER the fix, with top-visibility signals.
+   - channelTitle must name the affected surface (e.g. "구글 검색 / Canonical", "AI 검색 · FAQPage", "온페이지 / Heading", "페이지 속도 / Defer", "이미지 / Alt").
 5. NO DUPLICATE SENTENCES: Every section must contain distinct, unique, and professional prose. Avoid generic repetitive phrases.
-6. OUTPUT: Return ONLY valid JSON. No markdown fences.`;
+6. OUTPUT: Return ONLY valid JSON. No markdown fences.
+
+[Canonical URL 정합성 평가 가이드라인]
+- 수집된 Canonical URL이 마크다운 링크 형식이거나 HTML 태그 형태일 경우, 표기 형식이 아닌 실제 도메인 주소(Protocol + Host + Path + Query)만을 추출하여 평가하세요.
+- 대상 페이지의 URL과 수집된 Canonical URL이 실질적으로 동일한 페이지를 가리키고 있다면(예: [https://koreaionlab.co.kr/](https://koreaionlab.co.kr/) 와 [https://koreaionlab.co.kr](https://koreaionlab.co.kr)), 단순 슬래시 / 유무나 문자열 변환 표시 형태에 상관없이 반드시 🟢 PASS (정상)로 판정하세요.
+- Canonical URL이 정상 검출되었음에도 단순 표기 문제로 🔴 개선 필요 경고를 출력해서는 안 됩니다. 실질 URL이 일치하면 technicalFails의 Canonical 항목은 무시하고 healthy channel로 취급하며, impactItems에 Canonical 결함으로 넣지 마세요.`;
 
 export function buildUserPrompt(input: GeoNarrativeRequest): string {
 	const lang = input.lang === 'en' ? 'en' : 'ko';
 	const technicalFails =
 		(input.technicalFails?.length ? input.technicalFails : input.failItems)?.slice(0, 16) ?? [];
-	const failList =
-		technicalFails.length > 0
-			? technicalFails.map((f, i) => `${i + 1}. ${f}`).join('\n')
-			: '(none listed — still write a conservative GEO persuasion report)';
+	const allCoreHealthy = technicalFails.length === 0;
+	const failList = allCoreHealthy
+		? '(none — all 6 core checklist items are 🟢 PASS. Write an After SUCCESS beforeImpact. Do NOT invent JSON-LD/Meta/OG failures.)'
+		: technicalFails.map((f, i) => `${i + 1}. ${f}`).join('\n');
 
 	const preBrand = extractOfficialBrandName(input.siteTitle || '', input.domain, input.brandName);
 
@@ -195,7 +235,8 @@ Website context (from live crawl — treat as ground truth):
 - category/service hint: ${input.category || '(unknown)'}
 - location hint: ${input.broadLocation || input.location || '(unknown)'}
 
-technicalFails from the live Technical Evidence audit (MUST cite these in beforeImpact, beforeAnswer, and impactItems.currentIssue):
+technicalFails = 🔴 items ONLY from the live 6-core checklist (Canonical / Heading / Script Defer / NewsArticle / FAQPage / Image Alt).
+Cite ONLY these in beforeImpact, beforeAnswer, and impactItems.currentIssue. Never invent unlisted fails:
 ${failList}
 
 Required JSON shape:
@@ -203,12 +244,16 @@ Required JSON shape:
   "brandName": "official clinic/company name only — NOT SEO keywords",
   "industry": "auto-classified industry label",
   "recommendedSchemas": ["Type1", "Type2", "Type3"],
-  "beforeImpact": "exactly 2 sentences; must name 1-2 concrete technicalFails and the business loss for this industry",
+  "beforeImpact": "${
+		allCoreHealthy
+			? 'exactly 2 sentences of After SUCCESS copy — confirm JSON-LD/FAQPage/NewsArticle/SEO essentials are fully applied; brand is favorable for AI answer-card citation. NEVER mention JSON-LD blocks = 0 or other defects'
+			: 'exactly 2 sentences; name ONLY the listed technicalFails (comma-join when multiple) and the business loss for this industry'
+	}",
   "impactItems": [
     {
       "id": "stable-kebab-id",
       "channelTitle": "affected channel label (e.g. Google Search / Canonical)",
-      "currentIssue": "diagnosed defect + business harm tied to a real technicalFail",
+      "currentIssue": "diagnosed defect + business harm tied to a real technicalFail (or maintenance note if all healthy)",
       "improvedState": "1:1 after-state upside after schema·E-E-A-T / technical SEO fix with a concrete top-visibility signal"
     }
   ],
@@ -219,7 +264,11 @@ Required JSON shape:
   ],
   "aiSimulator": {
     "searchQuery": "realistic ChatGPT/Perplexity query a local customer would type (may include location + treatment, NOT the brand)",
-    "beforeAnswer": "AI answer BEFORE GEO — must explain non-citation using specific technicalFails; do NOT present the brand as a source",
+    "beforeAnswer": "${
+			allCoreHealthy
+				? 'brief note that the brand is already structured for citation — do NOT invent defects'
+				: 'AI answer BEFORE GEO — must explain non-citation using specific listed technicalFails; do NOT present the brand as a source'
+		}",
     "afterAnswer": "AI answer AFTER GEO — cite brandName (${preBrand}) as the top answer card using the recommendedSchemas"
   }
 }
@@ -227,8 +276,9 @@ Required JSON shape:
 Hard constraints:
 - brandName must equal or closely match preComputedBrandName ("${preBrand}"). Never output keyword phrases like "임플란트 잘하는 곳".
 - recommendedSchemas length must be exactly 3.
-- beforeImpact / beforeAnswer must quote or paraphrase at least two technicalFails when available.
-- impactItems MUST contain 2–5 objects ONLY for channels with real defects in technicalFails (Meta, Canonical, Schema.org, Open Graph, LCP/speed, robots/AI bots, E-E-A-T, etc.). Skip healthy channels. Never invent defects not supported by evidence.
+- When technicalFails is non-empty: beforeImpact / beforeAnswer must quote or paraphrase ONLY those fails (never invent extras).
+- When technicalFails is empty: beforeImpact MUST be success/After copy with zero defect language.
+- impactItems MUST contain 2–5 objects ONLY for channels with real defects in technicalFails (or maintenance upsides if empty). Never invent defects not supported by evidence.
 - Each impactItems entry: currentIssue = cause/harm; improvedState = matching post-fix benefit with ranking/citation signal. ids must be unique kebab-case.
 - afterBenefits titles must all be different.
 - Do not wrap JSON in markdown.`;
@@ -248,6 +298,32 @@ function asBenefit(value: unknown, index: number): GeoNarrativeBenefit {
 		title: `Benefit ${index + 1}`,
 		body: 'GEO optimization strengthens AI citation and search visibility for this business.',
 	};
+}
+
+/** Lenient shape check for a future LLM-provided externalReputation block; falls back to heuristic when invalid. */
+function asExternalReputation(value: unknown): GeoExternalReputationReport | null {
+	if (!value || typeof value !== 'object') return null;
+	const obj = value as Record<string, unknown>;
+	const overview = obj.overview as Record<string, unknown> | undefined;
+	const aiEngines = obj.aiEngines;
+	const brandTrust = obj.brandTrust;
+	const digitalFootprint = obj.digitalFootprint;
+	const actionPlan = obj.actionPlan;
+	if (
+		!overview ||
+		typeof overview.score !== 'number' ||
+		!Array.isArray(aiEngines) ||
+		aiEngines.length < 3 ||
+		!brandTrust ||
+		typeof brandTrust !== 'object' ||
+		!digitalFootprint ||
+		typeof digitalFootprint !== 'object' ||
+		!Array.isArray(actionPlan) ||
+		actionPlan.length === 0
+	) {
+		return null;
+	}
+	return obj as unknown as GeoExternalReputationReport;
 }
 
 function slugId(raw: string, fallback: string): string {
@@ -363,7 +439,20 @@ export function buildImpactItemsFromFails(
 		);
 	}
 
-	if (has('json-ld', 'schema.org', 'organization', 'faqpage', 'article', 'website', 'newsarticle', 'person')) {
+	if (
+		has(
+			'json-ld',
+			'schema.org',
+			'organization',
+			'faqpage',
+			'faq',
+			'article',
+			'website',
+			'newsarticle',
+			'person',
+			'스키마',
+		)
+	) {
 		items.push(
 			lang === 'en'
 				? {
@@ -469,7 +558,20 @@ export function buildImpactItemsFromFails(
 		);
 	}
 
-	if (has('ttfb', 'page weight', 'lcp', 'render-blocking', 'response time', '속도', '용량')) {
+	if (
+		has(
+			'ttfb',
+			'page weight',
+			'lcp',
+			'render-blocking',
+			'render blocking',
+			'response time',
+			'속도',
+			'용량',
+			'렌더링 차단',
+			'렌더 차단',
+		)
+	) {
 		items.push(
 			lang === 'en'
 				? {
@@ -491,7 +593,7 @@ export function buildImpactItemsFromFails(
 		);
 	}
 
-	if (has('h1', 'heading')) {
+	if (has('h1', 'heading', '헤딩')) {
 		items.push(
 			lang === 'en'
 				? {
@@ -513,11 +615,72 @@ export function buildImpactItemsFromFails(
 		);
 	}
 
+	if (has('image alt', 'alt text', 'alt 텍스트', '이미지 alt')) {
+		items.push(
+			lang === 'en'
+				? {
+						id: 'image-alt',
+						channelTitle: 'Images / Alt',
+						currentIssue:
+							'Incomplete image alt text — AI and search miss visual context for citation.',
+						improvedState:
+							'Full alt coverage lets multimodal and search results surface branded imagery with the answer.',
+					}
+				: {
+						id: 'image-alt',
+						channelTitle: '이미지 / Alt',
+						currentIssue:
+							'이미지 alt 텍스트 미흡으로 AI·검색이 시각 콘텐츠 맥락을 수집하지 못합니다.',
+						improvedState:
+							'alt 커버리지 확보 후 멀티모달·검색 결과가 브랜드 이미지를 함께 노출합니다.',
+					},
+		);
+	}
+
 	const unique = items.filter(
 		(item, idx, arr) => arr.findIndex((x) => x.id === item.id) === idx,
 	);
 	const sliced = unique.slice(0, 5);
 	if (sliced.length >= 2) return sliced;
+
+	/** All 6-core healthy — maintenance upsides only (never invent JSON-LD/Meta defects). */
+	if (fails.length === 0) {
+		return lang === 'en'
+			? [
+					{
+						id: 'maintain-schema',
+						channelTitle: 'AI Search · Schema readiness',
+						currentIssue:
+							'Core schema and SEO essentials already pass — the risk is drift if markup is removed or diluted.',
+						improvedState: `${schemaHint} maintenance keeps Perplexity/ChatGPT answer-card citations stable.`,
+					},
+					{
+						id: 'maintain-canonical',
+						channelTitle: 'Google Search / Canonical',
+						currentIssue:
+							'Canonical and crawl signals are healthy — keep a single authoritative URL as content expands.',
+						improvedState:
+							'Stable canonical + schema lock-in preserves top-SERP eligibility and rich-result eligibility.',
+					},
+				]
+			: [
+					{
+						id: 'maintain-schema',
+						channelTitle: 'AI 검색 · 스키마 유지',
+						currentIssue:
+							'필수 스키마·SEO 항목이 이미 통과한 상태입니다. 마크업이 제거·희석되면 인용 신호가 약해질 수 있습니다.',
+						improvedState: `${schemaHint} 유지 시 Perplexity/ChatGPT 정답 카드 인용이 안정적으로 지속됩니다.`,
+					},
+					{
+						id: 'maintain-canonical',
+						channelTitle: '구글 검색 / Canonical',
+						currentIssue:
+							'Canonical·크롤 신호가 정상입니다. 콘텐츠 확장 시에도 단일 정규 URL을 유지해야 합니다.',
+						improvedState:
+							'안정적 Canonical과 스키마 정합으로 상위권·리치결과 자격이 유지됩니다.',
+					},
+				];
+	}
 
 	const defaults = getDefaultImpactItems(lang);
 	if (sliced.length === 1) return [sliced[0]!, defaults[1]!].slice(0, 2);
@@ -571,7 +734,14 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 		: {}) as Record<string, unknown>;
 
 	const fails = (input.technicalFails?.length ? input.technicalFails : input.failItems) ?? [];
-	const failHint = fails.slice(0, 2).join(', ') || 'structured data gaps';
+	const allCoreHealthy = fails.length === 0;
+	const failHint = fails.slice(0, 2).join(', ');
+	const successBeforeImpact = buildCoreChecklistSummaryText({
+		items: [],
+		brandName,
+		industry,
+		lang,
+	});
 
 	const parsedImpact = Array.isArray(obj.impactItems)
 		? obj.impactItems
@@ -589,27 +759,55 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 			? dedupedImpact.slice(0, 5)
 			: buildImpactItemsFromFails(fails, schemas, lang);
 
+	const externalReputation =
+		asExternalReputation(obj.externalReputation) ??
+		buildExternalReputationFromFails(
+			{
+				domain,
+				technicalFails: fails,
+				brandName,
+				category: input.category,
+				broadLocation: input.broadLocation || input.location,
+			},
+			lang,
+		);
+
+	const llmBefore = String(obj.beforeImpact ?? '').trim();
+	const beforeImpact = allCoreHealthy
+		? llmBefore && !/json-ld blocks\s*=\s*0|미검출|missing|누락|결함|fail/i.test(llmBefore)
+			? llmBefore
+			: successBeforeImpact
+		: llmBefore ||
+			(lang === 'en'
+				? `Live audit found ${failHint}, so AI engines cannot fully collect and cite ${brandName}'s ${industry}. Fixing the weak items strengthens top answer-card exposure and inquiry inflow.`
+				: `실측 진단에서 ${failHint} 항목이 확인되어 AI 검색엔진이 ${brandName}의 ${industry}를 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`);
+
 	return {
 		brandName,
 		industry,
 		recommendedSchemas: schemas,
-		beforeImpact:
-			String(obj.beforeImpact ?? '').trim() ||
-			`현재 ${domain}은(는) ${failHint} 결함으로 AI 검색엔진이 진료/서비스 정보를 구조적으로 수집하지 못합니다. 그 결과 ${brandName}이(가) ChatGPT·Perplexity 정답 카드에서 제외되고 경쟁 유입이 유실됩니다.`,
+		beforeImpact,
 		impactItems,
 		afterBenefits,
 		aiSimulator: {
 			searchQuery:
 				String(sim.searchQuery ?? '').trim() ||
 				'이 분야에서 믿을 수 있는 추천 업체/사이트 알려줘',
-			beforeAnswer:
-				String(sim.beforeAnswer ?? '').trim() ||
-				`기술 결함(${failHint}) 때문에 공식 브랜드 출처 배지 없이 포털·디렉터리 결과만 인용됩니다. ${brandName}은(는) 등장하지 않습니다.`,
+			beforeAnswer: allCoreHealthy
+				? String(sim.beforeAnswer ?? '').trim() ||
+					(lang === 'en'
+						? `${brandName} already shows strong structured signals and can appear as a citable source in AI answers.`
+						: `${brandName}은(는) 구조화 신호가 확보되어 AI 답변에서 인용 가능한 출처로 인식될 수 있는 상태입니다.`)
+				: String(sim.beforeAnswer ?? '').trim() ||
+					(lang === 'en'
+						? `Technical gaps (${failHint}) leave only directories/directory citations without an official brand source badge. ${brandName} does not appear.`
+						: `기술 결함(${failHint}) 때문에 공식 브랜드 출처 배지 없이 포털·디렉터리 결과만 인용됩니다. ${brandName}은(는) 등장하지 않습니다.`),
 			afterAnswer:
 				String(sim.afterAnswer ?? '').trim() ||
 				`공식 스키마 기준 최우선 추천은 ${brandName}(${domain})입니다. ${schemas[0]}·FAQPage 신호로 상단 정답 카드에 인용됩니다.`,
 		},
 		technicalFails: fails,
+		externalReputation,
 	};
 }
 
@@ -659,8 +857,21 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 		schemas = ['Organization', 'Service', 'FAQPage'];
 	}
 
-	const failA = fails[0] || 'JSON-LD blocks = 0';
-	const failB = fails[1] || 'FAQPage schema missing';
+	const allCoreHealthy = fails.length === 0;
+	const failA = fails[0];
+	const failB = fails[1];
+	const issueList = fails.join(', ');
+
+	const beforeImpact = allCoreHealthy
+		? buildCoreChecklistSummaryText({
+				items: [],
+				brandName: brand,
+				industry,
+				lang,
+			})
+		: lang === 'en'
+			? `Live audit found ${issueList}, which constrains AI search engines from fully collecting and citing ${brand}'s ${industry}. Strengthening the weak items is needed to improve top answer-card exposure and inquiry inflow.`
+			: `실측 진단에서 ${issueList} 항목이 확인되어 AI 검색엔진이 ${brand}의 ${industry}를 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`;
 
 	const impactItems = buildImpactItemsFromFails(fails, schemas, lang);
 
@@ -670,27 +881,44 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 				brandName: brand,
 				industry,
 				recommendedSchemas: schemas,
-				beforeImpact: `Because the live audit found “${failA}” and “${failB}”, AI engines cannot reliably parse ${brand}'s ${industry} offerings. Competitors with complete schema keep winning the top answer card.`,
+				beforeImpact,
 				impactItems,
-				afterBenefits: [
-					{
-						title: 'Repair citation blockers',
-						body: `Fixing ${failA} restores a crawlable topical signal so ChatGPT/Perplexity can understand ${brand}.`,
-					},
-					{
-						title: 'Industry schema lock-in',
-						body: `Deploying ${schemas.join(' / ')} maps ${brand} as the canonical ${category} entity for ${locPrefix}queries.`,
-					},
-					{
-						title: 'Own the answer card',
-						body: `With FAQPage + entity markup, ${brand} becomes the cited source instead of directories.`,
-					},
-				],
+				afterBenefits: allCoreHealthy
+					? [
+							{
+								title: 'Maintain citation readiness',
+								body: `${brand} already clears the six essentials — keep schema and crawl signals fresh so ChatGPT/Perplexity keep citing it.`,
+							},
+							{
+								title: 'Industry schema lock-in',
+								body: `Deploying ${schemas.join(' / ')} maps ${brand} as the canonical ${category} entity for ${locPrefix}queries.`,
+							},
+							{
+								title: 'Own the answer card',
+								body: `With FAQPage + entity markup, ${brand} remains the cited source instead of directories.`,
+							},
+						]
+					: [
+							{
+								title: 'Repair citation blockers',
+								body: `Fixing ${failA} restores a crawlable topical signal so ChatGPT/Perplexity can understand ${brand}.`,
+							},
+							{
+								title: 'Industry schema lock-in',
+								body: `Deploying ${schemas.join(' / ')} maps ${brand} as the canonical ${category} entity for ${locPrefix}queries.`,
+							},
+							{
+								title: 'Own the answer card',
+								body: `With FAQPage + entity markup, ${brand} becomes the cited source instead of directories.`,
+							},
+						],
 				aiSimulator: {
 					searchQuery: loc
 						? `Across ${loc}, who is the most trustworthy ${category} provider with strong reviews?`
 						: `Recommend a trustworthy ${category} clinic or company.`,
-					beforeAnswer: `I can only surface generic directories because the site shows “${failA}” and “${failB}”. ${brand} is not cited as an official source.`,
+					beforeAnswer: allCoreHealthy
+						? `${brand} already shows strong structured signals and can appear as a citable source in AI answers.`
+						: `I can only surface generic directories because the site shows “${failA}”${failB ? ` and “${failB}”` : ''}. ${brand} is not cited as an official source.`,
 					afterAnswer: `The top verified recommendation is ${brand} (${domain}). ${schemas[0]} + FAQPage signals place it in the primary answer card.`,
 				},
 			},
@@ -703,27 +931,44 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 			brandName: brand,
 			industry,
 			recommendedSchemas: schemas,
-			beforeImpact: `실측 진단에서 “${failA}”, “${failB}”가 확인되어 AI 검색엔진이 ${brand}의 ${industry} 정보를 구조적으로 수집·인용하지 못합니다. 이 상태에서는 ChatGPT·Perplexity 상단 정답 카드가 경쟁사·포털로 넘어가 신규 상담 유입이 유실됩니다.`,
+			beforeImpact,
 			impactItems,
-			afterBenefits: [
-				{
-					title: '실측 결함 해소로 인용 재개',
-					body: `${failA} 문제를 바로잡으면 AI가 ${brand}의 핵심 서비스/진료 주제를 파싱할 수 있는 최소 조건이 복구됩니다.`,
-				},
-				{
-					title: '업종 스키마 정합 매칭',
-					body: `${schemas.join(' / ')} 적용 시 ${locPrefix}${category} 질의에서 ${brand}이(가) 지식 그래프 엔티티로 우선 매칭됩니다.`,
-				},
-				{
-					title: '정답 카드 선점',
-					body: `FAQPage와 공식 상호 스키마가 결합되면 ${brand}이(가) 디렉터리가 아닌 최상위 Source로 인용됩니다.`,
-				},
-			],
+			afterBenefits: allCoreHealthy
+				? [
+						{
+							title: '인용 준비 상태 유지',
+							body: `${brand}은(는) 필수 6대 항목을 통과한 상태입니다. 스키마·크롤 신호를 유지하면 ChatGPT·Perplexity 인용이 지속됩니다.`,
+						},
+						{
+							title: '업종 스키마 정합 매칭',
+							body: `${schemas.join(' / ')} 적용 시 ${locPrefix}${category} 질의에서 ${brand}이(가) 지식 그래프 엔티티로 우선 매칭됩니다.`,
+						},
+						{
+							title: '정답 카드 선점',
+							body: `FAQPage와 공식 상호 스키마가 결합되면 ${brand}이(가) 디렉터리가 아닌 최상위 Source로 인용됩니다.`,
+						},
+					]
+				: [
+						{
+							title: '실측 결함 해소로 인용 재개',
+							body: `${failA} 문제를 바로잡으면 AI가 ${brand}의 핵심 서비스/진료 주제를 파싱할 수 있는 최소 조건이 복구됩니다.`,
+						},
+						{
+							title: '업종 스키마 정합 매칭',
+							body: `${schemas.join(' / ')} 적용 시 ${locPrefix}${category} 질의에서 ${brand}이(가) 지식 그래프 엔티티로 우선 매칭됩니다.`,
+						},
+						{
+							title: '정답 카드 선점',
+							body: `FAQPage와 공식 상호 스키마가 결합되면 ${brand}이(가) 디렉터리가 아닌 최상위 Source로 인용됩니다.`,
+						},
+					],
 			aiSimulator: {
 				searchQuery: loc
 					? `${loc} 전체에서 ${category} 과잉진료 없고 후기 좋은 추천 알려줘. 믿을 만한 곳 어디야?`
 					: `${category} 관련해서 가장 평가 좋은 대표 추천 알려줘.`,
-				beforeAnswer: `현재 사이트에 “${failA}”, “${failB}” 결함이 있어 공식 출처 배지 없이 포털·블로그만 인용됩니다. ${brand}은(는) 정답 카드에 등장하지 않습니다.`,
+				beforeAnswer: allCoreHealthy
+					? `${brand}은(는) 구조화 신호가 확보되어 AI 답변에서 인용 가능한 출처로 인식될 수 있는 상태입니다.`
+					: `현재 사이트에 “${failA}”${failB ? `, “${failB}”` : ''} 결함이 있어 공식 출처 배지 없이 포털·블로그만 인용됩니다. ${brand}은(는) 정답 카드에 등장하지 않습니다.`,
 				afterAnswer: `공식 스키마 기준 최우선 추천은 ${brand}(${domain})입니다. ${schemas[0]}·FAQPage 신호로 상단 정답 카드에 인용됩니다.`,
 			},
 		},

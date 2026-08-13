@@ -1,24 +1,73 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { HeaderAuth } from './HeaderAuth';
 import { LocaleSwitcher } from './LocaleSwitcher';
 
 const NAV_ITEMS = [
-	{ href: '/', key: 'scanner' as const },
+	{ href: '/audit', key: 'scanner' as const },
 	{ href: '/audit/history', key: 'auditHistory' as const },
+	{ href: '/geo-optimization', key: 'geoOptimization' as const },
 	{ href: '/portfolio', key: 'portfolio' as const },
-	{ href: '/enterprise', key: 'enterprise' as const },
-	{ href: '/reseller', key: 'reseller' as const },
-	{ href: '/builder/wp-plugin', key: 'wpPlugin' as const },
+	{ href: '/contact', key: 'contact' as const },
 ] as const;
 
 /** Desktop nav shows at this width and above; hamburger below it. */
 const DESKTOP_NAV_MIN = 1100;
 
+function isNavActive(pathname: string, href: string): boolean {
+	if (href === '/audit') {
+		// Scanner lives at `/` today; `/audit` redirects there. Exclude history/result siblings.
+		return pathname === '/' || pathname === '/audit' || pathname.startsWith('/audit/result');
+	}
+	if (href === '/audit/history') {
+		return pathname === '/audit/history' || pathname.startsWith('/audit/history/');
+	}
+	return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function navLinkClass(active: boolean, variant: 'desktop' | 'mobile'): string {
+	if (variant === 'desktop') {
+		return active
+			? 'text-accent-light border-b-2 border-accent pb-0.5 transition-colors hover:text-accent-light'
+			: 'border-b-2 border-transparent pb-0.5 transition-colors hover:text-white';
+	}
+	return active
+		? 'rounded-lg bg-accent/15 px-3 py-3 text-base font-semibold text-accent-light transition-colors duration-300'
+		: 'rounded-lg px-3 py-3 text-base font-semibold text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white';
+}
+
+function AdminEntryLink({
+	onNavigate,
+	className,
+}: {
+	onNavigate?: () => void;
+	className?: string;
+}) {
+	const t = useTranslations('nav');
+
+	return (
+		<a
+			href="/admin"
+			onClick={onNavigate}
+			className={
+				className ??
+				'inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent-light transition-colors hover:bg-accent/20'
+			}
+			title={t('admin')}
+		>
+			<span aria-hidden>🚀</span>
+			<span>{t('adminButton')}</span>
+		</a>
+	);
+}
+
 export function Header() {
 	const t = useTranslations('nav');
+	const pathname = usePathname() ?? '/';
 	const [isMenuOpen, setIsMenuOpen] = useState(false);
 
 	useEffect(() => {
@@ -29,12 +78,16 @@ export function Header() {
 		};
 
 		document.addEventListener('keydown', onKeyDown);
-		const previousOverflow = document.body.style.overflow;
+
+		const previousBodyOverflow = document.body.style.overflow;
+		const previousHtmlOverflow = document.documentElement.style.overflow;
 		document.body.style.overflow = 'hidden';
+		document.documentElement.style.overflow = 'hidden';
 
 		return () => {
 			document.removeEventListener('keydown', onKeyDown);
-			document.body.style.overflow = previousOverflow;
+			document.body.style.overflow = previousBodyOverflow;
+			document.documentElement.style.overflow = previousHtmlOverflow;
 		};
 	}, [isMenuOpen]);
 
@@ -50,99 +103,105 @@ export function Header() {
 	const closeMenu = () => setIsMenuOpen(false);
 
 	return (
-		<header className="print:hidden relative z-50 mb-10 w-full">
-			{/* Top bar — original brand styles (no grey/white chrome) */}
-			<div className="relative mx-auto flex w-[90%] max-w-6xl items-center justify-between gap-4">
-				<a href="/" className="relative z-10 flex shrink-0 items-center gap-2" onClick={closeMenu}>
+		<header
+			className={`print:hidden sticky top-0 w-full shrink-0 border-b border-white/[0.08] bg-[#0C0D0E]/95 backdrop-blur-md ${
+				isMenuOpen ? 'z-[9999]' : 'z-30'
+			}`}
+		>
+			{/* 3-column grid: left/right widths can change without shifting the center nav */}
+			<div className="relative z-[10000] grid h-14 w-full grid-cols-[1fr_auto_1fr] items-center gap-3 px-3 sm:px-4">
+				<Link
+					href="/"
+					className="relative z-10 col-start-1 flex min-w-0 justify-self-start items-center gap-2"
+					onClick={closeMenu}
+				>
 					<span className="rounded-lg bg-accent px-2 py-1 text-sm font-bold text-white">REDUE</span>
-					<span className="hidden text-sm font-semibold text-slate-300 min-[320px]:inline">{t('tagline')}</span>
-				</a>
+					<span className="hidden truncate text-sm font-semibold text-slate-300 min-[320px]:inline">
+						{t('tagline')}
+					</span>
+				</Link>
 
 				<nav
-					className="hidden items-center gap-5 text-sm font-semibold text-slate-400 min-[1100px]:flex"
+					className="col-start-2 hidden justify-self-center items-center gap-5 text-sm font-semibold text-slate-400 min-[1100px]:flex"
 					aria-label="Primary"
 				>
-					{NAV_ITEMS.map((item) => (
-						<a key={item.href} href={item.href} className="transition-colors hover:text-white">
-							{t(item.key)}
-						</a>
-					))}
+					{NAV_ITEMS.map((item) => {
+						const active = isNavActive(pathname, item.href);
+						return (
+							<Link
+								key={item.href}
+								href={item.href}
+								aria-current={active ? 'page' : undefined}
+								className={navLinkClass(active, 'desktop')}
+							>
+								{t(item.key)}
+							</Link>
+						);
+					})}
 				</nav>
 
-				<div className="hidden items-center gap-4 min-[1100px]:flex">
-					<LocaleSwitcher />
-					<HeaderAuth />
-				</div>
+				<div className="relative z-10 col-start-3 flex min-w-0 justify-self-end items-center gap-1.5 sm:gap-2">
+					<div className="hidden items-center gap-1.5 min-[1100px]:flex sm:gap-2">
+						<AdminEntryLink />
+						<LocaleSwitcher />
+						<HeaderAuth />
+					</div>
 
-				<button
-					type="button"
-					className="relative z-10 flex h-10 w-10 items-center justify-center rounded-lg text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white min-[1100px]:hidden"
-					aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
-					aria-expanded={isMenuOpen}
-					aria-controls="mobile-nav"
-					onClick={() => setIsMenuOpen((open) => !open)}
-				>
-					{isMenuOpen ? (
-						<svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-							<path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-						</svg>
-					) : (
-						<svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-							<path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
-						</svg>
-					)}
-				</button>
-			</div>
-
-			{/* Mobile overlay */}
-			<div
-				className={`fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 min-[1100px]:hidden ${
-					isMenuOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'
-				}`}
-				aria-hidden={!isMenuOpen}
-				onClick={closeMenu}
-			/>
-
-			{/* Mobile slide-in panel — dark page-matching surface */}
-			<div
-				id="mobile-nav"
-				className={`fixed inset-y-0 right-0 z-50 flex w-[min(100%,20rem)] flex-col border-l border-white/[0.08] bg-[#0C0D0E]/95 shadow-2xl backdrop-blur-md transition-transform duration-300 ease-out min-[1100px]:hidden ${
-					isMenuOpen ? 'translate-x-0' : 'translate-x-full'
-				}`}
-				aria-hidden={!isMenuOpen}
-			>
-				<div className="flex h-14 items-center justify-between border-b border-white/[0.08] px-5">
-					<span className="text-sm font-semibold text-slate-200">Menu</span>
 					<button
 						type="button"
-						className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-400 transition-colors duration-300 hover:bg-white/5 hover:text-white"
-						aria-label="Close menu"
-						onClick={closeMenu}
+						className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/[0.08] text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white min-[1100px]:hidden"
+						aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+						aria-expanded={isMenuOpen}
+						aria-controls="mobile-nav"
+						onClick={() => setIsMenuOpen((open) => !open)}
 					>
-						<svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
-							<path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
-						</svg>
+						{isMenuOpen ? (
+							<svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+								<path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+							</svg>
+						) : (
+							<svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden>
+								<path strokeLinecap="round" d="M4 7h16M4 12h16M4 17h16" />
+							</svg>
+						)}
 					</button>
 				</div>
+			</div>
 
-				<nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-4" aria-label="Mobile">
-					{NAV_ITEMS.map((item) => (
-						<a
-							key={item.href}
-							href={item.href}
-							onClick={closeMenu}
-							className="rounded-lg px-3 py-3 text-base font-semibold text-slate-300 transition-colors duration-300 hover:bg-white/5 hover:text-white"
-						>
-							{t(item.key)}
-						</a>
-					))}
-				</nav>
+			{/* Full-viewport mobile menu overlay (100dvh) — above share bar / result cards */}
+			<div
+				id="mobile-nav"
+				className={`mobile-menu-overlay min-[1100px]:hidden ${isMenuOpen ? 'is-open' : ''}`}
+				aria-hidden={!isMenuOpen}
+			>
+				<div className="mobile-menu-overlay__inner">
+					{/* Spacer matching sticky header so first link isn’t under the bar */}
+					<div className="h-14 shrink-0" aria-hidden />
 
-				<div className="flex flex-col gap-3 border-t border-white/[0.08] px-4 py-5">
-					<div className="flex justify-start">
-						<LocaleSwitcher />
+					<nav className="mobile-menu-overlay__nav" aria-label="Mobile">
+						{NAV_ITEMS.map((item) => {
+							const active = isNavActive(pathname, item.href);
+							return (
+								<Link
+									key={item.href}
+									href={item.href}
+									onClick={closeMenu}
+									aria-current={active ? 'page' : undefined}
+									className={navLinkClass(active, 'mobile')}
+								>
+									{t(item.key)}
+								</Link>
+							);
+						})}
+					</nav>
+
+					<div className="mobile-menu-overlay__footer">
+						<div className="flex flex-wrap items-center gap-2">
+							<AdminEntryLink onNavigate={closeMenu} />
+							<LocaleSwitcher />
+						</div>
+						<HeaderAuth stacked onNavigate={closeMenu} />
 					</div>
-					<HeaderAuth stacked onNavigate={closeMenu} />
 				</div>
 			</div>
 		</header>

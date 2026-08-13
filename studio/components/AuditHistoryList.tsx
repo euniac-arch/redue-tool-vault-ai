@@ -2,9 +2,16 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
-import { isHealthyStatus, type AuditHistoryEntry } from '@/lib/audit-history-storage';
-import type { AuditOverallStatus } from '@/lib/site-auditor';
+import {
+	isHealthyStatus,
+	notifyAuditHistorySync,
+	scanSiteOnce,
+	upsertGuestAuditOnRescan,
+	type AuditHistoryEntry,
+} from '@/lib/audit-history-storage';
+import type { AuditOverallStatus, AuditReport } from '@/lib/site-auditor';
 
 const STATUS_SCORE_COLOR: Record<AuditOverallStatus, string> = {
 	CRITICAL: 'text-rose-400',
@@ -34,17 +41,53 @@ interface AuditHistoryListProps {
 	items: AuditHistoryEntry[];
 	onDelete: (id: string) => Promise<void> | void;
 	deletingId?: string | null;
+	/** Called after a successful re-scan so the parent can refresh scores in-place. */
+	onRescanned?: (entry: AuditHistoryEntry) => void;
 }
 
-export function AuditHistoryList({ items, onDelete, deletingId = null }: AuditHistoryListProps) {
+export function AuditHistoryList({
+	items,
+	onDelete,
+	deletingId = null,
+	onRescanned,
+}: AuditHistoryListProps) {
 	const t = useTranslations('audit.history');
 	const locale = useLocale();
+	const router = useRouter();
 	const dateLocale = locale === 'en' ? 'en-US' : 'ko-KR';
 	const [confirmId, setConfirmId] = useState<string | null>(null);
+	const [rescanningId, setRescanningId] = useState<string | null>(null);
+	const [rescanError, setRescanError] = useState<string | null>(null);
 
 	async function handleDelete(id: string) {
 		await onDelete(id);
 		setConfirmId(null);
+	}
+
+	async function handleRescan(item: AuditHistoryEntry) {
+		if (rescanningId) return;
+		setRescanningId(item.id);
+		setRescanError(null);
+
+		try {
+			const data = await scanSiteOnce(item.url, locale, {
+				forceRefresh: true,
+				replaceId: item.id,
+			});
+			const { id, ...rest } = data;
+			const nextReport = rest as AuditReport;
+			const nextId = (id && String(id).trim()) || item.id;
+
+			const entry = upsertGuestAuditOnRescan(nextId, nextReport, { replaceId: item.id });
+			notifyAuditHistorySync({ ids: [nextId, item.id] });
+			onRescanned?.(entry);
+
+			router.push(`/audit/result?id=${encodeURIComponent(nextId)}&t=${Date.now()}`);
+		} catch (err) {
+			setRescanError((err as Error).message || t('rescanFailed'));
+		} finally {
+			setRescanningId(null);
+		}
 	}
 
 	return (
@@ -54,6 +97,7 @@ export function AuditHistoryList({ items, onDelete, deletingId = null }: AuditHi
 				const scoreColor = STATUS_SCORE_COLOR[item.status];
 				const isDeleting = deletingId === item.id;
 				const awaitingConfirm = confirmId === item.id;
+				const isRescanning = rescanningId === item.id;
 
 				return (
 					<li
@@ -122,6 +166,12 @@ export function AuditHistoryList({ items, onDelete, deletingId = null }: AuditHi
 							})}
 						</div>
 
+						{rescanError && !rescanningId ? (
+							<p className="text-xs text-rose-300" role="alert">
+								{rescanError}
+							</p>
+						) : null}
+
 						<div className="flex flex-wrap items-center gap-2">
 							<Link
 								href={`/audit/result?id=${encodeURIComponent(item.id)}`}
@@ -129,17 +179,29 @@ export function AuditHistoryList({ items, onDelete, deletingId = null }: AuditHi
 							>
 								{t('viewResult')}
 							</Link>
-							<Link
-								href={`/audit/result?url=${encodeURIComponent(item.url)}`}
-								className="rounded-xl border border-white/[0.08] bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10"
+							<button
+								type="button"
+								disabled={Boolean(rescanningId) || isDeleting}
+								onClick={() => void handleRescan(item)}
+								className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
 							>
-								{t('rescan')}
-							</Link>
+								{isRescanning ? (
+									<>
+										<span
+											className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-cyan-300/30 border-t-cyan-300"
+											aria-hidden
+										/>
+										<span>{t('rescanning')}</span>
+									</>
+								) : (
+									t('rescan')
+								)}
+							</button>
 							{awaitingConfirm ? (
 								<>
 									<button
 										type="button"
-										disabled={isDeleting}
+										disabled={isDeleting || Boolean(rescanningId)}
 										onClick={() => void handleDelete(item.id)}
 										className="rounded-xl border border-rose-500/50 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/30 disabled:opacity-50"
 									>
@@ -147,7 +209,7 @@ export function AuditHistoryList({ items, onDelete, deletingId = null }: AuditHi
 									</button>
 									<button
 										type="button"
-										disabled={isDeleting}
+										disabled={isDeleting || Boolean(rescanningId)}
 										onClick={() => setConfirmId(null)}
 										className="rounded-xl border border-white/[0.08] bg-white/5 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:bg-white/10 hover:text-slate-200 disabled:opacity-50"
 									>
@@ -157,7 +219,7 @@ export function AuditHistoryList({ items, onDelete, deletingId = null }: AuditHi
 							) : (
 								<button
 									type="button"
-									disabled={isDeleting}
+									disabled={isDeleting || Boolean(rescanningId)}
 									onClick={() => setConfirmId(item.id)}
 									className="rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-4 py-2 text-sm font-semibold text-rose-300 transition hover:border-rose-500/40 hover:bg-rose-500/15 disabled:opacity-50"
 								>

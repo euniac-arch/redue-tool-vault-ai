@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { SessionProvider } from 'next-auth/react';
 import type { Session } from 'next-auth';
+import { AuditPayloadProvider } from '@/components/audit/AuditPayloadProvider';
 
 /** Clear leftover service workers from other localhost apps / old PWA experiments. */
 function useClearStaleServiceWorkers() {
@@ -27,5 +28,9 @@ function useClearStaleServiceWorkers() {
 
 export function Providers({ session, children }: { session: Session | null; children: React.ReactNode }) {
 	useClearStaleServiceWorkers();
-	return <SessionProvider session={session}>{children}</SessionProvider>;
+	return (
+		<SessionProvider session={session}>
+			<AuditPayloadProvider>{children}</AuditPayloadProvider>
+		</SessionProvider>
+	);
 }

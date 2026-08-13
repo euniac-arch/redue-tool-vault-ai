@@ -131,7 +131,7 @@ a:hover {
 	padding: 32px 0;
 	border-top: 1px solid var(--tv-border);
 	color: var(--tv-text-muted);
-	font-size: 13px;
+	font-size: 15px;
 	text-align: center;
 }
 
@@ -152,7 +152,7 @@ a:hover {
 	border-radius: 999px;
 	background: var(--tv-badge-default-bg);
 	color: var(--tv-accent);
-	font-size: 12px;
+	font-size: 14px;
 	font-weight: 700;
 	letter-spacing: 0.04em;
 	text-transform: uppercase;
@@ -160,7 +160,7 @@ a:hover {
 }
 
 .hero__title {
-	font-size: 40px;
+	font-size: 42px;
 	font-weight: 800;
 	line-height: 1.25;
 	margin: 0 0 16px;
@@ -168,7 +168,7 @@ a:hover {
 }
 
 .hero__subtitle {
-	font-size: 16px;
+	font-size: 18px;
 	color: var(--tv-text-muted);
 	margin: 0;
 }
@@ -190,7 +190,7 @@ a:hover {
 }
 
 .tool-section__head h2 {
-	font-size: 22px;
+	font-size: 24px;
 	margin: 0;
 }
 
@@ -199,7 +199,7 @@ a:hover {
 }
 
 .tool-section__more {
-	font-size: 14px;
+	font-size: 16px;
 	font-weight: 600;
 	color: var(--tv-accent);
 	white-space: nowrap;
@@ -289,7 +289,7 @@ a:hover {
 	flex-shrink: 0;
 	color: #fff;
 	font-weight: 700;
-	font-size: 18px;
+	font-size: 20px;
 }
 
 .tool-card__logo img {
@@ -300,14 +300,14 @@ a:hover {
 }
 
 .tool-card__title {
-	font-size: 17px;
+	font-size: 19px;
 	font-weight: 700;
 	margin: 0 0 6px;
 	color: var(--tv-text);
 }
 
 .tool-card__tagline {
-	font-size: 13px;
+	font-size: 15px;
 	color: var(--tv-text-muted);
 	margin: 0 0 16px;
 	flex-grow: 1;
@@ -336,14 +336,14 @@ a:hover {
 }
 
 .tool-card__rating {
-	font-size: 13px;
+	font-size: 15px;
 	font-weight: 700;
 	color: #d97706;
 	white-space: nowrap;
 }
 
 .tool-card__cta {
-	font-size: 13px;
+	font-size: 15px;
 	font-weight: 600;
 	color: var(--tv-accent);
 	white-space: nowrap;
@@ -353,7 +353,7 @@ a:hover {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 6px;
-	font-size: 12px;
+	font-size: 14px;
 }
 
 /* ==========================================================================
@@ -367,7 +367,7 @@ a:hover {
 	background: var(--tv-badge-default-bg);
 	color: var(--tv-badge-default-text);
 	font-weight: 600;
-	font-size: 12px;
+	font-size: 14px;
 	white-space: nowrap;
 }
 
@@ -430,19 +430,19 @@ a:hover {
 }
 
 .tool-hero__title {
-	font-size: 30px;
+	font-size: 32px;
 	margin: 12px 0 8px;
 	letter-spacing: -0.01em;
 }
 
 .tool-hero__tagline {
-	font-size: 16px;
+	font-size: 18px;
 	color: var(--tv-text-muted);
 	margin: 0 0 12px;
 }
 
 .tool-hero__rating {
-	font-size: 14px;
+	font-size: 16px;
 	color: #d97706;
 	margin: 0;
 }
@@ -492,7 +492,7 @@ a:hover {
 }
 
 .tool-spec dt {
-	font-size: 11px;
+	font-size: 13px;
 	text-transform: uppercase;
 	letter-spacing: 0.03em;
 	color: var(--tv-text-faint);
@@ -526,7 +526,7 @@ a:hover {
 	font-weight: 700;
 	border: none;
 	cursor: pointer;
-	font-size: 15px;
+	font-size: 17px;
 	text-align: center;
 }
 
@@ -558,7 +558,7 @@ a:hover {
 	background: var(--tv-surface);
 	border: 1px solid var(--tv-border);
 	color: var(--tv-text-muted);
-	font-size: 14px;
+	font-size: 16px;
 	font-weight: 600;
 	text-decoration: none;
 }
@@ -576,7 +576,7 @@ a:hover {
 }
 
 .page-heading h1 {
-	font-size: 30px;
+	font-size: 32px;
 	margin: 0 0 8px;
 }
 
@@ -606,7 +606,7 @@ a:hover {
 	padding: 14px 18px;
 	border-radius: var(--tv-radius-sm);
 	margin-bottom: 20px;
-	font-size: 14px;
+	font-size: 16px;
 	font-weight: 600;
 }
 
@@ -637,7 +637,7 @@ a:hover {
 }
 
 .form-field label {
-	font-size: 13px;
+	font-size: 15px;
 	font-weight: 700;
 	color: var(--tv-text);
 }
@@ -662,7 +662,7 @@ a:hover {
 }
 
 .form-field__hint {
-	font-size: 12px;
+	font-size: 14px;
 	color: var(--tv-text-faint);
 	margin: 0;
 }

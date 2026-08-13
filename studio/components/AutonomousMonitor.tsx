@@ -29,7 +29,7 @@ interface StatusPayload {
 	adminAlerts: string[];
 }
 
-const KIND_STYLE: Record<string, string> = {
+const KIND_STYLE_DARK: Record<string, string> = {
 	scan: 'border-cyan-400/40 text-cyan-300',
 	change_detected: 'border-amber-400/40 text-amber-300',
 	schema_regen: 'border-violet-400/40 text-violet-300',
@@ -40,18 +40,37 @@ const KIND_STYLE: Record<string, string> = {
 	ok: 'border-white/20 text-slate-300',
 };
 
+const KIND_STYLE_LIGHT: Record<string, string> = {
+	scan: 'border-cyan-300 bg-cyan-50 text-cyan-800',
+	change_detected: 'border-amber-300 bg-amber-50 text-amber-800',
+	schema_regen: 'border-violet-300 bg-violet-50 text-violet-800',
+	inject: 'border-emerald-300 bg-emerald-50 text-emerald-800',
+	rollback: 'border-rose-300 bg-rose-50 text-rose-800',
+	notify: 'border-sky-300 bg-sky-50 text-sky-800',
+	error: 'border-rose-300 bg-rose-50 text-rose-800',
+	ok: 'border-slate-300 bg-slate-50 text-slate-700',
+};
+
 interface AutonomousMonitorProps {
 	/** When true, show "Run cron now" for admins. */
 	allowManualCron?: boolean;
 	compact?: boolean;
+	/** Admin Light Theme pages pass `"light"`; mypage keeps default dark. */
+	theme?: 'dark' | 'light';
 }
 
-export function AutonomousMonitor({ allowManualCron = false, compact = false }: AutonomousMonitorProps) {
+export function AutonomousMonitor({
+	allowManualCron = false,
+	compact = false,
+	theme = 'dark',
+}: AutonomousMonitorProps) {
 	const [data, setData] = useState<StatusPayload | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [running, setRunning] = useState(false);
 	const [cronMsg, setCronMsg] = useState<string | null>(null);
+	const light = theme === 'light';
+	const kindStyle = light ? KIND_STYLE_LIGHT : KIND_STYLE_DARK;
 
 	const load = useCallback(async () => {
 		try {
@@ -96,7 +115,7 @@ export function AutonomousMonitor({ allowManualCron = false, compact = false }: 
 	}
 
 	if (error && !data) {
-		return <p className="text-sm text-rose-400">{error}</p>;
+		return <p className={`text-sm ${light ? 'text-rose-600' : 'text-rose-400'}`}>{error}</p>;
 	}
 
 	if (!data) return null;
@@ -106,9 +125,11 @@ export function AutonomousMonitor({ allowManualCron = false, compact = false }: 
 	return (
 		<div className="flex flex-col gap-6">
 			<section
-				className={`relative overflow-hidden rounded-2xl border border-cyan-400/20 bg-gradient-to-br from-[#0a1218] via-[#0C0D0E] to-[#061018] ${
-					compact ? 'p-5' : 'p-7'
-				}`}
+				className={`relative overflow-hidden rounded-2xl border ${
+					light
+						? 'border-cyan-200 bg-gradient-to-br from-slate-900 via-slate-800 to-cyan-950'
+						: 'border-cyan-400/20 bg-gradient-to-br from-[#0a1218] via-[#0C0D0E] to-[#061018]'
+				} ${compact ? 'p-5' : 'p-7'}`}
 			>
 				<div className="pointer-events-none absolute -right-8 -top-10 h-40 w-40 rounded-full bg-cyan-400/15 blur-3xl" />
 				<div className="pointer-events-none absolute bottom-0 left-1/3 h-24 w-64 bg-cyan-500/5 blur-2xl" />
@@ -149,17 +170,20 @@ export function AutonomousMonitor({ allowManualCron = false, compact = false }: 
 
 			<section className="grid gap-3 sm:grid-cols-3">
 				<Metric
+					light={light}
 					label="자동 갱신 완료된 스키마 수"
 					value={`${stats.schemasAutoUpdated}`}
 					hint="SoftwareApplication · Article · LocalBusiness"
 				/>
 				<Metric
+					light={light}
 					label="알고리즘 대응 상태"
 					value={`${stats.algorithmUpToDatePercent}%`}
 					hint="Up-to-date"
 					accent
 				/>
 				<Metric
+					light={light}
 					label="자동 롤백"
 					value={`${stats.autoRollbacks}건`}
 					hint={`모니터링 ${stats.sitesMonitored}개 사이트`}
@@ -167,11 +191,20 @@ export function AutonomousMonitor({ allowManualCron = false, compact = false }: 
 			</section>
 
 			{adminAlerts.length > 0 && (
-				<section className="rounded-xl border border-rose-400/25 bg-rose-400/[0.05] p-4">
-					<p className="text-xs font-bold uppercase tracking-wide text-rose-300">Admin Alerts</p>
+				<section
+					className={`rounded-xl border p-4 ${
+						light ? 'border-rose-200 bg-rose-50' : 'border-rose-400/25 bg-rose-400/[0.05]'
+					}`}
+				>
+					<p className={`text-xs font-bold uppercase tracking-wide ${light ? 'text-rose-700' : 'text-rose-300'}`}>
+						Admin Alerts
+					</p>
 					<ul className="mt-2 flex flex-col gap-1">
 						{adminAlerts.slice(0, 5).map((alert) => (
-							<li key={alert} className="font-mono text-[11px] text-rose-200/90">
+							<li
+								key={alert}
+								className={`font-mono text-[11px] ${light ? 'text-rose-800' : 'text-rose-200/90'}`}
+							>
 								{alert}
 							</li>
 						))}
@@ -179,36 +212,62 @@ export function AutonomousMonitor({ allowManualCron = false, compact = false }: 
 				</section>
 			)}
 
-			<section className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-5">
+			<section
+				className={`rounded-2xl border p-5 ${
+					light ? 'border-slate-200 bg-white shadow-sm' : 'border-white/[0.08] bg-white/[0.02]'
+				}`}
+			>
 				<div className="mb-4 flex items-center justify-between">
-					<h3 className="text-sm font-bold text-white">자율 에이전트 작업 타임라인</h3>
+					<h3 className={`text-sm font-bold ${light ? 'text-slate-900' : 'text-white'}`}>
+						자율 에이전트 작업 타임라인
+					</h3>
 					<span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
 						{timeline.length} events
 					</span>
 				</div>
-				<ol className="relative flex flex-col gap-0 border-l border-cyan-400/20 pl-4">
+				<ol
+					className={`relative flex flex-col gap-0 border-l pl-4 ${
+						light ? 'border-cyan-200' : 'border-cyan-400/20'
+					}`}
+				>
 					{timeline.length === 0 ? (
 						<li className="text-xs text-slate-500">아직 실행 로그가 없습니다. 크론을 실행해 보세요.</li>
 					) : (
 						timeline.map((event) => (
 							<li key={event.id} className="relative pb-4">
-								<span className="absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border border-cyan-300/60 bg-cyan-400/40 shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+								<span
+									className={`absolute -left-[21px] top-1.5 h-2.5 w-2.5 rounded-full border ${
+										light
+											? 'border-cyan-400 bg-cyan-200'
+											: 'border-cyan-300/60 bg-cyan-400/40 shadow-[0_0_10px_rgba(34,211,238,0.5)]'
+									}`}
+								/>
 								<div className="flex flex-wrap items-center gap-2">
 									<span
 										className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-											KIND_STYLE[event.kind] ?? KIND_STYLE.ok
+											kindStyle[event.kind] ?? kindStyle.ok
 										}`}
 									>
 										{event.kind}
 									</span>
 									{event.domain && (
-										<span className="font-mono text-[11px] text-slate-400">{event.domain}</span>
+										<span className="font-mono text-[11px] text-slate-500">{event.domain}</span>
 									)}
-									<span className="text-[10px] text-slate-600">
+									<span className="text-[10px] text-slate-400">
 										{new Date(event.createdAt).toLocaleString('ko-KR')}
 									</span>
 								</div>
-								<p className={`mt-1 text-xs leading-relaxed ${event.success ? 'text-slate-300' : 'text-rose-300'}`}>
+								<p
+									className={`mt-1 text-xs leading-relaxed ${
+										event.success
+											? light
+												? 'text-slate-700'
+												: 'text-slate-300'
+											: light
+												? 'text-rose-600'
+												: 'text-rose-300'
+									}`}
+								>
 									{event.message}
 								</p>
 							</li>
@@ -225,16 +284,30 @@ function Metric({
 	value,
 	hint,
 	accent,
+	light,
 }: {
 	label: string;
 	value: string;
 	hint: string;
 	accent?: boolean;
+	light?: boolean;
 }) {
 	return (
-		<div className="rounded-xl border border-cyan-400/15 bg-cyan-400/[0.04] p-5 shadow-[inset_0_0_30px_rgba(34,211,238,0.04)]">
+		<div
+			className={`rounded-xl border p-5 ${
+				light
+					? 'border-slate-200 bg-white shadow-sm'
+					: 'border-cyan-400/15 bg-cyan-400/[0.04] shadow-[inset_0_0_30px_rgba(34,211,238,0.04)]'
+			}`}
+		>
 			<p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
-			<p className={`mt-2 text-2xl font-extrabold ${accent ? 'text-cyan-300' : 'text-white'}`}>{value}</p>
+			<p
+				className={`mt-2 text-2xl font-extrabold ${
+					accent ? (light ? 'text-cyan-700' : 'text-cyan-300') : light ? 'text-slate-900' : 'text-white'
+				}`}
+			>
+				{value}
+			</p>
 			<p className="mt-1 text-[11px] text-slate-500">{hint}</p>
 		</div>
 	);

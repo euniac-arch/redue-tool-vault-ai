@@ -9,3 +9,11 @@ studio/.env
 studio/.env.local
 studio/prisma/dev.db
 studio/prisma/dev.db-journal
+
+# Firebase service account keys (never commit)
+studio/*firebase-adminsdk*.json
+studio/firebase-service-account.json
+
+# Local image uploads (Naver blog editor fallback)
+studio/public/uploads/**
+!studio/public/uploads/.gitkeep

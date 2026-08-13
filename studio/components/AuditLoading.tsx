@@ -41,6 +41,8 @@ interface AuditLoadingProps {
 	isDataReady?: boolean;
 	/** Fires after 6/6 UI completion (+ short hold). */
 	onComplete?: () => void;
+	/** Force-refresh re-audit copy ("🔄 실시간 재진단 중..."). */
+	forceRefresh?: boolean;
 }
 
 /**
@@ -48,7 +50,12 @@ interface AuditLoadingProps {
  * Backend readiness and UI step progress are independent — the UI always
  * walks 1/6 → 6/6 before calling onComplete (fast-forward if data is ready).
  */
-export function AuditLoading({ url, isDataReady = false, onComplete }: AuditLoadingProps) {
+export function AuditLoading({
+	url,
+	isDataReady = false,
+	onComplete,
+	forceRefresh = false,
+}: AuditLoadingProps) {
 	const t = useTranslations('audit');
 	const locale = useLocale() as 'ko' | 'en';
 	const steps = STEPS[locale] ?? STEPS.ko;
@@ -103,7 +110,9 @@ export function AuditLoading({ url, isDataReady = false, onComplete }: AuditLoad
 
 			<div className="px-5 py-6 sm:px-7">
 				<div className="mb-5 flex flex-col gap-1">
-					<p className="text-base font-bold text-white sm:text-lg">{t('loadingTitle')}</p>
+					<p className="text-base font-bold text-white sm:text-lg">
+						{forceRefresh ? t('loadingRescanTitle') : t('loadingTitle')}
+					</p>
 					<p className="truncate font-mono text-xs text-cyan-400/90">{url || '—'}</p>
 				</div>
 

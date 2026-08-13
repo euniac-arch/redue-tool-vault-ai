@@ -18,14 +18,17 @@ export function AuditTechnicalEvidence({ report }: AuditTechnicalEvidenceProps) 
 	].filter((block) => block.fields.length > 0);
 
 	return (
-		<section className="audit-report-section flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6">
+		<section
+			id="sec-evidence"
+			className="audit-report-section scroll-mt-24 flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6"
+		>
 			<div>
 				<p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#D4AF37]">{t('techBadge')}</p>
 				<h2 className="mt-1 text-lg font-extrabold text-white">{t('techTitle')}</h2>
 				<p className="mt-1 text-xs text-slate-500">{t('techSubtitle')}</p>
 			</div>
 
-			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
 				<div className="rounded-xl border border-white/[0.08] bg-black/30 p-3">
 					<p className="text-[10px] uppercase text-slate-500">{t('statH1')}</p>
 					<p className="mt-1 text-xl font-bold text-white">{m?.h1Count ?? '—'}</p>
@@ -51,6 +54,17 @@ export function AuditTechnicalEvidence({ report }: AuditTechnicalEvidenceProps) 
 					{m?.headingSkipExamples?.length ? (
 						<p className="mt-1 font-mono text-[10px] text-amber-300/80">{m.headingSkipExamples.join(', ')}</p>
 					) : null}
+				</div>
+				<div className="rounded-xl border border-white/[0.08] bg-black/30 p-3">
+					<p className="text-[10px] uppercase text-slate-500">{t('statRenderBlocking')}</p>
+					<p
+						className={`mt-1 text-xl font-bold ${
+							(m?.renderBlockingScripts ?? 0) <= 5 ? 'text-white' : 'text-amber-300'
+						}`}
+					>
+						{m?.renderBlockingScripts ?? '—'}
+					</p>
+					<p className="mt-1 text-[10px] text-slate-500">{t('statRenderBlockingHint')}</p>
 				</div>
 			</div>
 

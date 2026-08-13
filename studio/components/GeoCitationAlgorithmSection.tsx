@@ -1,11 +1,19 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
+import {
+	buildCoreChecklistSummaryText,
+	buildCoreSeoGeoChecklist,
+	getCoreItemsNeedingWork,
+} from '@/lib/audit/core-checklist';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
+import type { AuditReport } from '@/lib/site-auditor';
 
 interface GeoCitationAlgorithmSectionProps {
 	domain: string;
 	reportData?: GeoNarrativeReport | null;
+	/** Live audit — drives Before callout from 6-core 🔴/🟢 status. */
+	auditReport?: AuditReport | null;
 }
 
 const STEPS = [
@@ -35,13 +43,31 @@ const STEPS = [
 	},
 ] as const;
 
-export function GeoCitationAlgorithmSection({ domain, reportData }: GeoCitationAlgorithmSectionProps) {
+export function GeoCitationAlgorithmSection({
+	domain,
+	reportData,
+	auditReport = null,
+}: GeoCitationAlgorithmSectionProps) {
 	const t = useTranslations('audit.geoAlgorithm');
+	const locale = useLocale();
+	const lang = locale === 'en' ? 'en' : 'ko';
 	const schemas = reportData?.recommendedSchemas?.filter(Boolean) ?? [];
+	const coreItems = buildCoreSeoGeoChecklist(auditReport);
+	const needingWork = getCoreItemsNeedingWork(coreItems);
+	const allHealthy = needingWork.length === 0;
+	const liveSummary = auditReport
+		? buildCoreChecklistSummaryText({
+				items: coreItems,
+				brandName: reportData?.brandName?.trim() || domain,
+				industry: reportData?.industry,
+				lang,
+			})
+		: null;
 
 	return (
 		<section
-			className="flex flex-col gap-5 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6"
+			id="sec-geo-algorithm"
+			className="scroll-mt-24 flex flex-col gap-5 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6"
 			aria-labelledby="geo-algorithm-heading"
 		>
 			<div>
@@ -113,17 +139,41 @@ export function GeoCitationAlgorithmSection({ domain, reportData }: GeoCitationA
 			</div>
 
 			<aside
-				className="flex gap-3 rounded-xl border border-rose-500/30 bg-rose-500/[0.08] px-4 py-3.5 sm:px-5"
+				className={`flex gap-3 rounded-xl px-4 py-3.5 sm:px-5 ${
+					liveSummary && allHealthy
+						? 'border border-emerald-500/30 bg-emerald-500/[0.08]'
+						: 'border border-rose-500/30 bg-rose-500/[0.08]'
+				}`}
 				role="status"
 			>
 				<span
-					className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-rose-500/40 bg-rose-500/20 text-xs font-extrabold text-rose-300"
+					className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-xs font-extrabold ${
+						liveSummary && allHealthy
+							? 'border border-emerald-500/40 bg-emerald-500/20 text-emerald-300'
+							: 'border border-rose-500/40 bg-rose-500/20 text-rose-300'
+					}`}
 					aria-hidden
 				>
-					!
+					{liveSummary && allHealthy ? '✓' : '!'}
 				</span>
-				<p className="text-[13px] leading-relaxed text-rose-100/90">
-					{reportData?.beforeImpact ? (
+				<p
+					className={`text-[13px] leading-relaxed ${
+						liveSummary && allHealthy ? 'text-emerald-100/90' : 'text-rose-100/90'
+					}`}
+				>
+					{liveSummary ? (
+						<>
+							<span
+								className={`font-mono font-bold ${
+									allHealthy ? 'text-emerald-200' : 'text-rose-200'
+								}`}
+							>
+								{domain}
+							</span>
+							{' — '}
+							{liveSummary}
+						</>
+					) : reportData?.beforeImpact ? (
 						<>
 							<span className="font-mono font-bold text-rose-200">{domain}</span>
 							{' — '}

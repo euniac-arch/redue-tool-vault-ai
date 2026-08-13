@@ -4,7 +4,7 @@ import { getServerSession } from 'next-auth';
 import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { authOptions } from '@/lib/auth';
-import { Header } from '@/components/Header';
+import { ConditionalAppShell } from '@/components/ConditionalAppShell';
 import { Providers } from './providers';
 import './globals.css';
 
@@ -80,10 +80,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 				
 				<NextIntlClientProvider locale={locale} messages={messages}>
 					<Providers session={session}>
-						<div className="min-h-screen py-10">
-							<Header />
-							<div className="mx-auto max-w-5xl px-6">{children}</div>
-						</div>
+						<ConditionalAppShell>{children}</ConditionalAppShell>
 					</Providers>
 				</NextIntlClientProvider>
 			</body>

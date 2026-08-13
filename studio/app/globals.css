@@ -4,6 +4,22 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Digital Footprint — summary box ↔ tab sync highlight */
+.df-summary-box {
+	cursor: pointer;
+	transition: all 0.25s ease;
+	border: 1px solid rgba(226, 232, 240, 0.12);
+}
+.df-summary-box:hover {
+	transform: translateY(-2px);
+	border-color: rgba(148, 163, 184, 0.55);
+}
+.df-summary-box.active-box {
+	border: 2px solid #2563eb !important;
+	background-color: rgba(37, 99, 235, 0.14) !important;
+	box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+}
+
 @layer base {
 	html {
 		color-scheme: dark;
@@ -35,6 +51,343 @@
 	textarea,
 	select {
 		font-family: inherit;
+	}
+}
+
+/* ─── Admin workspace Light Theme (`/admin/*`) ─── */
+.admin-light-theme {
+	color-scheme: light;
+	background: #f8fafc;
+	color: #0f172a;
+	--admin-surface: #ffffff;
+	--admin-border: #e2e8f0;
+	--admin-muted: #64748b;
+	--admin-fg: #0f172a;
+}
+
+/* Naver blog Markdown editor preview */
+.admin-light-theme .md-preview h1 {
+	margin: 0.75rem 0 0.4rem;
+	font-size: 1.35rem;
+	font-weight: 800;
+	color: #0f172a;
+}
+.admin-light-theme .md-preview h2 {
+	margin: 0.7rem 0 0.35rem;
+	font-size: 1.15rem;
+	font-weight: 800;
+	color: #0f172a;
+}
+.admin-light-theme .md-preview h3 {
+	margin: 0.6rem 0 0.3rem;
+	font-size: 1rem;
+	font-weight: 700;
+	color: #1e293b;
+}
+.admin-light-theme .md-preview p {
+	margin: 0.35rem 0;
+}
+.admin-light-theme .md-preview ul,
+.admin-light-theme .md-preview ol {
+	margin: 0.4rem 0;
+	padding-left: 1.25rem;
+}
+.admin-light-theme .md-preview li {
+	margin: 0.15rem 0;
+}
+.admin-light-theme .md-preview a {
+	color: #0369a1;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+.admin-light-theme .md-preview blockquote {
+	margin: 0.5rem 0;
+	border-left: 3px solid #cbd5e1;
+	padding-left: 0.75rem;
+	color: #475569;
+}
+.admin-light-theme .md-preview pre {
+	margin: 0.5rem 0;
+	overflow-x: auto;
+	border-radius: 0.5rem;
+	background: #f1f5f9;
+	padding: 0.75rem;
+	font-size: 12px;
+}
+.admin-light-theme .md-preview code {
+	border-radius: 0.25rem;
+	background: #f1f5f9;
+	padding: 0.1rem 0.3rem;
+	font-size: 0.9em;
+}
+.admin-light-theme .md-preview pre code {
+	padding: 0;
+	background: transparent;
+}
+.admin-light-theme .md-preview .md-preview-img,
+.admin-light-theme .md-preview img {
+	display: block;
+	width: auto;
+	max-width: 100%;
+	height: auto;
+	margin: 0.75rem 0;
+	border-radius: 0.75rem;
+	border: 1px solid #e2e8f0;
+	object-fit: contain;
+	background: #f8fafc;
+}
+
+/* ─── Audit result report: fixed 120% UI scale (all resolutions, no breakpoints) ───
+   ① Page shell breaks out of the root `max-w-5xl` (64rem / 1024px) to 120% width
+      → `max-w-[76.8rem]` (1228.8px), centered with a negative margin so the report
+      reads 20% wider than the default studio column.
+   ② Inner `.audit-report-scale` lays out at 1/1.2 (≈83.333%) of that shell, then
+      `zoom: 1.2` scales fonts, padding, margins, cards, and boxes up by 1.2x.
+      Pre-zoom shrink × zoom cancels for the shell width, so the visual footprint
+      stays exactly the expanded shell — no horizontal scrollbar on any viewport.
+      Back links, loading terminal, and report content all live inside this shell so
+      their left/right edges stay 1:1 aligned.
+   ③ Shell itself uses `overflow-x: hidden` as a safety net. */
+.audit-report-page {
+	/* 64rem (max-w-5xl) × 1.2 — never wider than the viewport */
+	width: min(120%, 100vw);
+	max-width: 76.8rem;
+	/* Center the wider shell relative to the parent column (and within the viewport) */
+	margin-left: calc((100% - min(120%, 100vw, 76.8rem)) / 2);
+	margin-right: 0;
+	box-sizing: border-box;
+	overflow-x: hidden;
+}
+
+/* ── Mobile full-viewport menu overlay ───────────────────────────────────── */
+.mobile-menu-overlay {
+	position: fixed;
+	inset: 0;
+	width: 100%;
+	height: 100vh;
+	height: 100dvh;
+	z-index: 9999;
+	display: flex;
+	flex-direction: column;
+	background-color: rgba(12, 13, 14, 0.98);
+	backdrop-filter: blur(12px);
+	-webkit-backdrop-filter: blur(12px);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transition: opacity 0.3s ease, visibility 0.3s ease;
+	overflow: hidden;
+}
+
+.mobile-menu-overlay.is-open {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+}
+
+.mobile-menu-overlay__inner {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	flex: 1 1 auto;
+	min-height: 0;
+	width: 100%;
+	height: 100%;
+	padding: 0 16px 24px;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	overscroll-behavior: contain;
+}
+
+.mobile-menu-overlay__nav {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+	flex: 1 1 auto;
+	padding: 16px 0;
+}
+
+.mobile-menu-overlay__footer {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	flex-shrink: 0;
+	padding-top: 16px;
+	border-top: 1px solid rgba(255, 255, 255, 0.08);
+	padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+/* ── Footer: floating action bar clearance + mobile stacking ─────────────── */
+/* Audit result only (`site-footer--clear-floating-bar`): keep copyright /
+   policy links above the fixed share bar when viewport < 1600px. */
+@media (max-width: 1599px) {
+	footer.site-footer.site-footer--clear-floating-bar {
+		padding-bottom: 90px;
+	}
+}
+
+@media (max-width: 768px) {
+	footer.site-footer.site-footer--clear-floating-bar {
+		padding-bottom: 110px;
+	}
+
+	footer.site-footer .footer-info-list {
+		gap: 8px;
+		align-items: flex-start;
+	}
+
+	footer.site-footer .footer-info-row {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 4px;
+	}
+
+	footer.site-footer .footer-info-sep {
+		display: none;
+	}
+
+	footer.site-footer .footer-bottom {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 12px;
+	}
+
+	footer.site-footer .footer-policy-nav {
+		flex-wrap: wrap;
+		row-gap: 6px;
+	}
+}
+
+@media (max-width: 450px) {
+	footer.site-footer.site-footer--clear-floating-bar {
+		padding-bottom: 120px;
+	}
+
+	footer.site-footer .footer-policy-nav {
+		gap: 6px 10px;
+	}
+
+	footer.site-footer .footer-copyright {
+		line-height: 1.5;
+		word-break: keep-all;
+	}
+}
+
+/* Email preview modal — soft fade-in */
+@keyframes fadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.animate-fadeIn {
+	animation: fadeIn 0.22s ease-out both;
+}
+
+/* PageSpeed Insights detail panel — slide-in after lab data arrives */
+@keyframes psi-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(16px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.psi-slide-in {
+	animation: psi-slide-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* PageSpeed detail accordions — height: 0 ↔ auto via grid rows */
+.psi-accordion {
+	display: grid;
+	grid-template-rows: 0fr;
+	transition: grid-template-rows 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.psi-accordion[data-open='true'] {
+	grid-template-rows: 1fr;
+}
+
+.psi-accordion-inner {
+	min-height: 0;
+	overflow: hidden;
+}
+
+/* Rotating progress copy inside PageSpeed skeleton */
+@keyframes psi-progress-msg {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.psi-progress-msg {
+	animation: psi-progress-msg 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.animate-fadeIn,
+	.psi-slide-in,
+	.psi-progress-msg {
+		animation: none;
+	}
+
+	.psi-accordion {
+		transition: none;
+	}
+}
+
+.audit-report-scale {
+	/* calc(), not the repeating-decimal 83.3333%, so post-zoom sub-pixel
+	   rounding never shaves a sliver off left/right card borders. */
+	width: calc(100% / 1.2);
+	max-width: calc(100% / 1.2);
+	margin-left: auto;
+	margin-right: auto;
+	zoom: 1.2;
+	box-sizing: border-box;
+	/* Only the outer `.audit-report-page` needs the horizontal-scrollbar
+	   safety net; hiding overflow here was clipping card borders. */
+	overflow-x: visible;
+}
+
+@supports not (zoom: 1) {
+	/* Firefox / engines without CSS zoom: approximate with transform scale */
+	.audit-report-scale {
+		width: calc(100% / 1.2);
+		max-width: calc(100% / 1.2);
+		zoom: unset;
+		transform: scale(1.2);
+		transform-origin: top center;
+	}
+}
+
+@media print {
+	.audit-report-page {
+		width: 100%;
+		max-width: none;
+		margin-left: 0;
+		margin-right: 0;
+		overflow-x: visible;
+	}
+
+	.audit-report-scale {
+		width: 100%;
+		max-width: 100%;
+		margin: 0;
+		zoom: 1;
+		transform: none;
+		overflow-x: visible;
 	}
 }
 
@@ -126,7 +479,8 @@
 		color: inherit !important;
 	}
 
-	.max-w-5xl {
+	.max-w-5xl,
+	.audit-report-page {
 		max-width: none !important;
 		padding: 0 !important;
 	}
@@ -136,4 +490,22 @@
 		padding-top: 0 !important;
 		padding-bottom: 0 !important;
 	}
+}
+
+/* Naver Blog — TOAST UI Editor must stay within its grid column */
+.naver-blog-toast-editor,
+.naver-blog-toast-editor .toastui-editor-defaultUI {
+	width: 100% !important;
+	max-width: 100% !important;
+	min-width: 0 !important;
+	box-sizing: border-box;
+}
+
+.naver-blog-toast-editor .toastui-editor-defaultUI .toastui-editor-main,
+.naver-blog-toast-editor .toastui-editor-defaultUI .toastui-editor-ww-container,
+.naver-blog-toast-editor .toastui-editor-defaultUI .toastui-editor-md-container,
+.naver-blog-toast-editor .toastui-editor-defaultUI .ProseMirror {
+	max-width: 100%;
+	min-width: 0;
+	box-sizing: border-box;
 }

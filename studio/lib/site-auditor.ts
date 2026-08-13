@@ -1,13 +1,22 @@
 import * as cheerio from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
+import { crawlCollectedPageMetas, type CrawledPageMeta } from '@/lib/audit/crawl-page-metas';
 import {
 	computeSchemaCoverage,
+	extractFooterLegalText,
+	extractNavItems,
 	parsePageHtml,
+	splitPageTitle,
+	type NavLinkItem,
 	type PageParseResult,
 } from '@/lib/audit/parser';
 import {
 	extractSiteMetadata,
 	type SiteMetadata,
 } from '@/lib/audit/site-metadata';
+import { canonicalMatches, evaluateCanonicalAccuracy } from '@/lib/audit/canonical-url';
+import { detectViewportInHtml } from '@/lib/audit/viewport';
+import { sanitizeMainPageTitle } from '@/lib/solve/dynamic-php-schema';
 import { assertPublicHttpUrl } from './ssrf-guard';
 
 const FETCH_TIMEOUT_MS = 10_000;
@@ -60,16 +69,40 @@ export interface AuditMetrics {
 	jsonLdBlockCount: number;
 	schemaTypes: string[];
 	bodyTextLength: number;
+	/** Sync <script src> tags without async/defer — render-blocking risk. */
+	renderBlockingScripts: number;
 	jsonLdSnippets?: string[];
 	organizationMissing?: string[];
 	articleMissing?: string[];
 	personMissing?: string[];
 	h1Texts?: string[];
 	headingSkipExamples?: string[];
-	/** Raw crawled <title> text for GEO narrative binding. */
+	/** Page-specific title (site/brand suffix stripped) for GEO / $page_meta binding. */
 	pageTitle?: string;
+	/** Full document `<title>` before site-name split. */
+	documentTitle?: string;
 	/** Raw crawled meta description for GEO narrative binding. */
 	metaDescription?: string;
+}
+
+/** Server geo hint for the target-entity meta card (optional on legacy reports). */
+export interface AuditServerLocation {
+	/** ISO 3166-1 alpha-2 when known (e.g. KR). */
+	countryCode: string;
+	/** Display label, e.g. "한국 / 서울" or "South Korea". */
+	label: string;
+	/** How the location was inferred. */
+	source: 'header' | 'tld' | 'siteMeta' | 'unknown';
+}
+
+/** Search-index permission snapshot for the target-entity meta card. */
+export interface AuditIndexStatus {
+	/** Combined robots.txt + meta robots + X-Robots-Tag. */
+	allowed: boolean;
+	robotsTxtOk: boolean;
+	metaRobotsOk: boolean;
+	/** Short evidence string for UI / debug. */
+	evidence: string;
 }
 
 export interface AuditReport {
@@ -89,11 +122,25 @@ export interface AuditReport {
 	geoCitationScore?: number;
 	/** Brand / category / location signals for dynamic GEO simulators. */
 	siteMeta?: SiteMetadata;
+	/** Hosting region inferred from CDN headers / TLD / site signals. */
+	serverLocation?: AuditServerLocation;
+	/** Whether general search crawlers may index the audited URL. */
+	indexStatus?: AuditIndexStatus;
+	/** Whether `<meta name="viewport">` is present (mobile readability). */
+	hasViewportMeta?: boolean;
 	metrics?: AuditMetrics;
 	categories: AuditCategory[];
 	/** Flat checklist (all category checks) for the detailed report grid. */
 	checklist?: AuditCheckItem[];
 	findings: AuditFinding[];
+	/** Same-origin internal links (path + query) from the crawled page. */
+	collectedUrls?: string[];
+	/** GNB / header nav labels discovered on the audited page. */
+	navItems?: NavLinkItem[];
+	/** Footer / 사업자 정보 corpus for Organization.legalName (상호·법인명·(주)). */
+	footerText?: string;
+	/** Content-scoped Title/H1 for collected subpages (incl. board.php?bo_table=*). */
+	pageMetas?: CrawledPageMeta[];
 }
 
 type Strings = typeof STRINGS.ko;
@@ -351,14 +398,67 @@ function categoryScore(checks: AuditCheckItem[], passThresholdRatio = 0.6) {
 	};
 }
 
+function withNocacheParam(url: string, forceRefresh: boolean): string {
+	if (!forceRefresh) return url;
+	try {
+		const u = new URL(url);
+		u.searchParams.set('_redue_nocache', String(Date.now()));
+		return u.toString();
+	} catch {
+		const sep = url.includes('?') ? '&' : '?';
+		return `${url}${sep}_redue_nocache=${Date.now()}`;
+	}
+}
+
+type FetchTextResult = {
+	ok: boolean;
+	status: number | null;
+	text: string;
+	elapsedMs: number;
+	bytes: number;
+	/** Lowercased response header map (selected keys only). */
+	headers: Record<string, string>;
+};
+
+function pickResponseHeaders(res: Response): Record<string, string> {
+	const keys = [
+		'cf-ipcountry',
+		'x-vercel-ip-country',
+		'cloudfront-viewer-country',
+		'x-country-code',
+		'x-geo-country',
+		'x-robots-tag',
+		'server',
+	];
+	const out: Record<string, string> = {};
+	for (const key of keys) {
+		const value = res.headers.get(key);
+		if (value) out[key] = value.trim();
+	}
+	return out;
+}
+
 async function fetchText(
 	url: string,
 	timeoutMs = FETCH_TIMEOUT_MS,
-): Promise<{ ok: boolean; status: number | null; text: string; elapsedMs: number; bytes: number }> {
+	opts?: { forceRefresh?: boolean },
+): Promise<FetchTextResult> {
 	const started = Date.now();
+	const forceRefresh = opts?.forceRefresh === true;
+	const fetchUrl = withNocacheParam(url, forceRefresh);
 	try {
-		const res = await fetch(url, {
-			headers: { 'User-Agent': USER_AGENT, Accept: 'text/html,application/xhtml+xml' },
+		const res = await fetch(fetchUrl, {
+			headers: {
+				'User-Agent': USER_AGENT,
+				Accept: 'text/html,application/xhtml+xml',
+				...(forceRefresh
+					? {
+							'Cache-Control': 'no-cache, no-store, must-revalidate',
+							Pragma: 'no-cache',
+						}
+					: {}),
+			},
+			cache: 'no-store',
 			signal: AbortSignal.timeout(timeoutMs),
 			redirect: 'follow',
 		});
@@ -369,26 +469,175 @@ async function fetchText(
 			text: text.slice(0, MAX_HTML_CHARS),
 			elapsedMs: Date.now() - started,
 			bytes: Buffer.byteLength(text, 'utf8'),
+			headers: pickResponseHeaders(res),
 		};
 	} catch {
-		return { ok: false, status: null, text: '', elapsedMs: Date.now() - started, bytes: 0 };
+		return {
+			ok: false,
+			status: null,
+			text: '',
+			elapsedMs: Date.now() - started,
+			bytes: 0,
+			headers: {},
+		};
 	}
+}
+
+const COUNTRY_LABELS: Record<string, { ko: string; en: string }> = {
+	KR: { ko: '한국', en: 'South Korea' },
+	JP: { ko: '일본', en: 'Japan' },
+	US: { ko: '미국', en: 'United States' },
+	CN: { ko: '중국', en: 'China' },
+	TW: { ko: '대만', en: 'Taiwan' },
+	HK: { ko: '홍콩', en: 'Hong Kong' },
+	SG: { ko: '싱가포르', en: 'Singapore' },
+	DE: { ko: '독일', en: 'Germany' },
+	GB: { ko: '영국', en: 'United Kingdom' },
+	AU: { ko: '호주', en: 'Australia' },
+	VN: { ko: '베트남', en: 'Vietnam' },
+	TH: { ko: '태국', en: 'Thailand' },
+	ID: { ko: '인도네시아', en: 'Indonesia' },
+	IN: { ko: '인도', en: 'India' },
+	FR: { ko: '프랑스', en: 'France' },
+	CA: { ko: '캐나다', en: 'Canada' },
+};
+
+function countryCodeFromHeaders(headers: Record<string, string>): string | null {
+	for (const key of [
+		'cf-ipcountry',
+		'x-vercel-ip-country',
+		'cloudfront-viewer-country',
+		'x-country-code',
+		'x-geo-country',
+	]) {
+		const raw = (headers[key] || '').toUpperCase();
+		if (/^[A-Z]{2}$/.test(raw) && raw !== 'XX' && raw !== 'T1') return raw;
+	}
+	return null;
+}
+
+function countryCodeFromTld(hostname: string): string | null {
+	const host = hostname.toLowerCase().replace(/\.$/, '');
+	if (host.endsWith('.kr') || host.endsWith('.co.kr') || host.endsWith('.or.kr') || host.endsWith('.go.kr')) {
+		return 'KR';
+	}
+	if (host.endsWith('.jp')) return 'JP';
+	if (host.endsWith('.cn')) return 'CN';
+	if (host.endsWith('.tw')) return 'TW';
+	if (host.endsWith('.sg')) return 'SG';
+	if (host.endsWith('.de')) return 'DE';
+	if (host.endsWith('.uk') || host.endsWith('.co.uk')) return 'GB';
+	if (host.endsWith('.au')) return 'AU';
+	if (host.endsWith('.vn')) return 'VN';
+	if (host.endsWith('.th')) return 'TH';
+	if (host.endsWith('.id')) return 'ID';
+	if (host.endsWith('.in')) return 'IN';
+	if (host.endsWith('.fr')) return 'FR';
+	if (host.endsWith('.ca')) return 'CA';
+	return null;
+}
+
+function resolveServerLocation(args: {
+	headers: Record<string, string>;
+	hostname: string;
+	siteMeta?: SiteMetadata;
+	lang: AuditLang;
+}): AuditServerLocation {
+	const headerCode = countryCodeFromHeaders(args.headers);
+	const tldCode = countryCodeFromTld(args.hostname);
+	const cityHint = (args.siteMeta?.broadLocation || args.siteMeta?.location || '').trim();
+	const code = headerCode || tldCode || '';
+	const source: AuditServerLocation['source'] = headerCode
+		? 'header'
+		: tldCode
+			? 'tld'
+			: 'unknown';
+
+	if (!code) {
+		// Business locality is not hosting geo — only use as soft fallback label.
+		if (cityHint) {
+			return {
+				countryCode: '—',
+				label: args.lang === 'ko' ? `추정 · ${cityHint}` : `Est. · ${cityHint}`,
+				source: 'siteMeta',
+			};
+		}
+		return {
+			countryCode: '—',
+			label: args.lang === 'ko' ? '위치 미확인' : 'Unknown region',
+			source: 'unknown',
+		};
+	}
+
+	const country = COUNTRY_LABELS[code];
+	const countryName = country ? (args.lang === 'ko' ? country.ko : country.en) : code;
+	const label =
+		cityHint && (code === 'KR' || /[가-힣]/.test(cityHint))
+			? `${countryName} / ${cityHint}`
+			: countryName;
+
+	return { countryCode: code, label, source };
+}
+
+/** True when a robots User-agent block effectively Disallow: / the whole site. */
+function robotsTxtBlocksAll(robotsText: string): boolean {
+	const normalized = robotsText.replace(/\r/g, '\n').toLowerCase();
+	if (!normalized.trim()) return false;
+
+	const blocks = normalized.split(/(?=user-agent\s*:)/i);
+	let starBlocked = false;
+	let anyBlocked = false;
+
+	for (const block of blocks) {
+		if (!/user-agent\s*:/i.test(block)) continue;
+		const agents = [...block.matchAll(/user-agent\s*:\s*([^\n#]+)/gi)].map((m) => m[1].trim());
+		const disallowAll = /disallow\s*:\s*\/\s*(?:#|$)/m.test(block);
+		if (!disallowAll) continue;
+		if (agents.some((a) => a === '*')) starBlocked = true;
+		if (agents.some((a) => a === 'googlebot' || a === 'bingbot' || a === 'yandex')) anyBlocked = true;
+	}
+
+	return starBlocked || anyBlocked;
+}
+
+function metaRobotsAllowsIndex($: CheerioAPI, xRobotsTag?: string): boolean {
+	const metaContent = ($('meta[name="robots"]').attr('content') || '').toLowerCase();
+	const googlebot = ($('meta[name="googlebot"]').attr('content') || '').toLowerCase();
+	const header = (xRobotsTag || '').toLowerCase();
+	const blob = [metaContent, googlebot, header].filter(Boolean).join(',');
+	if (!blob) return true;
+	return !/\bnoindex\b/.test(blob);
+}
+
+function resolveIndexStatus(args: {
+	robotsText: string;
+	robotsOk: boolean;
+	$: CheerioAPI;
+	xRobotsTag?: string;
+}): AuditIndexStatus {
+	const robotsTxtOk = args.robotsOk ? !robotsTxtBlocksAll(args.robotsText) : true;
+	const metaRobotsOk = metaRobotsAllowsIndex(args.$, args.xRobotsTag);
+	const allowed = robotsTxtOk && metaRobotsOk;
+	const parts: string[] = [];
+	if (!args.robotsOk) parts.push('robots.txt unreachable (assumed open)');
+	else parts.push(robotsTxtOk ? 'robots.txt allows crawl' : 'robots.txt Disallow:/');
+	parts.push(metaRobotsOk ? 'meta/X-Robots index OK' : 'noindex directive');
+	return {
+		allowed,
+		robotsTxtOk,
+		metaRobotsOk,
+		evidence: parts.join(' · '),
+	};
+}
+
+export interface AuditSiteOptions {
+	/** Bypass CDN/proxy & prior HTML caches; append `?_redue_nocache=` on fetches. */
+	forceRefresh?: boolean;
 }
 
 function truncate(value: string, max = 96): string {
 	const cleaned = value.replace(/\s+/g, ' ').trim();
 	return cleaned.length > max ? `${cleaned.slice(0, max)}…` : cleaned;
-}
-
-function canonicalMatches(pageUrl: string, canonical: string | null): boolean {
-	if (!canonical) return false;
-	try {
-		const page = new URL(pageUrl);
-		const can = new URL(canonical, page);
-		return page.origin === can.origin;
-	} catch {
-		return false;
-	}
 }
 
 function computeGeoCitationScore(args: {
@@ -454,7 +703,17 @@ function buildSeoChecks(S: Strings, parsed: PageParseResult, pageUrl: string): A
 			impact: S.impact.ogTags,
 		}),
 		check('canonical', S.seo.canonical, canOk ? 'pass' : canWarn ? 'warning' : 'fail', 5, {
-			evidence: meta.canonical ? `rel=canonical href="${truncate(meta.canonical, 80)}"` : '— canonical link missing',
+			evidence: (() => {
+				if (!meta.canonical) return '— canonical link missing';
+				const result = evaluateCanonicalAccuracy(meta.canonical, pageUrl);
+				if (result.status === 'PASS') {
+					return `rel=canonical href="${truncate(result.canonical, 80)}"`;
+				}
+				if ('extracted' in result) {
+					return `rel=canonical href="${truncate(result.extracted, 60)}" (expected ${truncate(result.expected, 40)})`;
+				}
+				return `rel=canonical href="${truncate(meta.canonical, 80)}"`;
+			})(),
 			why: S.why.canonical,
 			impact: S.impact.canonical,
 		}),
@@ -585,18 +844,49 @@ function buildSchemaChecks(S: Strings, parsed: PageParseResult): AuditCheckItem[
 
 /**
  * Fetches live HTML + robots.txt and runs a precision, LLM-free SEO/GEO audit.
+ * When `forceRefresh` is set, outbound fetches append `?_redue_nocache=` and send no-cache headers.
  */
-export async function auditSite(targetUrl: string, lang: AuditLang = 'ko'): Promise<AuditReport> {
+export async function auditSite(
+	targetUrl: string,
+	lang: AuditLang = 'ko',
+	options?: AuditSiteOptions,
+): Promise<AuditReport> {
 	const S = STRINGS[lang];
 	const url = await assertPublicHttpUrl(targetUrl);
+	const forceRefresh = options?.forceRefresh === true;
+	const fetchOpts = { forceRefresh };
 
 	const [page, robots] = await Promise.all([
-		fetchText(url.toString()),
-		fetchText(new URL('/robots.txt', url.origin).toString(), 5000),
+		fetchText(url.toString(), FETCH_TIMEOUT_MS, fetchOpts),
+		fetchText(new URL('/robots.txt', url.origin).toString(), 5000, fetchOpts),
 	]);
 
-	const $ = cheerio.load(page.text || '<html></html>');
-	const parsed = parsePageHtml($);
+	const html = page.text || '<html></html>';
+	const $ = cheerio.load(html);
+	const parsed = parsePageHtml($, url.toString(), undefined, html);
+	const siteMeta = extractSiteMetadata($, url.toString(), lang, html);
+	const pageSpecificTitle = sanitizeMainPageTitle(
+		splitPageTitle(parsed.meta.title, siteMeta.brandName) ||
+			parsed.meta.pageTitle ||
+			parsed.meta.title,
+		siteMeta.brandName || 'Site',
+	);
+	const scopedMainH1 = sanitizeMainPageTitle(
+		parsed.headings.h1Texts[0] || pageSpecificTitle,
+		siteMeta.brandName || pageSpecificTitle,
+	);
+	const navItems = extractNavItems($, url.toString());
+	const footerText = extractFooterLegalText($);
+	const pageMetas = await crawlCollectedPageMetas({
+		origin: url.origin,
+		mainUrl: url.toString(),
+		collectedUrls: parsed.internalLinks,
+		siteName: siteMeta.brandName,
+		mainTitle: pageSpecificTitle,
+		mainDescription: parsed.meta.metaDescription,
+		navItems,
+		forceRefresh,
+	});
 
 	const robotsText = robots.text.toLowerCase();
 	const aiBotsBlocked = ['gptbot', 'perplexitybot', 'claudebot', 'google-extended'].some((bot) => {
@@ -604,6 +894,26 @@ export async function auditSite(targetUrl: string, lang: AuditLang = 'ko'): Prom
 		if (idx === -1) return false;
 		return robotsText.slice(idx, idx + 200).includes('disallow: /');
 	});
+	const serverLocation = resolveServerLocation({
+		headers: page.headers,
+		hostname: url.hostname,
+		siteMeta,
+		lang,
+	});
+	const indexStatus = resolveIndexStatus({
+		robotsText: robots.text,
+		robotsOk: robots.ok,
+		$,
+		xRobotsTag: page.headers['x-robots-tag'],
+	});
+	/** Cheerio + order/case-tolerant regex — either path confirms a responsive viewport. */
+	const hasViewportMeta =
+		$('meta[name]')
+			.toArray()
+			.some((el) => {
+				const name = ($(el).attr('name') || '').trim().toLowerCase();
+				return name === 'viewport';
+			}) || detectViewportInHtml(html);
 
 	const orgComplete = parsed.schema.hasOrganization && parsed.schema.organizationMissing.length === 0;
 	const personComplete = parsed.schema.hasPerson && parsed.schema.personMissing.length === 0;
@@ -760,8 +1070,6 @@ export async function auditSite(targetUrl: string, lang: AuditLang = 'ko'): Prom
 		organizationComplete: orgComplete,
 		personComplete,
 	});
-	const siteMeta = extractSiteMetadata($, url.toString(), lang);
-
 	const findings: AuditFinding[] = checklist
 		.filter((c) => c.status !== 'pass')
 		.map((c) => ({
@@ -787,6 +1095,9 @@ export async function auditSite(targetUrl: string, lang: AuditLang = 'ko'): Prom
 		schemaCoverage,
 		geoCitationScore,
 		siteMeta,
+		serverLocation,
+		indexStatus,
+		hasViewportMeta,
 		metrics: {
 			titleLength: parsed.meta.titleLength,
 			metaDescriptionLength: parsed.meta.metaDescriptionLength,
@@ -798,17 +1109,27 @@ export async function auditSite(targetUrl: string, lang: AuditLang = 'ko'): Prom
 			jsonLdBlockCount: parsed.schema.rawBlockCount,
 			schemaTypes: parsed.schema.types,
 			bodyTextLength: parsed.bodyTextLength,
+			renderBlockingScripts: parsed.renderBlockingScripts,
 			jsonLdSnippets: parsed.schema.snippets,
 			organizationMissing: parsed.schema.organizationMissing,
 			articleMissing: parsed.schema.articleMissing,
 			personMissing: parsed.schema.personMissing,
-			h1Texts: parsed.headings.h1Texts,
+			h1Texts: parsed.headings.h1Texts.length
+				? parsed.headings.h1Texts
+				: scopedMainH1
+					? [scopedMainH1]
+					: [],
 			headingSkipExamples: parsed.headings.skipExamples,
-			pageTitle: parsed.meta.title || undefined,
+			pageTitle: pageSpecificTitle || undefined,
+			documentTitle: parsed.meta.title || undefined,
 			metaDescription: parsed.meta.metaDescription || undefined,
 		},
 		categories,
 		checklist,
 		findings,
+		collectedUrls: parsed.internalLinks,
+		navItems,
+		footerText: footerText || undefined,
+		pageMetas,
 	};
 }

@@ -62,18 +62,18 @@ export function AdminUsersTable() {
 	}
 
 	if (error) {
-		return <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-300">{error}</div>;
+		return <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>;
 	}
 
 	if (!users) {
-		return <div className="h-40 animate-pulse rounded-xl border border-white/[0.08] bg-white/[0.03]" />;
+		return <div className="h-40 animate-pulse rounded-xl border border-slate-200 bg-white" />;
 	}
 
 	return (
-		<div className="overflow-x-auto rounded-xl border border-white/[0.08] bg-white/[0.03]">
+		<div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
 			<table className="w-full min-w-[820px] text-left text-sm">
 				<thead>
-					<tr className="border-b border-white/[0.08] text-xs uppercase tracking-wide text-slate-500">
+					<tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
 						<th className="px-4 py-3 font-semibold">이메일</th>
 						<th className="px-4 py-3 font-semibold">가입일</th>
 						<th className="px-4 py-3 font-semibold">요금제</th>
@@ -84,21 +84,21 @@ export function AdminUsersTable() {
 				</thead>
 				<tbody>
 					{users.map((user) => (
-						<tr key={user.id} className="border-b border-white/[0.05] last:border-0">
+						<tr key={user.id} className="border-b border-slate-100 last:border-0">
 							<td className="px-4 py-3">
-								<p className="font-medium text-slate-200">{user.email ?? '(이메일 없음)'}</p>
+								<p className="font-medium text-slate-800">{user.email ?? '(이메일 없음)'}</p>
 								{user.role === 'admin' && (
-									<span className="mt-0.5 inline-block rounded-full border border-accent/30 bg-accent/15 px-2 py-0.5 text-[10px] font-bold text-accent-light">
+									<span className="mt-0.5 inline-block rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
 										ADMIN
 									</span>
 								)}
 							</td>
-							<td className="px-4 py-3 text-slate-400">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
-							<td className="px-4 py-3 text-slate-300">{PLAN_LABEL[user.planId] ?? user.planId}</td>
-							<td className="px-4 py-3 font-mono text-cyan-300">{user.creditsRemaining}회</td>
+							<td className="px-4 py-3 text-slate-500">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
+							<td className="px-4 py-3 text-slate-700">{PLAN_LABEL[user.planId] ?? user.planId}</td>
+							<td className="px-4 py-3 font-mono text-cyan-700">{user.creditsRemaining}회</td>
 							<td className="px-4 py-3">
-								<p className="text-slate-300">{formatKrw(user.totalPaidKrw)}</p>
-								<p className={`text-xs ${user.marginKrw >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+								<p className="text-slate-700">{formatKrw(user.totalPaidKrw)}</p>
+								<p className={`text-xs ${user.marginKrw >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
 									마진 {formatKrw(user.marginKrw)} (API ${user.totalApiCostUsd.toFixed(4)})
 								</p>
 							</td>
@@ -107,21 +107,21 @@ export function AdminUsersTable() {
 									<input
 										type="number"
 										placeholder="개수"
-										className="w-16 rounded-md border border-white/[0.08] bg-black/30 px-2 py-1 text-xs text-slate-100 outline-none focus:border-accent"
+										className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-indigo-500"
 										value={drafts[user.id] ?? ''}
 										onChange={(event) => setDrafts((prev) => ({ ...prev, [user.id]: event.target.value }))}
 									/>
 									<button
 										disabled={pendingId === user.id}
 										onClick={() => adjustCredits(user.id, Math.abs(Number(drafts[user.id]) || 0))}
-										className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-bold text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-40"
+										className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-bold text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
 									>
 										지급
 									</button>
 									<button
 										disabled={pendingId === user.id}
 										onClick={() => adjustCredits(user.id, -Math.abs(Number(drafts[user.id]) || 0))}
-										className="rounded-md border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-xs font-bold text-rose-300 hover:bg-rose-500/20 disabled:opacity-40"
+										className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1 text-xs font-bold text-rose-700 hover:bg-rose-100 disabled:opacity-40"
 									>
 										차감
 									</button>

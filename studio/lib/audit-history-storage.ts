@@ -1,6 +1,10 @@
+import { clearLatestAuditPayload, loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
 import type { AuditOverallStatus, AuditReport } from '@/lib/site-auditor';
 
 export const AUDIT_HISTORY_STORAGE_KEY = 'redue_audit_history';
+/** Bumped when admin/frontend deletes audits so open tabs can refetch without a full reload. */
+export const AUDIT_HISTORY_SYNC_KEY = 'redue_audit_history_rev';
+export const AUDIT_HISTORY_SYNC_CHANNEL = 'redue-audit-history-sync';
 export const AUDIT_HISTORY_MAX = 10;
 
 /** Near-duplicate window: Strict Mode / effect re-runs often create multiple leads within seconds. */
@@ -118,6 +122,52 @@ export function saveGuestAudit(id: string, report: AuditReport): AuditHistoryEnt
 	return entry;
 }
 
+/**
+ * Force-refresh upsert: drop prior guest rows for the same URL (and optional replaceId),
+ * then prepend the live report so history immediately shows the new score.
+ */
+export function upsertGuestAuditOnRescan(
+	id: string,
+	report: AuditReport,
+	opts?: { replaceId?: string | null },
+): AuditHistoryEntry {
+	const entry = reportToHistoryEntry(id, report);
+	const targetUrl = normalizeUrl(report.url);
+	const replaceId = opts?.replaceId?.trim() || '';
+	const filtered = readRaw().filter((item) => {
+		if (replaceId && item.id === replaceId) return false;
+		if (item.id === id) return false;
+		return normalizeUrl(item.url) !== targetUrl;
+	});
+	const next = dedupeHistoryEntries([entry, ...filtered]);
+	writeRaw(next);
+	return entry;
+}
+
+type ScanPayload = AuditReport & { id?: string | null; forceRefresh?: boolean };
+
+/** Module-level in-flight map so React Strict Mode remounts reuse one network scan. */
+const inflightScans = new Map<string, Promise<ScanPayload>>();
+
+/** Drop guest history + latest-payload cache for a URL before a live re-scan. */
+export function clearAuditClientCacheForUrl(rawUrl: string): void {
+	if (!isBrowser()) return;
+	const target = normalizeUrl(rawUrl);
+	writeRaw(readRaw().filter((item) => normalizeUrl(item.url) !== target));
+
+	const latest = loadLatestAuditPayload();
+	if (latest?.report?.url && normalizeUrl(latest.report.url) === target) {
+		clearLatestAuditPayload();
+	}
+
+	const trimmed = rawUrl.trim();
+	for (const key of [...inflightScans.keys()]) {
+		if (key.startsWith(`${trimmed}|`) || key.includes(`|${trimmed}|`)) {
+			inflightScans.delete(key);
+		}
+	}
+}
+
 export function getGuestAudits(): AuditHistoryEntry[] {
 	const raw = readRaw();
 	const deduped = dedupeHistoryEntries(raw);
@@ -136,40 +186,133 @@ export function removeGuestAudit(id: string): void {
 	writeRaw(readRaw().filter((item) => item.id !== id));
 }
 
+/**
+ * Drop guest cache rows whose ids are absent from the authoritative server list.
+ * Used after /api/audit/history (Firestore) so admin hard-deletes sync into the browser.
+ */
+export function pruneGuestAuditsToServerIds(serverIds: Iterable<string>): void {
+	const keep = new Set([...serverIds].map((id) => String(id || '').trim()).filter(Boolean));
+	writeRaw(readRaw().filter((item) => keep.has(item.id)));
+}
+
+/** Remove guest rows by id (admin bulk-delete) and notify other tabs to refetch. */
+export function removeGuestAuditsByIds(ids: Iterable<string>): void {
+	const remove = new Set([...ids].map((id) => String(id || '').trim()).filter(Boolean));
+	if (remove.size === 0) return;
+	writeRaw(readRaw().filter((item) => !remove.has(item.id)));
+}
+
+/** Clear all guest history rows (admin delete-all). */
+export function clearGuestAudits(): void {
+	writeRaw([]);
+}
+
+/**
+ * Notify open `/audit/history` (and other) tabs that the shared audit store changed.
+ * Uses BroadcastChannel + localStorage so same-tab and cross-tab listeners both fire.
+ */
+export function notifyAuditHistorySync(detail?: {
+	all?: boolean;
+	ids?: string[];
+}): void {
+	if (!isBrowser()) return;
+	const payload = {
+		type: 'audit-history-changed' as const,
+		at: Date.now(),
+		all: detail?.all === true,
+		ids: detail?.ids ?? [],
+	};
+	try {
+		window.localStorage.setItem(AUDIT_HISTORY_SYNC_KEY, JSON.stringify(payload));
+	} catch {
+		// ignore quota / private mode
+	}
+	try {
+		const channel = new BroadcastChannel(AUDIT_HISTORY_SYNC_CHANNEL);
+		channel.postMessage(payload);
+		channel.close();
+	} catch {
+		// BroadcastChannel unsupported — storage event still covers other tabs.
+	}
+	try {
+		window.dispatchEvent(new CustomEvent(AUDIT_HISTORY_SYNC_CHANNEL, { detail: payload }));
+	} catch {
+		// ignore
+	}
+}
+
 /** GOOD / EXCELLENT = healthy; FAIR / POOR / CRITICAL = needs improvement. */
 export function isHealthyStatus(status: AuditOverallStatus): boolean {
 	return status === 'GOOD' || status === 'EXCELLENT';
 }
 
-type ScanPayload = AuditReport & { id?: string | null };
+export interface ScanSiteOptions {
+	forceRefresh?: boolean;
+	/** Existing history / Firestore id to overwrite on the server. */
+	replaceId?: string | null;
+}
 
-/** Module-level in-flight map so React Strict Mode remounts reuse one network scan. */
-const inflightScans = new Map<string, Promise<ScanPayload>>();
+/**
+ * POST /api/audit/scan. With `forceRefresh`, bypasses in-flight reuse and sends
+ * cache-bust body/headers so the crawler fetches live HTML.
+ */
+export function scanSiteOnce(
+	targetUrl: string,
+	lang: string,
+	opts?: ScanSiteOptions,
+): Promise<ScanPayload> {
+	const forceRefresh = opts?.forceRefresh === true;
+	const replaceId = opts?.replaceId?.trim() || '';
+	const baseKey = `${targetUrl.trim()}|${lang}`;
+	const key = forceRefresh ? `${baseKey}|force|${Date.now()}` : baseKey;
 
-export function scanSiteOnce(targetUrl: string, lang: string): Promise<ScanPayload> {
-	const key = `${targetUrl.trim()}|${lang}`;
-	const existing = inflightScans.get(key);
-	if (existing) return existing;
+	if (!forceRefresh) {
+		const existing = inflightScans.get(baseKey);
+		if (existing) return existing;
+	} else {
+		inflightScans.delete(baseKey);
+		clearAuditClientCacheForUrl(targetUrl);
+	}
 
 	const promise = (async () => {
-		const res = await fetch('/api/audit/scan', {
+		const t = Date.now();
+		const res = await fetch(`/api/audit/scan?t=${t}`, {
 			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ url: targetUrl, lang }),
+			cache: 'no-store',
+			headers: {
+				'Content-Type': 'application/json',
+				'Cache-Control': 'no-cache, no-store, must-revalidate',
+				Pragma: 'no-cache',
+			},
+			body: JSON.stringify({
+				url: targetUrl,
+				lang,
+				...(forceRefresh
+					? {
+							forceRefresh: true,
+							t,
+							...(replaceId ? { replaceId } : {}),
+						}
+					: {}),
+			}),
 		});
 		const data = (await res.json()) as ScanPayload & { error?: string };
 		if (!res.ok) throw new Error(data.error ?? 'Audit failed.');
 		return data;
 	})().finally(() => {
 		// Keep briefly so a remount within Strict Mode still hits the cache.
-		const clear = () => inflightScans.delete(key);
+		const clear = () => {
+			inflightScans.delete(key);
+			if (!forceRefresh) inflightScans.delete(baseKey);
+		};
 		if (typeof window !== 'undefined') {
-			window.setTimeout(clear, 8_000);
+			window.setTimeout(clear, forceRefresh ? 0 : 8_000);
 		} else {
 			clear();
 		}
 	});
 
 	inflightScans.set(key, promise);
+	if (!forceRefresh) inflightScans.set(baseKey, promise);
 	return promise;
 }

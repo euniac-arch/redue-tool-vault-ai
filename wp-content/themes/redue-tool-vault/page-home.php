@@ -52,7 +52,7 @@ $categories = get_terms(
 			<?php if ( $tools_query->have_posts() ) : ?>
 				<section class="category-section">
 					<div class="page-heading" style="margin-top:48px;">
-						<h1 style="font-size:22px;">
+						<h1 style="font-size:24px;">
 							<a href="<?php echo esc_url( get_term_link( $category ) ); ?>"><?php echo esc_html( $category->name ); ?></a>
 						</h1>
 					</div>

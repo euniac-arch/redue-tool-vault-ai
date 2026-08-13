@@ -193,7 +193,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 										🛠️ {t('admin')}
 									</a>
 									<a
-										href="/admin/autonomous"
+										href="/admin/self-healing"
 										onClick={() => {
 											setMenuOpen(false);
 											onNavigate?.();

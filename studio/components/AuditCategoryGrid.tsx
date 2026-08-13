@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import type { AuditCategory } from '@/lib/site-auditor';
 
 const CATEGORY_ICON: Record<string, string> = {
@@ -8,13 +11,26 @@ const CATEGORY_ICON: Record<string, string> = {
 	geo: '🤖',
 };
 
+function formatScore(n: number): string {
+	return Number.isInteger(n) ? String(n) : n.toFixed(1);
+}
+
+function pctOf(score: number, max: number): number {
+	if (max <= 0) return 0;
+	return Math.min(100, Math.max(0, Math.round((score / max) * 100)));
+}
+
 export function AuditCategoryGrid({ categories }: { categories: AuditCategory[] }) {
+	const tDist = useTranslations('audit.scoreDistribution');
+
 	return (
 		<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
 			{categories.map((category) => {
 				const pass = category.status === 'PASS';
 				const failCount = category.checks.filter((c) => (c.status ?? (c.passed ? 'pass' : 'fail')) === 'fail').length;
 				const warnCount = category.checks.filter((c) => c.status === 'warning').length;
+				const pct = pctOf(category.score, category.maxScore);
+				const isGeoComplete = category.id === 'geo' && pct >= 100;
 				return (
 					<div
 						key={category.id}
@@ -34,14 +50,27 @@ export function AuditCategoryGrid({ categories }: { categories: AuditCategory[] 
 						</div>
 						<p className="text-sm font-bold text-white">{category.label}</p>
 						<p className={`text-xs ${pass ? 'text-emerald-300' : 'text-rose-300'}`}>{category.statusNote}</p>
-						<p className="mt-auto text-xs text-slate-500">
-							{category.score}/{category.maxScore}
-							{(failCount > 0 || warnCount > 0) && (
-								<span className="ml-1 text-slate-600">
-									· {failCount}F/{warnCount}W
-								</span>
-							)}
-						</p>
+						<div className="mt-auto">
+							<p className="text-lg font-extrabold tabular-nums text-white">
+								{tDist('categoryPctScore', { pct })}
+							</p>
+							<p className="text-xs text-slate-500">
+								{isGeoComplete
+									? tDist('rowRawScoreBonus', {
+											score: formatScore(category.score),
+											max: category.maxScore,
+										})
+									: tDist('rowRawScore', {
+											score: formatScore(category.score),
+											max: category.maxScore,
+										})}
+								{(failCount > 0 || warnCount > 0) && (
+									<span className="ml-1 text-slate-600">
+										· {failCount}F/{warnCount}W
+									</span>
+								)}
+							</p>
+						</div>
 					</div>
 				);
 			})}

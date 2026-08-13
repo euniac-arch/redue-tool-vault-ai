@@ -1,14 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { AuditHistoryList } from '@/components/AuditHistoryList';
 import {
+	AUDIT_HISTORY_SYNC_CHANNEL,
+	AUDIT_HISTORY_SYNC_KEY,
 	dedupeHistoryEntries,
 	getGuestAudits,
 	isHealthyStatus,
+	notifyAuditHistorySync,
+	pruneGuestAuditsToServerIds,
 	removeGuestAudit,
 	type AuditHistoryEntry,
 } from '@/lib/audit-history-storage';
@@ -24,48 +28,83 @@ export default function AuditHistoryPage() {
 	const [query, setQuery] = useState('');
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 	const [deletingId, setDeletingId] = useState<string | null>(null);
+	const [syncTick, setSyncTick] = useState(0);
 
-	useEffect(() => {
-		if (authStatus === 'loading') return;
-
-		let cancelled = false;
-
-		(async () => {
-			setLoading(true);
-			setError(null);
+	const loadHistory = useCallback(
+		async (opts?: { quiet?: boolean }) => {
+			if (!opts?.quiet) {
+				setLoading(true);
+				setError(null);
+			}
 
 			try {
 				const guestItems = getGuestAudits();
+				const res = await fetch('/api/audit/history', { cache: 'no-store' });
+				const data = await res.json();
+				if (!res.ok) throw new Error(data.error ?? 'Failed to load history.');
+				const serverItems = (data.items as AuditHistoryEntry[]) ?? [];
+				const serverIds = new Set(serverItems.map((item) => item.id));
 
-				if (session?.user) {
-					const res = await fetch('/api/audit/history');
-					const data = await res.json();
-					if (!res.ok) throw new Error(data.error ?? 'Failed to load history.');
-					const serverItems = (data.items as AuditHistoryEntry[]) ?? [];
-					const seen = new Set(serverItems.map((item) => item.id));
-					const merged = dedupeHistoryEntries([
-						...serverItems,
-						...guestItems.filter((item) => !seen.has(item.id)),
-					]);
-					if (!cancelled) setItems(merged);
-				} else if (!cancelled) {
-					setItems(guestItems);
+				// Firestore is the shared admin/frontend store — drop guest rows admin already deleted.
+				if (data.source === 'firestore') {
+					pruneGuestAuditsToServerIds(serverIds);
+					setItems(dedupeHistoryEntries(serverItems));
+					return;
 				}
+
+				const merged = dedupeHistoryEntries([
+					...serverItems,
+					...guestItems.filter((item) => !serverIds.has(item.id)),
+				]);
+				setItems(merged);
 			} catch (err) {
-				if (!cancelled) {
-					// Fall back to guest cache if the member API fails.
-					setItems(getGuestAudits());
-					setError((err as Error).message);
-				}
+				// Fall back to guest cache if the history API fails.
+				setItems(getGuestAudits());
+				setError((err as Error).message);
 			} finally {
-				if (!cancelled) setLoading(false);
+				if (!opts?.quiet) setLoading(false);
 			}
-		})();
+		},
+		[],
+	);
+
+	useEffect(() => {
+		if (authStatus === 'loading') return;
+		// Initial load shows skeleton; sync/visibility refetches stay quiet.
+		void loadHistory({ quiet: syncTick > 0 });
+	}, [session, authStatus, syncTick, loadHistory]);
+
+	// Admin (or another tab) deleted projects — refetch without a manual reload.
+	useEffect(() => {
+		const bump = () => setSyncTick((n) => n + 1);
+
+		const onStorage = (event: StorageEvent) => {
+			if (event.key === AUDIT_HISTORY_SYNC_KEY) bump();
+		};
+		const onCustom = () => bump();
+		const onVisible = () => {
+			if (document.visibilityState === 'visible') bump();
+		};
+
+		window.addEventListener('storage', onStorage);
+		window.addEventListener(AUDIT_HISTORY_SYNC_CHANNEL, onCustom as EventListener);
+		document.addEventListener('visibilitychange', onVisible);
+
+		let channel: BroadcastChannel | null = null;
+		try {
+			channel = new BroadcastChannel(AUDIT_HISTORY_SYNC_CHANNEL);
+			channel.onmessage = () => bump();
+		} catch {
+			channel = null;
+		}
 
 		return () => {
-			cancelled = true;
+			window.removeEventListener('storage', onStorage);
+			window.removeEventListener(AUDIT_HISTORY_SYNC_CHANNEL, onCustom as EventListener);
+			document.removeEventListener('visibilitychange', onVisible);
+			channel?.close();
 		};
-	}, [session, authStatus]);
+	}, []);
 
 	const filtered = useMemo(() => {
 		const q = query.trim().toLowerCase();
@@ -95,6 +134,7 @@ export default function AuditHistoryPage() {
 			}
 
 			setItems((prev) => prev.filter((item) => item.id !== id));
+			notifyAuditHistorySync({ ids: [id] });
 		} catch (err) {
 			setError((err as Error).message);
 		} finally {
@@ -186,7 +226,33 @@ export default function AuditHistoryPage() {
 			)}
 
 			{!loading && filtered.length > 0 && (
-				<AuditHistoryList items={filtered} onDelete={handleDelete} deletingId={deletingId} />
+				<AuditHistoryList
+					items={filtered}
+					onDelete={handleDelete}
+					deletingId={deletingId}
+					onRescanned={(entry) => {
+						setItems((prev) => {
+							const entryHost = (() => {
+								try {
+									return new URL(entry.url).hostname.replace(/^www\./, '').toLowerCase();
+								} catch {
+									return entry.url.toLowerCase();
+								}
+							})();
+							const withoutOld = prev.filter((item) => {
+								if (item.id === entry.id) return false;
+								try {
+									const host = new URL(item.url).hostname.replace(/^www\./, '').toLowerCase();
+									return host !== entryHost;
+								} catch {
+									return item.url !== entry.url;
+								}
+							});
+							return dedupeHistoryEntries([entry, ...withoutOld]);
+						});
+						setSyncTick((n) => n + 1);
+					}}
+				/>
 			)}
 		</main>
 	);

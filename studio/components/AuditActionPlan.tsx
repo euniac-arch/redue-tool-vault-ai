@@ -57,7 +57,10 @@ export function AuditActionPlan({ report }: AuditActionPlanProps) {
 	}
 
 	return (
-		<section className="audit-report-section flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6">
+		<section
+			id="sec-actionable"
+			className="audit-report-section scroll-mt-24 flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6"
+		>
 			<div>
 				<p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#D4AF37]">{t('actionBadge')}</p>
 				<h2 className="mt-1 text-lg font-extrabold text-white">{t('actionTitle')}</h2>

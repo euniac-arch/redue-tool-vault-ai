@@ -279,7 +279,8 @@ export function AiSearchResultSimulator({ meta, domain, reportData }: AiSearchRe
 
 	return (
 		<section
-			className="flex flex-col gap-5 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6"
+			id="sec-ai-simulator"
+			className="scroll-mt-24 flex flex-col gap-5 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6"
 			aria-labelledby="ai-simulator-heading"
 		>
 			<div>

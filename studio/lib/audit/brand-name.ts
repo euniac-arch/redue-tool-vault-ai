@@ -5,13 +5,48 @@ const BUSINESS_NAME_RE =
 	/[A-Za-z0-9가-힣]{2,24}(?:치과의원|치과병원|피부과의원|성형외과|한의원|동물병원|치과|피부과|병원|의원|클리닉|Clinic|Hospital|Dental)/g;
 
 /**
+ * Collapse consecutive repeated phrases into one.
+ * e.g. "한국중입자 암치료연구소 한국중입자 암치료연구소" → "한국중입자 암치료연구소"
+ * Also normalizes "Brand | Brand" after separator collapse.
+ */
+export function dedupeRepeatedPhrase(raw: string): string {
+	let text = (raw || '').replace(/\s+/g, ' ').trim();
+	if (!text) return '';
+
+	// Title-style separators → spaces so "A | A" collapses like "A A"
+	text = text.replace(/\s*[|｜\-–—·•]\s*/g, ' ').replace(/\s+/g, ' ').trim();
+
+	const parts = text.split(' ').filter(Boolean);
+	if (parts.length < 2) return text;
+
+	for (let phraseLen = Math.floor(parts.length / 2); phraseLen >= 1; phraseLen--) {
+		if (parts.length % phraseLen !== 0) continue;
+		const repeats = parts.length / phraseLen;
+		if (repeats < 2) continue;
+		const phrase = parts.slice(0, phraseLen).join(' ');
+		let allMatch = true;
+		for (let i = 1; i < repeats; i++) {
+			if (parts.slice(i * phraseLen, (i + 1) * phraseLen).join(' ') !== phrase) {
+				allMatch = false;
+				break;
+			}
+		}
+		if (allMatch) return phrase;
+	}
+
+	return text;
+}
+
+/**
  * Extract the official brand from a noisy SEO title.
  * e.g. "부산 임플란트 잘하는 곳 365드림치과의원" → "365드림치과의원"
  */
 export function extractOfficialBrandName(siteTitle: string, domain: string, hint?: string): string {
-	const title = (siteTitle || '').replace(/\s+/g, ' ').trim();
+	const title = dedupeRepeatedPhrase((siteTitle || '').replace(/\s+/g, ' ').trim());
 	if (hint) {
-		const cleanedHint = hint.replace(SEO_KEYWORD_NOISE, '').replace(/\s+/g, ' ').trim();
+		const cleanedHint = dedupeRepeatedPhrase(
+			hint.replace(SEO_KEYWORD_NOISE, '').replace(/\s+/g, ' ').trim(),
+		);
 		if (
 			cleanedHint.length >= 2 &&
 			cleanedHint.length <= 40 &&
@@ -30,7 +65,7 @@ export function extractOfficialBrandName(siteTitle: string, domain: string, hint
 	BUSINESS_NAME_RE.lastIndex = 0;
 	const named = title.match(BUSINESS_NAME_RE);
 	if (named?.length) {
-		return named[named.length - 1]!.slice(0, 40);
+		return dedupeRepeatedPhrase(named[named.length - 1]!).slice(0, 40);
 	}
 
 	let stripped = title
@@ -43,9 +78,11 @@ export function extractOfficialBrandName(siteTitle: string, domain: string, hint
 		.replace(/\s+/g, ' ')
 		.trim();
 
-	stripped = stripped
-		.replace(/^(임플란트|울쎄라|리프팅|보톡스|필러|교정|라미네이트|피부과|치과)\s+/i, '')
-		.trim();
+	stripped = dedupeRepeatedPhrase(
+		stripped
+			.replace(/^(임플란트|울쎄라|리프팅|보톡스|필러|교정|라미네이트|피부과|치과)\s+/i, '')
+			.trim(),
+	);
 
 	if (stripped.length >= 2 && stripped.length <= 40 && !/잘하는|추천/.test(stripped)) {
 		return stripped;

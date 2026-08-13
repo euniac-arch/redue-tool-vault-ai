@@ -2,14 +2,26 @@
 
 import { useLocale, useTranslations } from 'next-intl';
 import {
+	buildCoreChecklistSummaryText,
+	buildCoreSeoGeoChecklist,
+	getCoreFailIssueLabels,
+	getCoreItemsHealthy,
+	getCoreItemsNeedingWork,
+	type CoreChecklistId,
+	type CoreChecklistItem,
+} from '@/lib/audit/core-checklist';
+import {
 	getDefaultImpactItems,
 	type GeoNarrativeImpactItem,
 	type GeoNarrativeReport,
 } from '@/lib/audit/geo-narrative';
+import type { AuditReport } from '@/lib/site-auditor';
 
 interface ImpactPreviewSectionProps {
 	siteName?: string;
 	reportData?: GeoNarrativeReport | null;
+	/** Live crawled audit — drives the 6 essential checklist status badges. */
+	auditReport?: AuditReport | null;
 }
 
 function CrossIcon() {
@@ -28,20 +40,6 @@ function CheckIcon() {
 	);
 }
 
-function ImpactIcon() {
-	return (
-		<svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 16 16" fill="none" aria-hidden>
-			<path
-				d="M3 11.5l3.2-3.2 2.3 2.3L13 5.5M13 5.5H9.5M13 5.5V9"
-				stroke="currentColor"
-				strokeWidth="1.75"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-			/>
-		</svg>
-	);
-}
-
 const BENEFIT_RINGS = [
 	'border-emerald-500/30 bg-emerald-500/[0.06]',
 	'border-indigo-500/30 bg-indigo-500/[0.08]',
@@ -49,6 +47,24 @@ const BENEFIT_RINGS = [
 ] as const;
 
 const BENEFIT_ICONS = ['🤖', '📈', '🛡️'] as const;
+
+const CORE_ORDER: CoreChecklistId[] = [
+	'canonical',
+	'heading-hierarchy',
+	'render-blocking',
+	'article-schema',
+	'faq-schema',
+	'image-alt',
+];
+
+type GainKey =
+	| 'schemaAi'
+	| 'canonicalRich'
+	| 'headingParse'
+	| 'speedCrawl'
+	| 'imageAlt'
+	| 'articleSchema'
+	| 'faqSchema';
 
 function resolveImpactItems(
 	reportData: GeoNarrativeReport | null | undefined,
@@ -63,11 +79,136 @@ function resolveImpactItems(
 	return getDefaultImpactItems(lang);
 }
 
-export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }: ImpactPreviewSectionProps) {
+/** Map failing (or all-healthy fallback) core items → After exposure-gain cards. */
+function resolveAfterGains(items: CoreChecklistItem[]): GainKey[] {
+	const needing = getCoreItemsNeedingWork(items);
+	const source = needing.length > 0 ? needing : getCoreItemsHealthy(items);
+	const keys: GainKey[] = [];
+	const push = (key: GainKey) => {
+		if (!keys.includes(key)) keys.push(key);
+	};
+
+	for (const item of source) {
+		switch (item.id) {
+			case 'canonical':
+				push('canonicalRich');
+				break;
+			case 'heading-hierarchy':
+				push('headingParse');
+				break;
+			case 'render-blocking':
+				push('speedCrawl');
+				break;
+			case 'article-schema':
+				push('articleSchema');
+				push('schemaAi');
+				break;
+			case 'faq-schema':
+				push('faqSchema');
+				push('schemaAi');
+				break;
+			case 'image-alt':
+				push('imageAlt');
+				break;
+		}
+	}
+
+	// Spec baseline: always surface schema AI + canonical/rich CTR when relevant or as fallback.
+	if (keys.length === 0) {
+		return ['schemaAi', 'canonicalRich'];
+	}
+	if (!keys.includes('schemaAi') && source.some((i) => i.id === 'article-schema' || i.id === 'faq-schema')) {
+		push('schemaAi');
+	}
+	return keys.slice(0, 5);
+}
+
+function StatusBadge({ ok, okLabel, needsLabel }: { ok: boolean; okLabel: string; needsLabel: string }) {
+	return (
+		<span
+			className={
+				ok
+					? 'inline-flex shrink-0 items-center rounded-md border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-extrabold text-emerald-200'
+					: 'inline-flex shrink-0 items-center rounded-md border border-rose-400/40 bg-rose-500/15 px-2 py-0.5 text-[11px] font-extrabold text-rose-200'
+			}
+		>
+			{ok ? okLabel : needsLabel}
+		</span>
+	);
+}
+
+function CoreChecklistRow({
+	item,
+	label,
+	why,
+	whyHint,
+	okLabel,
+	needsLabel,
+}: {
+	item: CoreChecklistItem;
+	label: string;
+	why: string;
+	whyHint: string;
+	okLabel: string;
+	needsLabel: string;
+}) {
+	const ok = item.tone === 'ok';
+
+	return (
+		<li
+			className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3.5 ${
+				ok ? 'border-emerald-500/25 bg-emerald-500/[0.06]' : 'border-rose-500/25 bg-rose-500/[0.06]'
+			}`}
+		>
+			<div className="flex flex-wrap items-start justify-between gap-2">
+				<div className="flex min-w-0 flex-1 items-start gap-2.5">
+					<span className={`mt-0.5 shrink-0 ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+						{ok ? <CheckIcon /> : <CrossIcon />}
+					</span>
+					<div className="min-w-0">
+						<p className="text-sm font-bold text-slate-100">{label}</p>
+						{item.evidence ? (
+							<p className="mt-0.5 break-all font-mono text-[10px] text-slate-500">{item.evidence}</p>
+						) : null}
+					</div>
+				</div>
+				<StatusBadge ok={ok} okLabel={okLabel} needsLabel={needsLabel} />
+			</div>
+			{/* Always visible — no hover/accordion gate */}
+			<div className="rounded-lg border border-amber-400/15 bg-black/20 px-3 py-2.5 pl-3">
+				<p className="text-[11px] font-bold uppercase tracking-wide text-amber-200/90">{whyHint}</p>
+				<p className="mt-1 text-[12px] leading-relaxed text-amber-50/85">{why}</p>
+			</div>
+		</li>
+	);
+}
+
+export function ImpactPreviewSection({
+	siteName = 'your-site.com',
+	reportData,
+	auditReport = null,
+}: ImpactPreviewSectionProps) {
 	const t = useTranslations('audit.impact');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
 	const impactItems = resolveImpactItems(reportData, lang);
+	const coreItems = buildCoreSeoGeoChecklist(auditReport);
+	const needingWork = getCoreItemsNeedingWork(coreItems);
+	const gainKeys = resolveAfterGains(coreItems);
+	const allHealthy = needingWork.length === 0 && coreItems.every((i) => i.tone === 'ok');
+	const brandName =
+		reportData?.brandName?.trim() ||
+		auditReport?.siteMeta?.brandName?.trim() ||
+		siteName;
+	const industry = reportData?.industry?.trim() || auditReport?.siteMeta?.category?.trim();
+	/** Always derived from live 6-core 🔴/🟢 — never trust stale LLM beforeImpact copy. */
+	const beforeSummary = buildCoreChecklistSummaryText({
+		items: coreItems,
+		brandName,
+		industry,
+		lang,
+	});
+	const coreFailLabels = getCoreFailIssueLabels(coreItems, lang);
 
 	const benefits = reportData?.afterBenefits?.length
 		? reportData.afterBenefits.slice(0, 3).map((b, i) => ({
@@ -85,46 +226,26 @@ export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }:
 	const schemas = reportData?.recommendedSchemas?.filter(Boolean) ?? [];
 
 	return (
-		<section className="flex flex-col gap-6" aria-labelledby="impact-preview-heading">
-			<div className="flex items-start gap-2.5">
-				<span className="mt-0.5 inline-flex shrink-0 items-center justify-center rounded-md border border-indigo-500/30 bg-indigo-500/15 p-1.5 text-indigo-300">
-					<ImpactIcon />
-				</span>
-				<div>
-					<h2 id="impact-preview-heading" className="text-base font-bold text-white sm:text-lg">
-						{t('title')}
-					</h2>
-					<p className="mt-1.5 text-sm leading-relaxed text-slate-400">
-						{t.rich('subtitle', {
-							hl: (chunks) => (
-								<span className="text-indigo-300">{chunks}</span>
-							),
-						})}
+		<section
+			id="sec-live-criteria"
+			className="scroll-mt-24 flex flex-col gap-6 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.06] via-white/[0.02] to-transparent p-5 sm:p-6"
+			aria-labelledby="impact-preview-heading"
+		>
+			<div className="flex flex-col gap-2 border-b border-amber-500/15 pb-4">
+				<p className="inline-flex w-fit items-center rounded-md border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-200">
+					{t('guideBadge')}
+				</p>
+				<h2 id="impact-preview-heading" className="text-base font-extrabold leading-snug text-white sm:text-lg">
+					{t('title')}
+				</h2>
+				<p className="text-sm leading-relaxed text-amber-100/70">{t('subtitle')}</p>
+				{reportData?.industry ? (
+					<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-200/70">
+						{reportData.brandName ? `${reportData.brandName} · ` : ''}
+						{reportData.industry}
 					</p>
-					{reportData?.industry ? (
-						<p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-indigo-300/80">
-							{reportData.brandName ? `${reportData.brandName} · ` : ''}
-							{reportData.industry}
-						</p>
-					) : null}
-				</div>
+				) : null}
 			</div>
-
-			{reportData?.technicalFails && reportData.technicalFails.length > 0 ? (
-				<div className="flex flex-wrap items-center gap-1.5">
-					<span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-						Evidence fails
-					</span>
-					{reportData.technicalFails.slice(0, 6).map((fail) => (
-						<span
-							key={fail}
-							className="rounded-md border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] text-rose-300/90"
-						>
-							{fail}
-						</span>
-					))}
-				</div>
-			) : null}
 
 			{schemas.length > 0 ? (
 				<div className="flex flex-wrap items-center gap-1.5">
@@ -144,49 +265,94 @@ export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }:
 
 			<div className="flex flex-col gap-6">
 				{/* ── Before panel ── */}
-				<div className="flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60">
-					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-rose-500/20 bg-rose-500/[0.07] px-4 py-3.5 sm:px-5">
+				<div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/60">
+					<div
+						className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3.5 sm:px-5 ${
+							allHealthy
+								? 'border-emerald-500/20 bg-emerald-500/[0.07]'
+								: 'border-rose-500/20 bg-rose-500/[0.07]'
+						}`}
+					>
 						<div className="flex flex-wrap items-center gap-2">
-							<span className="inline-flex items-center gap-1 rounded-md bg-rose-500 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-lg shadow-rose-500/25">
-								<CrossIcon />
+							<span
+								className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-extrabold tracking-wide text-white shadow-lg ${
+									allHealthy
+										? 'bg-emerald-500 shadow-emerald-500/25'
+										: 'bg-rose-500 shadow-rose-500/25'
+								}`}
+							>
+								{allHealthy ? <CheckIcon /> : <CrossIcon />}
 								{t('before.badge')}
 							</span>
 							<span className="text-sm font-bold text-white">{t('before.label')}</span>
 						</div>
-						<span className="rounded-full border border-rose-400/30 bg-rose-500/15 px-2.5 py-1 text-[11px] font-extrabold text-rose-200">
-							{t('before.scoreHint')}
+						<span
+							className={`rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${
+								allHealthy
+									? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
+									: 'border-rose-400/30 bg-rose-500/15 text-rose-200'
+							}`}
+						>
+							{needingWork.length > 0
+								? `${needingWork.length}/6 ${t('statusNeedsWork')}`
+								: `6/6 ${t('statusOk')}`}
 						</span>
 					</div>
 
 					<div className="flex flex-col gap-4 p-4 sm:p-5">
-						{reportData?.beforeImpact ? (
-							<div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.08] px-3.5 py-3 text-[13px] leading-relaxed text-rose-50">
-								{reportData.beforeImpact}
+						{coreFailLabels.length > 0 ? (
+							<div className="flex flex-col gap-2">
+								<span className="inline-flex w-fit items-center rounded-md border border-rose-400/40 bg-rose-500/15 px-2.5 py-1 text-[11px] font-bold text-rose-100">
+									{t('evidenceExampleBadge')}
+								</span>
+								<div className="flex flex-wrap items-center gap-1.5">
+									<span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+										Evidence Fails
+									</span>
+									{coreFailLabels.map((fail) => (
+										<span
+											key={fail}
+											className="rounded-md border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] text-rose-300/90"
+										>
+											{fail}
+										</span>
+									))}
+								</div>
 							</div>
 						) : null}
 
-						<div className="rounded-xl border border-slate-700 bg-slate-950/70 p-4">
-							<p className="truncate font-mono text-[11px] text-slate-400">{siteName}</p>
-							<p className="mt-1.5 text-sm font-medium text-slate-300">{t('mock.beforeTitle')}</p>
-							<p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-slate-400">{t('mock.beforeDesc')}</p>
+						<div
+							className={`rounded-xl px-3.5 py-3 text-[13px] leading-relaxed ${
+								allHealthy
+									? 'border border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-50'
+									: 'border border-rose-500/25 bg-rose-500/[0.08] text-rose-50'
+							}`}
+						>
+							{beforeSummary}
 						</div>
 
-						<ul className="flex flex-col gap-2">
-							{impactItems.map((item) => (
-								<li
-									key={`before-${item.id}`}
-									className="flex gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/[0.05] px-3.5 py-3"
-								>
-									<span className="mt-0.5 text-rose-400">
-										<CrossIcon />
-									</span>
-									<div>
-										<p className="text-sm font-bold text-slate-100">{item.channelTitle}</p>
-										<p className="mt-0.5 text-[12px] leading-relaxed text-slate-300">{item.currentIssue}</p>
-									</div>
-								</li>
-							))}
-						</ul>
+						{/* Always-expanded 6-core checklist — no hover/accordion */}
+						<div>
+							<p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-rose-200/80">
+								{t('coreChecklistHeading')}
+							</p>
+							<ul className="flex flex-col gap-2.5">
+								{CORE_ORDER.map((id) => {
+									const item = coreItems.find((c) => c.id === id)!;
+									return (
+										<CoreChecklistRow
+											key={id}
+											item={item}
+											label={t(`coreItems.${id}.label`)}
+											why={t(`coreItems.${id}.why`)}
+											whyHint={t('whyMattersHint')}
+											okLabel={t('statusOk')}
+											needsLabel={t('statusNeedsWork')}
+										/>
+									);
+								})}
+							</ul>
+						</div>
 					</div>
 				</div>
 
@@ -196,11 +362,11 @@ export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }:
 					</div>
 				</div>
 
-				{/* ── After panel (1:1 synced with Before impactItems) ── */}
+				{/* ── After panel ── */}
 				<div className="flex flex-col overflow-hidden rounded-2xl border border-indigo-500/50 bg-gradient-to-b from-indigo-950/40 via-slate-900 to-slate-950 shadow-[0_0_30px_rgba(99,102,241,0.15)] ring-1 ring-indigo-400/20">
 					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-500/30 bg-indigo-500/10 px-4 py-3.5 sm:px-5">
 						<div className="flex flex-wrap items-center gap-2">
-							<span className="inline-flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-wide text-white shadow-lg shadow-indigo-500/30">
+							<span className="inline-flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[11px] font-extrabold tracking-wide text-white shadow-lg shadow-indigo-500/30">
 								<CheckIcon />
 								{t('after.badge')}
 							</span>
@@ -256,22 +422,52 @@ export function ImpactPreviewSection({ siteName = 'your-site.com', reportData }:
 							</p>
 						</div>
 
-						<ul className="flex flex-col gap-2">
-							{impactItems.map((item) => (
-								<li
-									key={`after-${item.id}`}
-									className="flex gap-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.07] px-3.5 py-3"
-								>
-									<span className="mt-0.5 text-indigo-300">
-										<CheckIcon />
-									</span>
-									<div>
-										<p className="text-sm font-bold text-white">{item.channelTitle}</p>
-										<p className="mt-0.5 text-[12px] leading-relaxed text-slate-300">{item.improvedState}</p>
-									</div>
-								</li>
-							))}
-						</ul>
+						{/* Dynamic gains from items transitioning to 🟢 */}
+						<div>
+							<p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-300/90">
+								{t('after.gainsHeading')}
+							</p>
+							{allHealthy ? (
+								<p className="mb-3 text-[12px] leading-relaxed text-slate-400">{t('after.allHealthyNote')}</p>
+							) : null}
+							<ul className="flex flex-col gap-2">
+								{gainKeys.map((key) => (
+									<li
+										key={key}
+										className="flex gap-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.07] px-3.5 py-3"
+									>
+										<span className="mt-0.5 text-indigo-300">
+											<CheckIcon />
+										</span>
+										<div>
+											<p className="text-sm font-bold text-white">{t(`gains.${key}.title`)}</p>
+											<p className="mt-0.5 text-[12px] leading-relaxed text-slate-300">
+												{t(`gains.${key}.body`)}
+											</p>
+										</div>
+									</li>
+								))}
+							</ul>
+						</div>
+
+						{impactItems.length > 0 ? (
+							<ul className="flex flex-col gap-2 border-t border-indigo-500/15 pt-4">
+								{impactItems.map((item) => (
+									<li
+										key={`after-${item.id}`}
+										className="flex gap-2.5 rounded-xl border border-indigo-500/15 bg-indigo-500/[0.04] px-3.5 py-3"
+									>
+										<span className="mt-0.5 text-indigo-300/80">
+											<CheckIcon />
+										</span>
+										<div>
+											<p className="text-sm font-bold text-slate-100">{item.channelTitle}</p>
+											<p className="mt-0.5 text-[12px] leading-relaxed text-slate-400">{item.improvedState}</p>
+										</div>
+									</li>
+								))}
+							</ul>
+						) : null}
 
 						<div className="border-t border-indigo-500/20 pt-4">
 							<p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-300/90">

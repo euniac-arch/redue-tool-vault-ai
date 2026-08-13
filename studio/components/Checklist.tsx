@@ -18,7 +18,7 @@ export function Checklist({ checks }: ChecklistProps) {
 						<span aria-hidden>{check.passed ? '✅' : '❌'}</span>
 						{check.label}
 					</span>
-					<span className="text-xs text-slate-400">{check.weight}점</span>
+					<span className="text-xs text-slate-400">{check.weight}</span>
 				</li>
 			))}
 		</ul>
