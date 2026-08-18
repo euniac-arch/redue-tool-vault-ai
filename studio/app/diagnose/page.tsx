@@ -23,14 +23,17 @@ function DiagnoseLaunch() {
 	const searchParams = useSearchParams();
 	const domain = normalizeDomainParam(searchParams.get('domain') || '');
 	const targetId = searchParams.get('target_id')?.trim() || '';
-	const extraQuery: Record<string, string> = {};
+	const extraQuery: Record<string, string> = {
+		forceRefresh: searchParams.get('forceRefresh') || 'true',
+		t: searchParams.get('t')?.trim() || String(Date.now()),
+	};
 	if (targetId) extraQuery.target_id = targetId;
 	if (domain) extraQuery.domain = hostnameFromUrl(domain);
 
 	return (
 		<main className="flex flex-col gap-6">
 			{domain ? (
-				<p className="text-center text-sm text-slate-400">
+				<p className="text-center text-sm text-slate-600 dark:text-slate-400">
 					관리자 수집 리스트에서 정밀 진단을 시작합니다. 엔진이 자동 실행됩니다.
 				</p>
 			) : null}

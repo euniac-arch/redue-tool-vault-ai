@@ -7,28 +7,7 @@ import type { PortfolioItem } from './portfolio-types';
  * 프로젝트를 정식 등록하는 곳입니다. 실제 서비스에서는 이 배열이 DB 테이블을
  * 대체하며, `/api/portfolio`가 이를 그대로 노출합니다.
  */
-export const PORTFOLIO_ITEMS: PortfolioItem[] = [
-	{
-		id: 'redue-ai-tool-vault',
-		category: 'AI/웹솔루션',
-		projectName: 'Redue AI Tool Vault (전 세계 AI 툴 큐레이션)',
-		domainUrl: 'https://euniac.mycafe24.com/tool-vault',
-		cmsType: 'WordPress (워드프레스)',
-		overallScore: 98.0,
-		maxScore: 100,
-		statusLabel: '최적화 완료',
-		subScores: {
-			seo: 100,
-			performance: 95,
-			schema: 100,
-			accessibility: 98,
-			geo: 92,
-		},
-		injectionTags: ['[SoftwareApplication]', '[WP Header Injection]', '[Auto Schema]'],
-		verifiedAt: '2026-08-09',
-		sampleToolSlug: 'redue-seo-studio',
-	},
-];
+export const PORTFOLIO_ITEMS: PortfolioItem[] = [];
 
 export function getPortfolioItems(category?: string | null): PortfolioItem[] {
 	if (!category || category === '전체') {

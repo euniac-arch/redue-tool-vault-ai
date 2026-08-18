@@ -1,5 +1,6 @@
 import { countAuditDefects } from '@/lib/audit/latest-audit-payload';
 import type { AuditReport } from '@/lib/site-auditor';
+import { toSolveCmsDisplay } from '@/lib/solve/types';
 
 export const AUDIT_PROJECTS_COLLECTION = 'audit_projects';
 
@@ -16,7 +17,7 @@ export interface AuditProjectPayload {
 		why?: string;
 		impact?: string;
 	}>;
-	/** Full checklist (~22 items) with pass/fail/warning. */
+	/** Full checklist (~23 items) with pass/fail/warning. */
 	checklist: Array<{
 		id: string;
 		label: string;
@@ -141,7 +142,7 @@ export function buildAuditProjectPayload(
 				jsonLdBlockCount: report.metrics?.jsonLdBlockCount ?? 0,
 			},
 		},
-		cmsType: opts?.cmsType,
+		cmsType: opts?.cmsType || (report.cmsType ? toSolveCmsDisplay(report.cmsType) : undefined),
 	};
 }
 

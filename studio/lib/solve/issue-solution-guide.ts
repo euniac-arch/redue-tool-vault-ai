@@ -453,7 +453,17 @@ export function normalizeCmsKey(cmsType: string): string {
     'Custom HTML/PHP': 'custom',
     UNKNOWN: 'nextjs',
   };
-  return map[cmsType] || 'nextjs';
+  if (map[cmsType]) return map[cmsType];
+  const lower = cmsType.toLowerCase();
+  if (/그누보드|gnuboard|youngcart|영카트/.test(cmsType) || /gnuboard|youngcart/.test(lower)) {
+    return 'gnuboard';
+  }
+  if (/wordpress|워드프레스/.test(lower) || cmsType.includes('워드프레스')) return 'wordpress';
+  if (/cafe24|카페24/.test(lower)) return 'cafe24';
+  if (/next/.test(lower)) return 'nextjs';
+  if (/laravel/.test(lower)) return 'laravel';
+  if (/커스텀|custom|자체구축|imweb|아임웹/.test(lower) || cmsType.includes('커스텀')) return 'custom';
+  return map[cmsType] || 'custom';
 }
 
 function buildGenericGuide(issue: any) {

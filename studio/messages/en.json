@@ -19,7 +19,9 @@
 		"developer": "Developer API",
 		"upgrade": "Buy credits / Upgrade",
 		"logout": "Log out",
-		"credits": "{count} credits left"
+		"credits": "{count} credits left",
+		"themeToLight": "Switch to light mode",
+		"themeToDark": "Switch to dark mode"
 	},
 	"hero": {
 		"badge": "Free · No sign-up · 10-second precision audit",
@@ -95,6 +97,21 @@
 			}
 		},
 		"preview": {
+			"kicker": "Audit Sample Preview",
+			"title": "✨ Live AI SEO & GEO audit sample",
+			"siteChip": "🏷️ Measured medical/clinic sample (한국중입자 암치료연구소)",
+			"statusBadge": "⚡ 122-point precision analysis complete · TTFB 126ms (Good)",
+			"heroLabel": "🏆 Composite measured score",
+			"heroMax": "/ 100",
+			"percentileBadge": "🟢 Top 11% · Stable AI citation range",
+			"formula": "📊 Formula: External trust (80 · 50%) + Technical score (98 · 50%)",
+			"judgment": "🔎 Verdict: On-page schema is excellent, but external AI trust signals need reinforcement",
+			"actionCallout": "⚠️ [One-click patch] Composite score 89 → 91 (+2) immediately",
+			"enginesTitle": "Citation status across 6 major AI engines",
+			"level2": "Level 2 · Partial exposure",
+			"level3": "Level 3 · Strong",
+			"defectTitle": "🔴 Critical defect 01: 7 render-blocking scripts (recommended ≤5)",
+			"defectImpact": "📉 Expected loss: Higher bounce from load delay and risk of AI crawler index miss",
 			"label": "Sample audit result",
 			"aiTrustLabel": "AI search trust",
 			"aiTrustScore": "58 / 100",
@@ -106,7 +123,152 @@
 		},
 		"closing": {
 			"title": "How is AI evaluating your site?",
+			"subtitle": "See citation potential across 6 major AI engines and 122 precision checks in just 1 minute.",
 			"button": "Start a free precision audit"
+		},
+		"guideHighlight": {
+			"title": "💡 In the AI search era, is your site within AI recommendation range?",
+			"subtitle": "See in 3 minutes how ChatGPT, Naver Clova, and Perplexity surface sites — and why GEO optimization is essential.",
+			"button": "📄 Read the GEO visibility guidebook ➔"
+		},
+		"guideModal": {
+			"kicker": "SEO × GEO WHITE PAPER",
+			"title": "Why your site needs GEO/SEO optimization in the age of AI search",
+			"subtitle": "From search clicks to AI citations. A decision-maker briefing on why to adopt, what changes after schema, and the cost of doing nothing.",
+			"readTime": "About 3 minutes · Sales / marketing white paper",
+			"closeAria": "Close guidebook",
+			"cta": "🚀 Run a free GEO audit of our site now",
+			"ctaNote": "Enter a URL and see SEO, GEO, and Schema defects in about 10 seconds.",
+			"paradigm": {
+				"title": "1. Why get an AI search audit now? (A paradigm shift)",
+				"lead": "Search results are no longer ten blue links.",
+				"body": "ChatGPT, Gemini, Perplexity, and Google AI Overviews summarize the question and answer it immediately. Users finish buying, inquiring, or booking without visiting a site. The real question is no longer “Are we found?” but “Does AI understand, trust, and cite our brand?” Without a diagnosis now, you keep buying ads while missing the traffic path that already changed.",
+				"points": {
+					"0": "Generative search completes the answer before the click. If you are not in the citation list, the demand itself disappears.",
+					"1": "Classic SEO (keywords and backlinks) still matters, but without machine-readable signals you can rank and still never be recommended.",
+					"2": "First-mover effects compound. Brands indexed as citation sources are more likely to reappear in later answers."
+				}
+			},
+			"schema": {
+				"title": "2. Why SEO & GEO Schema.org patches matter — and what changes after",
+				"lead": "Schema.org JSON-LD is the standard language that lets search engines and AI identify your company instead of guessing.",
+				"body": "Human-readable copy alone rarely gives AI enough confidence about your organization, services, location, FAQs, or author credibility. If types such as Organization, WebSite, Article, FAQ, Product, and LocalBusiness — and their required fields — are missing, AI prefers a competitor page or Wikipedia as the safer source. A schema patch turns visibility from a hope into a machine-verifiable fact.",
+				"beforeTitle": "Before",
+				"afterTitle": "After",
+				"before": {
+					"0": "HTML exists, but the entity (who / what) stays ambiguous.",
+					"1": "You fall short of rich-result and knowledge-panel eligibility.",
+					"2": "AI assigns low source confidence when deciding whether to cite you."
+				},
+				"after": {
+					"0": "Brand, services, and location lock in as machine-readable identifiers.",
+					"1": "Answer-shaped content such as FAQ/HowTo becomes easier to extract and cite.",
+					"2": "Technical SEO scores and GEO citation likelihood rise together."
+				}
+			},
+			"geo": {
+				"title": "3. Why you need GEO (AI search visibility) optimization",
+				"lead": "GEO (Generative Engine Optimization) aims to keep your site as a cited source inside AI answers.",
+				"body": "The core signals are AI-crawler access, E-E-A-T (experience, expertise, authoritativeness, trust), author/publisher profiles, and content where claims map to evidence. Ranking on page one still fails if you never appear in the AI answer — at the moment of decision, you do not exist. GEO is not buying more ads. It is the technical investment that puts you in the answer set AI chooses.",
+				"points": {
+					"0": "Crawlers such as GPTBot and PerplexityBot must be able to collect your content before you can be a training or citation candidate.",
+					"1": "Clear authors, publishing organization, contact details, and source evidence make you a safer citation against hallucination.",
+					"2": "To be recommended on category + location + problem queries without your brand name, schema and content signals have to reinforce each other."
+				}
+			},
+			"scoreGuide": {
+				"title": "4. 📊 Audit scores — what score is actually safe?",
+				"intro": "Dashboard scores are not merged into one number. Check AI Search Trust (GEO) and Search Technical Optimization (SEO/GEO/Schema) separately.",
+				"threshold": "The safe zone is GEO <highlight>80</highlight> and Search Technical Optimization <highlight>85</highlight> or above.",
+				"tabsAria": "Choose a score area",
+				"statusLabel": "Status",
+				"guideLabel": "Guide",
+				"faqTitle": "FAQ",
+				"pillars": {
+					"geo": {
+						"kicker": "Index 1",
+						"tab": "① AI Search Trust · GEO",
+						"title": "AI Search Trust · GEO Score",
+						"concept": "A real-world visibility index of whether six major AI engines (ChatGPT, Gemini, and others) trust your site and cite it first in their answers.",
+						"safeLine": "Safe baseline: <highlight>80</highlight> or above",
+						"ranges": {
+							"safe": {
+								"range": "<highlight>80</highlight>–100",
+								"badge": "🟢 Safe",
+								"status": "Already in the top 1–2 recommendations even on conversational, non-brand questions.",
+								"guide": "Keep the current state and monitor periodically"
+							},
+							"warning": {
+								"range": "50–79",
+								"badge": "🟡 Warning",
+								"status": "Brand-name search still works, but you drop out of need-based questions such as “recommend a clinic that’s good for night care.”",
+								"guide": "Inject a GEO prescription to expand visibility coverage"
+							},
+							"danger": {
+								"range": "0–49",
+								"badge": "🔴 Danger",
+								"status": "Fully invisible in AI search engines, or the wrong information is being delivered.",
+								"guide": "Urgent GEO optimization patch required"
+							}
+						}
+					},
+					"schema": {
+						"kicker": "Index 2",
+						"tab": "② Search Technical Optimization · SEO/GEO/Schema",
+						"title": "Search Technical Optimization · SEO/GEO/Schema Score",
+						"concept": "A markup-standardization index of how well your site’s backend is structured so AI crawlers (GPTBot and others) can instantly understand your architecture and identity.",
+						"safeLine": "Safe baseline: <highlight>85</highlight> or above",
+						"ranges": {
+							"safe": {
+								"range": "<highlight>85</highlight>–100",
+								"badge": "🟢 Safe",
+								"status": "Standard markup such as Schema.org, FAQ, and NAP is fully in place.",
+								"guide": "No extra script edits needed"
+							},
+							"warning": {
+								"range": "60–84",
+								"badge": "🟡 Warning",
+								"status": "Basic meta tags exist, but required detail schemas such as FAQPage and MedicalClinic are missing.",
+								"guide": "Copy the GEO prescription code and inject it into <headTag></headTag>"
+							},
+							"danger": {
+								"range": "0–59",
+								"badge": "🔴 Danger",
+								"status": "No structured data at all. AI robots cannot interpret what the site is.",
+								"guide": "Urgent full schema injection required"
+							}
+						}
+					}
+				},
+				"faqs": {
+					"highScore": {
+						"question": "💡 If the scores are already high, do I still need to apply a GEO prescription?",
+						"answer": "No. If both scores sit in the safe zone of <highlight>80–85 or above</highlight>, you do not need to apply another prescription right now. Redue does not recommend unnecessary work — quarterly monitoring is enough."
+					},
+					"brandSearch": {
+						"question": "💡 Even with a low score, our shop still seems easy to find on Naver or Google.",
+						"answer": "Typing your business name into a simple keyword search is not the same as a customer asking in full sentences for an AI conversational recommendation (GEO). If the score is low, you are already losing the 90% of new conversational explorers who do not know your name — all of them go to competitors."
+					}
+				}
+			},
+			"risks": {
+				"title": "5. 🚨 Three risks of skipping GEO optimization",
+				"lead": "Delaying GEO is not a marketing task you can “do later.” AI search share accumulates, and empty slots are filled by competitors.",
+				"items": {
+					"0": {
+						"title": "Invisibility in AI search",
+						"body": "Users finish buying, inquiring, or booking from the AI answer alone. If you are not cited, organic traffic structurally declines and the site becomes a ghost brand behind the results."
+					},
+					"1": {
+						"title": "Category brand substitution",
+						"body": "When the same question repeats, AI reinforces the competitor it already cited as the category answer. Once their name is locked into the reply, ads rarely reverse that perception."
+					},
+					"2": {
+						"title": "Recovery cost that compounds",
+						"body": "Even if you later add schema and E-E-A-T, reversing learned preference takes more content and authority signals. Filling that gap with ads usually costs more than the technical patch would have."
+					}
+				}
+			}
 		}
 	},
 	"audit": {
@@ -116,19 +278,63 @@
 		"categoryGridTitle": "5 Core Category Scores",
 		"checklistTitle": "Detailed audit checklist",
 		"checklistSubtitle": "Source evidence, score-down reasons, and fix upside are always visible.",
+		"sectionToggle": {
+			"collapse": "[Collapse]",
+			"expand": "[Expand]"
+		},
 		"scoreDistribution": {
-			"dualAriaLabel": "AI search trust (GEO) and search technical optimization (SEO) score summary",
-			"measuredTitle": "📍 Live SEO · GEO Measured Diagnosis Results",
-			"measuredSubtitle": "Both scores below are current measured values — separate from the post-patch simulator.",
+			"dualAriaLabel": "Composite measured, AI search trust, and technical SEO diagnosis summary",
+			"heroLabel": "Composite measured score",
+			"heroScoreSuffix": "/ 100",
+			"rawScoreLabel": "Measured raw score",
+			"rawScoreValue": "{score} / {max}",
+			"chartTitle": "Three core diagnosis scores",
+			"chartAriaLabel": "Comparison chart of composite measured, AI search trust, and technical SEO scores",
+			"chart": {
+				"overall": {
+					"short": "Overall",
+					"full": "Composite measured score",
+					"desc": "Weighted 100-point total across the five measured categories"
+				},
+				"aiTrust": {
+					"short": "AI Trust",
+					"full": "AI search trust",
+					"desc": "GEO and AI citation / crawler trust"
+				},
+				"techSeo": {
+					"short": "Tech SEO",
+					"full": "Search technical optimization",
+					"desc": "SEO infrastructure, schema, and performance"
+				}
+			},
+			"chartScoreLabel": "{score}",
+			"chartGradeRailTitle": "Grade scale",
+			"chartGradeRailMax": "100pt",
+			"chartGradeRailMin": "0pt",
+			"chartGradeRange": "{min}–{max}",
+			"chartViewAria": "Switch chart view",
+			"chartViewBar": "Bar",
+			"chartViewRadar": "Radar",
+			"chartTooltipScore": "Score: {score} / 100",
+			"chartStatusLabel": "Status",
+			"chartStatus": {
+				"good": "Good",
+				"caution": "Caution",
+				"weak": "Needs work"
+			},
+			"heroPercentile": "Top {percentile}%",
+			"weightBadge": "Weight {pct}%",
 			"reputationCardTitle": "🌐 AI Search Trust · GEO",
+			"reputationCardAlias": "Baseline trust · per-engine citation signals",
 			"reputationCardSubtitle": "Brand trust and citation signals as judged by external search and AI",
 			"schemaCardTitle": "⚙️ Search Technical Optimization · SEO/GEO/Schema",
+			"schemaCardAlias": "On-page measured · same source as Tab 2",
 			"schemaCardSubtitle": "On-site completeness for search-engine and AI-search technical readiness",
 			"title": "122-Point Algorithm Weight Composition",
-			"subtitle": "Point allocation by precision evaluation area on a 122-point scale. (SEO 29 | Performance 30 | Schema 37 | GEO 26)",
+			"subtitle": "Point allocation by precision evaluation area on a {max}-point scale. (Security {security} | Performance {webPerf} | SEO {seo} | Schema {schema} | GEO {geo})",
 			"totalBadge": "Total scale {total}",
-			"totalTooltip": "SEO fundamentals (29) + Web performance & accessibility (30) + Structured data (37) + GEO & E-E-A-T signals (26) = total weighted scale of 122",
-			"weightLegend": "SEO 29 | Performance 30 | Schema 37 | GEO 26 = 122 total",
+			"totalTooltip": "Security & infra ({security}) + Web performance & accessibility ({webPerf}) + SEO fundamentals ({seo}) + Schema ({schema}) + GEO & AI ({geo}) = total weighted scale of {max}",
+			"weightLegend": "Security {security} | Performance {webPerf} | SEO {seo} | Schema {schema} | GEO {geo} = {max} total",
 			"seo": "SEO technical fundamentals",
 			"perfA11y": "Web performance & accessibility",
 			"schema": "Structured data (Schema)",
@@ -138,13 +344,83 @@
 			"mainScoreSuffix": "/ 100",
 			"mainScoreUnit": "{score}",
 			"statusWithPercentile": "{icon} {status} · Top {percentile}%",
-			"algoBadge": "📊 Algorithm precision score: {score} / {max}",
+			"algoBadge": "Algorithm precision score: {score} / {max} = {pct}",
 			"algoBadgeCompact": "Precision score {score} / {max}",
-			"algoTooltip": "SEO fundamentals (29) + Web performance & accessibility (30) + Structured data (37) + GEO & E-E-A-T signals (26) = total weighted scale of 122",
+			"algoTooltip": "Security & infra ({security}) + Web performance & accessibility ({webPerf}) + SEO fundamentals ({seo}) + Schema ({schema}) + GEO & AI ({geo}) = total weighted scale of {max}",
 			"rowPctScore": "{pct}",
 			"rowRawScore": "({score} / {max})",
 			"rowRawScoreBonus": "({score} / {max} · bonus complete)",
-			"categoryPctScore": "{pct}"
+			"categoryPctScore": "{pct}",
+			"measuredTitle": "📍 Live SEO · GEO Measured Diagnosis Results",
+			"measuredSubtitle": "Both scores below are current measured values — separate from the post-patch simulator.",
+			"httpsGradeCapChip": "⚠️ No HTTPS · grade cap applied",
+			"weightedConversion": "Precision raw total {score} / {max} pt (weighted {pct})",
+			"weightedConversionTooltip": "This is not a simple average of the five axes. It is the weighted sum converted to 100 points. Security & infra ({security}) + Web performance & accessibility ({webPerf}) + SEO fundamentals ({seo}) + Schema ({schema}) + GEO & AI ({geo}) = {max} pts.",
+			"categoryRawMax": "/ {max} pts",
+			"categoryAchievement": "Achievement {pct}%",
+			"fiveCategoryTitle": "Five-category precision scores",
+			"fiveCategoryHint": "Large numbers are category points (raw). The headline is the weighted sum ({score} / {max} pts → {pct}), not a simple average of the five rates.",
+			"fiveCategoryTotal": "{score} / {max} pts",
+			"fiveCategoryTotalTooltip": "Sum of the five card raw scores: {score} / {max} pts (weighted {pct})",
+			"fiveCategoryScale": "TOTAL {max}",
+			"security": "Security & infrastructure",
+			"webPerf": "Web performance & accessibility",
+			"radar": {
+				"title": "5-axis measured distribution",
+				"subtitle": "Measured balance across the five core areas that make up AI search recommendations and technical SEO.",
+				"subtitleWeighted": "Measured index across the five core areas. (Weighted conversion on a {max}-point scale: {raw} / {max} → {pct})",
+				"ariaLabel": "Technical and GEO five-axis radar chart",
+				"security": "Security / infra",
+				"performance": "Perf / a11y",
+				"seo": "Search basics",
+				"schema": "Structured data",
+				"geoSignal": "AI citation signal",
+				"securityDown": "No HTTPS · security axis penalized",
+				"hoverCard": {
+					"scoreUnit": "/ 100",
+					"rawScore": "{score} / {max}",
+					"badgePass": "Pass",
+					"badgePassPerfect": "Pass · Perfect",
+					"badgeFail": "Fail · {count} defects",
+					"badgeWarning": "Warning · {count} warnings",
+					"badgeFailPlain": "Poor",
+					"badgeWarningPlain": "Warning"
+				},
+				"detailPanel": {
+					"title": "Measured category details",
+					"idleHint": "Hover a score card or radar axis to see defects, warnings, and passing checks. Click a card to jump to the detailed checklist.",
+					"priorityTitle": "Priority fix guide",
+					"prioritySubtitle": "Fixing the weakest {count} areas first recovers the composite score fastest.",
+					"allHealthyTitle": "All five areas look balanced",
+					"allHealthyBody": "Every category is currently healthy. Click a card to review its checklist.",
+					"recoverable": "💡 After the prescription",
+					"recoverableScore": "+{score} pts recoverable now",
+					"priorityFix": "Patch for +{score} pts",
+					"checkPass": "Working as intended / already optimized",
+					"checkWarning": "Needs attention or a recommended improvement.",
+					"checkFail": "A defect or missing item was found.",
+					"emptyChecks": "No detailed checks are available for this category."
+				}
+			}
+		},
+		"scoreGrade": {
+			"gradeLabel": "Grade {grade}",
+			"qualifier": {
+				"S": "Outstanding",
+				"A": "Excellent",
+				"B": "Good / Fair",
+				"CD": "Poor / At risk"
+			},
+			"tooltipAria": "Score-to-grade scale",
+			"scaleTitle": "Score-to-grade scale",
+			"scale": {
+				"S": "S: 90–100 · Outstanding / top 10%",
+				"A": "A: 80–89 · Excellent",
+				"B": "B: 70–79 · Good / Fair",
+				"CD": "C/D: 69 or below · Poor / At risk"
+			},
+			"securityCapLabel": "Security-capped grade B",
+			"securityCapTooltip": "⚠️ Score is 85+ but grade is capped at B because HTTPS is not enabled"
 		},
 		"pageSpeed": {
 			"cardsBadge": "PageSpeed Insights",
@@ -264,27 +540,51 @@
 			}
 		},
 		"findingsTitle": "Priority fixes",
+		"findingsSubtitle": "Ranks the most urgent AI-visibility and SEO deduction issues that should be fixed first.",
 		"findingsEmpty": "✅ No major defects found. Looking strong.",
 		"detectedSchemas": "Detected schemas",
 		"loadingTitle": "Precision SEO & GEO audit engine running",
 		"loadingRescanTitle": "🔄 Live re-audit in progress...",
 		"loadingTerminalTitle": "redue-audit — precision parser",
 		"loadingProgress": "scan progress",
+		"resultHydrateLoading": "Safely loading your previous diagnosis data...",
+		"resultComposeLoading": "Assembling the AI diagnosis report...",
 		"failedTitle": "Audit failed",
 		"deletedOrMissing": "This audit was deleted or no longer exists.",
 		"deletedOrMissingRedirect": "Redirecting to the audit page…",
 		"retry": "Try again",
 		"scannedAt": "Scanned at {time} · HTTP status {status} · response time {ms}ms",
+		"lastDiagnosedAt": "🕒 Last diagnosis: {time}",
+		"justRefreshedSuffix": " (just updated)",
 		"noUrl": "No URL to audit. Please enter a site URL on the home page.",
 		"printFooter": "This report was generated by the REDUE AI precision audit engine. Inquiries: contact@redue.ai",
+		"execBriefing": {
+			"badge": "Precision diagnosis briefing",
+			"title": "Personalized Executive Summary",
+			"overallBadge": "Overall {score} / 100",
+			"thresholdBadge": "AI recommendation range {threshold} · grade A",
+			"weaknessLabel": "Weakness Point",
+			"riskLabel": "Risk Assessment",
+			"expectedLabel": "Expected Result",
+			"expectedDelta": "{current} → {projected} (+{gain})",
+			"appliedStatus": "Prescription applied",
+			"appliedExpectedLabel": "Prescription result",
+			"appliedDelta": "{current} → {projected} applied (+{gain})"
+		},
 		"tabs": {
 			"geo": "AI Search Trust · GEO Diagnosis Results",
-			"onpage": "SEO·GEO·Schema Diagnosis Results"
+			"onpage": "SEO·GEO·Schema Diagnosis Results",
+			"geoTitle": "🌐 AI Search Trust & External Reputation Deep Diagnosis",
+			"geoDescription": "External signals and reputation metrics that show whether major AI engines (ChatGPT, Perplexity, Gemini, and others) can trust, recommend, and cite the brand.",
+			"onpageTitle": "⚙️ Search Technology & On-Page (Schema) Deep Diagnosis",
+			"onpageDescription": "Technical foundation metrics that let search engines and AI crawlers fully collect and interpret website data."
 		},
 		"geoScore": {
 			"badge": "GEO Score",
-			"title": "🌐 AI Search Trust · GEO Overall Score",
-			"summaryTitle": "🌐 AI Search Trust · GEO Diagnosis Results",
+			"title": "🌐 AI Search Optimization Overall Trust (Weighted Composite)",
+			"summaryTitle": "AI Search Optimization Overall Trust",
+			"summaryTitleHint": "(weighted composite)",
+			"scoreAlias": "AI Citation Trust Index",
 			"scoreSuffix": "/ 100",
 			"percentileLabel": "Top {percentile}%",
 			"gradeLabel": "Grade {grade}",
@@ -297,18 +597,517 @@
 			"topRecommendationValue": "{threshold}+",
 			"topRecommendationHint": "★ {points} more to reach page-1 top recommendation",
 			"topRecommendationAchieved": "Already in the top recommendation tier",
-			"pdfButton": "📄 Download PDF report",
-			"disclaimer": "* External reputation data is an AI estimate based on public web signals and refreshes automatically once live data sources are connected."
+			"pdfButton": "Download PDF report",
+			"appliedStatus": "Prescription applied",
+			"disclaimer": "* External reputation data is an AI estimate based on public web signals and refreshes automatically once live data sources are connected.",
+			"insightLabel": "Overall diagnosis",
+			"insightDefectChip": "{count} on-page defect(s)",
+			"insightReputationChip": "External trust {score}",
+			"category5Title": "GEO & AI citation signals",
+			"category5TitleHint": "(raw crawl / technical measured score)",
+			"category5Score": "{score} / {max}",
+			"category5Converted": "Converted {pct} / 100",
+			"category5Tooltip": "This is the raw technical score ({score} / {max}) out of {max} measured category points, plus the simple achievement rate ({pct}%). The overall trust score above ({comprehensive}) is the final weighted composite across search engines.",
+			"category5TooltipAria": "How the measured GEO raw score differs from the overall trust score",
+			"category5Defects": "{count} defect(s)",
+			"category5Warnings": "{count} warning(s)",
+			"category5Clean": "No defects",
+			"pillarsTitle": "Four core pillars (25 pts each · 100 total)",
+			"pillarsHint": "Click a card to jump to the measured section below",
+			"pillarsSum": "Measured sum {score} / {max}",
+			"pillarJump": "Jump to the {name} measured card",
+			"pillarJumpHint": "Jump to the measured card below"
+		},
+		"trackingStatus": {
+			"SYNCING": "Waiting for reflection (Syncing...)",
+			"PENDING_INDEX": "Pending index",
+			"TRACKING": "Tracking engine crawls",
+			"nextMeasurement": "Next AI citation measurement in D-{days}",
+			"nextMeasurementDue": "The next measurement window is open. Re-audit to confirm engine reflection.",
+			"expectedScore": "Expected score {score}",
+			"expectedScoreHint": "(measured after engines re-index)"
 		},
 		"aiEngines": {
 			"title": "AI search engine exposure & root-cause analysis",
-			"subtitle": "Why & Status"
+			"subtitle": "Why & Status",
+			"scoreUnit": "",
+			"scoreMax": "/100",
+			"exposureTab": "Exposure",
+			"rankButton": "AI engine readiness",
+			"scoreMeaning": "AI search readiness is based on the site's structured data, content, entity, and external trust signals. When live AI answers are connected, they can be compared alongside this score.",
+			"scoreMeaningTooltip": "AI search readiness is a site-analysis estimate. Live answer exposure and citation are a separate Visibility metric, shown only for engines with a real measurement API.",
+			"scoreMeaningAria": "What AI search readiness means",
+			"readinessLabel": "AI search readiness",
+			"technicalReadinessLabel": "Technical readiness",
+			"liveResultLabel": "Live measurement",
+			"liveVerdictLabel": "Live exposure verdict",
+			"liveCitedBadge": "✓ Recommended / cited in the answer",
+			"liveUncitedBadge": "✗ Not cited in the answer",
+			"liveCitedConfirm": "✓ Live recommendation confirmed ({score})",
+			"liveUncitedConfirm": "✗ Not cited live ({score})",
+			"visibilityTitle": "Live AI search results",
+			"visibilityQueryTests": "Query tests",
+			"visibilityAnswerHits": "AI answer mentions",
+			"visibilityRate": "Live visibility rate",
+			"visibilityOfficialCitations": "Official URL citations",
+			"visibilityCitationRate": "Citation Rate",
+			"visibilityEntityAccuracy": "Entity accuracy",
+			"mainCauses": "Key factors",
+			"liveCheckCta": "Verify live citations on 4 AIs",
+			"liveCheckLoading": "Querying 4 AIs live... (3–5s)",
+			"liveCheckRetry": "Re-run live measurement",
+			"liveCheckCompletedHint": "Just measured (live comparison mode)",
+			"liveCheckError": "The live check request failed. Please try again shortly.",
+			"ruleDiagnosisBadge": "Technical-rule diagnosis (readiness)",
+			"liveGroundedBadge": "Live Grounding measurement",
+			"liveFailBadge": "Live lookup failed (estimate kept)",
+			"liveFailTooltip": "Temporary API delay or timeout. Click the button above to retry.",
+			"approxBadge": "Portal-index simulation estimate",
+			"liveGroupTitle": "Live web-search engines (Direct Live Grounding)",
+			"liveGroupHint": "Verified from actual AI browsing queries",
+			"proxyGroupTitle": "Portal-ecosystem index simulation (Ecosystem Index Proxy)",
+			"proxyGroupHint": "Weighted from Bing / Naver SmartPlace signals",
+			"evidenceTitle": "Live AI answer verification",
+			"citedYes": "✓ Cited in the answer",
+			"citedNo": "✗ Not cited in the answer",
+			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Only Gemini, ChatGPT, Perplexity, and Claude verify live web-search citations."
+		},
+		"aiRankingModal": {
+			"kicker": "Market Share",
+			"title": "Korea AI search traffic share & ranking",
+			"subtitle": "Domestic AI service usage used to set Redue GEO optimization priorities.",
+			"closeAria": "Close",
+			"asOfBadge": "As of {date}",
+			"asOfTimestamp": "As of {date} (daily snapshot at 00:00 KST)",
+			"chartAria": "Korea AI search traffic share chart",
+			"loading": "Loading daily share data…",
+			"loadError": "Could not load the daily snapshot; showing today's estimated share.",
+			"trendUp": "Up",
+			"trendDown": "Down",
+			"trendStable": "Stable",
+			"rankLabel": "#{rank}",
+			"insightKicker": "GEO insight",
+			"insight": "<b>ChatGPT</b> and <b>Naver Clova</b> account for over 70% of the Korean search market, so Level 3 unbranded conversational visibility on those two engines should be fixed first.",
+			"disclaimer": "* Approximate Korean AI search / conversational traffic share, for GEO priority setting only.",
+			"engines": {
+				"chatgpt": {
+					"name": "ChatGPT (OpenAI)",
+					"note": "#1 in conversational search and general-user usage"
+				},
+				"clova": {
+					"name": "Naver Clova / Cue::",
+					"note": "Strong local / place / shopping search integration"
+				},
+				"perplexity": {
+					"name": "Perplexity",
+					"note": "Fast-rising cited answers and advanced research search"
+				},
+				"gemini": {
+					"name": "Gemini (Google)",
+					"note": "Tied into Google Search and the Android ecosystem"
+				},
+				"claude": {
+					"name": "Claude (Anthropic)",
+					"note": "Preferred for long-document analysis and expert work"
+				},
+				"copilot": {
+					"name": "Microsoft Copilot",
+					"note": "Tied into Microsoft 365 and Bing Search"
+				}
+			}
+		},
+		"aiVisibility": {
+			"kicker": "Trigger Keyword Depth",
+			"title": "AI engine visibility · trigger keyword depth testing",
+			"subtitle": "See how deep a query must be before ChatGPT, Gemini, Claude, Perplexity, Copilot, and Naver Clova recommend this site. GEO is complete only when the brand appears on Level 3 unbranded conversational prompts.",
+			"exposureIndex": "AI Exposure Index",
+			"indexingSummary": "{indexed}/{total}",
+			"indexingHint": "AI engines successfully indexing this site",
+			"avgDepthLabel": "Average trigger depth",
+			"depthMix": "Level mix",
+			"exposureScore": "Depth score {score}/100",
+			"triggerLevel": "Trigger Level {level}",
+			"simulatedChat": "Simulated AI response",
+			"noCitation": "No recommended links — the site was not cited",
+			"improvementTitle": "Redue GEO improvement action",
+			"disclaimer": "* This is a crawl-signal simulation. Live AI-engine probes via /api/audit/ai-visibility will replace these answers.",
+			"badge": {
+				"optimal": "Excellent / High GEO",
+				"moderate": "Good / Moderate GEO",
+				"exact_only": "Needs work / Low GEO",
+				"not_indexed": "Not indexed"
+			},
+			"levelName": {
+				"not_indexed": "Level 0 · Not indexed",
+				"exact_only": "Level 1 · Brand / exact match",
+				"moderate": "Level 2 · Category + location",
+				"optimal": "Level 3 · Broad unbranded intent"
+			}
+		},
+		"aiEngineSummary": {
+			"kicker": "AI Engine Exposure",
+			"title": "AI Search Trust & GEO Diagnostics",
+			"queryReachTitle": "Live AI engine query reach (Query Reach)",
+			"queryReachHint": "Based on the baseline trust score above, this is the exploration depth (Level) each of the six AI engines reaches on unbranded searches.",
+			"engineCount": "{count}",
+			"engineCountAlert": "{count} 🚨",
+			"indexedRatio": "{indexed} / {total} AI Engines Recommended",
+			"indexedRatioLabel": "AI Engines Recommended",
+			"indexedHint": "How many of the six global and Korean flagship AI search engines meaningfully cite or index this brand.",
+			"recommendedBadgeBefore": "🚨 Level 1 (brand-only exposure)",
+			"recommendedBadgeAfter": "🚀 Level 2–3 expansion complete",
+			"recommendedHintBefore": "All six engines currently respond only to exact brand-name searches.",
+			"recommendedHintAfter": "All six engines have entered the unbranded / conversational recommendation radius.",
+			"level3Label": "Level 3 · Broad / Exploratory",
+			"level3Hint": "Conversational unbranded recommendations",
+			"level2Label": "Level 2 · Category / Specialty",
+			"level2Hint": "Local / industry category",
+			"level1Label": "Level 1 · Brand Only",
+			"level1Hint": "Brand-name search only",
+			"level1HintAfter": "Resolved after the prescription",
+			"chip": {
+				"optimal": "Level 3 conversational recommend",
+				"moderate": "Level 2 category",
+				"exact_only": "Level 1 brand-only",
+				"not_indexed": "Not indexed"
+			}
+		},
+		"aiExposureGuide": {
+			"openAria": "Open the AI exposure level and diagnostic indicator guide",
+			"openLabel": "Indicator guide",
+			"closeAria": "Close guide",
+			"kicker": "AI Engine Exposure",
+			"title": "AI engine exposure depth (Level) and diagnostic indicator guide",
+			"levelsQuestion": "What do AI exposure levels (Level 1–3) mean?",
+			"levelsIntro": "They show how deeply your hospital or brand is cited in AI recommendation answers, depending on how the user phrases the search.",
+			"level3Title": "Level 3 (Broad / Exploratory)",
+			"level3Badge": "Top tier",
+			"level3Body": "The highest-trust stage: you appear as the top recommended brand even on very broad, general discovery queries such as “recommended restaurants in Busan” or “night clinic in Gangnam.”",
+			"level2Title": "Level 2 (Category / Specialty · Symptom)",
+			"level2Badge": "Category",
+			"level2Body": "AI cites you on specific specialty or service-category searches, such as “best sports rehab manual therapy in Busan” or “pediatric development center recommendation.”",
+			"level1Title": "Level 1 (Brand Exact Only / Brand-name search)",
+			"level1Badge": "Early stage",
+			"level1Body": "The early stage where you appear only when users search the hospital or business name exactly. On generic keyword searches you may be crowded out by competitors.",
+			"metricsQuestion": "Indicator details",
+			"enginesTitle": "AI Engines Recommended",
+			"enginesBody": "How many of the six global and Korean flagship AI search engines meaningfully cite or index this brand."
+		},
+		"execBrief": {
+			"kicker": "Executive Summary & ROI",
+			"title": "1-minute brief & improvement impact",
+			"fabLabel": "1-min brief & ROI",
+			"fabLabelShort": "Brief",
+			"fabAria": "Open the executive diagnosis brief and ROI",
+			"closeAria": "Close executive brief",
+			"statusKicker": "01 · Current status & exposure odds",
+			"aiIndexLabel": "Overall AI Index",
+			"indexedRatio": "{indexed} / {total} AI engines citing",
+			"statusLineLabel": "One-line status",
+			"statusLine": {
+				"brandOnly": "Beyond brand-name search, AI citation rates stay low on category and symptom keywords.",
+				"categoryGap": "Some category and local queries surface the brand, but Level 3 broad-intent recommendations are still weak.",
+				"nearOptimal": "Citation foundations are in place on major engines. Expanding remaining engines to Level 3 is the next step.",
+				"optimal": "The brand is close to a stable range, with unbranded queries cited across major AI engines."
+			},
+			"improveKicker": "02 · Top 3 improvement points",
+			"improveEmpty": "No critical defects need immediate action. Keep managing the remaining signals.",
+			"improveTheme": {
+				"schema": "Patch on-page schema",
+				"geo": "Apply the GEO optimization script",
+				"faq": "Add FAQ/HowTo structured data",
+				"bots": "Allow AI crawler access",
+				"eeat": "Strengthen E-E-A-T entities",
+				"onpage": "Improve on-page SEO",
+				"engine": "Close the AI citation gap",
+				"generic": "Priority fix"
+			},
+			"severity": {
+				"critical": "Urgent",
+				"warning": "Priority",
+				"info": "Recommended"
+			},
+			"roiKicker": "03 · Expected impact & ROI",
+			"roiCurrent": "Current exposure index",
+			"roiProjected": "Projected after prescription",
+			"roiGain": "+{gain} lift",
+			"roiGainNone": "Limited extra upside",
+			"roiStable": "Entering the {threshold}%+ stable range",
+			"roiApproaching": "More work needed to reach grade A ({threshold}%)",
+			"roiInflow": "Applying the prescription lifts the exposure index from <score>{from}% ➔ {to}%</score>, with search and AI-answer visibility that can raise <gain>potential-customer inflow and sessions by about {lift}%</gain>.",
+			"roiInflowHold": "Citation foundations are already stable at the current baseline. Managing leftover defects with the prescription helps hold inflow and sessions.",
+			"ctaAnswerCenter": "Go to the prescription answer center",
+			"ctaApplyFirst": "Apply the prescription and open the answer center",
+			"saveImage": "Save image",
+			"savePdf": "Save PDF",
+			"saveHint": "Saves this brief card as an image or a one-page PDF.",
+			"saveError": "Could not save the brief. Please try again shortly."
+		},
+		"aiEngineCards": {
+			"kicker": "Trigger keyword depth",
+			"title": "Per-engine trigger test · chat simulation",
+			"appliedStatusBadge": "Prescription applied",
+			"subtitle": "The current diagnosis (As-Is) shows only queries that are actually exposable today. Consulting, research, or agency sites — and sites with weak category indexing — are limited to the brand name (Level 1). Broad category queries appear only after the prescription (To-Be).",
+			"triggerQuery": "Current trigger query",
+			"triggerLevel": "Trigger Level {level}",
+			"triggerLevelNamed": {
+				"1": "Level 1 brand-only",
+				"2": "Level 2 category",
+				"3": "Level 3 conversational recommend"
+			},
+			"triggerUnindexed": "Trigger Level 0",
+			"simulatedChat": "Simulated AI response",
+			"userPrompt": "User",
+			"asIsKicker": "Current diagnosis (As-Is)",
+			"asIsHint": "Only triggers that are valid from live site metadata and index signals. Category-candidate claims are not invented.",
+			"adviceTitle": "Optimization advice",
+			"adviceHint": "Schema, indexing, and FAQ actions that unlock Level 3.",
+			"toBeKicker": "Post-optimization range (To-Be)",
+			"toBeHint": "Expanded keywords and unbranded conversational queries reachable after the prescription.",
+			"toBeKeywordsTitle": "Expanded keywords reachable after the prescription (To-Be)",
+			"toBeTarget": "Level 3 excellent (unbranded conversational)",
+			"expandedTrigger": "Expanded trigger query",
+			"noCitation": "No recommended links — the site was not cited",
+			"officialSite": "{brand} official site",
+			"disclaimer": "* This is a crawl-signal simulation. Live AI-engine probes will replace these answers.",
+			"startCta": "Run query-reach simulation",
+			"rerunCta": "Re-run simulation ↺",
+			"probingCta": "Simulation in progress…",
+			"simModeAria": "As-Is / To-Be simulation mode",
+			"simModeAsIs": "Current defects (As-Is)",
+			"simModeToBe": "After required fixes (To-Be)",
+			"simModeAsIsCompact": "Current (As-Is)",
+			"simModeToBeCompact": "After fixes (To-Be)",
+			"copyPrompt": "Copy real prompt",
+			"copyPromptDone": "Copied!",
+			"copyPromptTitle": "Copy the prompt so you can paste it into a real AI engine",
+			"consoleHintAsIs": "Analyzes citation decisions and trigger depth across six AI engines in the current defect state.",
+			"consoleHintToBe": "Previews the recommendation results reachable after HTTPS, /llms.txt, and Place fixes.",
+			"resultBannerAsIs": "As-Is reach simulation (current defects)",
+			"resultBannerToBe": "To-Be recommendation preview (after required fixes)",
+			"resultLevelLabel": "Simulation results at Level {level}",
+			"toBeUnreachable": "Cannot reach Level {level}",
+			"queryPreviewLabel": "Query to send",
+			"querySelectLabel": "Choose a trigger-query level to verify",
+			"queryChipAria": "Choose the trigger query to verify",
+			"queryLevelSelected": "Selected",
+			"queryLevel": {
+				"1": "Level 1 · Brand",
+				"2": "Level 2 · Category",
+				"3": "Level 3 · Unbranded"
+			},
+			"progressStep": "{index}/{total} {engine}",
+			"progressHint": {
+				"chatgpt": "Sending ChatGPT Search web-index query…",
+				"perplexity": "Matching Perplexity API citations…",
+				"gemini": "Converging Gemini Grounding signals…",
+				"claude": "Checking Claude web-source citations…",
+				"copilot": "Checking Copilot / Bing index cards…",
+				"clova": "Converging Naver Clova signals…"
+			},
+			"progressComplete": "Query-reach simulation complete across all six AI engines!",
+			"liveDisclaimer": "* {month} six-engine query-reach simulation complete (diagnostic score, HTTPS, and Place-signal analysis)",
+			"asIsResponseLabel": "Engine response and restriction analysis",
+			"toBeResponseLabel": "Projected AI recommendation after the fixes",
+			"asIsUnreachable": "Reach limited (not shown)",
+			"roadmapTitle": "Current-defect breakthrough roadmap",
+			"roadmapTitleToBe": "Post-fix achievement checklist",
+			"roadmapDone": "Done",
+			"roadmapAchievement": "{engine} citation conditions met",
+			"roadmapRank": {
+				"1": "Priority 1",
+				"2": "Priority 2",
+				"3": "Priority 3"
+			},
+			"toBeBadge": {
+				"1": "To-Be · Level 1 reached",
+				"2": "To-Be · Level 2 reached",
+				"3": "To-Be · Level 3 reached"
+			},
+			"level2StuckBanner": "{engines} are still at Level 2 (category). Open each card’s engine-specific Level 3 query and prescription guide to unlock unbranded direct recommendations.",
+			"level3GuideTitle": "Engine-specific Level 3 lift guide",
+			"level3GuideTitleToBe": "Still Level 2 after the prescription — Level 3 tuned query",
+			"level3GuideHint": "{engine} is currently at Level {from}. Use the tuned query, keyword combos, and on-page/schema actions below to trigger Level {to} (unbranded direct recommend).",
+			"level3GuideAria": "{engine} Level 3 keyword and prescription guide",
+			"level3QueryLabel": "Level 3 tuned trigger query",
+			"level3ComboLabel": "Engine-specific Level 3 keyword combinations",
+			"level3TipsLabel": "Level 3 prescription action guide",
+			"level3Pattern": {
+				"local": "Local",
+				"metro": "Metro specialist",
+				"nationwide": "Nationwide / conversational"
+			},
+			"reachGuideKicker": "Per-level AI query approach · top-exposure mechanism",
+			"reachGuideHint": "For each Level 1–3, this explains how AI recognizes the brand and how far it can cite it.",
+			"reachGuideOverviewAria": "Level 1–3 query-approach comparison",
+			"reachGuideDetailAria": "Level {level} query-approach and exposure guide",
+			"reachGuideInlineAria": "This engine’s Level {level} query-approach guide",
+			"reachMechanismLabel": "Query approach",
+			"exposureScopeLabel": "Exposure scope",
+			"examplePatternLabel": "Query pattern",
+			"engineReachGuideLabel": "This engine’s reach-level guide"
+		},
+		"geoDiagnosticTab": {
+			"filterAria": "AI engine exposure filter",
+			"filterAll": "View all AI",
+			"filterExcellent": "Excellent exposure only",
+			"filterNeedsWork": "Needs improvement only",
+			"emptyFilter": "No AI engines match this filter.",
+			"applyPrescription": "Apply REDUE GEO prescription",
+			"applying": "Applying prescription…",
+			"appliedButton": "REDUE GEO prescription applied",
+			"reapplyButton": "Reapply / change keywords",
+			"reapplyAria": "Reapply the prescription and change target keywords",
+			"applyError": "Live scrape failed; generated a prescription from the current site context.",
+			"compareAria": "Compare before and after prescription",
+			"beforeToggle": "Before prescription",
+			"afterToggle": "After prescription",
+			"beforeBadge": "Before",
+			"afterBadge": "After",
+			"beforeTabHint": "Shows the pre-patch scores (Level 1–2, warning badges) and the baseline simulation cards.",
+			"afterTabHint": "Shows the expanded range report, Level 3 lift, optimized simulations, and GEO Answer Center.",
+			"compareHintIdle": "Apply the prescription to unlock Before / After comparison.",
+			"compareHintReady": "Switch tabs to compare engine exposure before and after the patch.",
+			"steps": {
+				"1": "Step 1: Collecting entity data and analyzing metadata for {url}...",
+				"2": "Step 2: Generating category-fit Schema.org markup and 5 structured FAQs...",
+				"3": "Step 3: Re-simulating conversational queries and ranking across 6 AI engines..."
+			},
+			"progressLabel": "Injecting GEO prescription — remeasuring query coverage"
+		},
+		"geoQueryCoverage": {
+			"kicker": "GEO Prescription & Query Coverage",
+			"title": "REDUE GEO prescription result · AI recommendation range expansion",
+			"subtitle": "After schema, FAQ, and entity patches, this is the query depth (Level 1–3) and word coverage six AI search engines can use to recommend this site.",
+			"appliedBadge": "Prescription patch applied",
+			"beforeTitle": "AI recognition range before the patch (As-Is · brand-only)",
+			"beforeZero": "Zero inbound traffic from non-brand and local category queries",
+			"wordLimitPrefix": "Word limit:",
+			"afterTitle": "New Level 3 word combinations covered after the prescription",
+			"toBeKeywordsTitle": "Expanded keywords reachable after the prescription (To-Be, {count})",
+			"insightTitle": "Insight",
+			"rank": "Rank #{rank}",
+			"level1": "Level 1 · Brand exact",
+			"level2": "Level 2 · Category-insensitive",
+			"level3": "Level 3 · Conversational / detail expansion",
+			"weightsTitle": "AI-classified keyword contribution",
+			"weightsHint": "Share of words AI currently associates with this site, based on meta tags (og:description and others) and external crawl signals.",
+			"badgeTitle": "New rank #1–#2 entries"
+		},
+		"geoPromptReason": {
+			"kicker": "Why this combo wins",
+			"title": "Why this word combination sharply lifts AI recommendation odds",
+			"subtitle": "After the prescription, specific keywords lock onto schema, FAQ citations, and long-tail intent — raising top-rank confidence."
+		},
+		"geoPrescriptionReport": {
+			"kicker": "GEO Prescription",
+			"title": "Redue GEO prescription report",
+			"subtitle": "Projected trigger depth across 6 AI engines after schema, FAQ, and meta patches.",
+			"patchesTitle": "Applied technical patches",
+			"schemaPreview": "Applied schema properties",
+			"schemaSummaryHint": "Full JSON-LD is available only in GEO Answer Center module 1.",
+			"goToModule1": "Go to GEO Answer Center module 1",
+			"patches": {
+				"schema": "{schemaType} Schema.org JSON-LD markup applied",
+				"faq": "Structured markup generated for {count} representative FAQs",
+				"meta": "AI-citation meta tags and entity mentions optimized"
+			},
+			"changesTitle": "Expected trigger change by AI engine (Before ➔ After)",
+			"depth": {
+				"0": "Level 0 (Not indexed)",
+				"1": "Level 1 (Brand-only)",
+				"2": "Level 2 (Category)",
+				"3": "Level 3 (Unbranded conversational)"
+			},
+			"applyToSite": "Apply script to the live site",
+			"appliedToSite": "Schema script applied",
+			"copySchema": "Copy generated schema code",
+			"copied": "Schema code copied",
+			"appliedHint": "The generated JSON-LD was copied to your clipboard. Paste it into the site <head> to finish live deployment."
+		},
+		"geoCopyCenter": {
+			"kicker": "GEO Answer Center",
+			"title": "Redue GEO prescription answer center",
+			"subtitle": "Before auto-injection, copy paste-ready schema, maps copy, and blog Q&A built from this site’s rank 1–3 menus.",
+			"menusAria": "Rank 1–3 primary menus",
+			"rank": "Rank #{rank}",
+			"customize": "⚙️ Change target keywords / priority",
+			"customizeAria": "Open the target keyword and priority editor",
+			"closeEditor": "Close",
+			"editorTitle": "Change target keyword priority",
+			"customizeHint": "Set your primary specialty or service as rank 1 and AI search engines can cite a custom script optimized for that keyword combination first.",
+			"sourceTipTitle": "💡 TIP",
+			"sourceTip": "Keywords in this list are automatically extracted by AI from the current website’s meta description and registered core keywords.",
+			"selectLabel": "Rank {rank} keyword select",
+			"selectPlaceholder": "Choose an extracted keyword",
+			"customOption": "Type your own",
+			"inputLabel": "Rank {rank} custom input",
+			"inputPlaceholder": "e.g. child development center",
+			"regenerate": "Regenerate prescription with these keywords 🔄",
+			"regenerated": "Prescription code was rebuilt for the new keywords. Copy now puts the updated text on the clipboard.",
+			"regeneratedAt": "🕒 Custom prescription for the updated target keywords is now live - {time}",
+			"rankKeyword": "Rank {rank}: {keyword}",
+			"appliedBadge": "✓ {summary} applied",
+			"rank1Required": "Choose or type a rank-1 keyword.",
+			"duplicateWarning": "Each keyword can occupy only one rank. Duplicates are removed when regenerating.",
+			"moduleIndex": "Module {index}",
+			"schemaBadge": "Recommended schema {schemaType}",
+			"categoryBadge": "Category · {category}",
+			"copy": "Copy code",
+			"copyCode": "Copy code",
+			"copyText": "Copy text",
+			"copyArticle": "Copy article",
+			"copied": "✓ Copied",
+			"modules": {
+				"schema": {
+					"title": "Schema.org JSON-LD markup",
+					"hint": "Paste into the website <head>. MedicalClinic / MedicalSpecialty entity block.",
+					"badge": "JSON-LD"
+				},
+				"faq": {
+					"title": "FAQPage markup for conversational AI citation",
+					"hint": "Five structured FAQs that ChatGPT and Perplexity can parse and quote.",
+					"badge": "FAQPage"
+				},
+				"maps": {
+					"title": "Naver Smart Place & Google Maps listing text",
+					"hint": "Recommended category, rank 1–3 business intro, and five keyword tags.",
+					"badge": "Maps text"
+				},
+				"blog": {
+					"title": "Blog / press Q&A article",
+					"hint": "A ready-to-publish Q&A column that weaves in the rank 1–3 keywords.",
+					"badge": "Article"
+				},
+				"llms": {
+					"title": "/llms.txt AI-only index",
+					"hint": "Publish at the site root so GPTBot and Perplexity can cite official facts, NAP, and FAQ immediately.",
+					"badge": "/llms.txt"
+				}
+			}
 		},
 		"brandTrust": {
 			"title": "AI brand recognition & information trust (E-E-A-T)",
 			"keywordsLabel": "Key AI-associated keywords",
 			"missingKeywordLabel": "Missing required keyword",
-			"napLabel": "NAP information match rate"
+			"napLabel": "NAP information match rate",
+			"schema": {
+				"scoreLabel": "LLM structured-data completeness",
+				"scoreHint": "({complete}/{total} properties complete)",
+				"complete": "Applied",
+				"needsWork": "Missing / needs work",
+				"kicker": "Structured-data check",
+				"subtitle": "Checks whether the five core on-page JSON-LD properties are complete."
+			},
+			"subtitle": "Compare official entity identity, founder knowledge-graph linkage, and schema completeness on one screen.",
+			"actionGuideTitle": "Action guide",
+			"actionGuideBadge": "Priority",
+			"actionGuideBody": "A business registration number is present, but a missing Place CID or founder knowledge graph mixes you with same-name businesses. Strengthen sameAs and Person schema first.",
+			"actionGuideHint": "Work through the entity gauges and schema checklist below in order",
+			"personLabel": "Founder / principal",
+			"personHint": "Person schema and knowledge-graph linkage target",
+			"recommendedSchema": "Recommended schema type",
+			"recommendedSchemaHint": "Recommended @type for the {category} category"
 		},
 		"digitalFootprint": {
 			"title": "External data footprint (Digital Footprint)",
@@ -317,7 +1116,17 @@
 			"naverLabel": "Naver blog/cafe mentions",
 			"bingLabel": "Bing Places profile",
 			"bingRegistered": "Registered",
-			"bingNotRegistered": "Not registered"
+			"bingNotRegistered": "Not registered",
+			"crawlers": {
+				"title": "AI crawler (bot) access",
+				"hint": "If robots.txt or WAF rules block AI crawlers, AI recommendation exposure is limited.",
+				"tooltip": "If robots.txt or WAF rules block AI crawlers, AI recommendation exposure is limited.",
+				"allowed": "Allowed / OK",
+				"blocked": "Blocked ⚠️",
+				"blockedHint": "{count} AI crawler(s) blocked — exposure on those engines is limited."
+			},
+			"totalLabel": "Total digital collection",
+			"totalHint": "Google + Naver mentions combined"
 		},
 		"digitalFootprintReport": {
 			"navLabel": "Digital footprint diagnosis details",
@@ -362,6 +1171,11 @@
 				"howto2Body": "Add business name, address, phone, hours, and the official website URL",
 				"howto3Title": "Sync Google profile:",
 				"howto3Body": "You can sync an existing Google Business Profile in about a minute"
+			},
+			"tabTotal": "📦 Total digital collection ({count})",
+			"total": {
+				"statusWarning": "⚠️ Collection volume needs work (Google {count} / regional avg {avg} · total {total})",
+				"statusOk": "✅ Collection volume looks healthy (Google {count} / regional avg {avg} · total {total})"
 			}
 		},
 		"geoActionPlan": {
@@ -386,6 +1200,53 @@
 			"geoAiBadge": "GEO AI",
 			"copyHint": "Click a chip to copy",
 			"copied": "Copied",
+			"asIsTitle": "Detected site keywords (As-Is Detected)",
+			"asIsHint": "Extracted from meta tags · HTML body · index data",
+			"asIsEmpty": "No baseline meta keywords were detected.",
+			"asIsSourcesTitle": "AI · search-engine extraction priority",
+			"asIsSourcesHint": "The six data sources crawlers parse to recognize keywords",
+			"asIsSourceDetected": "Detected",
+			"asIsSourceMissing": "Missing",
+			"asIsSourceEmpty": {
+				"schema": "No schema entities were extracted.",
+				"title": "The title tag is empty.",
+				"meta": "No meta keywords or description.",
+				"og": "No Open Graph meta tags.",
+				"heading": "No primary headings found.",
+				"body": "No body entities were extracted."
+			},
+			"sources": {
+				"schema": {
+					"label": "JSON-LD Schema",
+					"tag": "knowsAbout",
+					"hint": "Highest-priority structured data AI engines use to identify entities and specialties (knowsAbout / specialty)"
+				},
+				"title": {
+					"label": "Title Tag",
+					"tag": "<title>",
+					"hint": "The first topical signal search engines read on the page"
+				},
+				"meta": {
+					"label": "Meta Tags",
+					"tag": "keywords",
+					"hint": "Keywords declared in meta keywords and description"
+				},
+				"og": {
+					"label": "Open Graph",
+					"tag": "og:title",
+					"hint": "og:title / og:description parsed for social and AI snippets"
+				},
+				"heading": {
+					"label": "Headings",
+					"tag": "H1–H2",
+					"hint": "Core topics extracted from the document outline (H1–H2)"
+				},
+				"body": {
+					"label": "HTML Body",
+					"tag": "entity",
+					"hint": "Secondary extraction from body entity phrases and need signals"
+				}
+			},
 			"categories": {
 				"geoPrompt": {
 					"title": "AI question prompts",
@@ -431,11 +1292,22 @@
 		"targetEntity": {
 			"ariaLabel": "Target entity audit identity",
 			"badge": "TARGET ENTITY AUDIT REPORT",
+			"liveCertifiedBody": "This diagnosis is not simulated data. It is the result of a real-time crawl and precision analysis of the target website's actual source code, metadata, and server responses.",
 			"domain": "Domain",
 			"category": "Audit category",
 			"cms": "Detected CMS",
 			"scannedAt": "Scan time",
-			"liveBadge": "Live",
+			"lastDiagnosedLabel": "🕒 Last diagnosis",
+			"visitSite": "Visit site",
+			"copyShareLink": "Copy share link",
+			"pdfDownload": "Download PDF",
+			"officialWebsite": "Go to official website",
+			"shareCopied": "Copied",
+			"actionsAria": "Report quick actions",
+			"botsAria": "Portal and AI crawler collection status",
+			"botsLabel": "AI · Search robot collection status:",
+			"botAllowed": "{label} collection allowed",
+			"botBlocked": "{label} collection blocked",
 			"tip": "TIP",
 			"security": "Security protocol",
 			"securityTip": "HTTPS is a baseline trust signal for search and AI. Without it, browsers warn users and ranking risk rises.",
@@ -461,7 +1333,8 @@
 			"viewportOff": "Mobile layout risk",
 			"viewportOffBadge": "Missing",
 			"viewportUnknown": "Unknown",
-			"viewportUnknownBadge": "Re-scan advised"
+			"viewportUnknownBadge": "Re-scan advised",
+			"liveBadge": "Live"
 		},
 		"b2b": {
 			"execBadge": "Executive Summary",
@@ -474,6 +1347,13 @@
 				"bothWeak": "AI external trust ({geoScore}) and on-page technical optimization ({seoScore}) both sit below a competitive baseline. Raising technical structure and external trust together is the priority.",
 				"bothStrong": "AI external trust ({geoScore}) and on-page technical optimization ({seoScore}) already form a stable search-and-citation base. Remaining defects can still lift competitiveness further."
 			},
+			"execFormula": "📊 Formula: External trust ({geoWeight}%) + Technical score ({seoWeight}%) weighted blend",
+			"execFormulaAria": "Score formula",
+			"execDiagnosisRxLabel": "Core diagnosis and treatment effect",
+			"execDiagnosisLabel": "Core diagnosis",
+			"execRxLabel": "Treatment effect",
+			"execDiagnosisRxBody": "Missing structured data currently keeps this site off AI search engines' trusted citation lists.",
+			"execDiagnosisRxEffect": "Closing core defects to raise the score by <score>+{gain} ({current} ➔ {target})</score> will sharply increase local AI recommendation adoption.",
 			"execJudgmentLabel": "🔎 Core judgment",
 			"execJudgment": {
 				"geo": "The technical foundation is in place, but weak AI external-trust signals are limiting search and citation competitiveness.",
@@ -489,7 +1369,17 @@
 			},
 			"execPotentialGain": "🎯 Closing core defects can lift the score by +{gain}",
 			"execPotentialAchieved": "🎯 Remaining core-defect upside is limited at the current measured baseline",
+			"execCalloutGain": "Closing core defects can lift the composite score by +{gain} ({current} → {target})",
+			"quickCtaUrgent": "Urgent action needed",
+			"quickCtaPriority": "Priority action recommended",
+			"quickCtaTitle": "About {count}+ potential customers are leaking to competitors each month",
+			"quickCtaHint": "Schema structuring plus /llms.txt typically restores the AI citation index within 3 days.",
+			"quickCtaButton": "⚡ Request a 3-day score recovery job (see quote)",
+			"quickCtaLossKicker": "Estimated opportunity cost",
+			"quickCtaValueKicker": "Estimated economic value",
 			"exposureCompareTitle": "Optimization Potential Simulator",
+			"exposureCompareHint": "Compare the composite measured score before and after the patch",
+			"exposureMeasuredFormula": "Composite measured score = External trust ({geoScore} × {geoWeight}%) + Technical score ({seoScore} × {seoWeight}%)",
 			"exposureCurrentLabel": "Current measured AI exposure score",
 			"exposureTargetLabel": "Projected score after optimization patch",
 			"exposureScoreSuffix": "/ 100",
@@ -503,7 +1393,199 @@
 			"exposureTierWithPercentile": "{icon} {tier} · Top {percentile}%",
 			"exposureTargetTier": "🟢 Top recommendation · entering Top {percentile}%",
 			"exposureFooterNote": "💡 Patching {count} on-page schema defect(s) and combining with external reputation lifts AI top-citation odds to {target} points.",
+			"exposureFooterNoteHold": "💡 Patching {count} on-page schema defect(s) maintains top-tier exposure while fully restoring data reliability.",
 			"exposureFooterNoteClean": "💡 On-page schema defects are minimal. Current measured signals already support AI top-citation odds around {target} points.",
+			"exposureFooterNoteStable": "Maintains the current exposure state while reinforcing data reliability.",
+			"exposureGuideTitle": "🚀 View next steps & expected impact to reach 100 (Top 1%)",
+			"exposureBenefitsTitle": "👑 Overwhelming benefits of holding the top tier (95–100)",
+			"exposureBenefitsItems": {
+				"ai": {
+					"title": "Pinned top citation in AI answers",
+					"body": "Conversational AIs such as ChatGPT and Perplexity recommend and cite your brand first."
+				},
+				"cost": {
+					"title": "Dramatic marketing-cost reduction",
+					"body": "Top search visibility and high CTR can sharply cut dependence on paid search ads (SA)."
+				},
+				"trust": {
+					"title": "Unmatched brand trust",
+					"body": "Classified as the most trustworthy source endorsed by both AI and search engines, widening the gap vs. competitors."
+				}
+			},
+			"exposureRoadmapTitle": "🎯 Mid-to-long-term optimization roadmap to reach 100 (Action Plan)",
+			"exposureRoadmapItems": {
+				"footprint": {
+					"title": "Strengthen external trust (Digital Footprint)",
+					"body": "Expand natural brand mentions across blogs, news, forums, and other external channels"
+				},
+				"local": {
+					"title": "Expand local platform listings",
+					"body": "Add missing global/local map platforms beyond Google Business — Bing Places, Apple Maps, and more"
+				},
+				"eeat": {
+					"title": "Build E-E-A-T content",
+					"body": "Regularly publish in-depth long-form informational content that clearly answers customers’ core questions (FAQ)"
+				}
+			},
+			"blueprint": {
+				"bannerTitle": "4-pillar engineering blueprint to monopolize the Top 1% (100 score)",
+				"bannerSubtitle": "Digital PR · Wikidata Knowledge Panel · 4-map NAP zero-error sync roadmap",
+				"bannerCta": "View blueprint",
+				"badge": "SEO × GEO ENTERPRISE ROADMAP",
+				"title": "4 practical engineering pillars to monopolize the Top 1% (100 score)",
+				"desc": "Beyond on-page code fixes, we imprint your brand as the #1 source in the public knowledge graph and AI search engines.",
+				"meta": "About 3 minutes · Decision roadmap for hospitals, law firms, premium stays, and franchise HQs",
+				"closeAria": "Close modal",
+				"cards": {
+					"pr": {
+						"title": "1. External trust (Digital PR) & permanent Knowledge Panel imprint",
+						"lead": "Conversational AI ranks recommendations from third-party sources (wikis, major press) — not just claims on your own site.",
+						"item1": {
+							"label": "Wikidata & Knowledge Panel entity registration:",
+							"body": "Issue and register a unique brand Q-ID in the public knowledge base so AI permanently recognizes the entity"
+						},
+						"item2": {
+							"label": "AI-citation Digital PR:",
+							"body": "Publish major articles with structured name, location, and strengths to become a primary AI citation reference"
+						}
+					},
+					"nap": {
+						"title": "2. Global & local 4-map NAP zero-error sync",
+						"lead": "Google, Apple Intelligence, and Naver Clova treat a brand as official only when map name, address, and phone (NAP) match with zero character drift.",
+						"item1": {
+							"label": "Full match across Google, Apple, Naver, and Kakao maps:",
+							"body": "Eliminate cross-platform mismatches to maximize local-search citation share"
+						},
+						"item2": {
+							"label": "Global AI local-signal mapping:",
+							"body": "Map hours and detailed service schema between Google Business Profile (GBP) and Apple Business Connect"
+						}
+					},
+					"rag": {
+						"title": "3. RAG query-penetration content & competitor share recapture",
+						"lead": "Place chunked content so your brand is cited in the first line of answers to complex, long-tail AI questions.",
+						"item1": {
+							"label": "AI-search chunking articles:",
+							"body": "Publish 500–800 character articles in <chunk>[Question ➔ 1-line answer ➔ 3 proofs]</chunk> so AI copies the direct answer"
+						},
+						"item2": {
+							"label": "Reclaim #1 competitor keywords:",
+							"body": "Reverse-trace the current top-recommended competitor’s keyword patterns and inject a structured advantage schema"
+						}
+					},
+					"guard": {
+						"title": "4. AI hallucination defense & brand guardrails",
+						"lead": "Pin official sources for price, service scope, and location so AI cannot invent distorted answers — and keep pace with model updates.",
+						"item1": {
+							"label": "Block AI hallucination (errors & distortion) at the source:",
+							"body": "Displace unofficial sources and lock official brand data as the grounding source"
+						},
+						"item2": {
+							"label": "3-month defense & algorithm-patch response:",
+							"body": "Continuously recalibrate entities as AI search logic shifts after model updates"
+						}
+					}
+				},
+				"guides": {
+					"kicker": "PRACTICAL PLAYBOOK",
+					"title": "4-pillar practical engineering guide",
+					"desc": "Registration steps, code snippets, and the monitoring protocol. Items stay collapsed until you open them.",
+					"copy": "Copy",
+					"copied": "Copied",
+					"jsonLdLabel": "JSON-LD · sameAs",
+					"faqLabel": "JSON-LD · FAQPage",
+					"llmsLabel": "/llms.txt",
+					"pr": {
+						"title": "1. External trust (Digital PR) & permanent Knowledge Panel imprint",
+						"qidTitle": "Wikidata Q-ID registration",
+						"qid": {
+							"1": "Search Wikidata (https://www.wikidata.org) by brand, English name, and domain. Do not create a duplicate if the entity already exists.",
+							"2": "If none exists, Create a new Item with KO/EN labels and aliases (short name, English trade name).",
+							"3": "Lock Description to one line: “official name of the {location} {industry}.”",
+							"4": "Add the core properties below (P31, P856, P1448, P159, P1329, P17, P625, P154).",
+							"5": "Attach the official homepage and a major press URL as a Reference on each statement.",
+							"6": "Put the issued Q-ID (Qxxxxx) in site JSON-LD sameAs and /llms.txt — identically.",
+							"7": "Claim the Q-ID entity via Google Knowledge Panel feedback or Search Console."
+						},
+						"propsTitle": "Core property values",
+						"props": {
+							"p31": { "code": "P31", "name": "instance of", "body": "Hospital Q16917 · clinic Q1772017 · business Q4830453 · organization Q43229" },
+							"p856": { "code": "P856", "name": "official website", "body": "Register exactly one official https URL." },
+							"p1448": { "code": "P1448", "name": "official name", "body": "Use the legal trade name exactly as registered." },
+							"p159": { "code": "P159", "name": "headquarters location", "body": "Link the city/district item. Example: Seoul Q8684" },
+							"p1329": { "code": "P1329", "name": "phone number", "body": "Unify on one +82- format main number." },
+							"p17": { "code": "P17", "name": "country", "body": "South Korea Q884" },
+							"p625": { "code": "P625", "name": "coordinate location", "body": "Use the same lat/lng as the four map listings." },
+							"p154": { "code": "P154", "name": "logo image", "body": "Upload the logo to Wikimedia Commons, then link it." }
+						},
+						"pressTitle": "Press-release prompt structure",
+						"pressIntro": "Ask for a fact-locked release so AI can cite name, location, and strengths from the opening lines.",
+						"press": {
+							"role": "[Role] {outlet} business / healthcare reporter",
+							"goal": "[Goal] Write a fact-locked release that AI can copy as a primary citation",
+							"headline": "[Headline] {location} {industry} {brand} officially announces {differentiator}",
+							"lead": "[Lead] Put name, address, phone, and official URL in the first 80 characters",
+							"facts": "[Facts] NAP + founding year + 3 flagship services",
+							"proofs": "[Proofs] 3 verifiable figures (certs, awards, volume)",
+							"quote": "[Quote] One sentence from the named principal with title",
+							"source": "[Source] Official page URL and Wikidata Q-ID",
+							"forbid": "[Do not] Invent prices, attack competitors, or use unverifiable superlatives"
+						}
+					},
+					"nap": {
+						"title": "2. 4-map NAP sync",
+						"platformTitle": "Registration guide for the four platforms",
+						"platforms": {
+							"gbp": { "name": "Google Business Profile", "body": "At business.google.com register name, address, phone, category, hours, and services, then capture the CID." },
+							"apple": { "name": "Apple Business Connect", "body": "At businessconnect.apple.com map NAP and category character-for-character with GBP, then capture the AUID." },
+							"naver": { "name": "Naver SmartPlace", "body": "At new.smartplace.naver.com verify the business, register the same name/road address/phone, and capture the Place ID." },
+							"kakao": { "name": "Kakao Map Place", "body": "Update Kakao Map listing info to the same NAP and capture the Kakao Place ID." }
+						},
+						"rulesTitle": "Zero-error sync rules",
+						"rules": {
+							"1": "Match spacing, hyphens, and floor numbers across all four platforms.",
+							"2": "Unify phone hyphenation to one pattern, e.g. 02-0000-0000.",
+							"3": "Use a single official road-name address — do not mix lot numbers or ad-hoc English.",
+							"4": "List the CID / AUID / Naver·Kakao Place IDs and Wikidata Q-ID in sameAs."
+						}
+					},
+					"rag": {
+						"title": "3. RAG query-penetration content",
+						"chunkTitle": "500–800 character chunk structure",
+						"chunkIntro": "One chunk = one question. Write [Question ➔ Direct answer ➔ 3 proofs] so AI can copy the first line.",
+						"rules": {
+							"1": "Keep each chunk at 500–800 characters including spaces. Do not mix questions in one chunk.",
+							"2": "[Question] should be the long-tail location + service prompt a consumer would ask AI.",
+							"3": "[Direct answer] put the brand and conclusion in sentence one; facts before adjectives.",
+							"4": "[Proofs 1–3] use only verifiable facts: location, credentials, and published results."
+						},
+						"chunk": {
+							"q": "[Question] Where is the best {service} in {location}?",
+							"a": "[Direct answer] {BRAND}. {One official fact}.",
+							"p1": "[Proof 1] {location / NAP fact}",
+							"p2": "[Proof 2] {credential / award}",
+							"p3": "[Proof 3] {volume / official URL}"
+						},
+						"faqTitle": "FAQPage schema",
+						"faqIntro": "Wrap the same chunk in FAQPage JSON-LD so ChatGPT and Perplexity can cite it as a Q&A unit."
+					},
+					"guard": {
+						"title": "4. AI hallucination defense & guardrails",
+						"llmsTitle": "/llms.txt template with negative rules",
+						"llmsIntro": "Publish at the site root. Allowed citations plus Negative rules stop AI from inventing price, location, or competitors.",
+						"protocolTitle": "Recurring monitoring protocol",
+						"protocol": {
+							"weekly": { "label": "Weekly:", "body": "Probe ChatGPT / Gemini / Perplexity / Clova with brand + price, location, and hours queries." },
+							"monthly": { "label": "Monthly:", "body": "Diff NAP across GBP, Apple Business Connect, Naver, and Kakao and remove one-character drift." },
+							"quarterly": { "label": "Quarterly:", "body": "Refresh Wikidata statements, the Knowledge Panel claim, and /llms.txt; re-check Q-ID sameAs." },
+							"update": { "label": "After a model update:", "body": "Re-run Level 1–3 trigger queries and patch citation drift." }
+						}
+					}
+				},
+				"footerTitle": "For hospitals, law firms, premium stays, and franchise HQs",
+				"footerBody": "1:1 custom engineering consulting to secure industry-leading exclusive AI share.",
+				"footerCta": "Request 1:1 custom enterprise consulting for our brand"
+			},
 			"statusBadge": {
 				"CRITICAL": "AI exposure danger zone",
 				"POOR": "AI exposure danger zone",
@@ -604,7 +1686,15 @@
 			"evidence": "Detected evidence",
 			"why": "Why this was flagged",
 			"impact": "Practical upside of fixing it",
-			"empty": "No checklist items."
+			"empty": "No checklist items.",
+			"whyPass": "[Criteria and pass rationale]",
+			"whyWarn": "[Caution and recommended follow-up]",
+			"whyFail": "[Score-down cause and defect evidence]",
+			"whyPassBody": "This item stably meets the threshold and passed.",
+			"impactPass": "Practical upside of keeping it",
+			"points": "{earned} / {weight} pts",
+			"totalRawLabel": "Precision total",
+			"totalRaw": "{score} / {max} pts"
 		},
 		"history": {
 			"title": "Recent audits",
@@ -628,10 +1718,15 @@
 			"emptyTitle": "Run your first SEO & GEO audit",
 			"emptyDescription": "Paste a URL for a precision HTML/JSON-LD report — results are saved here automatically.",
 			"emptyCta": "Start free audit",
-			"noMatches": "No audits match your filters."
+			"noMatches": "No audits match your filters.",
+			"geoGradeLabel": "Grade {grade}",
+			"rawScoreBadge": "Precision score {score} / {max}",
+			"rawScoreTitle": "Raw {score} / {max} → {pct} / 100",
+			"categoryStatusAria": "Five-category status"
 		},
 		"impact": {
 			"guideBadge": "Live Criteria Report",
+			"recommendedSchemas": "Recommended schemas",
 			"title": "📊 SEO · GEO core requirements vs live status",
 			"subtitle": "The six essential checklist items are mapped 1:1 to the live audit — with status badges now, and AI/Google exposure gains after the patch.",
 			"evidenceExampleBadge": "Example defects before patch",
@@ -820,7 +1915,96 @@
 			"adminSolveTitle": "Admin · Expert workspace",
 			"adminSolveHint": "Passes this audit JSON into the solve workspace. After admin login you can apply CMS fix snippets immediately.",
 			"adminSolveButton": "🚀 Generate expert fix codes (admin login)",
+			"adminSolveButtonSub": "(admin login)",
 			"footnote": "Share the report link so teammates can open the same precision findings."
+		},
+		"businessConversion": {
+			"hookKicker": "Quick Hook Summary",
+			"hookTitle": "30-second business brief for the owner",
+			"hookBadge": "Revenue language",
+			"hookDiagnosisLabel": "Current diagnosis",
+			"hookLossLabel": "Business leakage",
+			"hookRxLabel": "Prescription impact",
+			"hookDiagnosis": {
+				"critical": "Right now {brand}{location} only appears in AI answers when someone searches the exact brand name — it is missing from category and service recommendations.",
+				"partial": "Right now {brand}{location} shows up in some category searches, but not yet as the first recommendation on the consult-style queries customers actually type.",
+				"captured": "{brand}{location} already has a citation base on major AI engines. Closing the remaining query gaps will lock in that recommendation lead."
+			},
+			"hookLoss": {
+				"critical": "Every month, people searching “{keyword}” are leaking 100% to AI-recommended competitors.",
+				"partial": "Every month, a large share of people searching “{keyword}” are still leaking to AI-recommended competitors.",
+				"captured": "“{keyword}” already wins some recommendations. The prescription can still cut residual leakage and protect inflow."
+			},
+			"hookRx": {
+				"critical": "Applying this report’s GEO prescription (Schema + FAQ + NAP) can put you in the top 1–2 recommended answers across the six major AI engines.",
+				"partial": "Applying this report’s GEO prescription (Schema + FAQ + NAP) can put you in the top 1–2 recommended answers across the six major AI engines.",
+				"captured": "Applying this report’s GEO prescription (Schema + FAQ + NAP) can hold and expand top 1–2 recommendations across the six major AI engines."
+			},
+			"roiAria": "Competitor leakage and ad-spend savings",
+			"leakageBadge": "On “{keyword}”, a competitor currently owns the AI answer",
+			"roiLabel": "Estimated value · ROI",
+			"roiAppliedLabel": "Prescription impact",
+			"roiBody": "Applying the prescription can unlock about {value} × ₩10,000 per month in organic AI-recommendation traffic value",
+			"roiAppliedBody": "The prescription puts you in range of about {value} × ₩10,000 per month in organic AI-recommendation traffic value.",
+			"roiHint": "Estimate based on industry-average search-ad CPC and current AI trigger depth (Level 1 leakage).",
+			"roiLossHeadline": "About ₩{value} in monthly opportunity loss",
+			"roiImpactBadgeCost": "Opportunity cost",
+			"roiImpactBadgeValue": "Economic value",
+			"roiBasisTrigger": "ℹ️ How we estimate",
+			"roiBasisTitle": "📊 How this figure is calculated",
+			"roiBasisCpc": "Same-region / industry average Naver·Google keyword CPC: ₩{value}",
+			"roiBasisVolume": "Expected monthly AI-search query volume: about {value}",
+			"roiBasisGap": "Own share ({brand}%) vs competitor average ({competitor}%) — {gap}% gap applied",
+			"roiBasisDisclaimer": "※ This figure is a simulation based on industry-average CPC and AI search-share models.",
+			"roiLegalNote": "※ This figure is a simulation based on industry-average CPC and AI search-share models",
+			"ctaKicker": "1:1 expert delivery",
+			"ctaGuarantee": "Uncomfortable editing code? A REDUE specialist can apply the schema and AI-optimization patch within 24 hours — without breaking the site.",
+			"ctaPatch": "Ask an expert to apply this prescription to the site for you",
+			"ctaPatchLine1": "Ask an expert to apply this prescription",
+			"ctaPatchLine2": "to the site for you",
+			"ctaConsult": "Free live GEO optimization consult",
+			"inquiryTitle": "Request a full-site patch",
+			"inquiryClose": "Close request form",
+			"inquiryPrefillLead": "[Full-site patch request] {brand} ({url})",
+			"inquiryPrefillKeyword": "Target query: {keyword}",
+			"inquiryPrefillAsk": "Please apply this report’s GEO prescription (Schema + FAQ + NAP) to the site without breaking it."
+		},
+		"packages": {
+			"title": "REDUE AI search optimization (GEO) 1:1 delivery packages",
+			"subtitle": "We fix the diagnosed gaps within 3 business days to help recover AI search share.",
+			"priceSuffix": "/ one-time",
+			"inquiryTitle": "Request {package}",
+			"inquiryClose": "Close request form",
+			"inquiryPrefillLead": "[{package} request] {brand} ({url})",
+			"inquiryPrefillKeyword": "Target query: {keyword}",
+			"inquiryPrefillAsk": "Please deliver the {package} GEO optimization without breaking the site.",
+			"standard": {
+				"kicker": "Speed setup",
+				"name": "Essential GEO structuring",
+				"body": "4 JSON-LD blocks + /llms.txt + metadata optimization",
+				"cta": "Request Standard"
+			},
+			"pro": {
+				"kicker": "Full-stack management",
+				"name": "Full-stack AI share package",
+				"body": "Standard setup + Naver Place + E-E-A-T proof + 4 live re-audits",
+				"badge": "Most popular",
+				"cta": "Request Pro and consult"
+			},
+			"enterprise": {
+				"badge": "🏢 Enterprise",
+				"exclusive": "Top 1% exclusive solution",
+				"limited": "Limited / Coming soon",
+				"name": "Category-leading share lock-in & enterprise custom package",
+				"features": {
+					"pr": "Digital PR authority + Wikidata Q-ID knowledge panel registration",
+					"nap": "Flawless NAP sync across 4 maps (Google, Apple, Naver, Kakao)",
+					"rag": "RAG-penetration articles & reclaim #1 competitor share",
+					"guard": "AI hallucination guardrails & 3-month algorithm patch support"
+				},
+				"priceNote": "1:1 custom quote",
+				"cta": "Opening soon (pre-consult inquiry)"
+			}
 		},
 		"verification": {
 			"title": "Official SEO · schema verification tools",
@@ -856,18 +2040,35 @@
 			"copyright": "Copyright © REDUE AI. All rights reserved."
 		},
 		"share": {
+			"copyReportLink": "Copy report share link",
+			"publicTitle": "SEO & GEO Technical Audit Report",
 			"kakao": "Share on KakaoTalk",
 			"kakaoShort": "Kakao",
 			"copied": "Link copied",
 			"copiedShort": "Copied",
 			"pdf": "A4 PDF / Print report",
 			"pdfShort": "PDF",
+			"pdfDownload": "Download PDF",
+			"a4Title": "REDUE AI - SEO & GEO Technical Audit Report",
 			"pdfLoading": "Generating PDF...",
 			"email": "Email report preview",
 			"emailShort": "Email preview",
 			"contact": "Contact us",
 			"contactShort": "Contact",
 			"floatingAria": "Report quick actions"
+		},
+		"pdfPreview": {
+			"title": "📄 REDUE AI - SEO & GEO Technical Audit Report (A4 Preview)",
+			"subtitle": "Check that text and charts are not clipped on the A4 pages.",
+			"close": "✕ Close preview",
+			"download": "📥 Download this PDF",
+			"saving": "Saving PDF...",
+			"building": "Building A4 preview pages...",
+			"syncing": "Fully syncing report data...",
+			"syncingHint": "Preview opens only after PageSpeed Insights and AI engine simulations are ready.",
+			"error": "Could not build the preview. Please try again.",
+			"empty": "There is no report content to export.",
+			"pageLabel": "{total} pages"
 		},
 		"scrollspy": {
 			"ariaLabel": "Report table of contents",
@@ -882,7 +2083,406 @@
 			"checklist": "Detailed checklist",
 			"actionable": "Actionable Solution",
 			"keywordRecommend": "GEO/SEO keyword recommendations",
-			"officialTools": "Official SEO & schema tools"
+			"geoScoreSummary": "GEO score & grade",
+			"aiEngineStatus": "AI engine exposure",
+			"triggerKeywordDepth": "AI engine trigger tests",
+			"eeatBrandTrust": "AI brand recognition & E-E-A-T",
+			"geoBotIndex": "AI crawler access",
+			"geoLocalNap": "Local NAP match",
+			"digitalFootprint": "External data collection",
+			"actionPlan85": "Action Plan to reach 85",
+			"technicalScoreSummary": "SEO/GEO precision score",
+			"pagespeedVitals": "PageSpeed & Core Web Vitals",
+			"technicalEvidenceJsonld": "Technical evidence & JSON-LD",
+			"liveCriteriaReport": "Six essential criteria",
+			"aiSearchSimulator": "AI search recommendation sim",
+			"detailedChecklist22": "Detailed checklist (22)",
+			"keywordPipeline": "Target keyword pipeline",
+			"officialTools": "Official SEO & schema tools",
+			"timelineForecast": "Actual trend · forecast",
+			"scrollToTop": "Back to top",
+			"scrollToTopAria": "Scroll to the top of the page"
+		},
+		"historyTracker": {
+			"modeNav": "Switch between actual history and forecast",
+			"tabHistory": "📊 Actual change trend (History Tracker)",
+			"tabForecast": "🔮 Future reflection forecast (Forecast)",
+			"title": "📊 Actual exposure & citation tracking (Domain Tracking History)",
+			"subtitle": "Track real optimization impact day by day or week by week from re-audits of the same domain.",
+			"rescan": "🔄 Re-audit current state and append a record",
+			"rescanning": "Re-auditing…",
+			"day0Badge": "This audit is registered as the Day 0 baseline. Applying a prescription records an event only; measured scores are added after a completed re-audit.",
+			"statFromBaseline": "vs first audit",
+			"statScoreUp": "🟢 +{delta} pts up",
+			"statScoreDown": "🔴 -{delta} pts down",
+			"statScoreFlat": "➖ No change",
+			"statCitationUp": "Citation rate +{pct}% improved",
+			"statCitationDown": "Citation rate -{pct}% down",
+			"statCitationFlat": "Citation rate unchanged",
+			"measured": "Composite measured score",
+			"citation": "AI search citation index",
+			"technical": "Technical score",
+			"externalTrust": "External trust",
+			"scoreSuffix": " pts",
+			"yAxis": "Measured score / citation index (0–100)",
+			"granularityDaily": "Daily",
+			"granularityWeekly": "Weekly",
+			"expected": "Expected score (guide)",
+			"eventPatchApplied": "🛠️ Patch applied",
+			"eventOptimizationDone": "📍 Optimization complete",
+			"eventSchemaPatch": "🛠️ Schema patch applied",
+			"eventRescan": "🚀 Audit #{n}",
+			"eventScoreJump": "📈 Score jump",
+			"eventScoreDrop": "📉 Score drop",
+			"baseline": "Day 0 baseline",
+			"audits": "{count} audits",
+			"loading": "Loading history for this domain…",
+			"chartAria": "Time-series chart of measured score and AI citation index for this domain",
+			"runRound": "Audit #{n}",
+			"runDone": "Audit complete",
+			"appliedPatches": "Applied tech patches",
+			"patchAppliedCount": "🛠 {count} patches applied",
+			"patchMore": "+{count} more applied",
+			"historyList": "Audit history",
+			"historyToggleOpen": "Collapse",
+			"historyToggleClosed": "Expand",
+			"filter7d": "Last 7 days",
+			"filter30d": "30 days",
+			"filterAll": "All",
+			"loadMore": "Load earlier records",
+			"showingOf": "{shown} / {total}",
+			"listEmpty": "No audits in this period."
+		},
+		"timelineForecast": {
+			"title": "📈 AI Search Engine Indexing Timeline & Exposure Forecast",
+			"subtitle": "Simulates when AI crawlers re-index your fixes and when citation rank starts to lift.",
+			"steps": {
+				"day0": {
+					"when": "Day 0",
+					"phase": "Audit day",
+					"title": "Patch technical defects & deploy schema",
+					"desc": "On-page technical structure optimization and metadata sync"
+				},
+				"week1": {
+					"when": "Day 7",
+					"phase": "1 week later",
+					"title": "AI search-bot re-index complete",
+					"desc": "Major crawlers such as GPTBot and PerplexityBot refresh their data"
+				},
+				"week2": {
+					"when": "Day 14",
+					"phase": "2 weeks later",
+					"title": "Live AI search citations begin",
+					"desc": "Appears as a source in top Perplexity and Bing Copilot answers"
+				},
+				"week4": {
+					"when": "Day 30",
+					"phase": "4 weeks later",
+					"title": "Conversational AI recommendation lock-in",
+					"desc": "ChatGPT, Gemini, and others recommend the brand exclusively or first"
+				},
+				"week8": {
+					"when": "Day 60+",
+					"phase": "8 weeks later",
+					"title": "Brand authority maximized",
+					"desc": "AI knowledge graph complete; long-term hold on top search share"
+				}
+			},
+			"chart": {
+				"ariaLabel": "Forecast chart of AI citation probability and classic search exposure by week after fixes",
+				"yAxis": "Search / citation reach (0%–100%)",
+				"geo": "AI search citation probability (GEO)",
+				"seo": "Classic search-engine exposure (SEO)",
+				"x": {
+					"day0": "Audit day",
+					"week1": "1 week later",
+					"week2": "2 weeks later",
+					"week4": "4 weeks later",
+					"week8": "8 weeks later"
+				},
+				"markers": {
+					"schema": "Patch technical defects & deploy schema",
+					"recrawl": "AI search-bot re-index complete",
+					"citation": "Live AI search citations begin",
+					"trust": "Conversational AI recommendation lock-in",
+					"priority": "Brand authority maximized"
+				}
+			}
+		},
+		"geoNap": {
+			"title": "Local platforms & NAP consistency",
+			"subtitle": "Naver Place, Google Business Profile, Bing Places, and name/address/phone match",
+			"napLabel": "NAP match rate",
+			"napOnpageLabel": "On-page Organization NAP (name, address, phone, hours) consistency",
+			"napMatchOk": "{rate}% (healthy)",
+			"napMatchWarn": "{rate}% (caution)",
+			"scoreUnit": " pts",
+			"naverScoreLabel": "Naver Place link",
+			"googleScoreLabel": "Google Business / Maps",
+			"bingScoreLabel": "Bing Places listing",
+			"naverLabel": "Naver Place",
+			"naverLinked": "Link signal found",
+			"naverLinkedHint": "Link signal found (NAP {rate}%)",
+			"naverMissing": "Place signal is weak",
+			"naverGridOk": "Linked",
+			"googleLabel": "Google Business / Maps",
+			"googleHint": "sameAs · Maps link signal",
+			"googleLinked": "Google Maps linked",
+			"googleMissing": "Google Maps signal is weak",
+			"googleGridWeak": "Signal is weak",
+			"bingLabel": "Bing Places",
+			"bingRegistered": "Registered",
+			"bingRegisteredHint": "Listed with matching coordinates",
+			"bingNotRegistered": "Not registered",
+			"bingMissingHint": "Unlisted (ChatGPT location missing)",
+			"bingGridMissing": "Unlisted 🚨",
+			"platformGridLabel": "Three-platform status"
+		},
+		"geoPillarBadge": {
+			"axisScore": "[Axis {axis}] {earned} / {max} ({status})",
+			"ok": "Healthy",
+			"warn": "Caution",
+			"urgent": "Needs work",
+			"recommend": "Improve",
+			"needs_work": "Needs work"
+		},
+		"geoSubMetric": {
+			"measuredScore": "Measured score",
+			"ok": "OK",
+			"warn": "Caution",
+			"defect": "Defect",
+			"missing": "Missing",
+			"unregistered": "Unlisted"
+		},
+		"advancedGeo": {
+			"sov": {
+				"title": "Unified market ranking leaderboard (SoV)",
+				"subtitle": "Compares live #1–#3 competitor ranks and share of voice (SoV) on the core query.",
+				"siteLinkAria": "Open audited site: {url}",
+				"subtitleWithQuery": "Compares live #1–#3 competitor ranks and share of voice (SoV) on the core query.",
+				"currentQueryLabel": "Analysis query",
+				"ownLabel": "Official GEO readiness (on-page measured)",
+				"toBeLabel": "Target after prescriptions",
+				"asIsSummaryLabel": "Measured now",
+				"toBeSummaryLabel": "Target after prescriptions",
+				"toBeShortLabel": "Target",
+				"toBeShareLabel": "Target share",
+				"geoTargetLabel": "GEO prescription target",
+				"gapAnalysisLabel": "SoV gap analysis",
+				"toBeInline": "→ target {toBe}%",
+				"recaptureDelta": "▲ {delta}pp recapture potential",
+				"recaptureDeltaBadge": "+{delta}pp recapture potential",
+				"ownSourceLabel": "Official GEO readiness (on-page measured)",
+				"competitorSourceLabel": "Portal #1/#2 exposure (search-rank based)",
+				"ownBadge": "On-page measured",
+				"clientBadge": "You",
+				"unrankedBadge": "Outside top 3",
+				"unrankedMark": "—",
+				"rankLabel": "#{rank}",
+				"rankBadge": "Search-rank based",
+				"directoryBadge": "3rd-party leakage",
+				"ownName": "You · {name}",
+				"asIsToBe": "{asIs}% → target {toBe}%",
+				"realBadge": "Live",
+				"liveRankBadge": "Live local ranking",
+				"queryFilterLabel": "Choose or type a diagnosis query",
+				"queryLoading": "Refreshing live rankings…",
+				"queryPlaceholder": "Type a query…",
+				"querySubmit": "Search",
+				"chartAria": "AI citation share bar chart",
+				"versus": "Measured {own}% → target after prescriptions {toBe}% (▲ {delta}pp recapture potential)",
+				"versusRich": "Measured <ownVal>{own}%</ownVal> → target after prescriptions <toBeVal>{toBe}%</toBeVal>",
+				"gapBody": "{count} competitors hold {competitor}% of citation share. The gap to #1 is {gap}pp.",
+				"gapAction": "Apply JSON-LD, /llms.txt, and FAQ prescriptions to absorb the leader’s pie and lift own share to {toBe}%.",
+				"vulnerabilityTitle": "Reversal strategy · Vulnerability Gap",
+				"leaderFallback": "local #1 listing",
+				"vulnerabilityBody": "Competitors also lack schema and /llms.txt, so #1 stays at {comp1Share}%. Apply GEO prescriptions first to absorb 3rd-party blog leakage and capture up to {toBeShare}%."
+			},
+			"entity": {
+				"kicker": "Entity Disambiguation",
+				"title": "Entity depth & sameAs knowledge-graph mapping",
+				"subtitle": "taxID, Place CID, social sameAs, and representative knowledge-graph linkage scored 0–100.",
+				"taxId": "taxID · business number",
+				"taxIdInvalid": "Invalid checksum",
+				"placeCid": "Place CID",
+				"sameAs": "Social sameAs",
+				"sameAsCount": "{count} mapped URLs",
+				"representativeKg": "Representative knowledge graph",
+				"missing": "Not found",
+				"linked": "Linked",
+				"unlinked": "Not linked"
+			},
+			"rag": {
+				"kicker": "RAG · Information Gain",
+				"title": "RAG chunk fit & fact density",
+				"subtitle": "Measures whether the page is easy for AI to cite, using text ratio, semantic tags, and quantitative token density.",
+				"chunkTitle": "RAG chunk fit",
+				"chunkHint": "Recommended text ratio {recommended}%+",
+				"chunkMeta": "Text ratio {ratio}% · semantic tags {tags}",
+				"noTags": "none",
+				"factTitle": "Fact density",
+				"factHint": "Target density {target}%",
+				"factMeta": "Density {density}% · {tokens} quantitative tokens"
+			},
+			"llms": {
+				"kicker": "Crawler diagnosis",
+				"title": "AI crawler access & /llms.txt status",
+				"subtitle": "This section stays on vulnerability diagnosis. Copy the finished /llms.txt from GEO Answer Center module 5.",
+				"present": "/llms.txt detected",
+				"missing": "/llms.txt missing (404)",
+				"goToModule5": "Go to GEO Answer Center module 5",
+				"copy": "Copy in one click",
+				"copied": "Copied",
+				"impact": {
+					"title": "Citation effect with / without /llms.txt",
+					"badge": "Module 5",
+					"withLabel": "With /llms.txt",
+					"withoutLabel": "Without /llms.txt",
+					"with": "The official {categoryName} entity enters the AI answer citation pool first.",
+					"without": "AI is more likely to cite third-party blogs and directories instead of the official site."
+				}
+			},
+			"benefit": {
+				"criteriaTitle": "Criteria · {title}",
+				"target": "Target {targetLabel}",
+				"currentPass": "Now {score} · pass",
+				"currentFail": "Now {score} · short",
+				"withLabel": "When the bar is met",
+				"withoutLabel": "When it is not",
+				"entity": {
+					"title": "Entity identification",
+					"targetLabel": "{threshold}+",
+					"with": "The official {categoryName} entity is pinned on the knowledge graph, so AI does not confuse the brand.",
+					"without": "The brand is mixed with same-name or similar listings and dropped or mis-cited."
+				},
+				"rag": {
+					"title": "RAG · fact density",
+					"targetLabel": "{threshold}+",
+					"with": "Fact sentences survive in chunks, so AI cites numbers and definitions as-is.",
+					"without": "HTML noise cuts the core sentences or replaces them with third-party content."
+				}
+			}
+		},
+		"businessImpact": {
+			"kicker": "3 business impacts",
+			"title": "30-second business-impact summary for the CEO",
+			"hookStrip": "",
+			"subtitle": "",
+			"badge": "30-sec scan",
+			"contextLine": "{brand} · {region} · {targetKeyword}",
+			"empty": "No business-impact cards to show for this diagnosis.",
+			"severity": {
+				"critical": "Critical",
+				"major": "Major",
+				"minor": "Caution",
+				"warning": "Caution",
+				"info": "Healthy",
+				"healthy": "Healthy"
+			},
+			"step": {
+				"loss": "Loss",
+				"cause": "Cause",
+				"rx": "Fix"
+			},
+			"cards": {
+				"patientLeak": {
+					"title": "Potential new-customer leakage",
+					"loss": {
+						"critical": "Excluded from AI recommendation lists on core industry/region searches, so prospects go to competitors",
+						"partial": "Only partly visible on core industry/region AI searches — competitors still own the #1 recommendation",
+						"healthy": "A citation base is in place on core industry/region AI searches, holding the recommendation lead"
+					},
+					"cause": {
+						"critical": "0 JSON-LD structured-data blocks (ChatGPT and Perplexity parsers cannot recognize the site)",
+						"partial": "JSON-LD exists, but AI parsers cannot fully identify the brand entity",
+						"healthy": "JSON-LD blocks are detected, so AI parsers can read the core entity"
+					},
+					"evidence": {
+						"critical": "Measured: {jsonLdCount} JSON-LD block(s) · not in the Perplexity/ChatGPT citation pool",
+						"partial": "Measured: {jsonLdCount} JSON-LD block(s) detected · entity match still incomplete",
+						"healthy": "Measured: {jsonLdCount} JSON-LD block(s) detected and readable"
+					},
+					"rx": {
+						"critical": "Enter the top 1–2 citation pool across the six major AI engines",
+						"partial": "Enter the top 1–2 citation pool across the six major AI engines",
+						"healthy": "Hold and expand the top 1–2 citation pool across the six major AI engines"
+					}
+				},
+				"trustUndervalued": {
+					"title": "Brand trust & authority undervalued",
+					"loss": {
+						"critical": "Founder credentials and business trust are missing from the AI knowledge graph, so ranking defense is weak",
+						"partial": "Only part of the expertise signal is connected, so rankings can slip on algorithm updates",
+						"healthy": "The official entity is in the knowledge graph, holding ranking defense"
+					},
+					"cause": {
+						"critical": "Required Organization schema properties missing, and NAP is not linked across the four major map portals",
+						"partial": "Organization fields are only partly filled, so knowledge-graph matching stays incomplete",
+						"healthy": "Organization required fields and NAP linkage are confirmed"
+					},
+					"evidence": {
+						"critical": "Measured: missing {orgMissing} · official NAP graph not linked",
+						"partial": "Measured: fields still to complete — {orgMissing}",
+						"healthy": "Measured: Organization required fields ({orgMissing}) confirmed"
+					},
+					"rx": {
+						"critical": "Register the official brand E-E-A-T knowledge graph and defend against search-algorithm risk",
+						"partial": "Register the official brand E-E-A-T knowledge graph and defend against search-algorithm risk",
+						"healthy": "Keep the E-E-A-T knowledge graph current to keep defending search-algorithm risk"
+					}
+				},
+				"conversionDrop": {
+					"title": "Mobile discovery & inquiry conversion failure",
+					"loss": {
+						"critical": "Arriving prospects bounce before inquiring because mobile readability breaks down",
+						"partial": "Some arriving prospects bounce just before inquiring because of weaker mobile readability",
+						"healthy": "Mobile readability signals are solid, holding dwell time and inquiry conversion"
+					},
+					"cause": {
+						"critical": "Mobile viewport indexing and meta-tag optimization defects",
+						"partial": "Mobile viewport and meta-tag optimization is only partly applied",
+						"healthy": "Mobile viewport indexing and meta-tag signals meet the baseline"
+					},
+					"evidence": {
+						"critical": "Measured: alt missing {altMissing}/{altTotal} · weaker mobile indexing and screen-reader recognition",
+						"partial": "Measured: alt missing {altMissing}/{altTotal} · mobile readability still has room",
+						"healthy": "Measured: alt missing {altMissing}/{altTotal} · coverage is healthy"
+					},
+					"rx": {
+						"critical": "Increase mobile dwell time and maximize actual inquiry/adoption conversion",
+						"partial": "Increase mobile dwell time and maximize actual inquiry/adoption conversion",
+						"healthy": "Hold and grow mobile dwell time plus inquiry/adoption conversion"
+					}
+				}
+			}
+		},
+		"floatingTab": {
+			"ariaLabel": "Switch report tab and jump to top",
+			"reputation": "AI Search Trust · GEO Diagnosis",
+			"technical": "SEO·GEO·SCHEMA Diagnosis",
+			"reputationAria": "Jump to the AI Search Trust · GEO diagnosis tab",
+			"technicalAria": "Jump to the SEO·GEO·SCHEMA diagnosis tab"
+		},
+		"onpageDiagnostic": {
+			"status": {
+				"pass": "Pass",
+				"warning": "Warning",
+				"fail": "Fail"
+			},
+			"statusHint": {
+				"pass": "Healthy / Strong",
+				"warning": "Needs attention",
+				"fail": "Weak / Defects found"
+			},
+			"rateHint": {
+				"warning": "Needs improvement",
+				"fail": "Low achievement"
+			},
+			"defectLabel": "{count} defects · {warn} warnings",
+			"defectOnly": "{count} defects",
+			"warnOnly": "{count} warnings",
+			"jumpToDefects": "{count} defects — jump to detailed checklist",
+			"jumpToWarnings": "{count} warnings — jump to detailed checklist"
 		}
 	},
 	"mypage": {

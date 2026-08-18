@@ -4,17 +4,24 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { AUDIT_HERO_ID, AUDIT_URL_INPUT_ID } from '@/components/landing/scroll-to-audit';
+import { sanitizeUrlInput, toPunycodeHref } from '@/lib/audit/normalize-url';
 
 function normalizeAuditUrl(raw: string): string {
-	const trimmed = raw.trim();
+	const trimmed = sanitizeUrlInput(raw);
 	if (!trimmed) return '';
-	if (/^https?:\/\//i.test(trimmed)) return trimmed;
-	return `https://${trimmed.replace(/^\/+/, '')}`;
+	try {
+		return toPunycodeHref(trimmed);
+	} catch {
+		if (/^https?:\/\//i.test(trimmed)) return trimmed;
+		return `https://${trimmed.replace(/^\/+/, '')}`;
+	}
 }
 
 function buildResultHref(url: string, extraQuery?: Record<string, string>): string {
 	const params = new URLSearchParams();
 	params.set('url', url);
+	params.set('forceRefresh', 'true');
+	params.set('t', String(Date.now()));
 	if (extraQuery) {
 		for (const [key, value] of Object.entries(extraQuery)) {
 			if (value) params.set(key, value);
@@ -140,25 +147,25 @@ export function FreeAuditHero({
 	return (
 		<section
 			id={AUDIT_HERO_ID}
-			className="scroll-mt-24 flex flex-col items-center rounded-3xl border border-white/[0.08] bg-gradient-to-br from-accent/20 via-[#0B1220] to-indigo-950/40 px-5 py-12 text-center sm:px-8 sm:py-14"
+			className="scroll-mt-24 flex flex-col items-center rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-gradient-to-br from-accent/10 via-white to-indigo-50 dark:from-accent/20 dark:via-[#0B1220] dark:to-indigo-950/40 px-5 py-12 text-center sm:px-8 sm:py-14"
 		>
-			<span className="rounded-full border border-accent/40 bg-accent/15 px-3 py-1 text-xs font-bold text-accent-light">
+			<span className="rounded-full border border-accent/40 bg-accent/15 px-3 py-1 text-xs font-bold text-indigo-700 dark:text-accent-light">
 				{t('badge')}
 			</span>
 
-			<h1 className="mt-5 max-w-4xl text-2xl font-extrabold leading-snug tracking-tight text-white sm:text-3xl md:text-4xl md:leading-tight">
+			<h1 className="mt-5 max-w-4xl text-2xl font-extrabold leading-snug tracking-tight text-slate-900 dark:text-white sm:text-3xl md:text-4xl md:leading-tight">
 				<span className="block">{t('titleLine1')}</span>
-				<span className="mt-1 block font-black text-white">{t('titleLine2')}</span>
+				<span className="mt-1 block font-black text-slate-900 dark:text-white">{t('titleLine2')}</span>
 			</h1>
 
-			<p className="mt-4 max-w-2xl break-keep text-sm leading-relaxed text-slate-300 sm:text-base">
+			<p className="mt-4 max-w-2xl break-keep text-sm leading-relaxed text-slate-700 dark:text-slate-300 sm:text-base">
 				<span className="block">{t('descriptionLine1')}</span>
 				<span className="mt-2 block">{t('descriptionLine2')}</span>
 			</p>
 
 			<form
 				onSubmit={handleSubmit}
-				className="mt-8 grid w-full max-w-3xl grid-cols-1 gap-2.5 sm:grid-cols-[1fr_auto]"
+				className="mt-8 mx-auto grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-[1fr_auto]"
 			>
 				<input
 					id={AUDIT_URL_INPUT_ID}
@@ -172,7 +179,7 @@ export function FreeAuditHero({
 					}}
 					placeholder={t('placeholder')}
 					readOnly={autoSubmit && submitting}
-					className="w-full rounded-xl border border-white/[0.1] bg-black/50 px-4 py-3.5 text-sm text-slate-100 outline-none ring-accent/0 transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+					className="w-full rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/50 px-4 py-3.5 text-sm text-slate-900 dark:text-slate-100 outline-none ring-accent/0 transition focus:border-accent focus:ring-2 focus:ring-accent/30"
 				/>
 				<button
 					type="submit"
@@ -186,7 +193,7 @@ export function FreeAuditHero({
 			{error ? (
 				<p
 					role="alert"
-					className="mt-3 max-w-3xl rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"
+					className="mt-3 max-w-3xl rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200"
 				>
 					{error}
 				</p>

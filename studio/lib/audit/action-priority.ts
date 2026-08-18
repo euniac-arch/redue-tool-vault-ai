@@ -1,7 +1,9 @@
+import { checklistDefForEngineId } from '@/lib/audit/checklistDefinitions';
 import type { AuditCheckItem, AuditCheckStatus } from '@/lib/site-auditor';
+import type { SchemaVertical } from '@/lib/audit/recommended-schemas';
 
-/** Five-level remediation priority for B2B action plans. */
-export type ActionPriority = 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
+/** Six-level remediation priority for B2B action plans. P0 is the HTTPS security gate. */
+export type ActionPriority = 'P0' | 'P1' | 'P2' | 'P3' | 'P4' | 'P5';
 
 export type ActionDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -9,7 +11,7 @@ export interface ActionPriorityMeta {
 	priority: ActionPriority;
 	/** Lower = more urgent within the same priority band. */
 	rank: number;
-	labelKey: 'critical' | 'high' | 'geoMust' | 'eeat' | 'enhance';
+	labelKey: 'emergency' | 'critical' | 'high' | 'geoMust' | 'eeat' | 'enhance';
 	difficulty: ActionDifficulty;
 	/** Highlight GEO-MUST rows for AI-search CRO. */
 	geoHighlight: boolean;
@@ -22,6 +24,9 @@ export interface ActionPriorityMeta {
  * Unlisted ids fall back by status (fail→P2, warning→P5).
  */
 const CHECK_PRIORITY: Record<string, Omit<ActionPriorityMeta, 'rank'>> = {
+	// P0 EMERGENCY — TLS / HTTPS security gate (Answer Center first card)
+	https: { priority: 'P0', labelKey: 'emergency', difficulty: 'easy', geoHighlight: false, effectKey: 'https' },
+
 	// P1 CRITICAL — indexing blockers
 	title: { priority: 'P1', labelKey: 'critical', difficulty: 'easy', geoHighlight: false, effectKey: 'title' },
 	'meta-description': {
@@ -41,17 +46,17 @@ const CHECK_PRIORITY: Record<string, Omit<ActionPriorityMeta, 'rank'>> = {
 	},
 	canonical: { priority: 'P1', labelKey: 'critical', difficulty: 'easy', geoHighlight: false, effectKey: 'canonical' },
 
-	// P2 HIGH — brand entity / site structure
+	// P2 HIGH — brand entity / LocalBusiness · MedicalClinic · Organization NAP
 	organization: { priority: 'P2', labelKey: 'high', difficulty: 'medium', geoHighlight: false, effectKey: 'organization' },
 	'website-schema': {
-		priority: 'P2',
-		labelKey: 'high',
+		priority: 'P5',
+		labelKey: 'enhance',
 		difficulty: 'medium',
 		geoHighlight: false,
 		effectKey: 'websiteSchema',
 	},
 
-	// P3 GEO-MUST — AI citation / rich-result schemas
+	// P3 GEO-MUST — FAQPage is the conversational citation unit (not Article/NewsArticle)
 	'faq-howto-schema': {
 		priority: 'P3',
 		labelKey: 'geoMust',
@@ -60,17 +65,17 @@ const CHECK_PRIORITY: Record<string, Omit<ActionPriorityMeta, 'rank'>> = {
 		effectKey: 'faqHowto',
 	},
 	'article-fields': {
-		priority: 'P3',
-		labelKey: 'geoMust',
+		priority: 'P5',
+		labelKey: 'enhance',
 		difficulty: 'medium',
-		geoHighlight: true,
-		effectKey: 'article',
+		geoHighlight: false,
+		effectKey: 'pageSchema',
 	},
 	'news-article': {
-		priority: 'P3',
-		labelKey: 'geoMust',
+		priority: 'P5',
+		labelKey: 'enhance',
 		difficulty: 'medium',
-		geoHighlight: true,
+		geoHighlight: false,
 		effectKey: 'newsArticle',
 	},
 	'ai-bots-allowed': {
@@ -125,9 +130,17 @@ const CHECK_PRIORITY: Record<string, Omit<ActionPriorityMeta, 'rank'>> = {
 		geoHighlight: false,
 		effectKey: 'crawlableText',
 	},
+	'llms-txt': {
+		priority: 'P1',
+		labelKey: 'geoMust',
+		difficulty: 'easy',
+		geoHighlight: true,
+		effectKey: 'llmsTxt',
+	},
 };
 
 const PRIORITY_ORDER: Record<ActionPriority, number> = {
+	P0: 0,
 	P1: 1,
 	P2: 2,
 	P3: 3,
@@ -145,10 +158,50 @@ function resolveStatus(check: AuditCheckItem): AuditCheckStatus {
 	return check.status ?? (check.passed ? 'pass' : 'fail');
 }
 
-export function getActionPriorityMeta(check: AuditCheckItem): ActionPriorityMeta {
+export interface ActionPriorityOptions {
+	/** Press/media only — Article/NewsArticle stay GEO-MUST. */
+	newsVertical?: boolean;
+	vertical?: SchemaVertical;
+}
+
+function applyVerticalOverride(
+	checkId: string,
+	mapped: Omit<ActionPriorityMeta, 'rank'>,
+	options?: ActionPriorityOptions,
+): Omit<ActionPriorityMeta, 'rank'> {
+	const news = options?.newsVertical === true || options?.vertical === 'news';
+	if (!news) return mapped;
+	if (checkId === 'article-fields') {
+		return {
+			priority: 'P3',
+			labelKey: 'geoMust',
+			difficulty: 'medium',
+			geoHighlight: true,
+			effectKey: 'article',
+		};
+	}
+	if (checkId === 'news-article') {
+		return {
+			priority: 'P3',
+			labelKey: 'geoMust',
+			difficulty: 'medium',
+			geoHighlight: true,
+			effectKey: 'newsArticle',
+		};
+	}
+	return mapped;
+}
+
+export function getActionPriorityMeta(
+	check: AuditCheckItem,
+	options?: ActionPriorityOptions,
+): ActionPriorityMeta {
 	const mapped = CHECK_PRIORITY[check.id];
+	const definedLevel = checklistDefForEngineId(check.id)?.pLevel;
 	if (mapped) {
-		return { ...mapped, rank: PRIORITY_ORDER[mapped.priority] };
+		const withLevel = definedLevel ? { ...mapped, priority: definedLevel } : mapped;
+		const resolved = applyVerticalOverride(check.id, withLevel, options);
+		return { ...resolved, rank: PRIORITY_ORDER[resolved.priority] };
 	}
 
 	const status = resolveStatus(check);
@@ -181,11 +234,14 @@ export interface PrioritizedActionItem {
 /**
  * Failed/warning checks sorted P1→P5, then easier fixes first, then higher weight.
  */
-export function buildPrioritizedActions(checks: AuditCheckItem[]): PrioritizedActionItem[] {
+export function buildPrioritizedActions(
+	checks: AuditCheckItem[],
+	options?: ActionPriorityOptions,
+): PrioritizedActionItem[] {
 	return checks
 		.filter((c) => resolveStatus(c) !== 'pass')
 		.map((c) => {
-			const meta = getActionPriorityMeta(c);
+			const meta = getActionPriorityMeta(c, options);
 			return {
 				id: c.id,
 				label: c.label,
@@ -209,9 +265,20 @@ export function buildPrioritizedActions(checks: AuditCheckItem[]): PrioritizedAc
 }
 
 export const PRIORITY_BADGE_STYLES: Record<ActionPriority, string> = {
-	P1: 'bg-rose-500 text-white ring-1 ring-rose-300/40',
-	P2: 'bg-orange-500 text-white ring-1 ring-orange-300/40',
-	P3: 'bg-indigo-500 text-white ring-1 ring-indigo-300/50',
-	P4: 'bg-sky-500 text-white ring-1 ring-sky-300/40',
-	P5: 'bg-slate-500 text-white ring-1 ring-slate-300/30',
+	P0: 'box-border border border-rose-300/70 bg-rose-700 text-white',
+	P1: 'box-border border border-rose-300/40 bg-rose-500 text-white',
+	P2: 'box-border border border-orange-300/40 bg-orange-500 text-white',
+	P3: 'box-border border border-indigo-300/50 bg-indigo-500 text-white',
+	P4: 'box-border border border-sky-300/40 bg-sky-500 text-white',
+	P5: 'box-border border border-slate-300/30 bg-slate-500 text-white',
+};
+
+/** Header count chips — 1px border, no ring, so the first badge is not clipped. */
+export const PRIORITY_COUNT_BADGE_STYLES: Record<ActionPriority, string> = {
+	P0: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/50 dark:text-rose-400 dark:border-rose-900/60',
+	P1: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-400 dark:border-amber-900/60',
+	P2: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-400 dark:border-blue-900/60',
+	P3: 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+	P4: 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
+	P5: 'bg-slate-50 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700',
 };

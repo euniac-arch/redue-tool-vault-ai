@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import type { AuditReport } from '@/lib/site-auditor';
 import { DigitalFootprintPanel } from './DigitalFootprintPanel';
@@ -9,9 +9,11 @@ import { DigitalFootprintReportTabs, type DfTabId } from './DigitalFootprintRepo
 interface DigitalFootprintSectionProps {
 	report: AuditReport;
 	reportData?: GeoNarrativeReport | null;
+	/** Extra card mounted inside the footprint cluster (entity / sameAs bars). */
+	afterSummary?: ReactNode;
 }
 
-export function DigitalFootprintSection({ report, reportData }: DigitalFootprintSectionProps) {
+export function DigitalFootprintSection({ report, reportData, afterSummary }: DigitalFootprintSectionProps) {
 	const [activeTab, setActiveTab] = useState<DfTabId>('df-google');
 
 	return (
@@ -22,6 +24,7 @@ export function DigitalFootprintSection({ report, reportData }: DigitalFootprint
 				activeTab={activeTab}
 				onTabChange={setActiveTab}
 			/>
+			{afterSummary}
 			<DigitalFootprintReportTabs
 				report={report}
 				reportData={reportData}

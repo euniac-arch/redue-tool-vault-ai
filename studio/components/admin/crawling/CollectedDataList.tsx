@@ -220,6 +220,8 @@ function diagnoseHref(row: CrawlRecord): string {
 	params.set('domain', domainOf(row));
 	const targetId = row.targetSiteId || '';
 	if (targetId) params.set('target_id', targetId);
+	params.set('forceRefresh', 'true');
+	params.set('t', String(Date.now()));
 	return `/diagnose?${params.toString()}`;
 }
 
@@ -456,8 +458,11 @@ async function downloadAuditPdf(item: CrawlRecord) {
 			backgroundColor: '#ffffff',
 			scale: 2,
 			useCORS: true,
+			allowTaint: false,
+			logging: false,
+			foreignObjectRendering: false,
 		});
-		const img = canvas.toDataURL('image/png');
+		const img = canvas.toDataURL('image/jpeg', 0.92);
 		const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
 		const pageWidth = pdf.internal.pageSize.getWidth();
 		const pageHeight = pdf.internal.pageSize.getHeight();
@@ -467,7 +472,7 @@ async function downloadAuditPdf(item: CrawlRecord) {
 		const ratio = Math.min(maxWidth / canvas.width, maxHeight / canvas.height);
 		const drawWidth = canvas.width * ratio;
 		const drawHeight = canvas.height * ratio;
-		pdf.addImage(img, 'PNG', margin, margin, drawWidth, drawHeight);
+		pdf.addImage(img, 'JPEG', margin, margin, drawWidth, drawHeight);
 		pdf.save(`audit_report_${item.no}_${formatTimestampForFilename(new Date())}.pdf`);
 	} finally {
 		disposable.remove();
@@ -492,6 +497,9 @@ async function downloadAuditPng(item: CrawlRecord, captureEl?: HTMLElement | nul
 			backgroundColor: '#ffffff',
 			scale: 2,
 			useCORS: true,
+			allowTaint: false,
+			logging: false,
+			foreignObjectRendering: false,
 		});
 		const link = document.createElement('a');
 		link.download = `audit_report_${item.no}_${formatTimestampForFilename(new Date())}.png`;

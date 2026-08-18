@@ -66,7 +66,9 @@ export function SolveEmptyContext({ missingDocId = null }: SolveEmptyContextProp
 		if (!trimmed) return;
 		setSubmitting(true);
 		const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-		router.push(`/audit/result?url=${encodeURIComponent(normalized)}`);
+		router.push(
+			`/audit/result?url=${encodeURIComponent(normalized)}&forceRefresh=true&t=${Date.now()}`,
+		);
 	}
 
 	return (

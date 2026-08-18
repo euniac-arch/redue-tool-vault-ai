@@ -10,6 +10,7 @@ const OPTIONS: { code: 'ko' | 'en'; label: string }[] = [
 ];
 
 interface LocaleSwitcherProps {
+	/** @deprecated Prefer Tailwind `dark:` classes. `light` forces the admin-style chrome. */
 	variant?: 'dark' | 'light';
 }
 
@@ -17,7 +18,7 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 	const locale = useLocale();
 	const router = useRouter();
 	const [pending, startTransition] = useTransition();
-	const isLight = variant === 'light';
+	const forceLight = variant === 'light';
 
 	async function switchTo(code: string) {
 		if (code === locale) return;
@@ -34,7 +35,9 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 	return (
 		<div
 			className={`flex items-center rounded-full p-0.5 text-xs font-bold ${
-				isLight ? 'border border-zinc-200 bg-zinc-50' : 'border border-white/[0.08] bg-white/5'
+				forceLight
+					? 'border border-zinc-200 bg-zinc-50'
+					: 'border border-slate-200 bg-slate-50 dark:border-white/[0.08] dark:bg-white/5'
 			}`}
 		>
 			{OPTIONS.map((option) => (
@@ -44,12 +47,12 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 					disabled={pending}
 					className={`rounded-full px-2.5 py-1 transition-colors duration-200 ${
 						locale === option.code
-							? isLight
+							? forceLight
 								? 'bg-zinc-900 text-white'
-								: 'bg-accent text-white'
-							: isLight
+								: 'bg-slate-900 text-white dark:bg-accent'
+							: forceLight
 								? 'text-zinc-500 hover:text-zinc-900'
-								: 'text-slate-400 hover:text-white'
+								: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
 					}`}
 				>
 					{option.label}

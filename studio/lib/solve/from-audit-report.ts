@@ -5,7 +5,7 @@ import { generateAllCmsSnippets } from '@/lib/solve/cms-snippets';
 import { buildFileIssueTargetReport } from '@/lib/solve/file-issue-report';
 import { getIssueSolutionGuide } from '@/lib/solve/issue-solution-guide';
 import { extractAuditUrlPaths } from '@/lib/solve/source-mapping';
-import type { IssueSeverity, SolveAuditSnapshot, SolveIssue } from '@/lib/solve/types';
+import { toSolveCmsDisplay, type IssueSeverity, type SolveAuditSnapshot, type SolveIssue } from '@/lib/solve/types';
 
 /** Free-audit check id → solution-guide issue code */
 const CHECK_ID_TO_ISSUE_CODE: Record<string, string | ((check: AuditCheckItem) => string)> = {
@@ -57,10 +57,11 @@ const CHECK_ID_TO_ISSUE_CODE: Record<string, string | ((check: AuditCheckItem) =
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
+	security: '보안 / 인프라',
 	seo: 'SEO / Meta',
 	schema: 'GEO / Schema',
 	geo: 'GEO / AI',
-	performance: '성능',
+	performance: '성능 / 접근성',
 	accessibility: '접근성',
 };
 
@@ -106,7 +107,7 @@ export function mapAuditReportToSolveSnapshot(
 	report: AuditReport,
 	opts?: { id?: string | null; cmsType?: string },
 ): SolveAuditSnapshot {
-	const cmsType = opts?.cmsType || 'WordPress';
+	const cmsType = toSolveCmsDisplay(opts?.cmsType || report.cmsType || '');
 	const siteName = dedupeRepeatedPhrase(
 		report.siteMeta?.brandName ||
 			report.metrics?.pageTitle ||

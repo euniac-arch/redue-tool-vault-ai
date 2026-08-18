@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { ReportShareLinkButton } from '@/components/audit/ReportShareLinkButton';
 import { shareToKakao } from '@/lib/kakao-share';
 
 interface AuditShareBarProps {
@@ -10,6 +11,8 @@ interface AuditShareBarProps {
 	score: number;
 	statusLabel: string;
 	onOpenEmail: () => void;
+	onOpenPdfPreview: () => void;
+	onOpenExecBrief: () => void;
 }
 
 const COMPACT_BAR_MQ = '(max-width: 1599px)';
@@ -22,6 +25,7 @@ function ActionButton({
 	shortLabel,
 	title,
 	nowrap = false,
+	wrap = false,
 }: {
 	onClick: () => void;
 	className: string;
@@ -31,23 +35,29 @@ function ActionButton({
 	title?: string;
 	/** Prevent label ellipsis (e.g. email preview CTA). */
 	nowrap?: boolean;
+	/** Allow the desktop label to wrap instead of truncating. */
+	wrap?: boolean;
 }) {
+	const labelLayout = nowrap
+		? 'whitespace-nowrap'
+		: wrap
+			? 'min-w-0 flex-1 leading-snug'
+			: 'min-w-0 flex-1 truncate';
+
 	return (
 		<button
 			type="button"
 			onClick={onClick}
 			title={title ?? label}
 			aria-label={label}
-			className={`group flex w-auto items-center gap-2 rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5 ${nowrap ? 'overflow-visible' : 'overflow-hidden'} ${className}`}
+			className={`group flex w-auto items-center gap-2 rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5 ${nowrap || wrap ? 'overflow-visible' : 'overflow-hidden'} ${className}`}
 		>
 			<span className="shrink-0 text-base leading-none" aria-hidden>
 				{icon}
 			</span>
 			{/* ≥1600: full label · 451–1599: short label · ≤450: icon only */}
 			<span
-				className={`min-[1600px]:inline max-[1599px]:hidden ${
-					nowrap ? 'whitespace-nowrap' : 'min-w-0 flex-1 truncate'
-				}`}
+				className={`min-[1600px]:inline max-[1599px]:hidden ${labelLayout}`}
 			>
 				{label}
 			</span>
@@ -62,13 +72,16 @@ function ActionButton({
 	);
 }
 
-export function AuditShareBar({
+function AuditShareBarInner({
 	shareUrl,
 	score,
 	statusLabel,
 	onOpenEmail,
+	onOpenPdfPreview,
+	onOpenExecBrief,
 }: AuditShareBarProps) {
 	const t = useTranslations('audit.share');
+	const tBrief = useTranslations('audit.execBrief');
 	const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 	const [shareError, setShareError] = useState<string | null>(null);
 	const [isCompactBar, setIsCompactBar] = useState(false);
@@ -134,7 +147,7 @@ export function AuditShareBar({
 	}
 
 	function handlePrintPdf() {
-		window.print();
+		onOpenPdfPreview();
 	}
 
 	function openRedueEmailModal() {
@@ -159,15 +172,23 @@ export function AuditShareBar({
 			>
 				<div
 					className={[
-						'border border-white/10 bg-slate-900/90 shadow-2xl backdrop-blur',
+						'border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/90 shadow-2xl backdrop-blur',
 						/* ≥1600: vertical side card — wide enough for email preview label */
 						'min-[1600px]:flex min-[1600px]:w-auto min-[1600px]:min-w-[16.5rem] min-[1600px]:max-w-[min(100vw-3rem,22rem)] min-[1600px]:flex-col min-[1600px]:gap-2 min-[1600px]:rounded-2xl min-[1600px]:p-3',
 						/* <1600: full-width floating bottom bar */
-						'max-[1599px]:flex max-[1599px]:w-full max-[1599px]:items-center max-[1599px]:justify-between max-[1599px]:gap-3 max-[1599px]:rounded-none max-[1599px]:border-x-0 max-[1599px]:border-b-0 max-[1599px]:bg-slate-900/95 max-[1599px]:px-4 max-[1599px]:py-3 max-[1599px]:shadow-[0_-4px_20px_rgba(0,0,0,0.3)] max-[1599px]:backdrop-blur-md max-[1599px]:pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+						'max-[1599px]:flex max-[1599px]:w-full max-[1599px]:items-center max-[1599px]:justify-between max-[1599px]:gap-3 max-[1599px]:rounded-none max-[1599px]:border-x-0 max-[1599px]:border-b-0 max-[1599px]:bg-white/95 dark:max-[1599px]:bg-slate-900/95 max-[1599px]:px-4 max-[1599px]:py-3 max-[1599px]:shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:max-[1599px]:shadow-[0_-4px_20px_rgba(0,0,0,0.3)] max-[1599px]:backdrop-blur-md max-[1599px]:pb-[max(0.75rem,env(safe-area-inset-bottom))]',
 					].join(' ')}
 				>
-					{/* Left cluster: PDF / Email / Kakao — stacks on desktop via `contents` */}
+					{/* Left cluster: Exec brief / PDF / Email / Kakao — stacks on desktop via `contents` */}
 					<div className="min-[1600px]:contents max-[1599px]:flex max-[1599px]:min-w-0 max-[1599px]:items-center max-[1599px]:gap-2">
+						<ActionButton
+							onClick={onOpenExecBrief}
+							icon="⚡"
+							label={tBrief('fabLabel')}
+							shortLabel={tBrief('fabLabelShort')}
+							wrap
+							className="bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:active:bg-indigo-600 dark:focus-visible:ring-indigo-300 dark:focus-visible:ring-offset-slate-900"
+						/>
 						<ActionButton
 							onClick={handlePrintPdf}
 							icon="📄"
@@ -183,23 +204,28 @@ export function AuditShareBar({
 							nowrap
 							className="border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20"
 						/>
+						<ReportShareLinkButton
+							shareUrl={shareUrl}
+							variant="bar"
+							className="group flex w-auto items-center gap-2 rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5"
+						/>
 						<ActionButton
 							onClick={handleShare}
 							icon="💬"
 							label={kakaoLabel}
 							shortLabel={kakaoShort}
-							className="border border-white/[0.08] bg-white/5 text-slate-200 hover:bg-white/10"
+							className="border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10"
 						/>
 
 						{shareError ? (
-							<p className="px-1 text-[11px] leading-snug text-rose-400 min-[1600px]:block max-[1599px]:hidden">
+							<p className="px-1 text-[11px] leading-snug text-rose-700 dark:text-rose-400 min-[1600px]:block max-[1599px]:hidden">
 								{shareError}
 							</p>
 						) : null}
 					</div>
 
 					{/* Right / bottom: Contact CTA — always keeps readable text */}
-					<div className="min-[1600px]:mt-1 min-[1600px]:border-t min-[1600px]:border-white/10 min-[1600px]:pt-2.5 max-[1599px]:mt-0 max-[1599px]:shrink-0 max-[1599px]:border-0 max-[1599px]:pt-0">
+					<div className="min-[1600px]:mt-1 min-[1600px]:border-t min-[1600px]:border-slate-200 dark:min-[1600px]:border-white/10 min-[1600px]:pt-2.5 max-[1599px]:mt-0 max-[1599px]:shrink-0 max-[1599px]:border-0 max-[1599px]:pt-0">
 						<Link
 							href="/contact"
 							title={t('contact')}
@@ -221,3 +247,5 @@ export function AuditShareBar({
 		</>
 	);
 }
+
+export const AuditShareBar = memo(AuditShareBarInner);

@@ -8,6 +8,9 @@
 .df-summary-box {
 	cursor: pointer;
 	transition: all 0.25s ease;
+	border: 1px solid #e2e8f0;
+}
+html.dark .df-summary-box {
 	border: 1px solid rgba(226, 232, 240, 0.12);
 }
 .df-summary-box:hover {
@@ -20,9 +23,17 @@
 	box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
 }
 
+/* QuickJumpToFail — sticky header offset */
+.audit-section,
+[id^="audit-section-"],
+.checklist-cat-anchor,
+[data-checklist-category] {
+	scroll-margin-top: 100px;
+}
+
 @layer base {
 	html {
-		color-scheme: dark;
+		color-scheme: light;
 		font-family:
 			Pretendard,
 			-apple-system,
@@ -39,10 +50,19 @@
 		-moz-osx-font-smoothing: grayscale;
 	}
 
+	html.dark {
+		color-scheme: dark;
+	}
+
 	body {
-		background: #0c0d0e;
-		color: #e2e8f0;
+		background: #f8fafc;
+		color: #0f172a;
 		font-family: inherit;
+	}
+
+	html.dark body {
+		background: #0a0d12;
+		color: #f1f5f9;
 	}
 
 	/* Ensure UI chrome inherits Pretendard even when nested utilities reset fonts */
@@ -51,6 +71,15 @@
 	textarea,
 	select {
 		font-family: inherit;
+	}
+}
+
+@layer components {
+	.theme-card {
+		@apply border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#121824] dark:shadow-none;
+	}
+	.theme-panel {
+		@apply border border-slate-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-slate-900/80 dark:shadow-none;
 	}
 }
 
@@ -169,7 +198,7 @@
 	z-index: 9999;
 	display: flex;
 	flex-direction: column;
-	background-color: rgba(12, 13, 14, 0.98);
+	background-color: rgba(248, 250, 252, 0.98);
 	backdrop-filter: blur(12px);
 	-webkit-backdrop-filter: blur(12px);
 	opacity: 0;
@@ -213,8 +242,16 @@
 	gap: 12px;
 	flex-shrink: 0;
 	padding-top: 16px;
-	border-top: 1px solid rgba(255, 255, 255, 0.08);
+	border-top: 1px solid #e2e8f0;
 	padding-bottom: max(8px, env(safe-area-inset-bottom));
+}
+
+html.dark .mobile-menu-overlay {
+	background-color: rgba(12, 13, 14, 0.98);
+}
+
+html.dark .mobile-menu-overlay__footer {
+	border-top-color: rgba(255, 255, 255, 0.08);
 }
 
 /* ── Footer: floating action bar clearance + mobile stacking ─────────────── */
@@ -287,6 +324,90 @@
 	animation: fadeIn 0.22s ease-out both;
 }
 
+.custom-scrollbar {
+	scrollbar-width: thin;
+	scrollbar-color: rgba(113, 113, 122, 0.55) transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+	width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+	border-radius: 9999px;
+	background: rgba(113, 113, 122, 0.55);
+}
+
+/* Audit result tab panel — fade + slight rise on switch */
+@keyframes auditTabFadeIn {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.audit-tab-fade-in {
+	animation: auditTabFadeIn 0.28s ease-out both;
+}
+
+@media print {
+	.audit-tab-fade-in {
+		animation: none;
+	}
+}
+
+/* Result page — loader → report fade, indeterminate bar, spinner */
+@keyframes auditResultFadeIn {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+.audit-result-fade-in {
+	animation: auditResultFadeIn 0.45s ease-out both;
+}
+
+@keyframes auditResultLoaderBar {
+	0% {
+		transform: translateX(-120%);
+	}
+	100% {
+		transform: translateX(280%);
+	}
+}
+
+.audit-result-loader-bar {
+	width: 42%;
+	animation: auditResultLoaderBar 1.35s ease-in-out infinite;
+}
+
+@keyframes auditResultSpinner {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+.audit-result-spinner {
+	animation: auditResultSpinner 0.85s linear infinite;
+}
+
+@media print {
+	.audit-result-fade-in {
+		animation: none;
+	}
+}
+
 /* PageSpeed Insights detail panel — slide-in after lab data arrives */
 @keyframes psi-slide-in {
 	from {
@@ -335,10 +456,76 @@
 	animation: psi-progress-msg 0.4s ease-out both;
 }
 
+@keyframes live-cert-pulse {
+	0%,
+	100% {
+		transform: scale(1);
+		opacity: 0.55;
+	}
+	50% {
+		transform: scale(2.15);
+		opacity: 0;
+	}
+}
+
+.live-cert-banner {
+	position: relative;
+	overflow: hidden;
+}
+
+html.dark .live-cert-banner {
+	background:
+		linear-gradient(90deg, rgba(16, 185, 129, 0.08), rgba(14, 165, 233, 0.05) 46%, rgba(7, 16, 31, 0.42));
+}
+
+.live-cert-dot {
+	position: relative;
+	display: inline-flex;
+	height: 0.5rem;
+	width: 0.5rem;
+	flex-shrink: 0;
+	align-items: center;
+	justify-content: center;
+}
+
+.live-cert-dot::before {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 9999px;
+	background: #34d399;
+	animation: live-cert-pulse 1.8s ease-out infinite;
+}
+
+.live-cert-dot::after {
+	content: '';
+	position: relative;
+	z-index: 1;
+	height: 0.5rem;
+	width: 0.5rem;
+	border-radius: 9999px;
+	background: #10b981;
+	box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.18);
+}
+
+html.pdf-printing .live-cert-dot::before {
+	animation: none;
+	opacity: 0;
+}
+
+@media print {
+	.live-cert-dot::before {
+		animation: none;
+		opacity: 0;
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.animate-fadeIn,
+	.audit-tab-fade-in,
 	.psi-slide-in,
-	.psi-progress-msg {
+	.psi-progress-msg,
+	.live-cert-dot::before {
 		animation: none;
 	}
 
@@ -391,69 +578,828 @@
 	}
 }
 
-/* ─── A4 B2B Technical Audit Report (print / PDF) ─── */
-@media print {
-	html {
-		color-scheme: light;
+/* ─── A4 PDF capture / print reset ─────────────────────────────────────────
+   `#pdf-print-area` + `.pdf-print-container` are the html2canvas target.
+   `html.pdf-printing` (set before capture) and `@media print` share the same
+   light sheet, scrollbar hide, tab unfold, and height:auto rules. */
+
+.pdf-print-only {
+	display: none;
+}
+
+@media screen {
+	html:not(.pdf-printing) .audit-result-tab-panel:not(.is-active),
+	html:not(.pdf-printing) .df-tab-content:not(.is-active) {
+		display: none;
 	}
 
-	body {
+	html.public-web-report .audit-result-tab-panel,
+	html.public-web-report .df-tab-content,
+	.audit-result-tabs--stack .audit-result-tab-panel {
+		display: flex !important;
+		flex-direction: column !important;
+		height: auto !important;
+		min-height: auto !important;
+		max-height: none !important;
+		overflow: visible !important;
+	}
+}
+
+html.pdf-printing .pdf-print-only,
+html.pdf-printing .audit-print-header,
+html.pdf-printing .audit-print-footer {
+	display: block !important;
+}
+
+html.pdf-printing .print\:hidden,
+html.pdf-printing .pdf-screen-only {
+	display: none !important;
+}
+
+html.pdf-printing .audit-result-tab-panel,
+html.pdf-printing .df-tab-content {
+	display: flex !important;
+	flex-direction: column !important;
+	height: auto !important;
+	min-height: auto !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+
+html.pdf-printing .pdf-print-area,
+html.pdf-printing .pdf-print-container,
+html.pdf-printing .pdf-print-area *,
+html.pdf-printing .pdf-print-container * {
+	scrollbar-width: none !important;
+	-ms-overflow-style: none !important;
+}
+
+html.pdf-printing .pdf-print-area::-webkit-scrollbar,
+html.pdf-printing .pdf-print-area *::-webkit-scrollbar,
+html.pdf-printing .pdf-print-container::-webkit-scrollbar,
+html.pdf-printing .pdf-print-container *::-webkit-scrollbar {
+	display: none !important;
+	width: 0 !important;
+	height: 0 !important;
+}
+
+html.pdf-printing .pdf-print-area,
+html.pdf-printing .pdf-print-container,
+html.pdf-printing .pdf-print-area .audit-report-section,
+html.pdf-printing .pdf-print-area .exec-briefing-card,
+html.pdf-printing .pdf-print-area .audit-report-body,
+html.pdf-printing .pdf-print-area section,
+html.pdf-printing .pdf-print-area article,
+html.pdf-printing .pdf-print-area pre {
+	overflow: visible !important;
+	height: auto !important;
+	min-height: auto !important;
+	max-height: none !important;
+}
+
+html.pdf-printing,
+html.pdf-printing.dark,
+html.pdf-printing body,
+html.pdf-printing .pdf-light-theme,
+html.pdf-printing .pdf-print-area,
+html.pdf-printing .pdf-print-container {
+	color-scheme: light !important;
+	background: #ffffff !important;
+	background-color: #ffffff !important;
+	background-image: none !important;
+	color: #0f172a !important;
+}
+
+html.pdf-printing .audit-report-page,
+html.pdf-printing .audit-report-scale {
+	overflow: visible !important;
+	overflow-x: visible !important;
+	width: 100% !important;
+	max-width: none !important;
+	margin: 0 !important;
+	zoom: 1 !important;
+	transform: none !important;
+}
+
+html.pdf-printing .pdf-print-area .audit-report-section,
+html.pdf-printing .pdf-print-area .exec-briefing-card,
+html.pdf-printing .pdf-print-container .exec-briefing-card,
+html.pdf-printing .pdf-print-area .pdf-page-item,
+html.pdf-printing .pdf-print-area .pdf-page-item section,
+html.pdf-printing .pdf-print-area .pdf-page-item article,
+.pdf-preview-content .pdf-page-node,
+.pdf-preview-content .pdf-page-item,
+.pdf-preview-content .pdf-page-item section,
+.pdf-preview-content .pdf-page-item article,
+.pdf-preview-content .audit-report-section,
+.pdf-preview-content article,
+.pdf-preview-measure-host .pdf-page-item,
+.pdf-preview-measure-host .pdf-page-item section,
+.pdf-preview-measure-host .pdf-page-item article {
+	break-inside: avoid !important;
+	page-break-inside: avoid !important;
+	overflow: visible !important;
+}
+
+/*
+ * Report cards grow with content. Do not force 297mm on `.pdf-page-item`
+ * (that packed ~35 blank sheets). A4 min-height lives on `.pdf-page-node`.
+ */
+html.pdf-printing .pdf-print-area .audit-report-section,
+html.pdf-printing .pdf-print-area .exec-briefing-card,
+html.pdf-printing .pdf-print-area .pdf-page-item,
+html.pdf-printing .pdf-print-area section:not(.pdf-page-node),
+html.pdf-printing .pdf-print-area article:not(.pdf-page-node),
+.pdf-preview-measure-host,
+.pdf-preview-measure-host .pdf-page-item,
+.pdf-preview-measure-host .audit-report-section,
+.pdf-preview-measure-host section:not(.pdf-page-node),
+.pdf-preview-measure-host article:not(.pdf-page-node),
+.pdf-preview-content .pdf-page-node-inner,
+.pdf-preview-content .pdf-page-item,
+.pdf-preview-content .audit-report-section,
+.pdf-preview-content .exec-briefing-card,
+.pdf-preview-content section:not(.pdf-page-node),
+.pdf-preview-content article:not(.pdf-page-node) {
+	height: auto !important;
+	min-height: 0 !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+
+/*
+ * GEO · SEO Keyword Pipeline — never clip chip groups under the 3-line title.
+ * html2canvas / print inherit max-height + overflow:hidden from page nodes
+ * and break-inside:avoid on .pdf-page-item; unlock both here.
+ */
+html.pdf-printing .pdf-print-area .keyword-pipeline-section,
+html.pdf-printing .pdf-print-area .pdf-page-item.keyword-pipeline-section,
+html.pdf-printing .pdf-print-area #keyword-pipeline,
+html.pdf-printing .pdf-print-area .keyword-pipeline-grid,
+html.pdf-printing .pdf-print-area .keyword-chip-wrapper,
+html.pdf-printing .pdf-print-area .keyword-as-is-box,
+html.pdf-printing .pdf-print-area .keyword-source-pipeline,
+.pdf-preview-content .keyword-pipeline-section,
+.pdf-preview-content .pdf-page-item.keyword-pipeline-section,
+.pdf-preview-content .keyword-pipeline-grid,
+.pdf-preview-content .keyword-chip-wrapper,
+.pdf-preview-content .keyword-as-is-box,
+.pdf-preview-content .keyword-source-pipeline,
+.pdf-preview-measure-host .keyword-pipeline-section,
+.pdf-preview-measure-host .keyword-pipeline-grid,
+.pdf-preview-measure-host .keyword-chip-wrapper,
+.pdf-preview-measure-host .keyword-as-is-box,
+.pdf-preview-measure-host .keyword-source-pipeline {
+	height: auto !important;
+	min-height: auto !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+
+html.pdf-printing .pdf-print-area .keyword-pipeline-section,
+html.pdf-printing .pdf-print-area .pdf-page-item.keyword-pipeline-section,
+html.pdf-printing .pdf-print-area #keyword-pipeline,
+.pdf-preview-content .keyword-pipeline-section,
+.pdf-preview-content .pdf-page-item.keyword-pipeline-section,
+.pdf-preview-measure-host .keyword-pipeline-section {
+	page-break-inside: auto !important;
+	break-inside: auto !important;
+}
+
+html.pdf-printing .pdf-print-area .keyword-chip-wrapper,
+.pdf-preview-content .keyword-chip-wrapper,
+.pdf-preview-measure-host .keyword-chip-wrapper {
+	display: flex !important;
+	flex-wrap: wrap !important;
+	gap: 8px !important;
+	height: auto !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+
+html.pdf-printing .pdf-print-area .keyword-chip,
+html.pdf-printing .pdf-print-area .keyword-chip-label,
+.pdf-preview-content .keyword-chip,
+.pdf-preview-content .keyword-chip-label,
+.pdf-preview-measure-host .keyword-chip,
+.pdf-preview-measure-host .keyword-chip-label {
+	display: inline-block !important;
+	height: auto !important;
+	max-height: none !important;
+	overflow: visible !important;
+	-webkit-line-clamp: unset !important;
+	line-clamp: unset !important;
+	white-space: normal !important;
+}
+
+/* On-screen A4 sheets inside the full-screen PDF preview overlay (794 × 1123 CSS px = 210mm × 297mm @ 96dpi). */
+.pdf-preview-content {
+	color-scheme: light;
+	font-family:
+		Pretendard,
+		-apple-system,
+		BlinkMacSystemFont,
+		system-ui,
+		Roboto,
+		'Helvetica Neue',
+		'Segoe UI',
+		'Apple SD Gothic Neo',
+		'Noto Sans KR',
+		'Malgun Gothic',
+		sans-serif;
+	letter-spacing: normal;
+	word-spacing: normal;
+	font-kerning: none;
+	font-variant-ligatures: none;
+	text-rendering: geometricPrecision;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.pdf-preview-measure-host {
+	position: absolute;
+	left: 0;
+	top: 0;
+	visibility: hidden;
+	pointer-events: none;
+	overflow: visible !important;
+	height: auto !important;
+	background: #ffffff;
+	color: #0f172a;
+}
+
+.pdf-page-node {
+	position: relative;
+	box-sizing: border-box;
+	width: 210mm;
+	min-width: 210mm;
+	max-width: 210mm;
+	height: 297mm;
+	min-height: 297mm;
+	max-height: 297mm;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	background: #ffffff !important;
+	color: #0f172a !important;
+	box-shadow: 0 12px 40px rgba(15, 23, 42, 0.28);
+	break-inside: avoid !important;
+	page-break-inside: avoid !important;
+	page-break-after: always;
+	break-after: page;
+	font-family:
+		Pretendard,
+		-apple-system,
+		BlinkMacSystemFont,
+		system-ui,
+		sans-serif;
+	letter-spacing: normal;
+	word-spacing: normal;
+	font-kerning: none;
+	font-variant-ligatures: none;
+	text-rendering: geometricPrecision;
+	-webkit-font-smoothing: antialiased;
+}
+
+.pdf-page-node :where(p, span, a, li, td, th, label, em, strong, small, h1, h2, h3, h4, h5, h6) {
+	letter-spacing: normal;
+	word-spacing: normal;
+	font-kerning: none;
+	font-variant-ligatures: none;
+	vertical-align: baseline;
+}
+
+.pdf-page-node:last-child {
+	page-break-after: auto;
+	break-after: auto;
+}
+
+.pdf-page-node--tall {
+	height: auto !important;
+	max-height: none !important;
+	min-height: 297mm;
+	overflow: visible !important;
+}
+
+.pdf-page-node-inner {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	width: 100%;
+	height: auto !important;
+	min-height: 0 !important;
+	max-height: none !important;
+	padding: 36px 36px 48px;
+	overflow: visible !important;
+	background: #ffffff;
+	color: #0f172a;
+}
+
+.pdf-page-node-footer {
+	position: absolute;
+	right: 36px;
+	bottom: 16px;
+	left: 36px;
+	margin: 0;
+	font-size: 10px;
+	line-height: 1.2;
+	color: #64748b;
+	text-align: center;
+}
+
+html.pdf-printing .pdf-expand-in-print,
+.pdf-preview-content .pdf-expand-in-print,
+.pdf-preview-measure-host .pdf-expand-in-print {
+	height: auto !important;
+	max-height: none !important;
+	opacity: 1 !important;
+	overflow: visible !important;
+	visibility: visible !important;
+	grid-template-rows: 1fr !important;
+}
+
+html.pdf-preview-capturing .pdf-preview-root {
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}
+
+html.pdf-preview-capturing .pdf-preview-scroll,
+html.pdf-preview-capturing .pdf-preview-root,
+html.pdf-preview-capturing .pdf-page-node-inner,
+html.pdf-preview-capturing .pdf-page-item {
+	overflow: visible !important;
+	max-height: none !important;
+	height: auto !important;
+}
+
+html.pdf-preview-capturing .pdf-page-node:not(.pdf-page-node--tall) {
+	width: 210mm !important;
+	height: 297mm !important;
+	min-height: 297mm !important;
+	max-height: 297mm !important;
+	margin: 0 !important;
+	padding: 0 !important;
+	overflow: hidden !important;
+}
+
+@media print {
+	/* Dashboard window.print() fallback: hide the overlay unless the A4 preview modal is open. */
+	.pdf-preview-root:not(.report-preview-modal) {
+		display: none !important;
+	}
+
+	/*
+	 * Browser Print (Ctrl+P) while the preview modal is open:
+	 * isolate A4 sheets and collapse the dashboard so it does not paginate.
+	 * print-color-adjust stays inside @media print so canceling the dialog
+	 * cannot leak a converted color-scheme back into screen mode.
+	 */
+	body:has(.report-preview-modal) {
+		-webkit-print-color-adjust: exact !important;
+		print-color-adjust: exact !important;
 		background: #ffffff !important;
-		color: #0b1c2c !important;
-		-webkit-print-color-adjust: exact;
-		print-color-adjust: exact;
+		overflow: visible !important;
+	}
+
+	body:has(.report-preview-modal) * {
+		visibility: hidden !important;
+	}
+
+	body:has(.report-preview-modal) .report-preview-modal,
+	body:has(.report-preview-modal) .report-preview-modal * {
+		visibility: visible !important;
+		-webkit-print-color-adjust: exact !important;
+		print-color-adjust: exact !important;
+	}
+
+	body:has(.report-preview-modal) .report-preview-modal {
+		position: absolute !important;
+		inset: auto !important;
+		left: 0 !important;
+		top: 0 !important;
+		width: 100% !important;
+		max-width: none !important;
+		height: auto !important;
+		min-height: 0 !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		background: #ffffff !important;
+		box-shadow: none !important;
+		overflow: visible !important;
+		display: block !important;
+		z-index: 1 !important;
+		-webkit-print-color-adjust: exact !important;
+		print-color-adjust: exact !important;
+	}
+
+	body:has(.report-preview-modal) .pdf-preview-chrome,
+	body:has(.report-preview-modal) .pdf-preview-measure-host {
+		display: none !important;
+		visibility: hidden !important;
+	}
+
+	body:has(.report-preview-modal) .audit-report-scale,
+	body:has(.report-preview-modal) .page-horizon,
+	body:has(.report-preview-modal) header:not(.audit-print-header),
+	body:has(.report-preview-modal) footer.site-footer,
+	body:has(.report-preview-modal) nav {
+		display: none !important;
+		visibility: hidden !important;
+		height: 0 !important;
+		overflow: hidden !important;
+	}
+
+	body:has(.report-preview-modal) .audit-report-page,
+	body:has(.report-preview-modal) .min-h-screen,
+	body:has(.report-preview-modal) .min-h-dvh {
+		position: static !important;
+		min-height: 0 !important;
+		height: auto !important;
+		max-width: none !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		overflow: visible !important;
+		background: #ffffff !important;
+	}
+
+	body:has(.report-preview-modal) .pdf-preview-scroll,
+	body:has(.report-preview-modal) .pdf-preview-content {
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: stretch !important;
+		width: 100% !important;
+		max-width: none !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		gap: 0 !important;
+		min-height: 0 !important;
+		height: auto !important;
+		overflow: visible !important;
+		background: #ffffff !important;
+		box-shadow: none !important;
+	}
+
+	body:has(.report-preview-modal) .pdf-preview-scroll,
+	body:has(.report-preview-modal) .pdf-preview-content,
+	body:has(.report-preview-modal) .pdf-preview-content * {
+		scrollbar-width: none !important;
+		-ms-overflow-style: none !important;
+	}
+
+	body:has(.report-preview-modal) .pdf-preview-scroll::-webkit-scrollbar,
+	body:has(.report-preview-modal) .pdf-preview-content::-webkit-scrollbar,
+	body:has(.report-preview-modal) .pdf-preview-content *::-webkit-scrollbar {
+		display: none !important;
+		width: 0 !important;
+		height: 0 !important;
+	}
+}
+
+/*
+ * Screen-mode restore for the preview modal.
+ * Chromium can keep @media print !important (visibility / position / white
+ * backgrounds) after the print dialog is cancelled — these rules win again
+ * as soon as the media type is `screen`.
+ */
+@media screen {
+	html:has(.report-preview-modal) {
+		width: auto !important;
+		height: auto !important;
+		min-height: 100% !important;
+	}
+
+	body:has(.report-preview-modal) {
+		position: static !important;
+		width: auto !important;
+		max-width: none !important;
+		height: auto !important;
+		min-height: 100% !important;
+		overflow: hidden !important;
+	}
+
+	.report-preview-modal {
+		position: fixed !important;
+		inset: 0 !important;
+		left: 0 !important;
+		top: 0 !important;
+		width: 100% !important;
+		max-width: none !important;
+		height: 100% !important;
+		min-height: 100vh !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		background: rgb(15 23 42 / 0.95) !important;
+		background-color: rgb(15 23 42 / 0.95) !important;
+		visibility: visible !important;
+		display: block !important;
+		overflow: auto !important;
+		z-index: 9999 !important;
+		box-shadow: none !important;
+	}
+
+	.report-preview-modal,
+	.report-preview-modal * {
+		visibility: visible !important;
+	}
+
+	.report-preview-modal .pdf-preview-measure-host,
+	.report-preview-modal .pdf-preview-measure-host * {
+		visibility: hidden !important;
+		pointer-events: none !important;
+	}
+
+	.report-preview-modal .pdf-preview-chrome {
+		visibility: visible !important;
+	}
+
+	.report-preview-modal header.pdf-preview-chrome {
+		display: flex !important;
+		position: sticky !important;
+		top: 0 !important;
+		height: auto !important;
+		background: #0f172a !important;
+		background-color: #0f172a !important;
+	}
+
+	.report-preview-modal .pdf-preview-chrome button {
+		display: revert !important;
+	}
+
+	.report-preview-modal .pdf-preview-scroll {
+		display: flex !important;
+		flex-direction: column !important;
+		min-height: calc(100vh - 4.5rem) !important;
+		height: auto !important;
+		background: #0f172a !important;
+		background-color: #0f172a !important;
+		overflow: visible !important;
+	}
+
+	.report-preview-modal .pdf-preview-content {
+		display: flex !important;
+		flex-direction: column !important;
+		align-items: center !important;
+		width: 100% !important;
+		height: auto !important;
+		background: transparent !important;
+		background-color: transparent !important;
+	}
+}
+
+/* Composite effects collapse html2canvas buffers into rainbow glitch noise. */
+html.pdf-printing .pdf-print-area,
+html.pdf-printing .pdf-print-container,
+html.pdf-printing .pdf-print-area *,
+html.pdf-printing .pdf-print-container * {
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+	filter: none !important;
+	box-shadow: none !important;
+	text-shadow: none !important;
+	transform: none !important;
+	animation: none !important;
+	transition: none !important;
+}
+
+/* ─── A4 B2B Technical Audit Report (print / PDF) ───
+   Dark-mode class on <html> must never leak into Save-as-PDF.
+   `.pdf-light-theme` + `html.pdf-printing` force a white sheet and slate text. */
+@media print {
+	/* Keep html/body sheet resets off the preview-modal session so a cancelled
+	   print dialog cannot paint the live overlay white or collapse its height. */
+	html:not(:has(.report-preview-modal)),
+	html:not(:has(.report-preview-modal)).dark,
+	html:not(:has(.report-preview-modal)).pdf-printing,
+	html:not(:has(.report-preview-modal)).pdf-printing.dark {
+		color-scheme: light !important;
+		background: #ffffff !important;
+		background-color: #ffffff !important;
+	}
+
+	html:not(:has(.report-preview-modal)),
+	html:not(:has(.report-preview-modal)) body,
+	html:not(:has(.report-preview-modal)) #__next,
+	html:not(:has(.report-preview-modal)) main,
+	html:not(:has(.report-preview-modal)) .audit-report-page,
+	html:not(:has(.report-preview-modal)) .audit-report-scale,
+	html:not(:has(.report-preview-modal)) .audit-report-body,
+	html:not(:has(.report-preview-modal)) .pdf-light-theme,
+	html:not(:has(.report-preview-modal)) .pdf-print-area,
+	html:not(:has(.report-preview-modal)) .pdf-print-container {
+		background: #ffffff !important;
+		background-color: #ffffff !important;
+		background-image: none !important;
+		color: #0f172a !important;
+		-webkit-print-color-adjust: exact !important;
+		print-color-adjust: exact !important;
+		box-shadow: none !important;
+		overflow: visible !important;
+		height: auto !important;
+		min-height: auto !important;
+		max-height: none !important;
 	}
 
 	@page {
 		size: A4;
-		margin: 16mm 14mm 18mm 14mm;
+		margin: 0;
+		padding: 0;
+	}
 
-		@bottom-center {
-			content: 'REDUE AI · Technical Audit Report · ' counter(page);
-			font-size: 9px;
-			color: #64748b;
-		}
+	html:not(:has(.report-preview-modal)),
+	html:not(:has(.report-preview-modal)) body {
+		width: 210mm !important;
+		height: auto !important;
+		min-height: 0 !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+
+	.pdf-page-node {
+		width: 210mm !important;
+		height: 297mm !important;
+		min-height: 297mm !important;
+		max-height: 297mm !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		page-break-after: always !important;
+		break-after: page !important;
+		break-inside: avoid !important;
+		page-break-inside: avoid !important;
+		box-shadow: none !important;
+	}
+
+	.pdf-page-node:last-child {
+		page-break-after: auto !important;
+		break-after: auto !important;
+	}
+
+	.pdf-page-node--tall {
+		height: auto !important;
+		max-height: none !important;
 	}
 
 	.print\:hidden,
-	header,
+	.pdf-screen-only,
+	header:not(.audit-print-header),
 	nav,
 	.LocaleSwitcher,
-	button,
+	button:not(.keyword-chip),
 	a[href='/login'] {
 		display: none !important;
 	}
 
-	.print\:block {
-		display: block !important;
+	.pdf-print-area .keyword-pipeline-section,
+	.pdf-print-area .pdf-page-item.keyword-pipeline-section,
+	.pdf-print-area #keyword-pipeline,
+	.pdf-print-area .keyword-pipeline-grid,
+	.pdf-print-area .keyword-chip-wrapper,
+	.pdf-print-area .keyword-as-is-box,
+	.pdf-print-area .keyword-source-pipeline {
+		height: auto !important;
+		min-height: auto !important;
+		max-height: none !important;
+		overflow: visible !important;
 	}
 
+	.pdf-print-area .keyword-pipeline-section,
+	.pdf-print-area .pdf-page-item.keyword-pipeline-section,
+	.pdf-print-area #keyword-pipeline {
+		page-break-inside: auto !important;
+		break-inside: auto !important;
+	}
+
+	.pdf-print-area .keyword-chip-wrapper {
+		display: flex !important;
+		flex-wrap: wrap !important;
+		gap: 8px !important;
+		height: auto !important;
+	}
+
+	.pdf-print-area .keyword-chip,
+	.pdf-print-area .keyword-chip-label {
+		display: inline-block !important;
+		height: auto !important;
+		max-height: none !important;
+		overflow: visible !important;
+		-webkit-line-clamp: unset !important;
+		line-clamp: unset !important;
+		white-space: normal !important;
+	}
+
+	.print\:block,
+	.pdf-print-only,
 	.audit-print-header,
 	.audit-print-footer {
 		display: block !important;
-		color: #0b1c2c !important;
-	}
-
-	.audit-report-body,
-	.audit-report-section {
-		break-inside: avoid;
-		page-break-inside: avoid;
-	}
-
-	.audit-report-section {
-		border-color: #cbd5e1 !important;
 		background: #ffffff !important;
-		color: #0b1c2c !important;
+		color: #0f172a !important;
+	}
+
+	.audit-result-tab-panel,
+	.df-tab-content {
+		display: flex !important;
+		flex-direction: column !important;
+		height: auto !important;
+		min-height: auto !important;
+		max-height: none !important;
+		overflow: visible !important;
+	}
+
+	.pdf-print-area,
+	.pdf-print-container,
+	.pdf-print-area *,
+	.pdf-print-container * {
+		scrollbar-width: none !important;
+		-ms-overflow-style: none !important;
+	}
+
+	.pdf-print-area::-webkit-scrollbar,
+	.pdf-print-area *::-webkit-scrollbar,
+	.pdf-print-container::-webkit-scrollbar,
+	.pdf-print-container *::-webkit-scrollbar {
+		display: none !important;
+		width: 0 !important;
+		height: 0 !important;
+	}
+
+	/* Cards only — never the full `.audit-report-body` (that caused blank pages). */
+	.audit-report-section,
+	.exec-briefing-card,
+	.pdf-page-item,
+	.pdf-page-item section,
+	.pdf-page-item article,
+	.pdf-print-area article,
+	.pdf-print-container article {
+		break-inside: avoid !important;
+		page-break-inside: avoid !important;
+		height: auto !important;
+		min-height: auto !important;
+		max-height: none !important;
+		overflow: visible !important;
+	}
+
+	.pdf-print-area,
+	.pdf-print-container,
+	.pdf-print-area *,
+	.pdf-print-container * {
+		backdrop-filter: none !important;
+		-webkit-backdrop-filter: none !important;
+		filter: none !important;
+		box-shadow: none !important;
+		text-shadow: none !important;
+		transform: none !important;
+	}
+
+	/* Cards / boxes / badges — light gray / indigo, dark text (100% contrast) */
+	.pdf-light-theme .audit-report-section,
+	.pdf-light-theme section,
+	.pdf-light-theme article,
+	.pdf-light-theme [class*='rounded-'],
+	.pdf-print-area .audit-report-section,
+	.audit-report-section {
+		background-color: #f8fafc !important;
+		border-color: #e2e8f0 !important;
+		color: #1e293b !important;
 		box-shadow: none !important;
 	}
 
+	.pdf-light-theme .exec-briefing-card,
+	.pdf-light-theme .bg-indigo-50,
+	.pdf-light-theme [class*='bg-indigo'],
+	.exec-briefing-card,
+	.exec-briefing-card > div:first-child,
+	.exec-briefing-card article:last-child {
+		background-color: #eef2ff !important;
+		border-color: #c7d2fe !important;
+		color: #1e293b !important;
+	}
+
+	.pdf-light-theme,
+	.pdf-print-area,
+	.pdf-print-container,
+	.pdf-light-theme *:not(svg):not(path):not(circle),
+	.pdf-print-area *:not(svg):not(path):not(circle) {
+		color: #0f172a !important;
+		background-image: none !important;
+	}
+
+	.pdf-light-theme h1,
+	.pdf-light-theme h2,
+	.pdf-light-theme h3,
+	.pdf-light-theme p,
+	.pdf-light-theme li,
+	.pdf-light-theme td,
+	.pdf-light-theme th,
+	.pdf-light-theme span,
+	.pdf-light-theme label,
 	.audit-report-section h2,
 	.audit-report-section p,
 	.audit-report-section li,
 	.audit-report-section td,
 	.audit-report-section th,
 	.audit-report-section span {
-		color: inherit;
+		color: #0f172a !important;
 	}
 
 	pre {
@@ -476,20 +1422,89 @@
 
 	a {
 		text-decoration: none !important;
-		color: inherit !important;
+		color: #0f172a !important;
 	}
 
 	.max-w-5xl,
 	.audit-report-page {
 		max-width: none !important;
 		padding: 0 !important;
+		background: #ffffff !important;
+		overflow: visible !important;
 	}
 
 	.min-h-screen {
 		min-height: 0 !important;
 		padding-top: 0 !important;
 		padding-bottom: 0 !important;
+		background: #ffffff !important;
 	}
+
+	.pdf-print-area,
+	.pdf-print-container,
+	.public-web-report-sheet {
+		width: 210mm !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+}
+
+/*
+ * html2canvas / flex margin-collapse: keep a 24px gap between a card
+ * border and its top badge (`⚠️ 개선 시급`, exec-briefing labels, …).
+ */
+.pdf-card-box {
+	display: block;
+	box-sizing: border-box;
+	padding-top: 24px !important;
+}
+
+.pdf-card-box > :first-child,
+.exec-briefing-card article > :first-child {
+	display: block;
+	margin-top: 0;
+}
+
+html.pdf-printing .pdf-card-box,
+html.pdf-printing .exec-briefing-card article,
+html.pdf-preview-capturing .pdf-card-box,
+html.pdf-preview-capturing .exec-briefing-card article,
+.pdf-preview-content .pdf-card-box,
+.pdf-preview-content .exec-briefing-card article,
+.pdf-preview-measure-host .pdf-card-box,
+.pdf-preview-measure-host .exec-briefing-card article {
+	display: block !important;
+	box-sizing: border-box !important;
+	padding-top: 24px !important;
+}
+
+/* Public share link — full-bleed A4 viewer (no marketing chrome). */
+.report-a4-view {
+	min-height: 100vh;
+	min-height: 100dvh;
+	background: #0f172a;
+}
+
+/* Public share page — A4 paper sheet on a light desk. */
+.public-web-report-sheet {
+	box-sizing: border-box;
+	width: 100%;
+	max-width: 210mm;
+	margin: 0 auto;
+	padding: 0;
+	background: #ffffff;
+	color: #0f172a;
+	color-scheme: light;
+	font-family:
+		Pretendard,
+		-apple-system,
+		BlinkMacSystemFont,
+		system-ui,
+		sans-serif;
+	letter-spacing: normal;
+	word-spacing: normal;
+	font-kerning: none;
+	font-variant-ligatures: none;
 }
 
 /* Naver Blog — TOAST UI Editor must stay within its grid column */
@@ -508,4 +1523,359 @@
 	max-width: 100%;
 	min-width: 0;
 	box-sizing: border-box;
+}
+
+/* Portfolio case study — pulsing glow on the "+Npt" score lift badge */
+@keyframes case-study-glow {
+	0%,
+	100% {
+		box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.25);
+	}
+	50% {
+		box-shadow: 0 0 24px 4px rgba(16, 185, 129, 0.25);
+	}
+}
+
+.case-study-glow {
+	animation: case-study-glow 2.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.case-study-glow {
+		animation: none;
+	}
+}
+
+/* GEO Answer Center — 0.5s flash when prescription modules refresh */
+@keyframes geo-copy-module-flash {
+	0% {
+		box-shadow: inset 0 0 0 0 rgba(34, 211, 238, 0), 0 0 0 0 rgba(34, 211, 238, 0);
+		background-color: transparent;
+	}
+	35% {
+		box-shadow: inset 0 0 0 2px rgba(34, 211, 238, 0.7), 0 0 18px rgba(99, 102, 241, 0.4);
+		background-color: rgba(34, 211, 238, 0.08);
+	}
+	100% {
+		box-shadow: inset 0 0 0 0 rgba(34, 211, 238, 0), 0 0 0 0 rgba(34, 211, 238, 0);
+		background-color: transparent;
+	}
+}
+
+.geo-copy-module-flash {
+	animation: geo-copy-module-flash 0.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.geo-copy-module-flash {
+		animation: none;
+	}
+}
+
+/* GEO prescription CTA — glow pulse + sheen before apply */
+@keyframes geo-apply-pulse {
+	0%,
+	100% {
+		box-shadow: 0 10px 22px -8px rgba(79, 70, 229, 0.55), 0 0 0 0 rgba(99, 102, 241, 0.42);
+	}
+	50% {
+		box-shadow: 0 14px 32px -6px rgba(67, 56, 202, 0.72), 0 0 0 10px rgba(99, 102, 241, 0);
+	}
+}
+
+@keyframes geo-apply-sheen {
+	0% {
+		transform: translateX(-130%);
+	}
+	55%,
+	100% {
+		transform: translateX(430%);
+	}
+}
+
+.geo-apply-pulse {
+	animation: geo-apply-pulse 2.2s ease-in-out infinite;
+}
+
+.geo-apply-sheen {
+	animation: geo-apply-sheen 2.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.geo-apply-pulse,
+	.geo-apply-sheen {
+		animation: none;
+	}
+}
+
+/* ─── Page-top horizon image (all public menu pages) ───────────────────────
+   Fixed to the viewport so the plate stays put while content scrolls over it.
+   Anchored center / top 0 so the magenta→cyan beam sits in the first screen.
+   A vertical mask fades the plate into the solid page background. */
+.page-horizon {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	width: 100%;
+	aspect-ratio: 1024 / 513;
+	pointer-events: none;
+	z-index: 0;
+	background-image: url('/images/horizon-bg.png');
+	background-position: center top 0;
+	background-repeat: no-repeat;
+	background-size: 100% auto;
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		#000 0%,
+		#000 48%,
+		rgba(0, 0, 0, 0.5) 76%,
+		transparent 100%
+	);
+	mask-image: linear-gradient(
+		to bottom,
+		#000 0%,
+		#000 48%,
+		rgba(0, 0, 0, 0.5) 76%,
+		transparent 100%
+	);
+}
+
+html:not(.dark) .page-horizon {
+	display: none;
+}
+
+html.dark .page-horizon {
+	opacity: 1;
+}
+
+/* Diagnosis results + login/signup: same art, washed so content stays readable */
+html.dark .page-horizon--faint .page-horizon {
+	opacity: 0.2;
+}
+
+/* ─── Custom select (diagnosis results + progressive enhancement) ─────────── */
+.rd-custom-select {
+	--rd-select-bg: #ffffff;
+	--rd-select-menu-bg: #ffffff;
+	--rd-select-fg: #1e293b;
+	--rd-select-muted: #64748b;
+	--rd-select-border: #e2e8f0;
+	--rd-select-hover: #f1f5f9;
+	--rd-select-selected: #ecfeff;
+	--rd-select-selected-fg: #0e7490;
+	--rd-select-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+	--rd-select-radius: 0.5rem;
+	--rd-select-accent: #22d3ee;
+	--rd-select-ring: rgba(34, 211, 238, 0.35);
+	position: relative;
+	z-index: 0;
+	width: 100%;
+	min-width: 0;
+	overflow: visible;
+}
+
+html.dark .rd-custom-select {
+	--rd-select-bg: #0f172a;
+	--rd-select-menu-bg: #0f172a;
+	--rd-select-fg: #f1f5f9;
+	--rd-select-muted: #94a3b8;
+	--rd-select-border: rgba(255, 255, 255, 0.12);
+	--rd-select-hover: rgba(255, 255, 255, 0.08);
+	--rd-select-selected: rgba(34, 211, 238, 0.14);
+	--rd-select-selected-fg: #67e8f9;
+	--rd-select-shadow: 0 14px 36px rgba(0, 0, 0, 0.48);
+	--rd-select-ring: rgba(34, 211, 238, 0.28);
+}
+
+.rd-custom-select.is-open {
+	z-index: 80;
+	isolation: isolate;
+}
+
+.rd-custom-select__native {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.rd-custom-select__trigger {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem;
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 0;
+	min-height: 2.25rem;
+	/* 16px right inset so the rotated chevron never meets the border / zoom clip. */
+	padding: 0 1rem 0 0.75rem;
+	overflow: visible;
+	border: 1px solid var(--rd-select-border);
+	border-radius: var(--rd-select-radius);
+	background: var(--rd-select-bg);
+	color: var(--rd-select-fg);
+	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+	outline: none;
+	cursor: pointer;
+	text-align: left;
+	transition:
+		border-color 0.2s ease,
+		box-shadow 0.2s ease,
+		background-color 0.2s ease;
+}
+
+.rd-custom-select__trigger:hover {
+	border-color: color-mix(in srgb, var(--rd-select-accent) 45%, var(--rd-select-border));
+}
+
+.rd-custom-select.is-open .rd-custom-select__trigger,
+.rd-custom-select__trigger:focus-visible {
+	border-color: var(--rd-select-accent);
+	box-shadow: 0 0 0 3px var(--rd-select-ring);
+}
+
+.rd-custom-select.is-disabled .rd-custom-select__trigger,
+.rd-custom-select__trigger:disabled {
+	cursor: not-allowed;
+	opacity: 0.55;
+}
+
+.rd-custom-select__value {
+	min-width: 0;
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.rd-custom-select.is-placeholder .rd-custom-select__value {
+	color: var(--rd-select-muted);
+}
+
+.rd-custom-select__arrow {
+	position: relative;
+	display: grid;
+	place-items: center;
+	flex: 0 0 1rem;
+	flex-shrink: 0;
+	box-sizing: border-box;
+	width: 1rem;
+	height: 1rem;
+	margin-left: 0.1rem;
+	margin-right: 0.15rem;
+	overflow: visible;
+	pointer-events: none;
+	transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.rd-custom-select__arrow::before {
+	content: '';
+	box-sizing: border-box;
+	width: 0.38rem;
+	height: 0.38rem;
+	border-right: 1.5px solid currentColor;
+	border-bottom: 1.5px solid currentColor;
+	transform: translateY(-12%) rotate(45deg);
+	opacity: 0.7;
+}
+
+.rd-custom-select.is-open .rd-custom-select__arrow {
+	transform: rotate(180deg);
+}
+
+.rd-custom-select__list {
+	position: absolute;
+	top: calc(100% + 0.35rem);
+	left: 0;
+	right: 0;
+	z-index: 90;
+	margin: 0;
+	padding: 0.3rem;
+	list-style: none;
+	max-height: 16rem;
+	overflow-y: auto;
+	border: 1px solid var(--rd-select-border);
+	border-radius: calc(var(--rd-select-radius) + 0.1rem);
+	background: var(--rd-select-menu-bg);
+	box-shadow: var(--rd-select-shadow);
+	opacity: 0;
+	visibility: hidden;
+	pointer-events: none;
+	transform: translateY(-8px);
+	transition:
+		opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+		visibility 0.22s;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+}
+
+.rd-custom-select.is-open .rd-custom-select__list {
+	opacity: 1;
+	visibility: visible;
+	pointer-events: auto;
+	transform: translateY(0);
+}
+
+.rd-custom-select__list::-webkit-scrollbar {
+	width: 6px;
+}
+
+.rd-custom-select__list::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.rd-custom-select__list::-webkit-scrollbar-thumb {
+	background: rgba(148, 163, 184, 0.45);
+	border-radius: 999px;
+}
+
+html.dark .rd-custom-select__list::-webkit-scrollbar-thumb {
+	background: rgba(148, 163, 184, 0.35);
+}
+
+.rd-custom-select__option {
+	padding: 0.45rem 0.65rem;
+	border-radius: 0.4rem;
+	color: var(--rd-select-fg);
+	cursor: pointer;
+	line-height: 1.35;
+	transition: background-color 0.16s ease, color 0.16s ease;
+}
+
+.rd-custom-select__option:hover {
+	background: var(--rd-select-hover);
+}
+
+.rd-custom-select__option.is-selected {
+	background: var(--rd-select-selected);
+	color: var(--rd-select-selected-fg);
+	font-weight: 700;
+}
+
+.rd-custom-select__option.is-disabled {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.rd-custom-select__trigger,
+	.rd-custom-select__arrow,
+	.rd-custom-select__list,
+	.rd-custom-select__option {
+		transition: none;
+	}
+
+	.rd-custom-select__list {
+		transform: none;
+	}
 }

@@ -2,8 +2,10 @@
 
 import type { ReactNode } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { useResolvedReputation } from '@/components/audit/AuditDataContext';
+import { GeoMeasuredCardHeader } from '@/components/audit/GeoMeasuredCardHeader';
+import { GEO_PILLAR_ANCHOR_IDS } from '@/lib/audit/geoScoreCalculator';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
-import { resolveExternalReputation } from '@/lib/audit/geo-score';
 import type { AuditReport } from '@/lib/site-auditor';
 import type { DfTabId } from './DigitalFootprintReportTabs';
 
@@ -23,8 +25,10 @@ export function DigitalFootprintPanel({
 	const t = useTranslations('audit.digitalFootprint');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
-	const { digitalFootprint } = resolveExternalReputation(report, reportData, lang);
+	const digitalFootprint = useResolvedReputation(report, reportData, lang)?.digitalFootprint;
+	if (!digitalFootprint) return null;
 	const belowBenchmark = digitalFootprint.googleMentionCount < digitalFootprint.googleMentionBenchmark;
+	const totalCount = digitalFootprint.googleMentionCount + digitalFootprint.naverMentionCount;
 	const unitLabel = lang === 'en' ? '' : '건';
 
 	const boxes: Array<{ id: DfTabId; body: ReactNode }> = [
@@ -35,7 +39,7 @@ export function DigitalFootprintPanel({
 					<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('googleLabel')}</p>
 					<p
 						className={`mt-1 text-2xl font-extrabold tabular-nums ${
-							belowBenchmark ? 'text-amber-400' : 'text-emerald-400'
+							belowBenchmark ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'
 						}`}
 					>
 						{digitalFootprint.googleMentionCount}
@@ -54,41 +58,47 @@ export function DigitalFootprintPanel({
 					<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('naverLabel')}</p>
 					<p
 						className={`mt-1 text-2xl font-extrabold tabular-nums ${
-							digitalFootprint.naverMentionIssue ? 'text-rose-400' : 'text-emerald-400'
+							digitalFootprint.naverMentionIssue ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
 						}`}
 					>
 						{digitalFootprint.naverMentionCount}
 						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500">{unitLabel}</span>}
 					</p>
 					{digitalFootprint.naverMentionIssue && (
-						<p className="text-[11px] text-rose-400">{digitalFootprint.naverMentionIssue}</p>
+						<p className="text-[11px] text-rose-700 dark:text-rose-400">{digitalFootprint.naverMentionIssue}</p>
 					)}
 				</>
 			),
 		},
 		{
-			id: 'df-bing',
+			id: 'df-total',
 			body: (
 				<>
-					<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('bingLabel')}</p>
+					<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('totalLabel')}</p>
 					<p
-						className={`mt-1 text-lg font-extrabold ${
-							digitalFootprint.bingPlacesRegistered ? 'text-emerald-400' : 'text-rose-400'
+						className={`mt-1 text-2xl font-extrabold tabular-nums ${
+							belowBenchmark ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'
 						}`}
 					>
-						{digitalFootprint.bingPlacesRegistered ? t('bingRegistered') : t('bingNotRegistered')}
+						{totalCount}
+						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500">{unitLabel}</span>}
 					</p>
-					{digitalFootprint.bingPlacesNote && (
-						<p className="text-[11px] text-rose-400">{digitalFootprint.bingPlacesNote}</p>
-					)}
+					<p className="text-[11px] text-slate-500">{t('totalHint')}</p>
 				</>
 			),
 		},
 	];
 
 	return (
-		<section className="audit-report-section flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6">
-			<h2 className="text-lg font-extrabold text-white">{t('title')}</h2>
+		<section
+			id={GEO_PILLAR_ANCHOR_IDS.rag_authority}
+			data-geo-pillar="rag_authority"
+			className="pdf-page-item audit-report-section scroll-mt-24 flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] p-5 sm:p-6"
+		>
+			<GeoMeasuredCardHeader
+				pillarId="rag_authority"
+				title={<h2 className="text-lg font-extrabold text-slate-900 dark:text-white">{t('title')}</h2>}
+			/>
 
 			<div className="grid gap-3 sm:grid-cols-3">
 				{boxes.map((box) => {
@@ -100,8 +110,8 @@ export function DigitalFootprintPanel({
 							data-target={box.id}
 							aria-pressed={isActive}
 							onClick={() => onTabChange?.(box.id)}
-							className={`df-summary-box rounded-xl border bg-black/20 px-4 py-3 text-left ${
-								isActive ? 'active-box' : 'border-white/[0.08]'
+							className={`df-summary-box rounded-xl border bg-slate-50 dark:bg-black/20 px-4 py-3 text-left ${
+								isActive ? 'active-box' : 'border-slate-200 dark:border-white/[0.08]'
 							}`}
 						>
 							{box.body}

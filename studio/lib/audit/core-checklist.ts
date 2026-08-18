@@ -2,6 +2,17 @@
  * Fixed SEO/GEO essential checklist (6 items) mapped 1:1 to live AuditReport checks.
  */
 
+import { schemaMappingFromReport } from '@/lib/audit/live-criteria';
+import {
+	coreArticleIssueLabel,
+	coreArticleItemCopy,
+	coreSuccessSummaryCopy,
+	detectSchemaVertical,
+	hasPageSchemaAlternative,
+	isNewsMediaVertical,
+	type SchemaVertical,
+} from '@/lib/audit/recommended-schemas';
+import { getJosa } from '@/lib/korean-josa';
 import type { AuditCheckItem, AuditCheckStatus, AuditReport } from '@/lib/site-auditor';
 
 export type CoreChecklistId =
@@ -23,6 +34,9 @@ export interface CoreChecklistItem {
 	/** Underlying check ids used for aggregation. */
 	checkIds: string[];
 	evidence?: string;
+	/** Vertical-aware label (article-schema differs for clinic vs press). */
+	label?: string;
+	why?: string;
 }
 
 function collectChecks(report: AuditReport | null | undefined): AuditCheckItem[] {
@@ -53,13 +67,21 @@ function toTone(status: AuditCheckStatus): CoreChecklistTone {
 	return status === 'pass' ? 'ok' : 'needs_work';
 }
 
+function resolveVertical(report: AuditReport | null | undefined): SchemaVertical {
+	return detectSchemaVertical(schemaMappingFromReport(report));
+}
+
 /**
  * Always returns the 6 essential SEO/GEO guide items with live status badges.
  * When no report is available, items default to needs_work (fail).
+ * NewsArticle is ignored for non-press verticals; AboutPage/MedicalWebPage substitutes.
  */
 export function buildCoreSeoGeoChecklist(report: AuditReport | null | undefined): CoreChecklistItem[] {
 	const checks = collectChecks(report);
 	const m = report?.metrics;
+	const vertical = resolveVertical(report);
+	const newsVertical = isNewsMediaVertical(schemaMappingFromReport(report));
+	const pageAltOk = hasPageSchemaAlternative(m?.schemaTypes, vertical);
 
 	const canonical = findCheck(checks, 'canonical');
 	const singleH1 = findCheck(checks, 'single-h1');
@@ -77,13 +99,19 @@ export function buildCoreSeoGeoChecklist(report: AuditReport | null | undefined)
 		statusOf(headingStructure),
 	]);
 
-	/** Article OR NewsArticle complete counts as healthy for this guide item. */
-	const articleStatus = (() => {
+	const articleStatus = ((): AuditCheckStatus => {
+		if (!newsVertical) {
+			if (pageAltOk) return 'pass';
+			const a = statusOf(articleFields);
+			if (a === 'pass') return 'pass';
+			if (a === 'warning') return 'warning';
+			return 'fail';
+		}
 		const a = statusOf(articleFields);
 		const n = statusOf(newsArticle);
-		if (a === 'pass' || n === 'pass') return 'pass' as const;
-		if (a === 'warning' || n === 'warning') return 'warning' as const;
-		return 'fail' as const;
+		if (a === 'pass' || n === 'pass') return 'pass';
+		if (a === 'warning' || n === 'warning') return 'warning';
+		return 'fail';
 	})();
 
 	const headingEvidence =
@@ -94,10 +122,14 @@ export function buildCoreSeoGeoChecklist(report: AuditReport | null | undefined)
 			? `H1=${m.h1Count}${m.headingSkipDetected ? ' · skip detected' : ''}`
 			: undefined);
 
-	const articleEvidence =
-		newsArticle?.status === 'pass'
+	const articleCopy = coreArticleItemCopy(vertical, 'ko');
+	const articleEvidence = newsVertical
+		? newsArticle?.status === 'pass'
 			? newsArticle.evidence
-			: articleFields?.evidence || newsArticle?.evidence;
+			: articleFields?.evidence || newsArticle?.evidence
+		: pageAltOk
+			? `page schema: ${(m?.schemaTypes ?? []).filter((t) => /AboutPage|MedicalWebPage/i.test(t)).join(', ') || 'AboutPage/MedicalWebPage'}`
+			: articleFields?.evidence;
 
 	return [
 		{
@@ -129,8 +161,10 @@ export function buildCoreSeoGeoChecklist(report: AuditReport | null | undefined)
 			id: 'article-schema',
 			status: articleStatus,
 			tone: toTone(articleStatus),
-			checkIds: ['article-fields', 'news-article'],
+			checkIds: newsVertical ? ['article-fields', 'news-article'] : ['article-fields'],
 			evidence: articleEvidence,
+			label: articleCopy.label,
+			why: articleCopy.why,
 		},
 		{
 			id: 'faq-schema',
@@ -191,23 +225,37 @@ const CORE_ISSUE_LABELS: Record<CoreChecklistId, { ko: string; en: string }> = {
 	},
 };
 
+function issueLabelFor(
+	item: CoreChecklistItem,
+	lang: 'ko' | 'en',
+	vertical?: SchemaVertical,
+): string {
+	if (item.id === 'article-schema' && vertical) {
+		return coreArticleIssueLabel(vertical, lang);
+	}
+	return CORE_ISSUE_LABELS[item.id][lang];
+}
+
 /** Collect issue labels for core items that are 🔴 (needs_work). */
 export function getCoreFailIssueLabels(
 	items: CoreChecklistItem[],
 	lang: 'ko' | 'en' = 'ko',
+	vertical?: SchemaVertical,
 ): string[] {
-	return getCoreItemsNeedingWork(items).map((item) => CORE_ISSUE_LABELS[item.id][lang]);
+	return getCoreItemsNeedingWork(items).map((item) => issueLabelFor(item, lang, vertical));
 }
 
 /**
  * Evidence lines for GEO narrative / LLM — strictly 1:1 with the live 6-core checklist.
  * Never invents stale fails (e.g. "JSON-LD blocks = 0") when the corresponding badge is 🟢.
+ * Never lists NewsArticle missing for clinic/business verticals.
  */
 export function buildCoreTechnicalFailsFromReport(
 	report: AuditReport | null | undefined,
 	lang: 'ko' | 'en' = 'ko',
 ): string[] {
-	return getCoreFailIssueLabels(buildCoreSeoGeoChecklist(report), lang);
+	const items = buildCoreSeoGeoChecklist(report);
+	return getCoreFailIssueLabels(items, lang, resolveVertical(report));
 }
 
 export interface CoreChecklistSummaryArgs {
@@ -215,6 +263,7 @@ export interface CoreChecklistSummaryArgs {
 	brandName: string;
 	industry?: string;
 	lang?: 'ko' | 'en';
+	vertical?: SchemaVertical;
 }
 
 /**
@@ -228,16 +277,27 @@ export function buildCoreChecklistSummaryText(args: CoreChecklistSummaryArgs): s
 	const industry =
 		args.industry?.trim() ||
 		(lang === 'en' ? 'services and offerings' : '서비스/클리닉 정보');
-	const issues = getCoreFailIssueLabels(args.items, lang);
+	const vertical = args.vertical ?? detectSchemaVertical({ industry, category: industry });
+	const issues = getCoreFailIssueLabels(args.items, lang, vertical);
 
 	if (issues.length === 0) {
-		return lang === 'en'
-			? `Live audit confirms structured data (JSON-LD), FAQPage, NewsArticle schema, and essential SEO signals are fully applied. ${brand}'s information is structurally optimized for AI search engines (ChatGPT, Perplexity, etc.) and Google — highly favorable for top answer-card citation and new inquiry inflow.`
-			: `실측 진단 결과 JSON-LD 구조화 데이터, FAQPage, NewsArticle 스키마 및 SEO 필수 항목 적용이 완벽히 확인되었습니다. ${brand}의 정보가 AI 검색엔진(ChatGPT, Perplexity 등) 및 구글에 구조적으로 최적화되어, AI 상단 정답 카드 선점 및 신규 상담 유입에 매우 유리한 상태입니다.`;
+		return coreSuccessSummaryCopy(brand, lang, vertical);
 	}
 
 	const issueList = issues.join(', ');
 	return lang === 'en'
 		? `Live audit found ${issueList}, which constrains AI search engines from fully collecting and citing ${brand}'s ${industry}. Strengthening the weak items is needed to improve top answer-card exposure and inquiry inflow.`
-		: `실측 진단에서 ${issueList} 항목이 확인되어 AI 검색엔진이 ${brand}의 ${industry}를 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`;
+		: `실측 진단에서 ${issueList} 항목이 확인되어 AI 검색엔진이 ${brand}의 ${industry}${getJosa(industry, '을/를')} 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`;
+}
+
+export function coreItemPresentation(
+	item: CoreChecklistItem,
+	lang: 'ko' | 'en',
+	vertical?: SchemaVertical,
+): { label: string; why: string } {
+	if (item.id === 'article-schema') {
+		const copy = coreArticleItemCopy(vertical ?? 'general', lang);
+		return { label: item.label && lang === 'ko' ? item.label : copy.label, why: copy.why };
+	}
+	return { label: item.label || '', why: item.why || '' };
 }

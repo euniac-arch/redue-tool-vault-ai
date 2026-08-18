@@ -115,13 +115,13 @@ export function PricingModal({ open, onClose }: PricingModalProps) {
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
 			<div
-				className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-5 overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0C0D0E] p-6"
+				className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-white/[0.08] dark:bg-[#0C0D0E] dark:shadow-none"
 				onClick={(event) => event.stopPropagation()}
 			>
 				<div className="flex items-start justify-between gap-4">
 					<div>
-						<h2 className="text-xl font-bold text-white">{selectedPlan ? `${selectedPlan.name} 결제` : '요금제 선택'}</h2>
-						<p className="mt-1 text-sm text-slate-400">
+						<h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedPlan ? `${selectedPlan.name} 결제` : '요금제 선택'}</h2>
+						<p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
 							{selectedPlan
 								? method === 'toss'
 									? '토스페이먼츠 테스트 결제창입니다 (테스트 카드: 4330-0000-0000-0000).'

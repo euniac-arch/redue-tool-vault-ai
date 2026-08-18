@@ -23,6 +23,8 @@ export interface ParsedHeadings {
 	h1Count: number;
 	/** Content-scoped H1 / .sub_title texts (chrome/GNB excluded). */
 	h1Texts: string[];
+	/** Content-scoped H2 texts (chrome/GNB excluded). */
+	h2Texts: string[];
 	levels: number[];
 	hasSkip: boolean;
 	skipExamples: string[];
@@ -76,12 +78,16 @@ export interface ParsedSchema {
 	hasOrganization: boolean;
 	hasArticle: boolean;
 	hasNewsArticle: boolean;
+	hasAboutPage: boolean;
+	hasMedicalWebPage: boolean;
 	hasPerson: boolean;
 	hasWebSite: boolean;
 	hasWebPage: boolean;
 	hasBreadcrumb: boolean;
 	hasFaqOrHowTo: boolean;
 	hasBusinessOrApp: boolean;
+	/** Best-effort NAP from Organization / LocalBusiness / Person nodes. */
+	nap: ParsedNap;
 }
 
 export interface ParsedImages {
@@ -101,9 +107,62 @@ export interface PageParseResult {
 	internalLinks: string[];
 }
 
-const ORG_REQUIRED = ['logo', 'url', 'sameAs'] as const;
+const ORG_REQUIRED = ['name', 'url', 'logo', 'sameAs'] as const;
+const LOCAL_NAP_REQUIRED = ['telephone', 'address'] as const;
 const ARTICLE_REQUIRED = ['headline', 'image', 'datePublished', 'author', 'publisher'] as const;
 const PERSON_REQUIRED = ['name'] as const;
+/** LocalBusiness subtypes + professional entities that satisfy the Organization NAP check. */
+const ORG_LIKE_TYPES = new Set([
+	'Organization',
+	'NewsMediaOrganization',
+	'Corporation',
+	'NGO',
+	'GovernmentOrganization',
+	'SportsOrganization',
+	'LocalBusiness',
+	'MedicalClinic',
+	'MedicalBusiness',
+	'Hospital',
+	'Dentist',
+	'Physician',
+	'VeterinaryCare',
+	'Pharmacy',
+	'LegalService',
+	'Attorney',
+	'Store',
+	'Restaurant',
+	'BeautySalon',
+	'HealthClub',
+	'ExerciseGym',
+	'EducationalOrganization',
+	'RealEstateAgent',
+	'ProfessionalService',
+	'Manufacturer',
+	'AccountingService',
+	'HomeAndConstructionBusiness',
+]);
+
+const LOCAL_NAP_TYPES = new Set([
+	'LocalBusiness',
+	'MedicalClinic',
+	'MedicalBusiness',
+	'Hospital',
+	'Dentist',
+	'Physician',
+	'VeterinaryCare',
+	'Pharmacy',
+	'LegalService',
+	'Attorney',
+	'Store',
+	'Restaurant',
+	'BeautySalon',
+	'HealthClub',
+	'ExerciseGym',
+	'RealEstateAgent',
+	'ProfessionalService',
+	'AccountingService',
+	'HomeAndConstructionBusiness',
+]);
 /** Soft E-E-A-T identifiers — at least one strengthens author graph. */
 const PERSON_IDENTIFIERS = ['url', 'sameAs', 'jobTitle', 'worksFor', 'image', 'description'] as const;
 
@@ -135,6 +194,14 @@ function typeList(node: Record<string, unknown>): string[] {
 function hasType(node: Record<string, unknown>, type: string): boolean {
 	const want = normalizeSchemaType(type);
 	return typeList(node).some((t) => t === want);
+}
+
+export function isOrganizationLikeType(type: string): boolean {
+	return ORG_LIKE_TYPES.has(normalizeSchemaType(type));
+}
+
+function hasOrgLikeType(node: Record<string, unknown>): boolean {
+	return typeList(node).some(isOrganizationLikeType);
 }
 
 /**
@@ -174,6 +241,35 @@ export function sanitizeJsonLdRaw(raw: string): string {
 	}
 
 	return s.trim();
+}
+
+/**
+ * Repair CMS-emitted JSON-LD (trailing commas, block/line comments) so
+ * `JSON.parse` can recover blocks that would otherwise count as parse errors.
+ */
+export function repairJsonLdText(raw: string): string {
+	let s = sanitizeJsonLdRaw(raw);
+	if (!s) return '';
+	s = s.replace(/\/\*[\s\S]*?\*\//g, '');
+	s = s.replace(/^\s*\/\/[^\n]*/gm, '');
+	s = s.replace(/,\s*([}\]])/g, '$1');
+	return s.trim();
+}
+
+export function parseJsonLdDocument(raw: string): unknown | null {
+	const cleaned = sanitizeJsonLdRaw(raw);
+	if (!cleaned) return null;
+	try {
+		return JSON.parse(cleaned);
+	} catch {
+		const repaired = repairJsonLdText(cleaned);
+		if (!repaired) return null;
+		try {
+			return JSON.parse(repaired);
+		} catch {
+			return null;
+		}
+	}
 }
 
 /**
@@ -247,8 +343,9 @@ function summarizeNode(node: Record<string, unknown>): SchemaNodeSummary[] {
 
 	return types.map((type) => {
 		let required: readonly string[] = [];
-		if (type === 'Organization' || type === 'LocalBusiness') required = ORG_REQUIRED;
-		else if (type === 'Article' || type === 'NewsArticle' || type === 'BlogPosting') required = ARTICLE_REQUIRED;
+		if (isOrganizationLikeType(type)) {
+			required = LOCAL_NAP_TYPES.has(type) ? [...ORG_REQUIRED, ...LOCAL_NAP_REQUIRED] : ORG_REQUIRED;
+		} else if (type === 'Article' || type === 'NewsArticle' || type === 'BlogPosting') required = ARTICLE_REQUIRED;
 		else if (type === 'Person') required = PERSON_REQUIRED;
 
 		const missingRequired = missingKeys(node, required);
@@ -361,10 +458,218 @@ export function extractContentScopedHeadings($: CheerioAPI): string[] {
 	return out;
 }
 
-export function parseMeta($: CheerioAPI, siteName?: string): ParsedMeta {
-	const title = $('title').first().text().replace(/\s+/g, ' ').trim();
-	const ogTitle = $('meta[property="og:title"]').attr('content')?.replace(/\s+/g, ' ').trim() || null;
-	const metaDescription = $('meta[name="description"]').attr('content')?.replace(/\s+/g, ' ').trim() || '';
+/** Content-scoped H2 texts, excluding header/nav/GNB chrome. */
+export function extractContentScopedH2($: CheerioAPI, max = 8): string[] {
+	const out: string[] = [];
+	const push = (text: string) => {
+		const t = normalizeHeadingText(text);
+		if (!t) return;
+		if (out.some((x) => x === t)) return;
+		out.push(t);
+	};
+
+	for (const sel of MAIN_CONTENT_SELECTORS) {
+		const root = $(sel).first();
+		if (!root.length) continue;
+		root.find('h2').addBack('h2').each((_, el) => {
+			if (out.length >= max) return false;
+			if (isInsideChrome($, el)) return;
+			push($(el).text());
+		});
+		if (out.length > 0) return out.slice(0, max);
+	}
+
+	$('h2').each((_, el) => {
+		if (out.length >= max) return false;
+		if (isInsideChrome($, el)) return;
+		push($(el).text());
+	});
+
+	return out.slice(0, max);
+}
+
+export interface HydrationSignals {
+	title?: string;
+	description?: string;
+	canonical?: string;
+	ogTitle?: string;
+	ogDescription?: string;
+	ogImage?: string;
+	schemaNodes: Record<string, unknown>[];
+}
+
+export interface ParsedNap {
+	name: string | null;
+	telephone: string | null;
+	address: string | null;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+	return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function pickString(...values: unknown[]): string {
+	for (const value of values) {
+		if (typeof value === 'string' && value.trim()) return value.replace(/\s+/g, ' ').trim();
+	}
+	return '';
+}
+
+function walkHydration(value: unknown, out: HydrationSignals, depth = 0): void {
+	if (value == null || depth > 8) return;
+	if (Array.isArray(value)) {
+		value.forEach((item) => walkHydration(item, out, depth + 1));
+		return;
+	}
+	const obj = asRecord(value);
+	if (!obj) return;
+
+	if (obj['@type'] || obj['@context']) {
+		out.schemaNodes.push(obj);
+	}
+
+	out.title = out.title || pickString(obj.title, obj.pageTitle, obj.headline);
+	out.description = out.description || pickString(obj.description, obj.metaDescription, obj.excerpt);
+	out.canonical = out.canonical || pickString(obj.canonical, obj.canonicalUrl);
+	const seo = asRecord(obj.seo) || asRecord(obj.metadata) || asRecord(obj.meta);
+	if (seo) {
+		out.title = out.title || pickString(seo.title);
+		out.description = out.description || pickString(seo.description);
+		out.canonical = out.canonical || pickString(seo.canonical, seo.canonicalUrl);
+		out.ogTitle = out.ogTitle || pickString(seo.ogTitle, asRecord(seo.openGraph)?.title);
+		out.ogDescription = out.ogDescription || pickString(seo.ogDescription, asRecord(seo.openGraph)?.description);
+		out.ogImage = out.ogImage || pickString(seo.ogImage, asRecord(seo.openGraph)?.image);
+	}
+
+	for (const child of Object.values(obj)) {
+		if (child && typeof child === 'object') walkHydration(child, out, depth + 1);
+	}
+}
+
+const NEXT_DATA_RE = /<script\b[^>]*\bid\s*=\s*["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i;
+const NUXT_DATA_RE = /<script\b[^>]*\bid\s*=\s*["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i;
+const NUXT_STATE_RE = /window\.__NUXT__\s*=\s*(\{[\s\S]*?\});/;
+const INITIAL_STATE_RE = /window\.__INITIAL_STATE__\s*=\s*(\{[\s\S]*?\});/;
+
+function parseEmbeddedJson(raw: string): unknown | null {
+	return parseJsonLdDocument(raw);
+}
+
+/** Pull meta + JSON-LD-shaped nodes out of CSR hydration payloads. */
+export function extractHydrationSignals(html: string): HydrationSignals {
+	const out: HydrationSignals = { schemaNodes: [] };
+	if (!html) return out;
+
+	const blobs = [
+		html.match(NEXT_DATA_RE)?.[1],
+		html.match(NUXT_DATA_RE)?.[1],
+		html.match(NUXT_STATE_RE)?.[1],
+		html.match(INITIAL_STATE_RE)?.[1],
+	];
+	for (const blob of blobs) {
+		if (!blob) continue;
+		const parsed = parseEmbeddedJson(blob);
+		if (parsed) walkHydration(parsed, out);
+	}
+	return out;
+}
+
+function addressText(value: unknown): string {
+	if (typeof value === 'string') return value.replace(/\s+/g, ' ').trim();
+	const obj = asRecord(value);
+	if (!obj) return '';
+	return [obj.streetAddress, obj.addressLocality, obj.addressRegion, obj.postalCode, obj.addressCountry]
+		.filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+		.join(' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+export function extractSchemaNap(nodes: readonly Record<string, unknown>[]): ParsedNap {
+	let name: string | null = null;
+	let telephone: string | null = null;
+	let address: string | null = null;
+	for (const node of nodes) {
+		if (!hasOrgLikeType(node) && !hasType(node, 'Person')) continue;
+		if (!name) name = pickString(node.name) || null;
+		if (!telephone) telephone = pickString(node.telephone, node.phone) || null;
+		if (!address) address = addressText(node.address) || null;
+	}
+	return { name, telephone, address };
+}
+
+export function parseMicrodata($: CheerioAPI): Record<string, unknown>[] {
+	const nodes: Record<string, unknown>[] = [];
+	$('[itemscope][itemtype]').each((_, el) => {
+		const type = normalizeSchemaType(($(el).attr('itemtype') || '').trim());
+		if (!type) return;
+		const node: Record<string, unknown> = { '@type': type };
+		$(el)
+			.find('[itemprop]')
+			.each((__, propEl) => {
+				const scope = $(propEl).closest('[itemscope]').get(0);
+				if (scope !== el) return;
+				const key = ($(propEl).attr('itemprop') || '').trim();
+				if (!key) return;
+				const val =
+					$(propEl).attr('content') ||
+					$(propEl).attr('href') ||
+					$(propEl).attr('src') ||
+					$(propEl).text();
+				const cleaned = (val || '').replace(/\s+/g, ' ').trim();
+				if (!cleaned) return;
+				if (node[key] == null) node[key] = cleaned;
+			});
+		nodes.push(node);
+	});
+	return nodes;
+}
+
+export function hasAriaLandmarks($: CheerioAPI): boolean {
+	return (
+		$('main, [role="main"], nav, [role="navigation"], header, [role="banner"]').length > 0
+	);
+}
+
+function firstMetaContent($: CheerioAPI, attr: 'name' | 'property', keys: readonly string[]): string {
+	const want = new Set(keys.map((k) => k.toLowerCase()));
+	let found = '';
+	$('meta').each((_, el) => {
+		if (found) return;
+		const key = ($(el).attr(attr) || '').trim().toLowerCase();
+		if (!want.has(key)) return;
+		const content = ($(el).attr('content') || '').replace(/\s+/g, ' ').trim();
+		if (content) found = content;
+	});
+	return found;
+}
+
+function firstCanonicalHref($: CheerioAPI): string | null {
+	let href: string | null = null;
+	$('link[rel]').each((_, el) => {
+		if (href) return;
+		const rel = ($(el).attr('rel') || '').toLowerCase();
+		if (!/\bcanonical\b/.test(rel)) return;
+		const raw = ($(el).attr('href') || '').trim();
+		if (raw) href = extractPureUrl(raw) || raw;
+	});
+	return href;
+}
+
+export function parseMeta($: CheerioAPI, siteName?: string, hydration?: HydrationSignals): ParsedMeta {
+	const title =
+		$('title').first().text().replace(/\s+/g, ' ').trim() ||
+		(hydration?.title || '').replace(/\s+/g, ' ').trim();
+	const ogTitle =
+		firstMetaContent($, 'property', ['og:title']) ||
+		firstMetaContent($, 'name', ['og:title', 'twitter:title']) ||
+		hydration?.ogTitle ||
+		null;
+	const metaDescription =
+		firstMetaContent($, 'name', ['description']) ||
+		firstMetaContent($, 'property', ['description', 'og:description']) ||
+		hydration?.description ||
+		'';
 	const pageTitle =
 		splitPageTitle(title, siteName) ||
 		splitPageTitle(ogTitle || '', siteName) ||
@@ -375,15 +680,19 @@ export function parseMeta($: CheerioAPI, siteName?: string): ParsedMeta {
 		pageTitle,
 		metaDescription,
 		metaDescriptionLength: metaDescription.length,
-		canonical: (() => {
-			const raw = $('link[rel="canonical"]').attr('href')?.trim() || null;
-			if (!raw) return null;
-			return extractPureUrl(raw) || raw;
-		})(),
+		canonical: firstCanonicalHref($) || hydration?.canonical || null,
 		ogTitle,
-		ogDescription: $('meta[property="og:description"]').attr('content')?.trim() || null,
-		ogImage: $('meta[property="og:image"]').attr('content')?.trim() || null,
-		htmlLang: $('html').attr('lang')?.trim() || null,
+		ogDescription:
+			firstMetaContent($, 'property', ['og:description']) ||
+			firstMetaContent($, 'name', ['og:description', 'twitter:description']) ||
+			hydration?.ogDescription ||
+			null,
+		ogImage:
+			firstMetaContent($, 'property', ['og:image']) ||
+			firstMetaContent($, 'name', ['og:image', 'twitter:image']) ||
+			hydration?.ogImage ||
+			null,
+		htmlLang: $('html').attr('lang')?.trim() || $('html').attr('xml:lang')?.trim() || null,
 	};
 }
 
@@ -403,12 +712,14 @@ export function parseHeadings($: CheerioAPI): ParsedHeadings {
 	});
 
 	const h1Texts = extractContentScopedHeadings($);
+	const h2Texts = extractContentScopedH2($);
 	// Keep raw DOM h1 count for SEO structure checks (multiple H1 warning).
 	const rawH1Count = $('h1').length;
 
 	return {
 		h1Count: rawH1Count,
 		h1Texts: h1Texts.length > 0 ? h1Texts : [],
+		h2Texts,
 		levels,
 		hasSkip: skipExamples.length > 0,
 		skipExamples,
@@ -416,7 +727,7 @@ export function parseHeadings($: CheerioAPI): ParsedHeadings {
 	};
 }
 
-export function parseJsonLd($: CheerioAPI, rawHtml?: string): ParsedSchema {
+export function parseJsonLd($: CheerioAPI, rawHtml?: string, hydration?: HydrationSignals): ParsedSchema {
 	let rawBlockCount = 0;
 	let parseErrors = 0;
 	const nodes: Record<string, unknown>[] = [];
@@ -429,36 +740,47 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string): ParsedSchema {
 			parseErrors += 1;
 			continue;
 		}
+		const parsed = parseJsonLdDocument(raw);
 		if (snippets.length < 3) {
-			const pretty = (() => {
-				try {
-					return JSON.stringify(JSON.parse(raw), null, 2);
-				} catch {
-					return raw;
-				}
-			})();
+			const pretty = parsed
+				? JSON.stringify(parsed, null, 2)
+				: raw;
 			snippets.push(pretty.length > 1200 ? `${pretty.slice(0, 1200)}\n…` : pretty);
 		}
-		try {
-			flattenJsonLd(JSON.parse(raw), nodes);
-		} catch {
+		if (parsed == null) {
 			parseErrors += 1;
+			continue;
 		}
+		flattenJsonLd(parsed, nodes);
+	}
+
+	const microdata = parseMicrodata($);
+	if (microdata.length) {
+		rawBlockCount += microdata.length;
+		flattenJsonLd(microdata, nodes);
+	}
+
+	if (hydration?.schemaNodes.length) {
+		flattenJsonLd(hydration.schemaNodes, nodes);
 	}
 
 	const summaries = nodes.flatMap(summarizeNode);
 	const types = Array.from(new Set(summaries.map((s) => normalizeSchemaType(s.type)).filter(Boolean))).sort();
 
-	const orgNodes = nodes.filter((n) => hasType(n, 'Organization') || hasType(n, 'LocalBusiness'));
+	const orgNodes = nodes.filter((n) => hasOrgLikeType(n));
 	const articleNodes = nodes.filter(
 		(n) => hasType(n, 'Article') || hasType(n, 'NewsArticle') || hasType(n, 'BlogPosting'),
 	);
 	const personNodes = nodes.filter((n) => hasType(n, 'Person'));
 
+	const orgRequiredFor = (node: Record<string, unknown>): readonly string[] => {
+		const local = typeList(node).some((t) => LOCAL_NAP_TYPES.has(t));
+		return local ? [...ORG_REQUIRED, ...LOCAL_NAP_REQUIRED] : ORG_REQUIRED;
+	};
 	const organizationMissing =
 		orgNodes.length === 0
-			? [...ORG_REQUIRED]
-			: Array.from(new Set(orgNodes.flatMap((n) => missingKeys(n, ORG_REQUIRED))));
+			? [...ORG_REQUIRED, ...LOCAL_NAP_REQUIRED]
+			: Array.from(new Set(orgNodes.flatMap((n) => missingKeys(n, orgRequiredFor(n)))));
 
 	const articleMissing =
 		articleNodes.length === 0
@@ -492,6 +814,8 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string): ParsedSchema {
 		hasOrganization: orgNodes.length > 0,
 		hasArticle: articleNodes.some((n) => hasType(n, 'Article') || hasType(n, 'BlogPosting')),
 		hasNewsArticle: articleNodes.some((n) => hasType(n, 'NewsArticle')),
+		hasAboutPage: nodes.some((n) => hasType(n, 'AboutPage')),
+		hasMedicalWebPage: nodes.some((n) => hasType(n, 'MedicalWebPage')),
 		hasPerson: personNodes.length > 0,
 		hasWebSite: nodes.some((n) => hasType(n, 'WebSite')),
 		hasWebPage:
@@ -507,19 +831,30 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string): ParsedSchema {
 				hasType(n, 'SoftwareApplication') ||
 				hasType(n, 'LocalBusiness') ||
 				hasType(n, 'Organization') ||
+				hasType(n, 'NewsMediaOrganization') ||
+				hasType(n, 'Corporation') ||
 				hasType(n, 'Product') ||
 				hasType(n, 'MedicalBusiness') ||
+				hasType(n, 'MedicalClinic') ||
 				hasType(n, 'Hospital') ||
 				hasType(n, 'Physician') ||
 				hasType(n, 'Dentist'),
 		),
+		nap: extractSchemaNap(nodes),
 	};
 }
 
 export function parseImages($: CheerioAPI): ParsedImages {
 	const images = $('img');
 	const total = images.length;
-	const missingAlt = images.filter((_, el) => !$(el).attr('alt')?.trim()).length;
+	const missingAlt = images.filter((_, el) => {
+		const alt = $(el).attr('alt')?.trim();
+		const aria = $(el).attr('aria-label')?.trim();
+		const decorative =
+			($(el).attr('role') || '').toLowerCase() === 'presentation' ||
+			$(el).attr('aria-hidden') === 'true';
+		return !(alt || aria || decorative);
+	}).length;
 	const coveragePct = total === 0 ? 100 : Math.round(((total - missingAlt) / total) * 100);
 	return { total, missingAlt, coveragePct };
 }
@@ -670,12 +1005,13 @@ export function parsePageHtml(
 	siteName?: string,
 	rawHtml?: string,
 ): PageParseResult {
+	const hydration = extractHydrationSignals(rawHtml || '');
 	const bodyTextLength = $('body').text().replace(/\s+/g, ' ').trim().length;
 	const renderBlockingScripts = $('script[src]:not([async]):not([defer])').length;
 	return {
-		meta: parseMeta($, siteName),
+		meta: parseMeta($, siteName, hydration),
 		headings: parseHeadings($),
-		schema: parseJsonLd($, rawHtml),
+		schema: parseJsonLd($, rawHtml, hydration),
 		images: parseImages($),
 		bodyTextLength,
 		renderBlockingScripts,
@@ -697,8 +1033,29 @@ export const SCHEMA_COVERAGE_TYPES = [
 
 export function computeSchemaCoverage(types: string[]): number {
 	const set = new Set(types.map(normalizeSchemaType).filter(Boolean));
+	const hasLocalEntity = [...ORG_LIKE_TYPES].some((t) => set.has(t));
 	const hit = SCHEMA_COVERAGE_TYPES.filter((t) => {
-		if (t === 'Article') return set.has('Article') || set.has('BlogPosting') || set.has('NewsArticle');
+		if (t === 'Organization') {
+			return hasLocalEntity;
+		}
+		if (t === 'Article') {
+			return (
+				set.has('Article') ||
+				set.has('BlogPosting') ||
+				set.has('NewsArticle') ||
+				set.has('MedicalWebPage') ||
+				set.has('AboutPage') ||
+				hasLocalEntity
+			);
+		}
+		if (t === 'NewsArticle') {
+			return (
+				set.has('NewsArticle') ||
+				set.has('MedicalWebPage') ||
+				set.has('AboutPage') ||
+				hasLocalEntity
+			);
+		}
 		if (t === 'WebPage') {
 			return (
 				set.has('WebPage') ||

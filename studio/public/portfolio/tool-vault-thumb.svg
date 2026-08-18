@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="REDUE AI Tool Vault">
+	<rect width="1280" height="720" fill="#0C0D0E"/>
+	<rect x="470" y="308" width="340" height="88" rx="18" fill="#635bff"/>
+	<text
+		x="640"
+		y="366"
+		text-anchor="middle"
+		fill="#ffffff"
+		font-family="Pretendard, Arial, Helvetica, sans-serif"
+		font-size="42"
+		font-weight="700"
+		letter-spacing="1.5"
+	>REDUE</text>
+	<text
+		x="640"
+		y="432"
+		text-anchor="middle"
+		fill="#94a3b8"
+		font-family="Pretendard, Arial, Helvetica, sans-serif"
+		font-size="20"
+		font-weight="600"
+		letter-spacing="0.4"
+	>AI Tool Vault</text>
+</svg>

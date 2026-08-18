@@ -89,12 +89,12 @@ export function MypageHistoryTable({ rows }: { rows: HistoryRow[] }) {
 					onClick={() => setDetailRow(null)}
 				>
 					<div
-						className="flex max-h-[85vh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl border border-white/[0.08] bg-[#0C0D0E] p-6"
+						className="flex max-h-[85vh] w-full max-w-xl flex-col gap-4 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-white/[0.08] dark:bg-[#0C0D0E] dark:shadow-none"
 						onClick={(event) => event.stopPropagation()}
 					>
 						<div className="flex items-start justify-between gap-4">
 							<div>
-								<h2 className="text-lg font-bold text-white">{tt('viewDetail')}</h2>
+								<h2 className="text-lg font-bold text-slate-900 dark:text-white">{tt('viewDetail')}</h2>
 								<p className="mt-1 truncate font-mono text-xs text-slate-500">{detailRow.targetDomain}</p>
 							</div>
 							<button

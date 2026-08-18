@@ -331,7 +331,7 @@ export function ProjectWorkspace() {
 				) : null}
 			</section>
 
-			<section className="grid gap-4 lg:grid-cols-[1.4fr_0.6fr]">
+			<section className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.6fr]">
 				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
 					<div className="mb-3">
 						<h2 className="text-base font-bold text-slate-900">등록된 프로젝트</h2>
@@ -534,34 +534,52 @@ export function ProjectWorkspace() {
 					) : null}
 				</div>
 
-				<aside className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1" aria-label="대시보드 위젯">
-					{[
-						{ label: '최근 분석', value: kpi.recentLabel, meta: kpi.recentMeta },
-						{ label: '오늘 분석', value: String(kpi.todayDiagnosis), meta: '건' },
-						{
-							label: 'AI 분석 성공률',
-							value: kpi.successRate != null ? `${kpi.successRate}%` : '—',
-							meta: '완료(COMPLETED) 기준',
-						},
-						{
-							label: '평균 점수',
-							value: kpi.averageScore != null ? String(kpi.averageScore) : '—',
-							meta: '전체 프로젝트',
-						},
-						{ label: 'SEO 평균', value: String(kpi.averageSeoScore || '—'), meta: '최근 진단 점수' },
-						{ label: 'GEO 평균', value: String(kpi.averageGeoScore || '—'), meta: 'AI 대응 추정 점수' },
-						{
-							label: '스키마 적용률',
-							value: kpi.schemaRate != null ? `${kpi.schemaRate}%` : '—',
-							meta: 'CMS 지정 프로젝트 비율',
-						},
-					].map((w) => (
-						<article key={w.label} className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-							<em className="text-[11px] font-semibold not-italic text-slate-500">{w.label}</em>
-							<strong className="mt-0.5 block truncate text-base font-extrabold text-slate-900">{w.value}</strong>
-							<small className="text-[11px] text-slate-400">{w.meta}</small>
+				<aside className="self-start h-fit" aria-label="대시보드 위젯">
+					<div className="grid gap-3.5">
+						<article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+							<span className="text-xs font-semibold text-slate-500">최근 분석</span>
+							<h4 className="mt-1 truncate text-sm font-bold text-slate-900">{kpi.recentLabel}</h4>
+							<p className="mt-1 text-xs text-slate-400">{kpi.recentMeta}</p>
 						</article>
-					))}
+						<div className="grid grid-cols-2 auto-rows-[1fr] gap-3.5">
+							{[
+								{ label: '오늘 분석', value: String(kpi.todayDiagnosis), unit: '건' },
+								{
+									label: 'AI 분석 성공률',
+									value: kpi.successRate != null ? `${kpi.successRate}%` : '—',
+									meta: '완료(COMPLETED) 기준',
+								},
+								{
+									label: '평균 점수',
+									value: kpi.averageScore != null ? String(kpi.averageScore) : '—',
+									meta: '전체 프로젝트',
+								},
+								{ label: 'SEO 평균', value: String(kpi.averageSeoScore || '—'), meta: '최근 진단 점수' },
+								{ label: 'GEO 평균', value: String(kpi.averageGeoScore || '—'), meta: 'AI 대응 추정 점수' },
+								{
+									label: '스키마 적용률',
+									value: kpi.schemaRate != null ? `${kpi.schemaRate}%` : '—',
+									meta: 'CMS 지정 프로젝트 비율',
+								},
+							].map((w) => (
+								<article
+									key={w.label}
+									className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm"
+								>
+									<span className="text-xs font-medium text-slate-500">{w.label}</span>
+									<div className="mt-2 flex items-baseline gap-1">
+										<span className="text-2xl font-bold tabular-nums text-slate-900">{w.value}</span>
+										{'unit' in w && w.unit ? (
+											<span className="text-xs text-slate-500">{w.unit}</span>
+										) : null}
+									</div>
+									{'meta' in w && w.meta ? (
+										<p className="mt-1 text-[11px] text-slate-400">{w.meta}</p>
+									) : null}
+								</article>
+							))}
+						</div>
+					</div>
 				</aside>
 			</section>
 

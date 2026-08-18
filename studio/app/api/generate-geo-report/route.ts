@@ -38,8 +38,13 @@ function parseBody(raw: unknown): GeoNarrativeRequest | null {
 		failItems: technicalFails,
 		brandName: extractOfficialBrandName(siteTitle || '', domain, brandHint),
 		category: String(body.category ?? '').trim() || undefined,
+		mainSpecialty: String(body.mainSpecialty ?? '').trim() || undefined,
 		location: String(body.location ?? '').trim() || undefined,
 		broadLocation: String(body.broadLocation ?? '').trim() || undefined,
+		industryType: String(body.industryType ?? '').trim() || undefined,
+		schemaTypes: Array.isArray(body.schemaTypes)
+			? body.schemaTypes.map((item) => String(item).trim()).filter(Boolean)
+			: undefined,
 		lang: String(body.lang ?? 'ko') === 'en' ? 'en' : 'ko',
 	};
 }

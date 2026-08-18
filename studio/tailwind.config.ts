@@ -15,8 +15,33 @@ const pretendardStack = [
 ];
 
 const config: Config = {
-	darkMode: 'media',
-	content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+	darkMode: 'class',
+	content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}', './lib/**/*.{ts,tsx}'],
+	safelist: [
+		'border-indigo-500/30',
+		'border-blue-500/30',
+		'border-emerald-500/30',
+		'border-amber-500/30',
+		'border-rose-500/30',
+		'dark:border-indigo-500/30',
+		'dark:border-blue-500/30',
+		'dark:border-emerald-500/30',
+		'dark:border-amber-500/30',
+		'dark:border-rose-500/30',
+		'dark:!border-indigo-500/30',
+		'dark:!border-emerald-500/30',
+		'dark:!border-amber-500/30',
+		'dark:!border-rose-500/30',
+		'bg-indigo-500/10',
+		'bg-blue-500/10',
+		'bg-emerald-500/10',
+		'bg-amber-500/10',
+		'bg-rose-500/10',
+		'ring-2',
+		'ring-rose-500',
+		'ring-offset-2',
+		'animate-pulse',
+	],
 	theme: {
 		// Replace (not only extend) so Tailwind Preflight + font-sans use Pretendard site-wide.
 		fontFamily: {
@@ -30,6 +55,15 @@ const config: Config = {
 					light: '#8b85ff',
 				},
 				charcoal: '#0C0D0E',
+			},
+			keyframes: {
+				'radar-hover-in': {
+					'0%': { opacity: '0', transform: 'scale(0.95)' },
+					'100%': { opacity: '1', transform: 'scale(1)' },
+				},
+			},
+			animation: {
+				'radar-hover-in': 'radar-hover-in 200ms ease-out',
 			},
 		},
 	},

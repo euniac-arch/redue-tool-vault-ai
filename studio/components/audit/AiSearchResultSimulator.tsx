@@ -64,8 +64,8 @@ function SourceChip({
 		<span
 			className={
 				emphasized
-					? 'inline-flex max-w-full items-center gap-1.5 rounded-full border border-emerald-400/45 bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-300 shadow-[0_0_16px_rgba(52,211,153,0.25)]'
-					: 'inline-flex max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-slate-500'
+					? 'inline-flex max-w-full items-center gap-1.5 rounded-full border border-emerald-200 dark:border-emerald-400/45 bg-emerald-50 dark:bg-emerald-500/15 px-2.5 py-1 text-[11px] font-bold text-emerald-800 dark:text-emerald-300 shadow-[0_0_16px_rgba(52,211,153,0.25)]'
+					: 'inline-flex max-w-full items-center gap-1.5 rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-slate-500'
 			}
 		>
 			<span className="truncate">{label}</span>
@@ -100,20 +100,20 @@ function ChatPanel({
 		<article
 			className={
 				isAfter
-					? 'flex flex-col overflow-hidden rounded-2xl border border-indigo-500/50 bg-gradient-to-b from-indigo-950/40 via-slate-900 to-slate-950 shadow-[0_0_30px_rgba(99,102,241,0.2)]'
-					: 'flex flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/60 opacity-80'
+					? 'flex flex-col overflow-hidden rounded-2xl border border-indigo-200 dark:border-indigo-500/50 bg-gradient-to-b from-indigo-50 via-white to-slate-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-950 shadow-[0_0_30px_rgba(99,102,241,0.2)]'
+					: 'flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60 opacity-80'
 			}
 		>
 			<div
 				className={`border-b px-3.5 py-2.5 sm:px-4 ${
-					isAfter ? 'border-indigo-500/30 bg-indigo-500/10' : 'border-slate-800 bg-slate-950/50'
+					isAfter ? 'border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/10' : 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50'
 				}`}
 			>
 				<span
 					className={`inline-flex max-w-full items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-bold ${
 						isAfter
-							? 'border border-emerald-500/35 bg-emerald-500/15 text-emerald-300'
-							: 'border border-rose-500/30 bg-rose-500/10 text-rose-300/90'
+							? 'border border-emerald-200 dark:border-emerald-500/35 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-800 dark:text-emerald-300'
+							: 'border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300/90'
 					}`}
 				>
 					<span aria-hidden>{isAfter ? '🟢' : '🔴'}</span>
@@ -121,34 +121,34 @@ function ChatPanel({
 				</span>
 			</div>
 
-			<div className="flex items-center justify-between gap-2 border-b border-white/[0.06] bg-[#0d0f14] px-3.5 py-2.5 sm:px-4">
+			<div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-[#0d0f14] px-3.5 py-2.5 sm:px-4">
 				<div className="flex min-w-0 items-center gap-2">
 					<span
 						className={`inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${
-							isAfter ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-500'
+							isAfter ? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
 						}`}
 					>
 						<ChatGptMark className="h-3.5 w-3.5" />
 					</span>
 					<div className="min-w-0">
-						<p className={`truncate text-xs font-semibold ${isAfter ? 'text-slate-100' : 'text-slate-400'}`}>
+						<p className={`truncate text-xs font-semibold ${isAfter ? 'text-slate-900 dark:text-slate-100' : 'text-slate-600 dark:text-slate-400'}`}>
 							{t('modelName')}
 						</p>
 						<p className="truncate text-[10px] text-slate-600">{t('modelHint')}</p>
 					</div>
 				</div>
-				<span className="shrink-0 rounded-md border border-white/[0.06] bg-white/[0.03] px-2 py-0.5 text-[10px] font-medium text-slate-500">
+				<span className="shrink-0 rounded-md border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.03] px-2 py-0.5 text-[10px] font-medium text-slate-500">
 					{t('engineLabel')}
 				</span>
 			</div>
 
-			<div className="flex flex-1 flex-col gap-3.5 bg-[#0b0d12] p-3.5 sm:gap-4 sm:p-4">
+			<div className="flex flex-1 flex-col gap-3.5 bg-white dark:bg-[#0b0d12] p-3.5 sm:gap-4 sm:p-4">
 				<div className="flex justify-end">
 					<div
 						className={`max-w-[92%] rounded-2xl rounded-br-md px-3.5 py-2.5 text-[12px] leading-relaxed sm:text-[13px] ${
 							isAfter
-								? 'bg-indigo-500/25 text-indigo-50 ring-1 ring-indigo-400/30'
-								: 'bg-slate-800 text-slate-300'
+								? 'bg-indigo-100 dark:bg-indigo-500/25 text-indigo-900 dark:text-indigo-50 ring-1 ring-indigo-200 dark:ring-indigo-400/30'
+								: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
 						}`}
 					>
 						{userQuery}
@@ -160,7 +160,7 @@ function ChatPanel({
 						className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
 							isAfter
 								? 'bg-gradient-to-br from-indigo-500 to-emerald-500 text-white shadow-lg shadow-indigo-500/30'
-								: 'bg-slate-800 text-slate-500'
+								: 'bg-slate-200 dark:bg-slate-800 text-slate-500'
 						}`}
 					>
 						<SparkleIcon className="h-3.5 w-3.5" />
@@ -170,34 +170,34 @@ function ChatPanel({
 						<div
 							className={`rounded-2xl rounded-tl-md border px-3.5 py-3 sm:px-4 sm:py-3.5 ${
 								isAfter
-									? 'border-indigo-400/25 bg-indigo-500/[0.08]'
-									: 'border-slate-800 bg-slate-900/80'
+									? 'border-indigo-200 dark:border-indigo-400/25 bg-indigo-50 dark:bg-indigo-500/[0.08]'
+									: 'border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/80'
 							}`}
 						>
 							{dynamicAnswer ? (
 								<p
 									className={`whitespace-pre-wrap text-[12px] leading-relaxed sm:text-[13px] ${
-										isAfter ? 'text-slate-200' : 'text-slate-500'
+										isAfter ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500'
 									}`}
 								>
 									{dynamicAnswer}
 								</p>
 							) : isAfter ? (
-								<div className="space-y-2.5 text-[12px] leading-relaxed text-slate-200 sm:text-[13px]">
+								<div className="space-y-2.5 text-[12px] leading-relaxed text-slate-800 dark:text-slate-200 sm:text-[13px]">
 									<p>
 										{t.rich('after.answerLead', {
 											...vars,
 											brand: (chunks) => (
-												<strong className="font-extrabold text-emerald-300">{chunks}</strong>
+												<strong className="font-extrabold text-emerald-700 dark:text-emerald-300">{chunks}</strong>
 											),
 										})}
 									</p>
-									<ul className="space-y-1.5 border-l-2 border-emerald-500/40 pl-3 text-slate-300">
+									<ul className="space-y-1.5 border-l-2 border-emerald-500/40 pl-3 text-slate-700 dark:text-slate-300">
 										<li>{t('after.bullet1', vars)}</li>
 										<li>{t('after.bullet2', vars)}</li>
 										<li>{t('after.bullet3', vars)}</li>
 									</ul>
-									<p className="text-slate-400">{t('after.answerClose', vars)}</p>
+									<p className="text-slate-600 dark:text-slate-400">{t('after.answerClose', vars)}</p>
 								</div>
 							) : (
 								<div className="space-y-2 text-[12px] leading-relaxed text-slate-500 sm:text-[13px]">
@@ -216,7 +216,7 @@ function ChatPanel({
 							<button
 								type="button"
 								tabIndex={-1}
-								className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+								className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-white/5 hover:text-slate-700 dark:hover:text-slate-300"
 								aria-hidden
 							>
 								<CopyIcon className="h-3 w-3" />
@@ -225,7 +225,7 @@ function ChatPanel({
 							<button
 								type="button"
 								tabIndex={-1}
-								className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-white/5 hover:text-slate-300"
+								className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium text-slate-500 transition hover:bg-white/5 hover:text-slate-700 dark:hover:text-slate-300"
 								aria-hidden
 							>
 								<ShareIcon className="h-3 w-3" />
@@ -236,7 +236,7 @@ function ChatPanel({
 						<div className="mt-2.5">
 							<p
 								className={`mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] ${
-									isAfter ? 'text-indigo-300/80' : 'text-slate-600'
+									isAfter ? 'text-indigo-700 dark:text-indigo-300/80' : 'text-slate-600'
 								}`}
 							>
 								{t('sourcesLabel')}
@@ -251,7 +251,7 @@ function ChatPanel({
 									<>
 										<SourceChip label={t('before.source1')} />
 										<SourceChip label={t('before.source2')} />
-										<span className="inline-flex items-center rounded-full border border-dashed border-slate-700 px-2.5 py-1 text-[10px] text-slate-600">
+										<span className="inline-flex items-center rounded-full border border-dashed border-slate-300 dark:border-slate-700 px-2.5 py-1 text-[10px] text-slate-600">
 											{t('before.sourceMissing', vars)}
 										</span>
 									</>
@@ -279,35 +279,35 @@ export function AiSearchResultSimulator({ meta, domain, reportData }: AiSearchRe
 
 	return (
 		<section
-			id="sec-ai-simulator"
-			className="scroll-mt-24 flex flex-col gap-5 rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.04] to-transparent p-5 sm:p-6"
+			id="ai-search-simulator"
+			className="scroll-mt-24 flex flex-col gap-5 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-gradient-to-b from-white to-slate-50 dark:from-white/[0.04] dark:to-transparent p-5 sm:p-6"
 			aria-labelledby="ai-simulator-heading"
 		>
 			<div>
 				<p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#D4AF37]">{t('badge')}</p>
-				<h2 id="ai-simulator-heading" className="mt-1 text-lg font-extrabold leading-snug text-white sm:text-xl">
+				<h2 id="ai-simulator-heading" className="mt-1 text-lg font-extrabold leading-snug text-slate-900 dark:text-white sm:text-xl">
 					{t('title')}
 				</h2>
-				<p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-400">{t('subtitle')}</p>
+				<p className="max-w-3xl text-xs text-slate-400 mt-0.5 leading-relaxed">{t('subtitle')}</p>
 				<p className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-slate-500">
-					<span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-semibold text-slate-300">
+					<span className="rounded-md border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2 py-0.5 font-semibold text-slate-700 dark:text-slate-300">
 						{displayBrand}
 					</span>
 					{reportData?.industry ? (
-						<span className="rounded-md border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 text-cyan-300">
+						<span className="rounded-md border border-cyan-200 dark:border-cyan-500/25 bg-cyan-50 dark:bg-cyan-500/10 px-2 py-0.5 text-cyan-800 dark:text-cyan-300">
 							{reportData.industry}
 						</span>
 					) : (
-						<span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5">
+						<span className="rounded-md border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2 py-0.5">
 							{resolved.primaryKeyword || resolved.category}
 						</span>
 					)}
 					{resolved.broadLocation ? (
-						<span className="rounded-md border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-300/90">
+						<span className="rounded-md border border-emerald-200 dark:border-emerald-500/25 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 font-semibold text-emerald-800 dark:text-emerald-300/90">
 							{resolved.broadLocation} 전체
 						</span>
 					) : resolved.location ? (
-						<span className="rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5">{resolved.location}</span>
+						<span className="rounded-md border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2 py-0.5">{resolved.location}</span>
 					) : null}
 				</p>
 			</div>

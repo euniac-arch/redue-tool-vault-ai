@@ -1,3 +1,4 @@
+import { countCheckVerdicts, normalizeChecklistItems } from '@/lib/audit/onpage-diagnostic';
 import type { AuditReport } from '@/lib/site-auditor';
 
 /** Canonical localStorage key for the most recent live audit handoff. */
@@ -7,7 +8,7 @@ export interface LatestAuditPayload {
 	auditId: string | null;
 	report: AuditReport;
 	cmsType?: string;
-	/** Defect / non-pass check count at save time */
+	/** Fail-only defect count at save time (warnings are excluded). */
 	defectCount: number;
 	score: number;
 	maxScore: number;
@@ -18,14 +19,23 @@ function isBrowser(): boolean {
 	return typeof window !== 'undefined';
 }
 
-export function countAuditDefects(report: AuditReport): number {
+/** Fail-only count from the same remapped checklist the 5-category cards use. */
+export function countAuditVerdicts(report: AuditReport): { defectCount: number; warningCount: number } {
+	const remapped = normalizeChecklistItems(report);
+	if (remapped.length) return countCheckVerdicts(remapped);
 	const checks = report.checklist?.length
 		? report.checklist
 		: report.categories?.flatMap((c) => c.checks) ?? [];
-	return checks.filter((c) => {
-		if (c.status) return c.status !== 'pass';
-		return !c.passed;
-	}).length;
+	return countCheckVerdicts(checks);
+}
+
+/** Fail rows only — warnings stay in `countAuditWarnings`. */
+export function countAuditDefects(report: AuditReport): number {
+	return countAuditVerdicts(report).defectCount;
+}
+
+export function countAuditWarnings(report: AuditReport): number {
+	return countAuditVerdicts(report).warningCount;
 }
 
 export function buildLatestAuditPayload(
@@ -37,7 +47,7 @@ export function buildLatestAuditPayload(
 		report,
 		cmsType: opts?.cmsType,
 		defectCount: countAuditDefects(report),
-		score: Math.round(report.score),
+		score: Number.isFinite(report.score) ? Math.round(Number(report.score) * 10) / 10 : 0,
 		maxScore: report.maxScore,
 		savedAt: new Date().toISOString(),
 	};

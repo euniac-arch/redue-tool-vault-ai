@@ -1,9 +1,9 @@
 import type { ScoreStatus } from '@/lib/types';
 
 const STATUS_STYLES: Record<ScoreStatus, { ring: string; text: string; bg: string }> = {
-	PASS: { ring: 'ring-emerald-400/40', text: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-	WARN: { ring: 'ring-amber-400/40', text: 'text-amber-400', bg: 'bg-amber-500/10' },
-	FAIL: { ring: 'ring-rose-400/40', text: 'text-rose-400', bg: 'bg-rose-500/10' },
+	PASS: { ring: 'ring-emerald-400/40', text: 'text-emerald-700 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-500/10' },
+	WARN: { ring: 'ring-amber-400/40', text: 'text-amber-700 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-500/10' },
+	FAIL: { ring: 'ring-rose-400/40', text: 'text-rose-700 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-500/10' },
 };
 
 interface ScoreBadgeProps {
@@ -17,14 +17,14 @@ export function ScoreBadge({ score, maxScore, status, statusLabel }: ScoreBadgeP
 	const styles = STATUS_STYLES[status];
 
 	return (
-		<div className={`flex items-center gap-5 rounded-2xl border border-white/10 ${styles.bg} px-6 py-5 ring-1 ${styles.ring}`}>
-			<div className="flex flex-col items-center justify-center rounded-xl bg-black/20 px-4 py-3">
+		<div className={`flex items-center gap-5 rounded-2xl border border-slate-200 dark:border-white/10 ${styles.bg} px-6 py-5 ring-1 ${styles.ring}`}>
+			<div className="flex flex-col items-center justify-center rounded-xl bg-slate-50 dark:bg-black/20 px-4 py-3">
 				<span className={`text-4xl font-extrabold tabular-nums ${styles.text}`}>{score}</span>
-				<span className="text-[11px] uppercase tracking-wide text-slate-400">/ {maxScore}</span>
+				<span className="text-[11px] uppercase tracking-wide text-slate-600 dark:text-slate-400">/ {maxScore}</span>
 			</div>
 			<div>
 				<p className={`text-lg font-bold ${styles.text}`}>{statusLabel}</p>
-				<p className="text-sm text-slate-400">REDUE AI SEO &amp; GEO Studio 진단 점수 ({score})</p>
+				<p className="text-sm text-slate-600 dark:text-slate-400">REDUE AI SEO &amp; GEO Studio 진단 점수 ({score})</p>
 			</div>
 		</div>
 	);

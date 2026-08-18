@@ -1,12 +1,12 @@
 /**
- * GEO external-reputation scoring — deterministic heuristic layer.
+ * GEO external-reputation scoring — crawl-signal layer.
  *
- * There is no live Google Maps / Naver / Bing Places integration yet, so every
- * number here is derived from real crawled audit signals (schema coverage,
- * GEO citation score, robots.txt AI-bot access, Organization completeness…)
- * combined with a domain-seeded pseudo-random jitter. Same domain + same
- * audit signals always produce the same output (stable across reloads),
- * while different sites get different-looking numbers.
+ * Engine scores, badges, and cause-analysis copy come from on-page evidence
+ * (schema coverage, FAQ/HowTo, robots.txt AI-bot access, Organization
+ * completeness, sameAs platform links). There is no static 6-engine score
+ * table and no domain-seeded PRNG. Bing Places / Naver Place / Google Maps
+ * are inferred from sameAs and schema fields collected on the audited page —
+ * not from live Places APIs.
  *
  * Two entry points share the same scoring core (`computeExternalReputationFromSignals`):
  *  - `buildHeuristicExternalReputation`   — precise, from a full crawled `AuditReport` (client-side fallback).
@@ -15,25 +15,73 @@
  *                                            which only ever sees a `GeoNarrativeRequest`).
  */
 
+import { countAuditDefects } from '@/lib/audit/latest-audit-payload';
+import {
+	calculateGeoComprehensiveScores,
+	geoRawSignalsFromReputation,
+} from '@/lib/audit/geoScoreCalculator';
+import { HTTPS_P0_LABEL, resolveIsHttps } from '@/lib/audit/scoreCalculator';
+import { getReputationInsight } from '@/lib/audit/reputation-insight';
+import { gradeForScore, type ScoreGrade } from '@/lib/audit/score-grade';
+import {
+	buildEngineAnalysisResults,
+	detectEnginePlatformSignals,
+	ENGINE_DISPLAY_NAME,
+	type EngineAnalysisResult,
+	type EnginePlatformSignals,
+} from '@/lib/audit/engine-analysis';
+import { exposureStatusFromScore, getRatingMeta, type EngineExposureStatus } from '@/lib/geo/rating-meta';
+import {
+	buildEeatAuditData,
+	type EeatHowtoGuides,
+} from '@/lib/audit/eeat-audit';
+import { buildAiCrawlerStatuses } from '@/lib/geo/precision-diagnostics';
 import type { AuditCheckItem, AuditLang, AuditReport } from '@/lib/site-auditor';
+import type { AIEngineId, AiCrawlerBotStatus, SchemaPropertyCheck } from '@/types/geo-diagnostic';
 
-export type AiEngineId = 'gemini' | 'chatgpt' | 'perplexity';
+export type {
+	AiEngineVisibilityMetrics,
+	EngineAnalysisResult,
+	EngineCauseFactor,
+	EngineDiagnosticProps,
+	EngineExposureStatus,
+} from '@/lib/audit/engine-analysis';
 
-export interface AiEngineExposure {
-	engine: AiEngineId;
+export { hasMeasuredVisibility } from '@/lib/audit/engine-analysis';
+
+export { getReputationInsight, resolveReputationInsight } from '@/lib/audit/reputation-insight';
+
+export type { ScoreGrade } from '@/lib/audit/score-grade';
+export { gradeForScore } from '@/lib/audit/score-grade';
+
+export type { RatingMeta, RatingStatusKey, RatingTone } from '@/lib/geo/rating-meta';
+export { exposureStatusFromScore, getRatingMeta } from '@/lib/geo/rating-meta';
+
+/** Why & Status engine ids — same 6-engine catalog as GEO diagnostic. */
+export type AiEngineId = AIEngineId;
+
+export interface AiEngineExposure extends EngineAnalysisResult {
 	engineLabel: string;
-	/** 1–5 */
+	/** 1–5 filled stars — always `getRatingMeta(score).filledStars`. */
 	stars: number;
 	statusLabel: string;
+	/** Alias of `analysisReason` for existing panel bindings. */
 	reason: string;
 }
 
 export interface EeatBrandTrust {
 	keywords: string[];
 	missingKeyword?: string;
+	/** Footer / Person-schema representative legal name. */
+	personName?: string;
+	/** Person schema jobTitle from the crawl or industry registry. */
+	personJobTitle?: string;
+	recommendedSchemaType?: string;
 	/** 0–100 */
 	napMatchRate: number;
 	napIssue?: string;
+	/** Optional Schema.org 5-property completeness checklist (E-E-A-T). */
+	schemaProperties?: readonly SchemaPropertyCheck[];
 }
 
 export interface DigitalFootprint {
@@ -43,6 +91,10 @@ export interface DigitalFootprint {
 	naverMentionIssue?: string;
 	bingPlacesRegistered: boolean;
 	bingPlacesNote?: string;
+	/** Optional per-bot robots.txt / WAF access snapshot. */
+	aiBots?: readonly AiCrawlerBotStatus[];
+	/** Industry-tuned How-to copy for the Digital Footprint tabs. */
+	howtoGuides?: EeatHowtoGuides;
 }
 
 export type GeoActionPriority = 'urgent' | 'recommended';
@@ -57,7 +109,7 @@ export interface GeoActionPlanItem {
 
 export interface GeoScoreOverview {
 	score: number;
-	grade: string;
+	grade: ScoreGrade;
 	percentile: number;
 	summary: string;
 	minExposureThreshold: number;
@@ -84,34 +136,36 @@ export interface GeoReputationSignals {
 	faqPresent: boolean;
 	aiBotsOk: boolean;
 	keywords: string[];
-}
-
-function hashStringToSeed(input: string): number {
-	let h = 2166136261 >>> 0;
-	for (let i = 0; i < input.length; i++) {
-		h ^= input.charCodeAt(i);
-		h = Math.imul(h, 16777619);
-	}
-	return h >>> 0;
-}
-
-/** mulberry32 PRNG — small, fast, deterministic for a given seed. */
-function mulberry32(seed: number): () => number {
-	let a = seed >>> 0;
-	return function next() {
-		a = (a + 0x6d2b79f5) | 0;
-		let t = Math.imul(a ^ (a >>> 15), 1 | a);
-		t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-		return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-	};
+	specialties?: string[];
+	location?: string;
+	broadLocation?: string;
+	brandName?: string;
+	detectedKeywords?: string[];
+	primaryKeyword?: string;
+	category?: string;
+	/** Optional per-bot allow map from the live crawl (`true` = allowed). */
+	aiBotAccess?: Partial<Record<'gptbot' | 'perplexitybot' | 'claudebot' | 'google-extended', boolean>>;
+	schemaTypes?: string[];
+	jsonLdCorpus?: string;
+	footerText?: string;
+	representativeName?: string;
+	representativeJobTitle?: string;
+	organizationMissing?: string[];
+	industryType?: string;
+	/** Open on-page checklist defects (fail + warning). */
+	defectCount?: number;
+	/** sameAs / schema platform evidence (Google Maps, Bing Places, Naver). */
+	platform?: EnginePlatformSignals;
+	/** HTTPS / TLS on the audited origin. Missing = unknown (no P0 card). */
+	isHttps?: boolean;
+	hasLlmsTxt?: boolean;
+	bodyLength?: number;
+	hasSearchIndex?: boolean;
+	eeatOk?: boolean;
 }
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(max, Math.max(min, value));
-}
-
-function seededRange(rand: () => number, min: number, max: number): number {
-	return Math.round(min + rand() * (max - min));
 }
 
 function domainFromUrl(raw: string): string {
@@ -131,63 +185,90 @@ function checkPassed(checks: AuditCheckItem[], id: string): boolean {
 	return found ? resolveStatus(found) === 'pass' : false;
 }
 
-function gradeForScore(score: number): string {
-	if (score >= 90) return 'S';
-	if (score >= 85) return 'A+';
-	if (score >= 80) return 'A';
-	if (score >= 70) return 'B+';
-	if (score >= 60) return 'B';
-	if (score >= 50) return 'C+';
-	if (score >= 40) return 'C';
-	return 'D';
+function engineLabelFor(id: AiEngineId, lang: AuditLang): string {
+	const names: Record<AiEngineId, { ko: string; en: string }> = {
+		gemini: { ko: 'Gemini AI 검색 준비도', en: 'Gemini AI search readiness' },
+		chatgpt: { ko: 'ChatGPT AI 검색 준비도', en: 'ChatGPT AI search readiness' },
+		perplexity: { ko: 'Perplexity AI 검색 준비도', en: 'Perplexity AI search readiness' },
+		claude: { ko: 'Claude AI 검색 준비도', en: 'Claude AI search readiness' },
+		copilot: { ko: 'Copilot AI 검색 준비도', en: 'Copilot AI search readiness' },
+		clova: { ko: 'Clova AI 검색 준비도', en: 'Clova AI search readiness' },
+	};
+	return lang === 'en' ? names[id].en : names[id].ko;
 }
 
-function starsFromSignal(pct: number, rand: () => number): number {
-	const base = pct >= 80 ? 5 : pct >= 60 ? 4 : pct >= 40 ? 3 : pct >= 20 ? 2 : 1;
-	const bump = rand() < 0.15 ? (rand() < 0.5 ? -1 : 1) : 0;
-	return clamp(base + bump, 1, 5);
+function toAiEngineExposure(result: EngineAnalysisResult, lang: AuditLang): AiEngineExposure {
+	const meta = getRatingMeta(result.score, lang);
+	return {
+		...result,
+		score: meta.score,
+		readinessScore: result.readinessScore ?? meta.score,
+		status: result.status ?? exposureStatusFromScore(meta.score),
+		rating: result.rating ?? meta.ratingOutOf5,
+		engineName: result.engineName || ENGINE_DISPLAY_NAME[result.engine],
+		engineLabel: engineLabelFor(result.engine, lang),
+		stars: meta.filledStars,
+		statusLabel: meta.statusLabel,
+		reason: result.analysisReason,
+		causeFactors: result.causeFactors ?? [],
+		visibility: result.visibility ?? null,
+	};
 }
 
-function statusLabelForStars(stars: number, lang: AuditLang): string {
-	if (stars >= 4) return lang === 'en' ? 'Top exposure' : '상위 노출 중';
-	if (stars === 3) return lang === 'en' ? 'Partial exposure' : '부분 노출';
-	return lang === 'en' ? 'Low exposure / needs work' : '노출 미흡 / 보완 필요';
+/** Recompute stars + status from `score` so LLM/legacy payloads cannot drift. */
+export function hydrateAiEngineExposure(
+	engine: Omit<
+		AiEngineExposure,
+		| 'score'
+		| 'stars'
+		| 'statusLabel'
+		| 'status'
+		| 'rating'
+		| 'engineName'
+		| 'analysisReason'
+		| 'readinessScore'
+		| 'causeFactors'
+		| 'visibility'
+	> & {
+		score?: number;
+		stars?: number;
+		statusLabel?: string;
+		status?: EngineExposureStatus;
+		rating?: number;
+		engineName?: string;
+		analysisReason?: string;
+		reason?: string;
+		readinessScore?: number;
+		causeFactors?: AiEngineExposure['causeFactors'];
+		visibility?: AiEngineExposure['visibility'];
+	},
+	lang: AuditLang = 'ko',
+): AiEngineExposure {
+	const rawScore =
+		typeof engine.score === 'number' && Number.isFinite(engine.score)
+			? engine.score
+			: typeof engine.stars === 'number'
+				? (engine.stars / 5) * 100
+				: 0;
+	const meta = getRatingMeta(rawScore, lang);
+	const analysisReason = engine.analysisReason || engine.reason || '';
+	return {
+		engine: engine.engine,
+		engineName: engine.engineName || ENGINE_DISPLAY_NAME[engine.engine],
+		engineLabel: engineLabelFor(engine.engine, lang),
+		score: meta.score,
+		readinessScore: meta.score,
+		status: exposureStatusFromScore(meta.score),
+		rating: meta.ratingOutOf5,
+		analysisReason,
+		stars: meta.filledStars,
+		statusLabel: meta.statusLabel,
+		reason: analysisReason,
+		causeFactors: engine.causeFactors ?? [],
+		visibility: engine.visibility ?? null,
+	};
 }
 
-function buildSummary(args: {
-	lang: AuditLang;
-	schemaPct: number;
-	napMatchRate: number;
-	bingRegistered: boolean;
-	naverLow: boolean;
-}): string {
-	const { lang, schemaPct, napMatchRate, bingRegistered, naverLow } = args;
-	const schemaGood = schemaPct >= 65;
-
-	if (lang === 'en') {
-		if (schemaGood && (!bingRegistered || napMatchRate < 90)) {
-			return 'On-page schema is solid, but external reputation signals (Google Maps / directory data) need reinforcement.';
-		}
-		if (!schemaGood) {
-			return 'On-page structured data is incomplete, limiting how confidently AI engines can cite this brand.';
-		}
-		if (naverLow) {
-			return 'Technical signals are healthy, but recent local review/content volume is thin.';
-		}
-		return 'Overall GEO signals are balanced across on-page schema and external reputation data.';
-	}
-
-	if (schemaGood && (!bingRegistered || napMatchRate < 90)) {
-		return '온페이지 스키마는 우수하나, 구글맵/외부 평판 데이터 보강이 필요합니다.';
-	}
-	if (!schemaGood) {
-		return '온페이지 구조화 데이터가 미흡해 AI 검색엔진이 브랜드 정보를 확신 있게 인용하기 어렵습니다.';
-	}
-	if (naverLow) {
-		return '기술적 신호는 양호하나, 최근 지역 리뷰·콘텐츠 언급량이 부족합니다.';
-	}
-	return '온페이지 스키마와 외부 평판 데이터가 고르게 확보되어 있습니다.';
-}
 
 /** Extract normalized scoring signals from a full crawled AuditReport (precise path). */
 export function extractSignalsFromReport(report: AuditReport): GeoReputationSignals {
@@ -197,22 +278,52 @@ export function extractSignalsFromReport(report: AuditReport): GeoReputationSign
 	const orgPresent =
 		checkPassed(checks, 'organization') || checks.some((c) => c.id === 'organization' && resolveStatus(c) === 'warning');
 	const orgComplete = orgPresent && (!orgMissing || orgMissing.length === 0);
+	const schemaTypes = report.metrics?.schemaTypes ?? report.siteMeta?.schemaEntityTypes;
+	const jsonLdCorpus = (report.metrics?.jsonLdSnippets ?? []).join('\n');
+	const extraCorpus = [...(report.collectedUrls ?? []), report.footerText ?? ''].join('\n');
+	const platform = detectEnginePlatformSignals({ schemaTypes, jsonLdCorpus, extraCorpus });
 
 	return {
 		domain,
 		technicalPct: report.maxScore > 0 ? (report.score / report.maxScore) * 100 : 50,
 		schemaPct: report.schemaCoverage ?? 50,
-		geoPct: report.geoCitationScore ?? 50,
+		geoPct: (() => {
+			const geoCat = report.categories?.find((c) => c.id === 'geo' || c.id === 'geoAi' || c.id === 'geo_ai_signals');
+			if (geoCat && geoCat.maxScore > 0) return (geoCat.score / geoCat.maxScore) * 100;
+			return report.geoCitationScore ?? 50;
+		})(),
 		orgPresent,
 		orgComplete,
-		faqPresent: checkPassed(checks, 'faq-howto-schema'),
+		faqPresent: checkPassed(checks, 'faq-howto-schema') || platform.hasFaq || platform.hasHowTo,
 		aiBotsOk: checkPassed(checks, 'ai-bots-allowed'),
+		hasLlmsTxt: Boolean(report.metrics?.hasLlmsTxt) || checkPassed(checks, 'llms-txt') || checkPassed(checks, 'llms_txt'),
+		bodyLength: report.metrics?.bodyTextLength ?? 0,
+		hasSearchIndex: report.indexStatus ? report.indexStatus.allowed : true,
+		eeatOk: checkPassed(checks, 'eeat-author') || checkPassed(checks, 'person-eeat'),
 		keywords: [
+			...(report.siteMeta?.coreSpecialties ?? []),
 			report.siteMeta?.primaryKeyword,
 			report.siteMeta?.broadLocation,
-			report.siteMeta?.brandName,
 			report.siteMeta?.category,
 		].filter((v): v is string => Boolean(v && v.trim())),
+		specialties: report.siteMeta?.coreSpecialties,
+		location: report.siteMeta?.location,
+		broadLocation: report.siteMeta?.broadLocation,
+		brandName: report.siteMeta?.brandName,
+		detectedKeywords: report.siteMeta?.detectedKeywords ?? report.detectedKeywords,
+		primaryKeyword: report.siteMeta?.primaryKeyword,
+		category: report.siteMeta?.category,
+		aiBotAccess: report.metrics?.aiBotAccess,
+		schemaTypes,
+		jsonLdCorpus,
+		footerText: report.footerText,
+		representativeName: report.siteMeta?.representativeName,
+		representativeJobTitle: report.siteMeta?.representativeJobTitle,
+		organizationMissing: report.metrics?.organizationMissing,
+		industryType: report.siteMeta?.industryType,
+		defectCount: countAuditDefects(report),
+		platform,
+		isHttps: resolveIsHttps({ url: report.url, hasSsl: report.hasSsl }),
 	};
 }
 
@@ -237,6 +348,8 @@ export function extractSignalsFromFails(args: {
 	const technicalPct = clamp(85 - failPenalty, 15, 92);
 	const schemaPct = clamp(schemaBad ? 35 : 70, 10, 95);
 	const geoPct = clamp((faqPresent ? 60 : 30) + (aiBotsOk ? 15 : -15), 10, 95);
+	const failCorpus = args.technicalFails.join('\n');
+	const platform = detectEnginePlatformSignals({ jsonLdCorpus: failCorpus, extraCorpus: failCorpus });
 
 	return {
 		domain: args.domain,
@@ -247,7 +360,18 @@ export function extractSignalsFromFails(args: {
 		orgComplete: orgHealthy,
 		faqPresent,
 		aiBotsOk,
-		keywords: [args.category, args.broadLocation, args.brandName].filter((v): v is string => Boolean(v && v.trim())),
+		hasLlmsTxt: !has('llms.txt', 'llms-txt'),
+		bodyLength: has('body text', 'crawlable', '본문') ? 80 : 400,
+		hasSearchIndex: !has('noindex', 'x-robots'),
+		eeatOk: orgHealthy && !has('person', 'e-e-a-t', 'eeat'),
+		keywords: [args.category, args.broadLocation].filter((v): v is string => Boolean(v && v.trim())),
+		specialties: args.category ? [args.category] : [],
+		broadLocation: args.broadLocation,
+		brandName: args.brandName,
+		primaryKeyword: args.category,
+		category: args.category,
+		defectCount: args.technicalFails.length,
+		platform,
 	};
 }
 
@@ -256,60 +380,85 @@ export function computeExternalReputationFromSignals(
 	signals: GeoReputationSignals,
 	lang: AuditLang = 'ko',
 ): GeoExternalReputationReport {
-	const { domain, technicalPct, schemaPct, geoPct, orgPresent, orgComplete, faqPresent, aiBotsOk, keywords } = signals;
-	const rand = mulberry32(hashStringToSeed(domain || 'redue-geo'));
+	const { technicalPct, schemaPct, geoPct, orgPresent, orgComplete, faqPresent, aiBotsOk, keywords } = signals;
+	const platform =
+		signals.platform ??
+		detectEnginePlatformSignals({
+			schemaTypes: signals.schemaTypes,
+			jsonLdCorpus: signals.jsonLdCorpus,
+		});
 
-	// —— Overview score ——
-	const napBase = orgComplete ? 88 : orgPresent ? 62 : 52;
-	const aiBotsBonus = aiBotsOk ? 6 : -6;
-	const jitter = seededRange(rand, -5, 5);
-	const rawScore = technicalPct * 0.3 + schemaPct * 0.2 + geoPct * 0.3 + napBase * 0.2 + aiBotsBonus * 0.3 + jitter;
-	const score = clamp(Math.round(rawScore), 12, 97);
+	// —— Overview score = exact 4-pillar sum (entity + bots + NAP + RAG) ——
+	const geoComprehensive = calculateGeoComprehensiveScores(
+		geoRawSignalsFromReputation({
+			...signals,
+			platform,
+		}),
+		signals.isHttps !== false,
+		lang,
+	);
+	const score = geoComprehensive.rawGeoScore;
 	const grade = gradeForScore(score);
 	const percentile = clamp(100 - Math.round(score), 1, 99);
 	const minExposureThreshold = 70;
 	const topRecommendationThreshold = 85;
 	const pointsToTop = Math.max(0, topRecommendationThreshold - score);
 
-	// —— Digital footprint ——
-	const googleMentionBenchmark = seededRange(rand, 180, 320);
-	const googleMentionCount = clamp(
-		Math.round(googleMentionBenchmark * (0.2 + (schemaPct / 100) * 0.55) + seededRange(rand, -20, 20)),
-		8,
-		googleMentionBenchmark + 80,
-	);
-	const naverMentionCount = clamp(Math.round(seededRange(rand, 4, 60) * (0.4 + geoPct / 150)), 0, 80);
-	const naverLow = naverMentionCount < 20;
+	const eeat = buildEeatAuditData({
+		lang,
+		specialties: signals.specialties?.length ? signals.specialties : keywords,
+		primaryKeyword: signals.primaryKeyword,
+		category: signals.category,
+		location: signals.location,
+		broadLocation: signals.broadLocation,
+		brandName: signals.brandName,
+		detectedKeywords: signals.detectedKeywords,
+		industryType: signals.industryType,
+		schemaTypes: signals.schemaTypes,
+		jsonLdCorpus: signals.jsonLdCorpus,
+		footerText: signals.footerText,
+		representativeName: signals.representativeName,
+		representativeJobTitle: signals.representativeJobTitle,
+		organizationMissing: signals.organizationMissing,
+		orgPresent,
+		orgComplete,
+		faqPresent,
+		geoPct,
+		schemaPct,
+		platform,
+		aiBotAccess: signals.aiBotAccess,
+	});
+
+	const googleMentionBenchmark = eeat.data.digitalFootprint.googleBenchmarkAvg;
+	const googleMentionCount = eeat.data.digitalFootprint.googleMentionsCount;
+	const naverMentionCount = eeat.data.digitalFootprint.naverPostingsCount;
+	const naverLow = !platform.naverPlaceLinked && !platform.naverBlogLinked;
 	const naverMentionIssue = naverLow
 		? lang === 'en'
-			? 'Low volume — no fresh reviews in the last 3 months.'
-			: '부족 — 최신 리뷰가 최근 3개월간 없습니다.'
+			? 'No Naver Place or blog sameAs signal was found on the audited page.'
+			: '감사 페이지에서 네이버 플레이스·블로그 sameAs 신호가 확인되지 않았습니다.'
 		: undefined;
 
-	const bingProb = aiBotsOk ? 0.42 : 0.14;
-	const bingPlacesRegistered = rand() < bingProb;
+	const bingPlacesRegistered = eeat.data.digitalFootprint.bingPlacesRegistered;
 	const bingPlacesNote = bingPlacesRegistered
 		? undefined
 		: lang === 'en'
-			? 'Missing Bing Places listing blocks ChatGPT Search exposure.'
-			: 'ChatGPT 검색 노출 차단 요인';
+			? 'No Bing Places sameAs signal on this page — ChatGPT Search location cards stay blocked.'
+			: '페이지에서 Bing Places 연동 신호가 없어 ChatGPT 검색 위치 카드가 생성되지 않습니다.';
 
-	// —— NAP / brand trust ——
-	const napMatchRate = clamp(Math.round(napBase + seededRange(rand, -8, 8)), 30, 99);
-	const napIssue =
-		napMatchRate < 90
-			? lang === 'en'
-				? 'Business hours/phone number mismatch detected between Google Maps and Naver Place.'
-				: '구글맵과 네이버 플레이스의 영업시간/전화번호 불일치가 감지되었습니다.'
-			: undefined;
+	const napMatchRate = eeat.data.napMatchRate;
+	const napIssue = eeat.data.napStatusDescription;
 
-	const uniqueKeywords = Array.from(new Set(keywords)).slice(0, 4);
-	const missingKeyword =
-		!faqPresent || geoPct < 55
-			? `${keywords[0] || (lang === 'en' ? 'service' : '서비스')}${lang === 'en' ? ' reviews' : ' 후기'}`
-			: undefined;
-
-	const brandTrust: EeatBrandTrust = { keywords: uniqueKeywords, missingKeyword, napMatchRate, napIssue };
+	const brandTrust: EeatBrandTrust = {
+		keywords: eeat.data.primaryKeywords,
+		missingKeyword: eeat.showMissingKeyword ? eeat.data.missingTargetKeyword : undefined,
+		personName: eeat.data.personName,
+		personJobTitle: eeat.data.personJobTitle,
+		recommendedSchemaType: eeat.data.recommendedSchemaType,
+		napMatchRate,
+		napIssue,
+		schemaProperties: eeat.schemaProperties,
+	};
 	const digitalFootprint: DigitalFootprint = {
 		googleMentionCount,
 		googleMentionBenchmark,
@@ -317,73 +466,54 @@ export function computeExternalReputationFromSignals(
 		naverMentionIssue,
 		bingPlacesRegistered,
 		bingPlacesNote,
+		aiBots: buildAiCrawlerStatuses({
+			lang,
+			aiBotsOk,
+			aiBotAccess: signals.aiBotAccess,
+		}),
+		howtoGuides: eeat.howtoGuides,
 	};
 
-	// —— AI engine exposure ——
-	const geminiPct = clamp(
-		napBase * 0.55 + schemaPct * 0.25 + Math.min(100, (googleMentionCount / Math.max(1, googleMentionBenchmark)) * 100) * 0.2,
-		0,
-		100,
-	);
-	const chatgptPct = clamp(
-		(aiBotsOk ? 75 : 25) * 0.5 + (bingPlacesRegistered ? 90 : 30) * 0.3 + Math.min(100, (naverMentionCount / 40) * 100) * 0.2,
-		0,
-		100,
-	);
-	const perplexityPct = clamp((faqPresent ? 85 : 35) * 0.5 + geoPct * 0.5, 0, 100);
-
-	const geminiStars = starsFromSignal(geminiPct, rand);
-	const chatgptStars = starsFromSignal(chatgptPct, rand);
-	const perplexityStars = starsFromSignal(perplexityPct, rand);
-
-	const aiEngines: AiEngineExposure[] = [
+	const aiEngines: AiEngineExposure[] = buildEngineAnalysisResults(
 		{
-			engine: 'gemini',
-			engineLabel: lang === 'en' ? 'Gemini recommendation index' : 'Gemini 추천 지수',
-			stars: geminiStars,
-			statusLabel: statusLabelForStars(geminiStars, lang),
-			reason: orgComplete
-				? lang === 'en'
-					? 'Organization/LocalBusiness schema is complete, keeping map-based recommendation signals strong.'
-					: '구글맵 리뷰 및 Organization/LocalBusiness 스키마 신호가 잘 갖춰져 있습니다.'
-				: lang === 'en'
-					? 'Organization/LocalBusiness schema is incomplete, weakening Google Maps recommendation signals.'
-					: 'Organization/LocalBusiness 스키마 정보가 불완전해 구글맵 기반 추천 신호가 약합니다.',
+			technicalPct,
+			schemaPct,
+			geoPct,
+			orgPresent,
+			orgComplete,
+		faqPresent,
+		aiBotsOk,
+		hasLlmsTxt: signals.hasLlmsTxt,
+		bodyLength: signals.bodyLength,
+		hasSearchIndex: signals.hasSearchIndex,
+		eeatOk: signals.eeatOk,
+		keywords,
+			aiBotAccess: signals.aiBotAccess,
+			organizationMissing: signals.organizationMissing,
+			defectCount: signals.defectCount,
+			schemaDefectCount: signals.defectCount,
+			napOk: napMatchRate >= 90,
+			napIssue,
+			isHttps: signals.isHttps,
+			platform,
 		},
-		{
-			engine: 'chatgpt',
-			engineLabel: lang === 'en' ? 'ChatGPT recommendation index' : 'ChatGPT 추천 지수',
-			stars: chatgptStars,
-			statusLabel: statusLabelForStars(chatgptStars, lang),
-			reason: !bingPlacesRegistered
-				? lang === 'en'
-					? 'Missing Bing Places registration and thin recent web mentions (Digital Footprint) limit exposure.'
-					: 'Bing Places 미등록 및 최근 웹 언급량(Digital Footprint) 부족이 원인입니다.'
-				: aiBotsOk
-					? lang === 'en'
-						? 'Bing Places registration and open AI-crawler access support healthy citation odds.'
-						: 'Bing Places 등록과 AI 크롤러 허용 설정이 되어 있어 인용 여건이 양호합니다.'
-					: lang === 'en'
-						? 'AI crawlers are restricted in robots.txt, limiting citation eligibility.'
-						: 'robots.txt에서 AI 크롤러 접근이 제한되어 있어 인용이 어렵습니다.',
-		},
-		{
-			engine: 'perplexity',
-			engineLabel: lang === 'en' ? 'Perplexity recommendation index' : 'Perplexity 추천 지수',
-			stars: perplexityStars,
-			statusLabel: statusLabelForStars(perplexityStars, lang),
-			reason: !faqPresent
-				? lang === 'en'
-					? 'Too few authoritative/FAQ-style structured documents to cite as a source.'
-					: '공식 출처 인용 문서수 부족 및 FAQ 형태의 구조화 문서가 미흡합니다.'
-				: lang === 'en'
-					? 'FAQPage schema and GEO citation signals are in place, earning partial answer-card citations.'
-					: 'FAQPage 스키마와 GEO 인용 신호가 확보되어 답변 카드에 부분적으로 인용되고 있습니다.',
-		},
-	];
+		lang,
+	).map((result) => toAiEngineExposure(result, lang));
 
 	// —— Action plan ——
 	const actionPlan: GeoActionPlanItem[] = [];
+	if (signals.isHttps === false) {
+		actionPlan.push({
+			id: 'https-ssl',
+			priority: 'urgent',
+			pointGain: 15,
+			title: lang === 'en' ? HTTPS_P0_LABEL.en : HTTPS_P0_LABEL.ko,
+			description:
+				lang === 'en'
+					? 'HTTP sites are hard-capped at grade B. Apply free Let\'s Encrypt SSL so browsers and AI engines can trust the origin.'
+					: 'HTTP 사이트는 종합 등급이 B(78점)로 강제 캡핑됩니다. 무료 Let\'s Encrypt SSL을 적용해야 브라우저·AI 엔진 신뢰가 회복됩니다.',
+		});
+	}
 	if (!bingPlacesRegistered) {
 		actionPlan.push({
 			id: 'bing-places',
@@ -418,12 +548,12 @@ export function computeExternalReputationFromSignals(
 			pointGain: 2,
 			title:
 				lang === 'en'
-					? 'Sync business info (NAP) across Google Maps and Naver Place'
-					: '구글맵 - 네이버 플레이스 간 업체 정보(NAP) 동일화',
+					? 'Complete Organization NAP fields (address, telephone, hours)'
+					: 'Organization NAP(주소·전화·영업시간) 속성 완결',
 			description:
 				lang === 'en'
-					? 'Matching hours/phone number strengthens AI-engine trust (E-E-A-T) signals.'
-					: '영업시간 및 전화번호 일치를 통해 AI 엔진의 신뢰도(E-E-A-T) 점수를 확보합니다.',
+					? 'Filling address/telephone/hours on-page strengthens AI-engine trust (E-E-A-T) signals.'
+					: '주소·전화번호·영업시간을 온페이지에 채워 AI 엔진의 신뢰도(E-E-A-T) 점수를 확보합니다.',
 		});
 	}
 	if (actionPlan.length === 0) {
@@ -438,13 +568,17 @@ export function computeExternalReputationFromSignals(
 					: '외부 평판 신호가 이미 양호합니다 — 리뷰·콘텐츠를 꾸준히 갱신해 우위를 지켜야 합니다.',
 		});
 	}
-	actionPlan.sort((a, b) => b.pointGain - a.pointGain);
+	actionPlan.sort((a, b) => {
+		if (a.id === 'https-ssl') return -1;
+		if (b.id === 'https-ssl') return 1;
+		return b.pointGain - a.pointGain;
+	});
 
 	const overview: GeoScoreOverview = {
 		score,
 		grade,
 		percentile,
-		summary: buildSummary({ lang, schemaPct, napMatchRate, bingRegistered: bingPlacesRegistered, naverLow }),
+		summary: getReputationInsight(signals.defectCount ?? 0, score, lang, { isHttps: signals.isHttps }),
 		minExposureThreshold,
 		topRecommendationThreshold,
 		pointsToTop,
@@ -473,15 +607,59 @@ export function buildExternalReputationFromFails(
 }
 
 /**
- * Single resolver used by every Tab-1 UI panel: prefer the (LLM-enriched or
- * server-heuristic) `externalReputation` already attached to the GEO
- * narrative response, otherwise compute the precise client-side fallback
- * immediately from the crawled `AuditReport` — never blocked on network state.
+ * Single resolver used by every Tab-1 UI panel.
+ * Overview / action-plan copy may come from the GEO narrative payload, but
+ * `aiEngines` (scores, badges, cause text) are always recomputed from the
+ * crawled `AuditReport` so the exposure panel cannot show LLM-invented or
+ * leftover mock numbers.
  */
 export function resolveExternalReputation(
 	report: AuditReport,
 	reportData: { externalReputation?: GeoExternalReputationReport } | null | undefined,
 	lang: AuditLang = 'ko',
 ): GeoExternalReputationReport {
-	return reportData?.externalReputation ?? buildHeuristicExternalReputation(report, lang);
+	const computed = buildHeuristicExternalReputation(report, lang);
+	const raw =
+		report.scoreSource === 'projected'
+			? computed
+			: reportData?.externalReputation ?? computed;
+	const defectCount = countAuditDefects(report);
+	const score = computed.overview.score;
+	return {
+		...raw,
+		overview: {
+			...raw.overview,
+			score,
+			grade: computed.overview.grade,
+			percentile: computed.overview.percentile,
+			summary: getReputationInsight(defectCount, score, lang, {
+				isHttps: resolveIsHttps({ url: report.url, hasSsl: report.hasSsl }),
+			}),
+			minExposureThreshold: computed.overview.minExposureThreshold,
+			topRecommendationThreshold: computed.overview.topRecommendationThreshold,
+			pointsToTop: computed.overview.pointsToTop,
+		},
+		aiEngines: computed.aiEngines,
+		brandTrust: {
+			...raw.brandTrust,
+			keywords: computed.brandTrust.keywords,
+			missingKeyword: computed.brandTrust.missingKeyword,
+			personName: computed.brandTrust.personName,
+			personJobTitle: computed.brandTrust.personJobTitle,
+			napMatchRate: computed.brandTrust.napMatchRate,
+			napIssue: computed.brandTrust.napIssue,
+			schemaProperties: computed.brandTrust.schemaProperties,
+		},
+		digitalFootprint: {
+			...raw.digitalFootprint,
+			googleMentionCount: computed.digitalFootprint.googleMentionCount,
+			googleMentionBenchmark: computed.digitalFootprint.googleMentionBenchmark,
+			naverMentionCount: computed.digitalFootprint.naverMentionCount,
+			naverMentionIssue: computed.digitalFootprint.naverMentionIssue,
+			bingPlacesRegistered: computed.digitalFootprint.bingPlacesRegistered,
+			bingPlacesNote: computed.digitalFootprint.bingPlacesNote,
+			aiBots: computed.digitalFootprint.aiBots,
+			howtoGuides: computed.digitalFootprint.howtoGuides,
+		},
+	};
 }

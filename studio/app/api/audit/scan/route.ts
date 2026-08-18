@@ -20,7 +20,7 @@ export const runtime = 'nodejs';
 interface AuditScanBody {
 	url?: string;
 	lang?: string;
-	/** When true: live crawl with cache-bust; overwrite prior history row for this URL. */
+	/** Recrawl live HTML meta/schema. Defaults to true; set false only to skip cache-bust. */
 	forceRefresh?: boolean;
 	/** Client cache-bust timestamp (ignored server-side except for logging). */
 	t?: number;
@@ -69,8 +69,9 @@ async function resolveLang(explicit?: string): Promise<AuditLang> {
  * plus `id` of the persisted Firestore `audit_projects` doc (primary) so the
  * client can deep-link to `/audit/result?id=…` and `/admin/solve?id=…`.
  *
- * With `forceRefresh: true`, skips history reuse, cache-busts the live crawl,
- * and overwrites the existing audit row (replaceId or latest same-URL doc).
+ * Same `targetUrl` is always recrawled (HTML meta + schema). `forceRefresh`
+ * (default true) cache-busts the live crawl and overwrites the existing audit
+ * row (replaceId or latest same-URL doc) instead of returning stored cache.
  */
 export async function POST(request: Request) {
 	const body = (await request.json().catch(() => ({}))) as AuditScanBody;
@@ -80,12 +81,13 @@ export async function POST(request: Request) {
 	}
 
 	const lang = await resolveLang(body.lang);
-	const forceRefresh = body.forceRefresh === true;
+	const forceRefresh = body.forceRefresh !== false;
 	const replaceId = typeof body.replaceId === 'string' ? body.replaceId.trim() : '';
 
 	let report;
 	try {
-		// Always live-fetch; forceRefresh adds ?_redue_nocache= and no-cache headers.
+		// Live-fetch HTML meta + schema. forceRefresh (default) cache-busts CDN/proxy
+		// and overwrites the prior diagnosis row for the same targetUrl.
 		report = await auditSite(rawUrl, lang, { forceRefresh });
 	} catch (err) {
 		if (err instanceof UnsafeAuditUrlError) {

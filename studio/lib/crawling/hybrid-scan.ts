@@ -3,6 +3,9 @@ import * as cheerio from 'cheerio';
 import https from 'https';
 import iconv from 'iconv-lite';
 import jschardet from 'jschardet';
+import { detectCmsFromHtml } from './cms-from-html';
+
+export { detectCmsFromHtml } from './cms-from-html';
 
 /** Google PageSpeed Insights API v5 — SEO category, mobile strategy. */
 export const PSI_SEO_ENDPOINT =
@@ -167,70 +170,6 @@ export function decodeHtmlBuffer(
 		}
 		return utf8Peek;
 	}
-}
-
-/**
- * Domestic CMS / framework / tech-stack heuristics from raw HTML.
- * Covers JSP, ASP, PHP boards, builders, and React/Next SPA signals.
- */
-export function detectCmsFromHtml(html: string): string {
-	const htmlString = html.toLowerCase();
-
-	if (htmlString.includes('gnuboard') || htmlString.includes('g5_url') || htmlString.includes('g5_')) {
-		if (
-			htmlString.includes('youngcart') ||
-			htmlString.includes('yc4_') ||
-			htmlString.includes('/shop/item.php')
-		) {
-			return '그누보드 / 영카트 (GNUBOARD)';
-		}
-		return '그누보드 (GNUBOARD)';
-	}
-	if (htmlString.includes('imweb') || htmlString.includes('cdn.imweb.me')) {
-		return '아임웹 (Imweb)';
-	}
-	if (htmlString.includes('cafe24') || htmlString.includes('cafe24.com')) {
-		return '카페24 (Cafe24)';
-	}
-	if (
-		htmlString.includes('wp-content') ||
-		htmlString.includes('wp-includes') ||
-		htmlString.includes('wordpress')
-	) {
-		return '워드프레스 (WordPress)';
-	}
-	if (
-		htmlString.includes('.jsp') ||
-		htmlString.includes('jsessionid') ||
-		htmlString.includes('egovframe') ||
-		htmlString.includes('egovframework')
-	) {
-		return 'JSP / 자체구축 (Legacy)';
-	}
-	if (
-		htmlString.includes('.aspx') ||
-		htmlString.includes('.asp') ||
-		htmlString.includes('__viewstate') ||
-		htmlString.includes('asp.net')
-	) {
-		return 'ASP.NET / Classic ASP';
-	}
-	if (
-		htmlString.includes('_next') ||
-		htmlString.includes('__next') ||
-		htmlString.includes('__next_data__') ||
-		htmlString.includes('/_next/')
-	) {
-		return 'Next.js / React (SPA)';
-	}
-	if (htmlString.includes('makeshop') || htmlString.includes('makeshop.co.kr')) {
-		return '메이크샵 (Makeshop)';
-	}
-	if (htmlString.includes('godomall') || htmlString.includes('godo.co.kr')) {
-		return '고도몰 (Godomall)';
-	}
-
-	return '자체구축 / 기타';
 }
 
 function buildPsiUrl(targetUrl: string, apiKey: string): string {

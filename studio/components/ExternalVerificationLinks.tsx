@@ -42,10 +42,10 @@ const TOOL_BADGE: Record<
 };
 
 const TOOL_BADGE_DARK: Record<VerificationToolId, string> = {
-	pagespeed: 'bg-emerald-400/15 text-emerald-300 ring-emerald-400/25',
-	schemaValidator: 'bg-sky-400/15 text-sky-300 ring-sky-400/25',
-	richResults: 'bg-amber-400/15 text-amber-200 ring-amber-400/25',
-	seoptimer: 'bg-violet-400/15 text-violet-300 ring-violet-400/25',
+	pagespeed: 'bg-emerald-50 dark:bg-emerald-400/15 text-emerald-700 dark:text-emerald-300 ring-emerald-200 dark:ring-emerald-400/25',
+	schemaValidator: 'bg-sky-50 dark:bg-sky-400/15 text-sky-700 dark:text-sky-300 ring-sky-200 dark:ring-sky-400/25',
+	richResults: 'bg-amber-50 dark:bg-amber-400/15 text-amber-800 dark:text-amber-200 ring-amber-200 dark:ring-amber-400/25',
+	seoptimer: 'bg-violet-50 dark:bg-violet-400/15 text-violet-700 dark:text-violet-300 ring-violet-200 dark:ring-violet-400/25',
 };
 
 /**
@@ -69,13 +69,13 @@ export function ExternalVerificationLinks({
 
 	const shell =
 		variant === 'dark'
-			? 'rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5'
+			? 'rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] p-5'
 			: isCompact
 				? 'rounded-lg border border-slate-200 bg-slate-50 p-3'
 				: 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm';
 
 	const titleClass = isDark
-		? 'text-sm font-semibold text-slate-200'
+		? 'text-sm font-semibold text-slate-800 dark:text-slate-200'
 		: 'text-sm font-bold text-slate-800';
 
 	const subtitleClass = isDark
@@ -83,7 +83,7 @@ export function ExternalVerificationLinks({
 		: 'mt-1 text-xs text-slate-500';
 
 	const btnClass = isDark
-		? 'border-white/[0.1] bg-white/[0.04] text-slate-200 hover:bg-white/[0.08]'
+		? 'border-slate-200 dark:border-white/[0.1] bg-white dark:bg-white/[0.04] text-slate-800 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08]'
 		: 'border-slate-200 bg-white text-slate-800 hover:bg-slate-50';
 
 	const hintClass = isDark ? 'text-slate-500' : 'text-slate-400';

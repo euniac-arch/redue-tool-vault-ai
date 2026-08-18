@@ -34,7 +34,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [pricingOpen, setPricingOpen] = useState(false);
 
-	const isLight = variant === 'light';
+	const forceLight = variant === 'light';
 
 	useEffect(() => {
 		if (status !== 'authenticated') {
@@ -56,7 +56,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 		return (
 			<div
 				className={`h-8 w-24 animate-pulse rounded-full ${
-					isLight ? 'bg-zinc-200' : 'bg-white/5'
+					forceLight ? 'bg-zinc-200' : 'bg-slate-200 dark:bg-white/5'
 				}`}
 			/>
 		);
@@ -71,9 +71,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 					className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 ${
 						stacked ? 'w-full' : ''
 					} ${
-						isLight
+						forceLight
 							? 'text-zinc-700 hover:bg-zinc-100 hover:text-black'
-							: 'border border-white/[0.08] bg-white/5 text-slate-200 hover:bg-white/10'
+							: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10'
 					}`}
 				>
 					{t('signIn')}
@@ -84,9 +84,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 					className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
 						stacked ? 'w-full' : ''
 					} ${
-						isLight
+						forceLight
 							? 'bg-zinc-900 text-white hover:bg-black'
-							: 'bg-white text-zinc-900 hover:bg-zinc-100'
+							: 'bg-slate-900 text-white hover:bg-black dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100'
 					}`}
 				>
 					{t('signUp')}
@@ -104,9 +104,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 				className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-colors duration-200 ${
 					stacked ? 'w-full justify-center' : ''
 				} ${
-					isLight
+					forceLight
 						? 'border border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
-						: 'border border-cyan-400/30 bg-cyan-400/10 text-cyan-300 hover:bg-cyan-400/20'
+						: 'border border-cyan-600/30 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-300 dark:hover:bg-cyan-400/20'
 				}`}
 				title={t('upgrade')}
 			>
@@ -119,9 +119,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 					className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors duration-200 ${
 						stacked ? 'mx-auto' : ''
 					} ${
-						isLight
+						forceLight
 							? 'border border-zinc-200 bg-zinc-100 text-zinc-800 hover:bg-zinc-200'
-							: 'border border-white/[0.08] bg-accent/20 text-accent-light'
+							: 'border border-slate-200 bg-accent/10 text-accent hover:bg-accent/15 dark:border-white/[0.08] dark:bg-accent/20 dark:text-accent-light'
 					}`}
 				>
 					{initial}
@@ -133,24 +133,24 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 							className={`absolute z-20 mt-2 w-56 rounded-xl p-2 shadow-xl ${
 								stacked ? 'left-0 right-0 w-full' : 'right-0'
 							} ${
-								isLight
+								forceLight
 									? 'border border-zinc-200 bg-white'
-									: 'border border-white/[0.08] bg-[#0C0D0E]'
+									: 'border border-slate-200 bg-white dark:border-white/[0.08] dark:bg-[#0C0D0E]'
 							}`}
 						>
 							<div
 								className={`border-b px-3 py-2 ${
-									isLight ? 'border-zinc-100' : 'border-white/[0.08]'
+									forceLight ? 'border-zinc-100' : 'border-slate-100 dark:border-white/[0.08]'
 								}`}
 							>
 								<p
 									className={`truncate text-sm font-semibold ${
-										isLight ? 'text-zinc-900' : 'text-white'
+										forceLight ? 'text-zinc-900' : 'text-slate-900 dark:text-white'
 									}`}
 								>
 									{me.name ?? me.email}
 								</p>
-								<p className={`mt-0.5 text-xs ${isLight ? 'text-zinc-500' : 'text-slate-500'}`}>
+								<p className={`mt-0.5 text-xs ${forceLight ? 'text-zinc-500' : 'text-slate-500'}`}>
 									{PLAN_LABEL[me.planId ?? 'starter'] ?? me.planId} 요금제
 								</p>
 							</div>
@@ -168,9 +168,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 										onNavigate?.();
 									}}
 									className={`block rounded-lg px-3 py-2 text-sm transition-colors duration-200 ${
-										isLight
+										forceLight
 											? 'text-zinc-700 hover:bg-zinc-50 hover:text-black'
-											: 'text-slate-200 hover:bg-white/5'
+											: 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-white/5 dark:hover:text-white'
 									}`}
 								>
 									{link.label}
@@ -185,9 +185,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 											onNavigate?.();
 										}}
 										className={`block rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-200 ${
-											isLight
+											forceLight
 												? 'text-zinc-900 hover:bg-zinc-50'
-												: 'text-accent-light hover:bg-white/5'
+												: 'text-accent hover:bg-slate-50 dark:text-accent-light dark:hover:bg-white/5'
 										}`}
 									>
 										🛠️ {t('admin')}
@@ -199,9 +199,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 											onNavigate?.();
 										}}
 										className={`block rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-200 ${
-											isLight
+											forceLight
 												? 'text-zinc-900 hover:bg-zinc-50'
-												: 'text-cyan-300 hover:bg-white/5'
+												: 'text-cyan-800 hover:bg-slate-50 dark:text-cyan-300 dark:hover:bg-white/5'
 										}`}
 									>
 										◈ {t('autonomous')}
@@ -214,9 +214,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 									setPricingOpen(true);
 								}}
 								className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-200 ${
-									isLight
+									forceLight
 										? 'text-zinc-700 hover:bg-zinc-50 hover:text-black'
-										: 'text-slate-200 hover:bg-white/5'
+										: 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-white/5'
 								}`}
 							>
 								{t('upgrade')}
@@ -224,7 +224,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 							<button
 								onClick={() => signOut({ callbackUrl: '/' })}
 								className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-200 ${
-									isLight ? 'text-rose-600 hover:bg-rose-50' : 'text-rose-300 hover:bg-white/5'
+									forceLight ? 'text-rose-600 hover:bg-rose-50' : 'text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-white/5'
 								}`}
 							>
 								{t('logout')}

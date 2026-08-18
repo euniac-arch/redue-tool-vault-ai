@@ -9,6 +9,7 @@ import {
 	AUDIT_HISTORY_SYNC_CHANNEL,
 	AUDIT_HISTORY_SYNC_KEY,
 	dedupeHistoryEntries,
+	filterDeletedHistoryEntries,
 	getGuestAudits,
 	isHealthyStatus,
 	notifyAuditHistorySync,
@@ -48,18 +49,20 @@ export default function AuditHistoryPage() {
 				// Firestore is the shared admin/frontend store — drop guest rows admin already deleted.
 				if (data.source === 'firestore') {
 					pruneGuestAuditsToServerIds(serverIds);
-					setItems(dedupeHistoryEntries(serverItems));
+					setItems(filterDeletedHistoryEntries(dedupeHistoryEntries(serverItems)));
 					return;
 				}
 
-				const merged = dedupeHistoryEntries([
-					...serverItems,
-					...guestItems.filter((item) => !serverIds.has(item.id)),
-				]);
+				const merged = filterDeletedHistoryEntries(
+					dedupeHistoryEntries([
+						...serverItems,
+						...guestItems.filter((item) => !serverIds.has(item.id)),
+					]),
+				);
 				setItems(merged);
 			} catch (err) {
 				// Fall back to guest cache if the history API fails.
-				setItems(getGuestAudits());
+				setItems(filterDeletedHistoryEntries(getGuestAudits()));
 				setError((err as Error).message);
 			} finally {
 				if (!opts?.quiet) setLoading(false);
@@ -123,20 +126,19 @@ export default function AuditHistoryPage() {
 		setError(null);
 		try {
 			removeGuestAudit(id);
+			setItems((prev) => prev.filter((item) => item.id !== id));
 
-			if (session?.user) {
-				const res = await fetch(`/api/audit/${encodeURIComponent(id)}`, { method: 'DELETE' });
-				const data = await res.json().catch(() => ({}));
-				// 401/403/404: still drop from UI — guest cache already cleared.
-				if (!res.ok && res.status !== 401 && res.status !== 403 && res.status !== 404) {
-					throw new Error(data.error ?? t('deleteFailed'));
-				}
+			const res = await fetch(`/api/audit/${encodeURIComponent(id)}`, { method: 'DELETE' });
+			const data = await res.json().catch(() => ({}));
+			// 401/403/404: keep the card hidden locally (tombstone). Only surface hard failures.
+			if (!res.ok && res.status !== 401 && res.status !== 403 && res.status !== 404) {
+				throw new Error((data as { error?: string }).error ?? t('deleteFailed'));
 			}
 
-			setItems((prev) => prev.filter((item) => item.id !== id));
 			notifyAuditHistorySync({ ids: [id] });
 		} catch (err) {
 			setError((err as Error).message);
+			setItems((prev) => prev.filter((item) => item.id !== id));
 		} finally {
 			setDeletingId(null);
 		}
@@ -145,22 +147,22 @@ export default function AuditHistoryPage() {
 	return (
 		<main className="flex flex-col gap-6">
 			<div>
-				<Link href="/" className="text-sm text-slate-400 hover:text-white">
+				<Link href="/" className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
 					{t('backToHome')}
 				</Link>
 			</div>
 
 			<header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 				<div>
-					<h1 className="text-2xl font-extrabold text-white">{t('title')}</h1>
-					<p className="mt-1 text-sm text-slate-400">
+					<h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">{t('title')}</h1>
+					<p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
 						{t('totalCount', { count: items.length })}
 						{!session?.user ? ` · ${t('guestHint')}` : null}
 					</p>
 				</div>
 				<Link
 					href="/"
-					className="w-fit rounded-xl border border-white/[0.08] bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10"
+					className="w-fit rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-200 dark:shadow-none dark:hover:border-white/20 dark:hover:bg-white/10"
 				>
 					{t('newAudit')}
 				</Link>
@@ -172,7 +174,7 @@ export default function AuditHistoryPage() {
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
 					placeholder={t('searchPlaceholder')}
-					className="w-full flex-1 rounded-xl border border-white/[0.08] bg-black/40 px-4 py-3 text-sm text-slate-100 outline-none focus:border-accent"
+					className="w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-accent dark:border-white/[0.08] dark:bg-black/40 dark:text-slate-100"
 				/>
 				<div className="flex gap-2">
 					{(
@@ -189,7 +191,7 @@ export default function AuditHistoryPage() {
 							className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
 								statusFilter === value
 									? 'bg-accent text-white shadow-lg shadow-accent/20'
-									: 'border border-white/[0.08] bg-white/5 text-slate-400 hover:text-white'
+									: 'border border-slate-200 bg-white text-slate-600 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-400 dark:hover:text-white'
 							}`}
 						>
 							{label}
@@ -199,16 +201,16 @@ export default function AuditHistoryPage() {
 			</div>
 
 			{error && (
-				<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+				<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
 					{error}
 				</div>
 			)}
 
-			{loading && <div className="h-40 animate-pulse rounded-2xl border border-white/[0.08] bg-white/[0.03]" />}
+			{loading && <div className="h-40 animate-pulse rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/[0.08] dark:bg-[#111419]" />}
 
 			{!loading && items.length === 0 && (
-				<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-white/[0.12] bg-white/[0.02] px-6 py-16 text-center">
-					<p className="text-base font-semibold text-slate-200">{t('emptyTitle')}</p>
+				<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center dark:border-white/[0.12] dark:bg-[#111419]">
+					<p className="text-base font-semibold text-slate-800 dark:text-slate-200">{t('emptyTitle')}</p>
 					<p className="max-w-md text-sm text-slate-500">{t('emptyDescription')}</p>
 					<Link
 						href="/"
@@ -220,7 +222,7 @@ export default function AuditHistoryPage() {
 			)}
 
 			{!loading && items.length > 0 && filtered.length === 0 && (
-				<div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-10 text-center text-sm text-slate-500">
+				<div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500 shadow-sm dark:border-white/[0.08] dark:bg-[#111419] dark:shadow-none">
 					{t('noMatches')}
 				</div>
 			)}
@@ -230,28 +232,6 @@ export default function AuditHistoryPage() {
 					items={filtered}
 					onDelete={handleDelete}
 					deletingId={deletingId}
-					onRescanned={(entry) => {
-						setItems((prev) => {
-							const entryHost = (() => {
-								try {
-									return new URL(entry.url).hostname.replace(/^www\./, '').toLowerCase();
-								} catch {
-									return entry.url.toLowerCase();
-								}
-							})();
-							const withoutOld = prev.filter((item) => {
-								if (item.id === entry.id) return false;
-								try {
-									const host = new URL(item.url).hostname.replace(/^www\./, '').toLowerCase();
-									return host !== entryHost;
-								} catch {
-									return item.url !== entry.url;
-								}
-							});
-							return dedupeHistoryEntries([entry, ...withoutOld]);
-						});
-						setSyncTick((n) => n + 1);
-					}}
 				/>
 			)}
 		</main>

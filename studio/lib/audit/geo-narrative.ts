@@ -9,6 +9,16 @@ import {
 	buildCoreTechnicalFailsFromReport,
 } from '@/lib/audit/core-checklist';
 import { buildExternalReputationFromFails, type GeoExternalReputationReport } from '@/lib/audit/geo-score';
+import {
+	alignRecommendedSchemas,
+	buildMedicalSimulatorQuery,
+	detectSchemaVertical,
+	formatReportRegion,
+	resolveRecommendedSchemas,
+	type SchemaMappingInput,
+} from '@/lib/audit/recommended-schemas';
+import { EXPANDED_TRIGGER_QUERY_RULES, formatColloquialLocation } from '@/lib/geo/query-location';
+import { getJosa } from '@/lib/korean-josa';
 import type { AuditCheckItem, AuditReport } from '@/lib/site-auditor';
 
 export { buildCoreTechnicalFailsFromReport };
@@ -57,8 +67,12 @@ export interface GeoNarrativeRequest {
 	technicalFails?: string[];
 	brandName?: string;
 	category?: string;
+	/** Core procedure / clinic specialty (e.g. 정형·통증클리닉). */
+	mainSpecialty?: string;
 	location?: string;
 	broadLocation?: string;
+	industryType?: string;
+	schemaTypes?: string[];
 	lang?: 'ko' | 'en';
 }
 
@@ -66,7 +80,8 @@ export { extractOfficialBrandName } from '@/lib/audit/brand-name';
 
 /**
  * Evidence lines for GEO narrative — bound 1:1 to the live SEO/GEO 6-core checklist
- * (Canonical, Heading, Script Defer, NewsArticle, FAQPage, Image Alt).
+ * (Canonical, Heading, Script Defer, page schema / FAQPage, Image Alt).
+ * NewsArticle is only a core fail on press/media sites; clinics/businesses use AboutPage or MedicalWebPage.
  * Only 🔴 (fail/warning) items are included; never invents stale "JSON-LD blocks = 0" when badges are 🟢.
  */
 export function buildTechnicalFailsFromReport(
@@ -188,14 +203,19 @@ Your task is to analyze the client's actual technical fail evidence and generate
 
 [STRICT GENERATION RULES]
 1. BRAND NAME EXTRACTION: Cleanly extract the official business name from siteTitle and domain. NEVER use search keywords as the brand name. (e.g., if siteTitle is "부산 임플란트 잘하는 곳 365드림치과", brandName MUST BE "365드림치과" or "365드림치과의원"). Prefer the preComputedBrandName if provided.
-2. INDUSTRY SCHEMA MATCHING:
-   - Medical/Dental: MUST use ["Dentist","MedicalClinic","FAQPage"] or ["Hospital","MedicalBusiness","FAQPage"] or ["Dentist","MedicalCondition","Person"]. NEVER use "Article" or "NewsArticle" as the primary schema for hospitals/clinics.
-   - E-commerce: ["Product","Offer","AggregateRating"]
-   - B2B/Corporate: ["Organization","Service","FAQPage"]
+2. INDUSTRY SCHEMA MATCHING (exactly 3 types, GEO algorithm order):
+   - Local clinic/의원: MUST use ["MedicalClinic","FAQPage","Person"]. NEVER use Hospital for a neighborhood clinic.
+   - Dental: ["Dentist","FAQPage","Person"]
+   - Tertiary hospital (종합병원 only): ["Hospital","FAQPage","Person"]
+   - Legal: ["LegalService","FAQPage","Person"]
+   - Local business: ["LocalBusiness","FAQPage","Organization"]
+   - B2B/Corporate: ["Organization","FAQPage","Person"]
+   - Press/media only: ["NewsArticle","FAQPage","Organization"]
+   - NEVER use "Article" or "NewsArticle" as a recommended schema for hospitals, clinics, law firms, or ordinary businesses.
 3. EVIDENCE-BASED ANALYSIS (6-CORE CHECKLIST ONLY):
-   - technicalFails lists ONLY 🔴 items from the live 6-core checklist: Canonical, Heading hierarchy, Render-blocking scripts, NewsArticle/Article, FAQPage, Image Alt.
-   - "beforeImpact", "beforeAnswer", and each impactItems[].currentIssue MUST cite ONLY those listed technicalFails. NEVER invent stale fails such as "JSON-LD blocks = 0", "Meta description missing", or "Open Graph incomplete" unless they appear in technicalFails.
-   - If technicalFails is empty (all 6 items 🟢): beforeImpact MUST be an After-success report (confirm structured data / FAQPage / NewsArticle / SEO essentials are fully applied; brand is favorable for AI answer-card citation). beforeAnswer may briefly note the brand is already structured; do NOT invent defects.
+   - technicalFails lists ONLY 🔴 items from the live 6-core checklist: Canonical, Heading hierarchy, Render-blocking scripts, page schema (AboutPage/MedicalWebPage — NewsArticle only for press/media), FAQPage, Image Alt.
+   - "beforeImpact", "beforeAnswer", and each impactItems[].currentIssue MUST cite ONLY those listed technicalFails. NEVER invent stale fails such as "JSON-LD blocks = 0", "Meta description missing", "NewsArticle missing" on a clinic/business site, or "Open Graph incomplete" unless they appear in technicalFails.
+   - If technicalFails is empty (all 6 items 🟢): beforeImpact MUST be an After-success report (confirm structured data / FAQPage / AboutPage or MedicalWebPage / SEO essentials are fully applied; brand is favorable for AI answer-card citation). beforeAnswer may briefly note the brand is already structured; do NOT invent defects.
 4. IMPACT ITEMS (Before–After channels) — CRITICAL:
    - Select ONLY channels matching a real defect in technicalFails. Exclude healthy channels entirely.
    - When technicalFails is empty: return 2 maintenance/upside impactItems focused on keeping the healthy state (no fabricated current defects).
@@ -206,6 +226,9 @@ Your task is to analyze the client's actual technical fail evidence and generate
    - channelTitle must name the affected surface (e.g. "구글 검색 / Canonical", "AI 검색 · FAQPage", "온페이지 / Heading", "페이지 속도 / Defer", "이미지 / Alt").
 5. NO DUPLICATE SENTENCES: Every section must contain distinct, unique, and professional prose. Avoid generic repetitive phrases.
 6. OUTPUT: Return ONLY valid JSON. No markdown fences.
+7. LOCATION & expanded_trigger_query LANGUAGE:
+${EXPANDED_TRIGGER_QUERY_RULES}
+- searchQuery must use spoken location forms only (서울, 부산, 대구 — never 서울특별시/부산광역시). Prefer “서울 서초구 암치료 클리닉” over “서초구 서울특별시 암치료 클리닉”.
 
 [Canonical URL 정합성 평가 가이드라인]
 - 수집된 Canonical URL이 마크다운 링크 형식이거나 HTML 태그 형태일 경우, 표기 형식이 아닌 실제 도메인 주소(Protocol + Host + Path + Query)만을 추출하여 평가하세요.
@@ -233,10 +256,10 @@ Website context (from live crawl — treat as ground truth):
 - metaDescription (raw): ${input.metaDescription || '(unavailable)'}
 - preComputedBrandName (USE THIS as brandName unless clearly wrong): ${preBrand}
 - category/service hint: ${input.category || '(unknown)'}
-- location hint: ${input.broadLocation || input.location || '(unknown)'}
+- location hint: ${formatColloquialLocation(input.broadLocation || input.location || '') || '(unknown)'}
 
-technicalFails = 🔴 items ONLY from the live 6-core checklist (Canonical / Heading / Script Defer / NewsArticle / FAQPage / Image Alt).
-Cite ONLY these in beforeImpact, beforeAnswer, and impactItems.currentIssue. Never invent unlisted fails:
+technicalFails = 🔴 items ONLY from the live 6-core checklist (Canonical / Heading / Script Defer / AboutPage·MedicalWebPage or NewsArticle-if-press / FAQPage / Image Alt).
+Cite ONLY these in beforeImpact, beforeAnswer, and impactItems.currentIssue. Never invent unlisted fails (especially do not invent NewsArticle missing on a clinic or ordinary business):
 ${failList}
 
 Required JSON shape:
@@ -246,7 +269,7 @@ Required JSON shape:
   "recommendedSchemas": ["Type1", "Type2", "Type3"],
   "beforeImpact": "${
 		allCoreHealthy
-			? 'exactly 2 sentences of After SUCCESS copy — confirm JSON-LD/FAQPage/NewsArticle/SEO essentials are fully applied; brand is favorable for AI answer-card citation. NEVER mention JSON-LD blocks = 0 or other defects'
+			? 'exactly 2 sentences of After SUCCESS copy — confirm JSON-LD/FAQPage/AboutPage or MedicalWebPage/SEO essentials are fully applied; brand is favorable for AI answer-card citation. NEVER mention JSON-LD blocks = 0, NewsArticle missing, or other defects'
 			: 'exactly 2 sentences; name ONLY the listed technicalFails (comma-join when multiple) and the business loss for this industry'
 	}",
   "impactItems": [
@@ -263,7 +286,7 @@ Required JSON shape:
     { "title": "short distinct title", "body": "1-2 sentence upside" }
   ],
   "aiSimulator": {
-    "searchQuery": "realistic ChatGPT/Perplexity query a local customer would type (may include location + treatment, NOT the brand)",
+    "searchQuery": "realistic ChatGPT/Perplexity query a local customer would type (colloquial location only — 서울/부산 not 서울특별시/부산광역시; may include location + treatment, NOT the brand)",
     "beforeAnswer": "${
 			allCoreHealthy
 				? 'brief note that the brand is already structured for citation — do NOT invent defects'
@@ -691,9 +714,20 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 	const domain = input.domain || 'example.com';
 	const lang = input.lang === 'en' ? 'en' : 'ko';
 	const obj = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-	const schemas = Array.isArray(obj.recommendedSchemas)
-		? obj.recommendedSchemas.map((s) => String(s).trim()).filter(Boolean).slice(0, 3)
+	const mapping: SchemaMappingInput = {
+		industry: String(obj.industry ?? '').trim() || input.category,
+		category: input.category,
+		siteTitle: input.siteTitle,
+		brandName: input.brandName,
+		domain,
+		primaryKeyword: input.mainSpecialty || input.category,
+		industryType: input.industryType,
+		schemaTypes: input.schemaTypes,
+	};
+	const incomingSchemas = Array.isArray(obj.recommendedSchemas)
+		? obj.recommendedSchemas.map((s) => String(s).trim()).filter(Boolean)
 		: [];
+	const schemas = alignRecommendedSchemas(incomingSchemas, mapping);
 
 	const safeBrand = extractOfficialBrandName(input.siteTitle || '', domain, input.brandName);
 	let brandName = String(obj.brandName ?? '').trim() || safeBrand;
@@ -702,29 +736,6 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 	}
 
 	const industry = String(obj.industry ?? '').trim() || '일반 서비스';
-	const isMedical = /의료|치과|병원|의원|클리닉|피부|성형|dental|clinic|hospital|medical/i.test(
-		`${industry} ${input.category} ${input.siteTitle}`,
-	);
-	const isShop = /쇼핑|커머스|쇼핑몰|ecommerce|store/i.test(industry);
-	const isB2b = /b2b|제조|기업|법인|software|it\//i.test(industry);
-
-	if (schemas.length < 3) {
-		const fallback = isMedical
-			? /치과|dental|implant/i.test(`${industry} ${input.category} ${input.siteTitle}`)
-				? ['Dentist', 'MedicalClinic', 'FAQPage']
-				: ['Hospital', 'MedicalBusiness', 'FAQPage']
-			: isShop
-				? ['Product', 'Offer', 'AggregateRating']
-				: isB2b
-					? ['Organization', 'Service', 'FAQPage']
-					: ['Organization', 'FAQPage', 'Person'];
-		while (schemas.length < 3) schemas.push(fallback[schemas.length]!);
-	}
-
-	if (isMedical && /^(Article|NewsArticle|BlogPosting)$/i.test(schemas[0] || '')) {
-		schemas[0] = /치과|dental/i.test(`${industry} ${input.siteTitle}`) ? 'Dentist' : 'Hospital';
-		if (!schemas.includes('FAQPage')) schemas[2] = 'FAQPage';
-	}
 
 	const benefitsRaw = Array.isArray(obj.afterBenefits) ? obj.afterBenefits : [];
 	const afterBenefits = [0, 1, 2].map((i) => asBenefit(benefitsRaw[i], i));
@@ -741,6 +752,7 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 		brandName,
 		industry,
 		lang,
+		vertical: detectSchemaVertical(mapping),
 	});
 
 	const parsedImpact = Array.isArray(obj.impactItems)
@@ -780,7 +792,7 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 		: llmBefore ||
 			(lang === 'en'
 				? `Live audit found ${failHint}, so AI engines cannot fully collect and cite ${brandName}'s ${industry}. Fixing the weak items strengthens top answer-card exposure and inquiry inflow.`
-				: `실측 진단에서 ${failHint} 항목이 확인되어 AI 검색엔진이 ${brandName}의 ${industry}를 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`);
+				: `실측 진단에서 ${failHint} 항목이 확인되어 AI 검색엔진이 ${brandName}의 ${industry}${getJosa(industry, '을/를')} 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`);
 
 	return {
 		brandName,
@@ -797,11 +809,11 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 				? String(sim.beforeAnswer ?? '').trim() ||
 					(lang === 'en'
 						? `${brandName} already shows strong structured signals and can appear as a citable source in AI answers.`
-						: `${brandName}은(는) 구조화 신호가 확보되어 AI 답변에서 인용 가능한 출처로 인식될 수 있는 상태입니다.`)
+						: `${brandName}${getJosa(brandName, '은/는')} 구조화 신호가 확보되어 AI 답변에서 인용 가능한 출처로 인식될 수 있는 상태입니다.`)
 				: String(sim.beforeAnswer ?? '').trim() ||
 					(lang === 'en'
 						? `Technical gaps (${failHint}) leave only directories/directory citations without an official brand source badge. ${brandName} does not appear.`
-						: `기술 결함(${failHint}) 때문에 공식 브랜드 출처 배지 없이 포털·디렉터리 결과만 인용됩니다. ${brandName}은(는) 등장하지 않습니다.`),
+						: `기술 결함(${failHint}) 때문에 공식 브랜드 출처 배지 없이 포털·디렉터리 결과만 인용됩니다. ${brandName}${getJosa(brandName, '은/는')} 등장하지 않습니다.`),
 			afterAnswer:
 				String(sim.afterAnswer ?? '').trim() ||
 				`공식 스키마 기준 최우선 추천은 ${brandName}(${domain})입니다. ${schemas[0]}·FAQPage 신호로 상단 정답 카드에 인용됩니다.`,
@@ -817,45 +829,32 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 	const domain = input.domain || 'example.com';
 	const brand = extractOfficialBrandName(input.siteTitle || '', domain, input.brandName);
 	const category = input.category || (lang === 'ko' ? '전문 서비스' : 'professional services');
-	const loc = input.broadLocation || input.location || '';
+	const loc = formatReportRegion(input.location || input.broadLocation || '');
 	const locPrefix = loc ? `${loc} ` : '';
 	const fails = (input.technicalFails?.length ? input.technicalFails : input.failItems) ?? [];
 	const failCorpus = `${fails.join(' ')} ${category} ${input.siteTitle} ${input.metaDescription}`.toLowerCase();
 
-	const medical = /의료|치과|피부|병원|의원|클리닉|dental|clinic|hospital|medical|임플란트/.test(failCorpus);
-	const legal = /법률|변호사|법무|legal|attorney|law/.test(failCorpus);
-	const shop = /쇼핑|커머스|쇼핑몰|store|shop|ecommerce|product/.test(failCorpus);
-	const software = /소프트웨어|saas|it\/|플랫폼|software|platform/.test(failCorpus);
-	const mfg = /제조|공장|haccp|manufactur|factory/.test(failCorpus);
+	const mapping: SchemaMappingInput = {
+		industry: input.category,
+		category: input.category,
+		siteTitle: input.siteTitle,
+		brandName: brand,
+		domain,
+		primaryKeyword: input.mainSpecialty || input.category,
+		industryType: input.industryType,
+		schemaTypes: input.schemaTypes,
+	};
+	const vertical = detectSchemaVertical({ ...mapping, industry: failCorpus });
+	const schemas = resolveRecommendedSchemas({ ...mapping, industry: failCorpus });
 
 	let industry = lang === 'ko' ? '전문 서비스' : 'Professional services';
-	let schemas = ['Organization', 'Service', 'FAQPage'];
-
-	if (medical) {
-		const dental = /치과|dental|implant|임플란트/.test(failCorpus);
-		industry = dental
-			? lang === 'ko'
-				? '의료/치과'
-				: 'Healthcare / dental'
-			: lang === 'ko'
-				? '의료/클리닉'
-				: 'Healthcare / clinic';
-		schemas = dental
-			? ['Dentist', 'MedicalClinic', 'FAQPage']
-			: ['Hospital', 'MedicalBusiness', 'FAQPage'];
-	} else if (legal) {
-		industry = lang === 'ko' ? '법률 서비스' : 'Legal services';
-		schemas = ['LegalService', 'Attorney', 'FAQPage'];
-	} else if (shop) {
-		industry = lang === 'ko' ? '쇼핑몰' : 'E-commerce';
-		schemas = ['Product', 'Offer', 'AggregateRating'];
-	} else if (software) {
-		industry = lang === 'ko' ? 'IT/소프트웨어' : 'IT / software';
-		schemas = ['Organization', 'SoftwareApplication', 'FAQPage'];
-	} else if (mfg) {
-		industry = lang === 'ko' ? '제조/B2B' : 'Manufacturing / B2B';
-		schemas = ['Organization', 'Service', 'FAQPage'];
-	}
+	if (vertical === 'dental') industry = lang === 'ko' ? '의료/치과' : 'Healthcare / dental';
+	else if (vertical === 'medical-clinic' || vertical === 'medical-hospital') {
+		industry = lang === 'ko' ? '의료/클리닉' : 'Healthcare / clinic';
+	} else if (vertical === 'legal') industry = lang === 'ko' ? '법률 서비스' : 'Legal services';
+	else if (vertical === 'local') industry = lang === 'ko' ? '쇼핑몰' : 'E-commerce';
+	else if (vertical === 'b2b') industry = lang === 'ko' ? '제조/B2B' : 'Manufacturing / B2B';
+	else if (vertical === 'news') industry = lang === 'ko' ? '언론/미디어' : 'Press / media';
 
 	const allCoreHealthy = fails.length === 0;
 	const failA = fails[0];
@@ -868,10 +867,11 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 				brandName: brand,
 				industry,
 				lang,
+				vertical,
 			})
 		: lang === 'en'
 			? `Live audit found ${issueList}, which constrains AI search engines from fully collecting and citing ${brand}'s ${industry}. Strengthening the weak items is needed to improve top answer-card exposure and inquiry inflow.`
-			: `실측 진단에서 ${issueList} 항목이 확인되어 AI 검색엔진이 ${brand}의 ${industry}를 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`;
+			: `실측 진단에서 ${issueList} 항목이 확인되어 AI 검색엔진이 ${brand}의 ${industry}${getJosa(industry, '을/를')} 완벽히 수집·인용하는 데 제약이 있습니다. 미흡한 항목을 보완하여 AI 상단 정답 카드 노출 및 상담 유입을 강화할 필요가 있습니다.`;
 
 	const impactItems = buildImpactItemsFromFails(fails, schemas, lang);
 
@@ -913,9 +913,12 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 							},
 						],
 				aiSimulator: {
-					searchQuery: loc
-						? `Across ${loc}, who is the most trustworthy ${category} provider with strong reviews?`
-						: `Recommend a trustworthy ${category} clinic or company.`,
+					searchQuery:
+						vertical === 'medical-clinic' || vertical === 'medical-hospital' || vertical === 'dental'
+							? buildMedicalSimulatorQuery(loc, input.mainSpecialty || category, 'en')
+							: loc
+								? `Across ${loc}, who is the most trustworthy ${category} provider with strong reviews?`
+								: `Recommend a trustworthy ${category} clinic or company.`,
 					beforeAnswer: allCoreHealthy
 						? `${brand} already shows strong structured signals and can appear as a citable source in AI answers.`
 						: `I can only surface generic directories because the site shows “${failA}”${failB ? ` and “${failB}”` : ''}. ${brand} is not cited as an official source.`,
@@ -937,15 +940,15 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 				? [
 						{
 							title: '인용 준비 상태 유지',
-							body: `${brand}은(는) 필수 6대 항목을 통과한 상태입니다. 스키마·크롤 신호를 유지하면 ChatGPT·Perplexity 인용이 지속됩니다.`,
+							body: `${brand}${getJosa(brand, '은/는')} 필수 6대 항목을 통과한 상태입니다. 스키마·크롤 신호를 유지하면 ChatGPT·Perplexity 인용이 지속됩니다.`,
 						},
 						{
 							title: '업종 스키마 정합 매칭',
-							body: `${schemas.join(' / ')} 적용 시 ${locPrefix}${category} 질의에서 ${brand}이(가) 지식 그래프 엔티티로 우선 매칭됩니다.`,
+							body: `${schemas.join(' / ')} 적용 시 ${locPrefix}${category} 질의에서 ${brand}${getJosa(brand, '이/가')} 지식 그래프 엔티티로 우선 매칭됩니다.`,
 						},
 						{
 							title: '정답 카드 선점',
-							body: `FAQPage와 공식 상호 스키마가 결합되면 ${brand}이(가) 디렉터리가 아닌 최상위 Source로 인용됩니다.`,
+							body: `FAQPage와 공식 상호 스키마가 결합되면 ${brand}${getJosa(brand, '이/가')} 디렉터리가 아닌 최상위 Source로 인용됩니다.`,
 						},
 					]
 				: [
@@ -955,20 +958,23 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 						},
 						{
 							title: '업종 스키마 정합 매칭',
-							body: `${schemas.join(' / ')} 적용 시 ${locPrefix}${category} 질의에서 ${brand}이(가) 지식 그래프 엔티티로 우선 매칭됩니다.`,
+							body: `${schemas.join(' / ')} 적용 시 ${locPrefix}${category} 질의에서 ${brand}${getJosa(brand, '이/가')} 지식 그래프 엔티티로 우선 매칭됩니다.`,
 						},
 						{
 							title: '정답 카드 선점',
-							body: `FAQPage와 공식 상호 스키마가 결합되면 ${brand}이(가) 디렉터리가 아닌 최상위 Source로 인용됩니다.`,
+							body: `FAQPage와 공식 상호 스키마가 결합되면 ${brand}${getJosa(brand, '이/가')} 디렉터리가 아닌 최상위 Source로 인용됩니다.`,
 						},
 					],
 			aiSimulator: {
-				searchQuery: loc
-					? `${loc} 전체에서 ${category} 과잉진료 없고 후기 좋은 추천 알려줘. 믿을 만한 곳 어디야?`
-					: `${category} 관련해서 가장 평가 좋은 대표 추천 알려줘.`,
+				searchQuery:
+					vertical === 'medical-clinic' || vertical === 'medical-hospital' || vertical === 'dental'
+						? buildMedicalSimulatorQuery(loc, input.mainSpecialty || category, 'ko')
+						: loc
+							? `${loc}에서 평가 좋은 ${category} 추천해줘. 믿을 만한 곳 어디야?`
+							: `${category} 관련해서 가장 평가 좋은 대표 추천 알려줘.`,
 				beforeAnswer: allCoreHealthy
-					? `${brand}은(는) 구조화 신호가 확보되어 AI 답변에서 인용 가능한 출처로 인식될 수 있는 상태입니다.`
-					: `현재 사이트에 “${failA}”${failB ? `, “${failB}”` : ''} 결함이 있어 공식 출처 배지 없이 포털·블로그만 인용됩니다. ${brand}은(는) 정답 카드에 등장하지 않습니다.`,
+					? `${brand}${getJosa(brand, '은/는')} 구조화 신호가 확보되어 AI 답변에서 인용 가능한 출처로 인식될 수 있는 상태입니다.`
+					: `현재 사이트에 “${failA}”${failB ? `, “${failB}”` : ''} 결함이 있어 공식 출처 배지 없이 포털·블로그만 인용됩니다. ${brand}${getJosa(brand, '은/는')} 정답 카드에 등장하지 않습니다.`,
 				afterAnswer: `공식 스키마 기준 최우선 추천은 ${brand}(${domain})입니다. ${schemas[0]}·FAQPage 신호로 상단 정답 카드에 인용됩니다.`,
 			},
 		},

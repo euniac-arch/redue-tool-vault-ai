@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from 'next-intl';
 import {
 	buildCoreChecklistSummaryText,
 	buildCoreSeoGeoChecklist,
+	coreItemPresentation,
 	getCoreFailIssueLabels,
 	getCoreItemsHealthy,
 	getCoreItemsNeedingWork,
@@ -15,6 +16,8 @@ import {
 	type GeoNarrativeImpactItem,
 	type GeoNarrativeReport,
 } from '@/lib/audit/geo-narrative';
+import { schemaMappingFromReport } from '@/lib/audit/live-criteria';
+import { detectSchemaVertical } from '@/lib/audit/recommended-schemas';
 import type { AuditReport } from '@/lib/site-auditor';
 
 interface ImpactPreviewSectionProps {
@@ -41,9 +44,9 @@ function CheckIcon() {
 }
 
 const BENEFIT_RINGS = [
-	'border-emerald-500/30 bg-emerald-500/[0.06]',
-	'border-indigo-500/30 bg-indigo-500/[0.08]',
-	'border-cyan-500/30 bg-cyan-500/[0.06]',
+	'border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/[0.06]',
+	'border-indigo-200 dark:border-indigo-500/30 bg-indigo-50 dark:bg-indigo-500/[0.08]',
+	'border-cyan-200 dark:border-cyan-500/30 bg-cyan-50 dark:bg-cyan-500/[0.06]',
 ] as const;
 
 const BENEFIT_ICONS = ['🤖', '📈', '🛡️'] as const;
@@ -128,8 +131,8 @@ function StatusBadge({ ok, okLabel, needsLabel }: { ok: boolean; okLabel: string
 		<span
 			className={
 				ok
-					? 'inline-flex shrink-0 items-center rounded-md border border-emerald-400/40 bg-emerald-500/15 px-2 py-0.5 text-[11px] font-extrabold text-emerald-200'
-					: 'inline-flex shrink-0 items-center rounded-md border border-rose-400/40 bg-rose-500/15 px-2 py-0.5 text-[11px] font-extrabold text-rose-200'
+					? 'inline-flex shrink-0 items-center rounded-md border border-emerald-200 dark:border-emerald-400/40 bg-emerald-50 dark:bg-emerald-500/15 px-2 py-0.5 text-[11px] font-extrabold text-emerald-700 dark:text-emerald-200'
+					: 'inline-flex shrink-0 items-center rounded-md border border-rose-200 dark:border-rose-400/40 bg-rose-50 dark:bg-rose-500/15 px-2 py-0.5 text-[11px] font-extrabold text-rose-700 dark:text-rose-200'
 			}
 		>
 			{ok ? okLabel : needsLabel}
@@ -157,16 +160,16 @@ function CoreChecklistRow({
 	return (
 		<li
 			className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3.5 ${
-				ok ? 'border-emerald-500/25 bg-emerald-500/[0.06]' : 'border-rose-500/25 bg-rose-500/[0.06]'
+				ok ? 'border-emerald-200 dark:border-emerald-500/25 bg-emerald-50 dark:bg-emerald-500/[0.06]' : 'border-rose-200 dark:border-rose-500/25 bg-rose-50 dark:bg-rose-500/[0.06]'
 			}`}
 		>
 			<div className="flex flex-wrap items-start justify-between gap-2">
 				<div className="flex min-w-0 flex-1 items-start gap-2.5">
-					<span className={`mt-0.5 shrink-0 ${ok ? 'text-emerald-400' : 'text-rose-400'}`}>
+					<span className={`mt-0.5 shrink-0 ${ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'}`}>
 						{ok ? <CheckIcon /> : <CrossIcon />}
 					</span>
 					<div className="min-w-0">
-						<p className="text-sm font-bold text-slate-100">{label}</p>
+						<p className="text-sm font-bold text-slate-900 dark:text-slate-100">{label}</p>
 						{item.evidence ? (
 							<p className="mt-0.5 break-all font-mono text-[10px] text-slate-500">{item.evidence}</p>
 						) : null}
@@ -175,9 +178,9 @@ function CoreChecklistRow({
 				<StatusBadge ok={ok} okLabel={okLabel} needsLabel={needsLabel} />
 			</div>
 			{/* Always visible — no hover/accordion gate */}
-			<div className="rounded-lg border border-amber-400/15 bg-black/20 px-3 py-2.5 pl-3">
-				<p className="text-[11px] font-bold uppercase tracking-wide text-amber-200/90">{whyHint}</p>
-				<p className="mt-1 text-[12px] leading-relaxed text-amber-50/85">{why}</p>
+			<div className="rounded-lg border border-amber-200 dark:border-amber-400/15 bg-amber-50 dark:bg-black/20 px-3 py-2.5 pl-3">
+				<p className="text-[11px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-200/90">{whyHint}</p>
+				<p className="mt-1 text-[12px] leading-relaxed text-amber-900 dark:text-amber-50/85">{why}</p>
 			</div>
 		</li>
 	);
@@ -202,13 +205,15 @@ export function ImpactPreviewSection({
 		siteName;
 	const industry = reportData?.industry?.trim() || auditReport?.siteMeta?.category?.trim();
 	/** Always derived from live 6-core 🔴/🟢 — never trust stale LLM beforeImpact copy. */
+	const vertical = detectSchemaVertical(schemaMappingFromReport(auditReport));
 	const beforeSummary = buildCoreChecklistSummaryText({
 		items: coreItems,
 		brandName,
 		industry,
 		lang,
+		vertical,
 	});
-	const coreFailLabels = getCoreFailIssueLabels(coreItems, lang);
+	const coreFailLabels = getCoreFailIssueLabels(coreItems, lang, vertical);
 
 	const benefits = reportData?.afterBenefits?.length
 		? reportData.afterBenefits.slice(0, 3).map((b, i) => ({
@@ -227,20 +232,20 @@ export function ImpactPreviewSection({
 
 	return (
 		<section
-			id="sec-live-criteria"
-			className="scroll-mt-24 flex flex-col gap-6 rounded-2xl border border-amber-500/20 bg-gradient-to-b from-amber-500/[0.06] via-white/[0.02] to-transparent p-5 sm:p-6"
+			id="live-criteria-report"
+			className="scroll-mt-24 flex flex-col gap-6 rounded-2xl border border-amber-200 dark:border-amber-500/20 bg-gradient-to-b from-amber-50 dark:from-amber-500/[0.06] via-white dark:via-white/[0.02] to-transparent p-5 sm:p-6"
 			aria-labelledby="impact-preview-heading"
 		>
 			<div className="flex flex-col gap-2 border-b border-amber-500/15 pb-4">
-				<p className="inline-flex w-fit items-center rounded-md border border-amber-500/35 bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-200">
+				<p className="inline-flex w-fit items-center rounded-md border border-amber-200 dark:border-amber-500/35 bg-amber-50 dark:bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-800 dark:text-amber-200">
 					{t('guideBadge')}
 				</p>
-				<h2 id="impact-preview-heading" className="text-base font-extrabold leading-snug text-white sm:text-lg">
+				<h2 id="impact-preview-heading" className="text-base font-extrabold leading-snug text-slate-900 dark:text-white sm:text-lg">
 					{t('title')}
 				</h2>
-				<p className="text-sm leading-relaxed text-amber-100/70">{t('subtitle')}</p>
+				<p className="text-xs text-slate-400 mt-0.5 leading-relaxed">{t('subtitle')}</p>
 				{reportData?.industry ? (
-					<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-200/70">
+					<p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-200/70">
 						{reportData.brandName ? `${reportData.brandName} · ` : ''}
 						{reportData.industry}
 					</p>
@@ -250,12 +255,12 @@ export function ImpactPreviewSection({
 			{schemas.length > 0 ? (
 				<div className="flex flex-wrap items-center gap-1.5">
 					<span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-						Recommended schemas
+						{t('recommendedSchemas')}
 					</span>
 					{schemas.map((type) => (
 						<span
 							key={type}
-							className="rounded-md border border-cyan-500/25 bg-cyan-500/10 px-2 py-0.5 font-mono text-[11px] text-cyan-300"
+							className="rounded-md border border-cyan-200 dark:border-cyan-500/25 bg-cyan-50 dark:bg-cyan-500/10 px-2 py-0.5 font-mono text-[11px] text-cyan-800 dark:text-cyan-300"
 						>
 							{type}
 						</span>
@@ -265,12 +270,12 @@ export function ImpactPreviewSection({
 
 			<div className="flex flex-col gap-6">
 				{/* ── Before panel ── */}
-				<div className="flex flex-col rounded-2xl border border-slate-800 bg-slate-900/60">
+				<div className="flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/60">
 					<div
 						className={`flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3.5 sm:px-5 ${
 							allHealthy
-								? 'border-emerald-500/20 bg-emerald-500/[0.07]'
-								: 'border-rose-500/20 bg-rose-500/[0.07]'
+								? 'border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/[0.07]'
+								: 'border-rose-200 dark:border-rose-500/20 bg-rose-50 dark:bg-rose-500/[0.07]'
 						}`}
 					>
 						<div className="flex flex-wrap items-center gap-2">
@@ -284,13 +289,13 @@ export function ImpactPreviewSection({
 								{allHealthy ? <CheckIcon /> : <CrossIcon />}
 								{t('before.badge')}
 							</span>
-							<span className="text-sm font-bold text-white">{t('before.label')}</span>
+							<span className="text-sm font-bold text-slate-900 dark:text-white">{t('before.label')}</span>
 						</div>
 						<span
 							className={`rounded-full border px-2.5 py-1 text-[11px] font-extrabold ${
 								allHealthy
-									? 'border-emerald-400/30 bg-emerald-500/15 text-emerald-200'
-									: 'border-rose-400/30 bg-rose-500/15 text-rose-200'
+									? 'border-emerald-200 dark:border-emerald-400/30 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-200'
+									: 'border-rose-200 dark:border-rose-400/30 bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-200'
 							}`}
 						>
 							{needingWork.length > 0
@@ -302,7 +307,7 @@ export function ImpactPreviewSection({
 					<div className="flex flex-col gap-4 p-4 sm:p-5">
 						{coreFailLabels.length > 0 ? (
 							<div className="flex flex-col gap-2">
-								<span className="inline-flex w-fit items-center rounded-md border border-rose-400/40 bg-rose-500/15 px-2.5 py-1 text-[11px] font-bold text-rose-100">
+								<span className="inline-flex w-fit items-center rounded-md border border-rose-200 dark:border-rose-400/40 bg-rose-50 dark:bg-rose-500/15 px-2.5 py-1 text-[11px] font-bold text-rose-800 dark:text-rose-100">
 									{t('evidenceExampleBadge')}
 								</span>
 								<div className="flex flex-wrap items-center gap-1.5">
@@ -312,7 +317,7 @@ export function ImpactPreviewSection({
 									{coreFailLabels.map((fail) => (
 										<span
 											key={fail}
-											className="rounded-md border border-rose-500/25 bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] text-rose-300/90"
+											className="rounded-md border border-rose-200 dark:border-rose-500/25 bg-rose-50 dark:bg-rose-500/10 px-2 py-0.5 font-mono text-[10px] text-rose-700 dark:text-rose-300/90"
 										>
 											{fail}
 										</span>
@@ -324,8 +329,8 @@ export function ImpactPreviewSection({
 						<div
 							className={`rounded-xl px-3.5 py-3 text-[13px] leading-relaxed ${
 								allHealthy
-									? 'border border-emerald-500/25 bg-emerald-500/[0.08] text-emerald-50'
-									: 'border border-rose-500/25 bg-rose-500/[0.08] text-rose-50'
+									? 'border border-emerald-200 dark:border-emerald-500/25 bg-emerald-50 dark:bg-emerald-500/[0.08] text-emerald-800 dark:text-emerald-50'
+									: 'border border-rose-200 dark:border-rose-500/25 bg-rose-50 dark:bg-rose-500/[0.08] text-rose-800 dark:text-rose-50'
 							}`}
 						>
 							{beforeSummary}
@@ -333,18 +338,19 @@ export function ImpactPreviewSection({
 
 						{/* Always-expanded 6-core checklist — no hover/accordion */}
 						<div>
-							<p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-rose-200/80">
+							<p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-rose-700 dark:text-rose-200/80">
 								{t('coreChecklistHeading')}
 							</p>
 							<ul className="flex flex-col gap-2.5">
 								{CORE_ORDER.map((id) => {
 									const item = coreItems.find((c) => c.id === id)!;
+									const dynamic = id === 'article-schema' ? coreItemPresentation(item, lang, vertical) : null;
 									return (
 										<CoreChecklistRow
 											key={id}
 											item={item}
-											label={t(`coreItems.${id}.label`)}
-											why={t(`coreItems.${id}.why`)}
+											label={dynamic?.label || t(`coreItems.${id}.label`)}
+											why={dynamic?.why || t(`coreItems.${id}.why`)}
 											whyHint={t('whyMattersHint')}
 											okLabel={t('statusOk')}
 											needsLabel={t('statusNeedsWork')}
@@ -357,35 +363,35 @@ export function ImpactPreviewSection({
 				</div>
 
 				<div className="flex justify-center" aria-hidden>
-					<div className="flex h-9 w-9 items-center justify-center rounded-full border border-indigo-500/40 bg-indigo-500/15 text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.25)]">
+					<div className="flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 dark:border-indigo-500/40 bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 shadow-[0_0_20px_rgba(99,102,241,0.25)]">
 						↓
 					</div>
 				</div>
 
 				{/* ── After panel ── */}
-				<div className="flex flex-col overflow-hidden rounded-2xl border border-indigo-500/50 bg-gradient-to-b from-indigo-950/40 via-slate-900 to-slate-950 shadow-[0_0_30px_rgba(99,102,241,0.15)] ring-1 ring-indigo-400/20">
+				<div className="flex flex-col overflow-hidden rounded-2xl border border-indigo-200 dark:border-indigo-500/50 bg-gradient-to-b from-indigo-50 via-white to-slate-50 dark:from-indigo-950/40 dark:via-slate-900 dark:to-slate-950 shadow-[0_0_30px_rgba(99,102,241,0.15)] ring-1 ring-indigo-200 dark:ring-indigo-400/20">
 					<div className="flex flex-wrap items-center justify-between gap-2 border-b border-indigo-500/30 bg-indigo-500/10 px-4 py-3.5 sm:px-5">
 						<div className="flex flex-wrap items-center gap-2">
 							<span className="inline-flex items-center gap-1 rounded-md bg-indigo-500 px-2.5 py-1 text-[11px] font-extrabold tracking-wide text-white shadow-lg shadow-indigo-500/30">
 								<CheckIcon />
 								{t('after.badge')}
 							</span>
-							<span className="text-sm font-bold text-white">{t('after.label')}</span>
+							<span className="text-sm font-bold text-slate-900 dark:text-white">{t('after.label')}</span>
 						</div>
-						<span className="animate-pulse rounded-full border border-violet-400/40 bg-violet-500/20 px-2.5 py-1 text-[11px] font-extrabold text-violet-200">
+						<span className="animate-pulse rounded-full border border-violet-200 dark:border-violet-400/40 bg-violet-50 dark:bg-violet-500/20 px-2.5 py-1 text-[11px] font-extrabold text-violet-800 dark:text-violet-200">
 							{t('after.sparkleBadge')}
 						</span>
 					</div>
 
 					<div className="flex flex-col gap-4 p-4 sm:p-6">
-						<div className="relative translate-y-0 rounded-2xl border border-indigo-400/25 bg-[#0c1220] p-4 shadow-[0_12px_40px_-12px_rgba(99,102,241,0.45)] sm:p-5">
+						<div className="relative translate-y-0 rounded-2xl border border-indigo-200 dark:border-indigo-400/25 bg-white dark:bg-[#0c1220] p-4 shadow-[0_12px_40px_-12px_rgba(99,102,241,0.45)] sm:p-5">
 							<div className="absolute -right-1 -top-1 rounded-bl-xl rounded-tr-2xl bg-accent px-2.5 py-1 text-[10px] font-extrabold text-white shadow-md">
 								{t('mock.richBadge')}
 							</div>
 							<div className="flex flex-wrap items-center gap-1.5 pr-16 text-[11px]">
-								<span className="font-medium text-emerald-400">{siteName}</span>
+								<span className="font-medium text-emerald-700 dark:text-emerald-400">{siteName}</span>
 								<span className="text-slate-600">›</span>
-								<span className="text-slate-400">{t('mock.breadcrumb')}</span>
+								<span className="text-slate-600 dark:text-slate-400">{t('mock.breadcrumb')}</span>
 							</div>
 							<p className="mt-2 text-base font-bold leading-snug text-[#8ab4f8] sm:text-lg">{t('mock.afterTitle')}</p>
 							{schemas.length > 0 ? (
@@ -404,44 +410,44 @@ export function ImpactPreviewSection({
 									<span className="rounded-md border border-accent/40 bg-accent/20 px-2 py-0.5 text-[11px] font-bold text-accent-light">
 										{t('mock.author')}
 									</span>
-									<span className="rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-300">
+									<span className="rounded-md border border-slate-200 dark:border-white/10 bg-white/5 px-2 py-0.5 text-[11px] text-slate-700 dark:text-slate-300">
 										{t('mock.date')}
 									</span>
 								</div>
 							)}
-							<p className="mt-3 text-[13px] leading-relaxed text-slate-300">{t('mock.afterDesc')}</p>
+							<p className="mt-3 text-[13px] leading-relaxed text-slate-700 dark:text-slate-300">{t('mock.afterDesc')}</p>
 						</div>
 
-						<div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.08] px-4 py-3">
-							<p className="text-xs font-semibold text-slate-200">{t('after.ai')}</p>
-							<span className="mt-2 inline-flex max-w-full items-center rounded-lg border border-emerald-400/40 bg-emerald-500/15 px-2.5 py-1.5 font-mono text-[11px] font-bold text-emerald-300 sm:text-xs">
+						<div className="rounded-xl border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/[0.08] px-4 py-3">
+							<p className="text-xs font-semibold text-slate-800 dark:text-slate-200">{t('after.ai')}</p>
+							<span className="mt-2 inline-flex max-w-full items-center rounded-lg border border-emerald-200 dark:border-emerald-400/40 bg-emerald-50 dark:bg-emerald-500/15 px-2.5 py-1.5 font-mono text-[11px] font-bold text-emerald-800 dark:text-emerald-300 sm:text-xs">
 								{t('after.citationBadge', { site: siteName })}
 							</span>
-							<p className="mt-2 text-[12px] leading-relaxed text-slate-400">
+							<p className="mt-2 text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">
 								{reportData?.aiSimulator?.afterAnswer || t('after.aiDetail', { site: siteName })}
 							</p>
 						</div>
 
 						{/* Dynamic gains from items transitioning to 🟢 */}
 						<div>
-							<p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-300/90">
+							<p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-800 dark:text-indigo-300/90">
 								{t('after.gainsHeading')}
 							</p>
 							{allHealthy ? (
-								<p className="mb-3 text-[12px] leading-relaxed text-slate-400">{t('after.allHealthyNote')}</p>
+								<p className="mb-3 text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">{t('after.allHealthyNote')}</p>
 							) : null}
 							<ul className="flex flex-col gap-2">
 								{gainKeys.map((key) => (
 									<li
 										key={key}
-										className="flex gap-2.5 rounded-xl border border-indigo-500/20 bg-indigo-500/[0.07] px-3.5 py-3"
+										className="flex gap-2.5 rounded-xl border border-indigo-200 dark:border-indigo-500/20 bg-indigo-50 dark:bg-indigo-500/[0.07] px-3.5 py-3"
 									>
-										<span className="mt-0.5 text-indigo-300">
+										<span className="mt-0.5 text-indigo-700 dark:text-indigo-300">
 											<CheckIcon />
 										</span>
 										<div>
-											<p className="text-sm font-bold text-white">{t(`gains.${key}.title`)}</p>
-											<p className="mt-0.5 text-[12px] leading-relaxed text-slate-300">
+											<p className="text-sm font-bold text-slate-900 dark:text-white">{t(`gains.${key}.title`)}</p>
+											<p className="mt-0.5 text-[12px] leading-relaxed text-slate-700 dark:text-slate-300">
 												{t(`gains.${key}.body`)}
 											</p>
 										</div>
@@ -455,14 +461,14 @@ export function ImpactPreviewSection({
 								{impactItems.map((item) => (
 									<li
 										key={`after-${item.id}`}
-										className="flex gap-2.5 rounded-xl border border-indigo-500/15 bg-indigo-500/[0.04] px-3.5 py-3"
+										className="flex gap-2.5 rounded-xl border border-indigo-200 dark:border-indigo-500/15 bg-indigo-50 dark:bg-indigo-500/[0.04] px-3.5 py-3"
 									>
-										<span className="mt-0.5 text-indigo-300/80">
+										<span className="mt-0.5 text-indigo-600 dark:text-indigo-300/80">
 											<CheckIcon />
 										</span>
 										<div>
-											<p className="text-sm font-bold text-slate-100">{item.channelTitle}</p>
-											<p className="mt-0.5 text-[12px] leading-relaxed text-slate-400">{item.improvedState}</p>
+											<p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.channelTitle}</p>
+											<p className="mt-0.5 text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">{item.improvedState}</p>
 										</div>
 									</li>
 								))}
@@ -470,7 +476,7 @@ export function ImpactPreviewSection({
 						) : null}
 
 						<div className="border-t border-indigo-500/20 pt-4">
-							<p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-300/90">
+							<p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-800 dark:text-indigo-300/90">
 								{t('benefitsHeading')}
 							</p>
 							<div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -483,8 +489,8 @@ export function ImpactPreviewSection({
 											{benefit.icon}
 										</span>
 										<div>
-											<h3 className="text-sm font-extrabold leading-snug text-white">{benefit.title}</h3>
-											<p className="mt-1.5 text-[12px] leading-relaxed text-slate-400">{benefit.body}</p>
+											<h3 className="text-sm font-extrabold leading-snug text-slate-900 dark:text-white">{benefit.title}</h3>
+											<p className="mt-1.5 text-[12px] leading-relaxed text-slate-600 dark:text-slate-400">{benefit.body}</p>
 										</div>
 									</article>
 								))}

@@ -85,6 +85,8 @@ export interface PsiLcpElement {
 	hasLazyLoading: boolean;
 	/** True when fetchpriority="high" is missing on LCP media. */
 	missingFetchPriority: boolean;
+	/** Raw src/href from the LCP node snippet when present (`/images/mv1.jpg`). */
+	src: string | null;
 	/** Warning messages for the LCP card. */
 	warnings: string[];
 }
@@ -318,6 +320,228 @@ function auditMap(raw: unknown): Record<string, LhAudit> {
 	return raw as Record<string, LhAudit>;
 }
 
+/** Flatten LH12 insight list/table nesting into leaf resource rows. */
+function flattenAuditItems(items: Array<Record<string, unknown>> | undefined): Array<Record<string, unknown>> {
+	if (!items?.length) return [];
+	const out: Array<Record<string, unknown>> = [];
+	for (const item of items) {
+		if (!item || typeof item !== 'object') continue;
+		const nested = item.items;
+		if ((item.type === 'table' || item.type === 'list') && Array.isArray(nested)) {
+			out.push(...flattenAuditItems(nested as Array<Record<string, unknown>>));
+			continue;
+		}
+		out.push(item);
+	}
+	return out;
+}
+
+function itemBytes(item: Record<string, unknown>): number | null {
+	return (
+		asNumber(item.totalBytes) ??
+		asNumber(item.transferSize) ??
+		asNumber(item.resourceSize) ??
+		null
+	);
+}
+
+/** Strip query/hash and lowercase host+path so unused-JS and blocking rows can match. */
+export function normalizeResourceKey(url: string): string {
+	const raw = url.trim();
+	if (!raw) return '';
+	try {
+		const u = new URL(raw);
+		return `${u.host}${u.pathname}`.toLowerCase();
+	} catch {
+		return raw.split('?')[0]?.split('#')[0]?.toLowerCase() ?? raw.toLowerCase();
+	}
+}
+
+/** Site-relative path for prescription snippets (`/images/mv1.jpg`). */
+export function toSitePath(url: string | null | undefined): string {
+	if (!url) return '';
+	const raw = url.trim();
+	if (!raw) return '';
+	try {
+		const u = new URL(raw);
+		return u.pathname || `/${getCleanFileName(raw)}`;
+	} catch {
+		const path = raw.split('?')[0]?.split('#')[0] ?? raw;
+		if (path.startsWith('/')) return path;
+		const name = getCleanFileName(path);
+		return name && name !== 'Unknown Resource' ? `/${name}` : path;
+	}
+}
+
+/** Replace raster extension with `.webp` for LCP preload examples. */
+export function toWebpPath(path: string): string {
+	const replaced = path.replace(/\.(png|jpe?g|gif|bmp|avif|svg)$/i, '.webp');
+	return replaced === path && !/\.webp$/i.test(path) ? `${path.replace(/\.[^./]+$/, '')}.webp` : replaced;
+}
+
+function itemWastedBytes(item: Record<string, unknown>): number | null {
+	const direct = asNumber(item.wastedBytes) ?? asNumber(item.wastedByte);
+	if (direct != null && direct >= 0) return direct;
+
+	const sub = item.subItems;
+	if (sub && typeof sub === 'object') {
+		const nested = Array.isArray((sub as { items?: unknown }).items)
+			? ((sub as { items: Array<Record<string, unknown>> }).items ?? [])
+			: [];
+		let sum = 0;
+		let found = false;
+		for (const row of nested) {
+			const w = asNumber(row.wastedBytes);
+			if (w != null) {
+				sum += w;
+				found = true;
+			}
+		}
+		if (found) return sum;
+	}
+
+	const pct = asNumber(item.wastedPercent) ?? asNumber(item.wastedPercentage);
+	const bytes = itemBytes(item);
+	if (pct != null && bytes != null && pct > 0) {
+		const ratio = pct > 1 ? pct / 100 : pct;
+		return Math.round(bytes * ratio);
+	}
+	return null;
+}
+
+/**
+ * Subset + WOFF2 conversion savings from measured font bytes.
+ * CJK/full webfonts (NanumSquareRound 등) keep a higher ratio.
+ */
+export function estimateFontCdnSavingsBytes(
+	bytes: number | null | undefined,
+	fileName: string,
+): number | null {
+	if (bytes == null || !Number.isFinite(bytes) || bytes <= 0) return null;
+	const lower = fileName.toLowerCase();
+	const isCjk =
+		/nanum|noto|gothic|spoqa|pretendard|apple.?sd|malgun|gulim|batang|dotum|square|sourcehan|source.?han|cjk|hangul|korean|ko[-_]|kr[-_]/i.test(
+			lower,
+		);
+	const ext = (lower.match(/\.(woff2|woff|ttf|otf|eot)(\?|#|$)/) || [])[1];
+	let ratio = 0.4;
+	if (ext === 'ttf' || ext === 'otf' || ext === 'eot') ratio = 0.72;
+	else if (ext === 'woff') ratio = 0.52;
+	else if (ext === 'woff2') ratio = isCjk || bytes >= 80_000 ? 0.58 : 0.35;
+	if (isCjk) ratio = Math.max(ratio, 0.55);
+	if (bytes >= 200_000) ratio = Math.max(ratio, 0.6);
+	return Math.round(bytes * ratio);
+}
+
+/** Conservative unused-byte estimate when Lighthouse omitted wastedBytes on a blocking row. */
+function estimateBlockingWastedBytes(totalBytes: number | null, url: string): number | null {
+	if (totalBytes == null || totalBytes <= 0) return null;
+	const isCss = /\.css(\?|#|$)/i.test(url);
+	return Math.round(totalBytes * (isCss ? 0.45 : 0.35));
+}
+
+type ResourceSizeIndex = {
+	byUrl: Map<string, number>;
+	byNorm: Map<string, number>;
+	byName: Map<string, number>;
+};
+
+/** URL + filename → transfer size, gathered from audits that actually carry bytes. */
+function resourceSizeIndex(audits: Record<string, LhAudit>): ResourceSizeIndex {
+	const byUrl = new Map<string, number>();
+	const byNorm = new Map<string, number>();
+	const byName = new Map<string, number>();
+	const sources = [
+		...collectAuditItems(audits, ['network-requests']),
+		...collectAuditItems(audits, ['uses-long-cache-ttl', 'cache-insight']),
+		...collectAuditItems(audits, ['render-blocking-resources', 'render-blocking-insight']),
+		...collectAuditItems(audits, [
+			'unused-css-rules',
+			'unused-javascript',
+			'unused-javascript-insight',
+			'unused-css-insight',
+		]),
+	];
+	for (const item of sources) {
+		if (!item || typeof item !== 'object') continue;
+		const url = itemUrl(item) || String(item.url ?? '').trim();
+		const bytes = itemBytes(item);
+		if (!url || bytes == null || bytes <= 0) continue;
+		const prev = byUrl.get(url);
+		if (prev == null || bytes > prev) byUrl.set(url, bytes);
+		const norm = normalizeResourceKey(url);
+		if (norm) {
+			const prevNorm = byNorm.get(norm);
+			if (prevNorm == null || bytes > prevNorm) byNorm.set(norm, bytes);
+		}
+		const name = getCleanFileName(url);
+		if (name && name !== 'Unknown Resource') {
+			const prevName = byName.get(name);
+			if (prevName == null || bytes > prevName) byName.set(name, bytes);
+		}
+	}
+	return { byUrl, byNorm, byName };
+}
+
+function lookupResourceBytes(url: string, sizes: ResourceSizeIndex): number | null {
+	const name = getCleanFileName(url);
+	const exact = sizes.byUrl.get(url) ?? sizes.byNorm.get(normalizeResourceKey(url)) ?? sizes.byName.get(name);
+	if (exact != null) return exact;
+	const stem = name.replace(/\.(woff2?|ttf|otf|eot|css|js|mjs|cjs)(\?|#|$)/i, '').toLowerCase();
+	if (stem.length < 4) return null;
+	let best: number | null = null;
+	for (const [n, bytes] of sizes.byName) {
+		const nStem = n.replace(/\.(woff2?|ttf|otf|eot|css|js|mjs|cjs)(\?|#|$)/i, '').toLowerCase();
+		if (nStem.includes(stem) || stem.includes(nStem)) {
+			if (best == null || bytes > best) best = bytes;
+		}
+	}
+	return best;
+}
+
+type UnusedSavings = { wastedBytes: number | null; bytes: number | null };
+
+function unusedSavingsIndex(audits: Record<string, LhAudit>): {
+	byUrl: Map<string, UnusedSavings>;
+	byNorm: Map<string, UnusedSavings>;
+	byName: Map<string, UnusedSavings>;
+} {
+	const byUrl = new Map<string, UnusedSavings>();
+	const byNorm = new Map<string, UnusedSavings>();
+	const byName = new Map<string, UnusedSavings>();
+	const items = collectAuditItems(audits, [
+		'unused-css-rules',
+		'unused-javascript',
+		'unused-javascript-insight',
+		'unused-css-insight',
+	]);
+	for (const item of items) {
+		const url = itemUrl(item) || String(item.url ?? '').trim();
+		if (!url || !isResourceUrl(url)) continue;
+		const row: UnusedSavings = {
+			wastedBytes: itemWastedBytes(item),
+			bytes: itemBytes(item),
+		};
+		byUrl.set(url, row);
+		const norm = normalizeResourceKey(url);
+		if (norm) byNorm.set(norm, row);
+		const name = getCleanFileName(url);
+		if (name && name !== 'Unknown Resource') byName.set(name, row);
+	}
+	return { byUrl, byNorm, byName };
+}
+
+function lookupUnusedSavings(
+	url: string,
+	idx: ReturnType<typeof unusedSavingsIndex>,
+): UnusedSavings | undefined {
+	return (
+		idx.byUrl.get(url) ??
+		idx.byNorm.get(normalizeResourceKey(url)) ??
+		idx.byName.get(getCleanFileName(url))
+	);
+}
+
 /** Collect `details.items` from the first audit key that has rows (or merge all). */
 function collectAuditItems(
 	audits: Record<string, LhAudit>,
@@ -326,15 +550,15 @@ function collectAuditItems(
 ): Array<Record<string, unknown>> {
 	if (mode === 'first-nonempty') {
 		for (const key of keys) {
-			const items = audits[key]?.details?.items;
-			if (Array.isArray(items) && items.length > 0) return items;
+			const items = flattenAuditItems(audits[key]?.details?.items);
+			if (items.length > 0) return items;
 		}
 		return [];
 	}
 	const out: Array<Record<string, unknown>> = [];
 	for (const key of keys) {
-		const items = audits[key]?.details?.items;
-		if (Array.isArray(items) && items.length) out.push(...items);
+		const items = flattenAuditItems(audits[key]?.details?.items);
+		if (items.length) out.push(...items);
 	}
 	return out;
 }
@@ -388,26 +612,28 @@ function reasonsFromImageDeliveryItem(item: Record<string, unknown>): PsiImageIs
  * Only real resource URLs are kept — never `source` snippets (`:root{…}` etc.).
  */
 function pickRenderBlocking(audits: Record<string, LhAudit>): PsiRenderBlockingResource[] {
-	const merged = [
-		...collectAuditItems(audits, ['render-blocking-resources', 'render-blocking-insight']),
-		...(audits['unused-css-rules']?.details?.items ?? []),
-		...(audits['unused-javascript']?.details?.items ?? []),
-	];
+	const sizes = resourceSizeIndex(audits);
+	const unused = unusedSavingsIndex(audits);
+	const blocking = collectAuditItems(audits, ['render-blocking-resources', 'render-blocking-insight']);
+
 	const seen = new Set<string>();
 	const out: PsiRenderBlockingResource[] = [];
-	for (const item of merged) {
+	for (const item of blocking) {
 		const url = itemUrl(item) || String(item.url ?? '').trim();
 		if (!url || !isResourceUrl(url) || seen.has(url)) continue;
 		seen.add(url);
-		const totalBytes =
-			asNumber(item.totalBytes) ?? asNumber(item.transferSize);
-		const wastedBytes = asNumber(item.wastedBytes);
+		const unusedHit = lookupUnusedSavings(url, unused);
+		const totalBytes = itemBytes(item) ?? unusedHit?.bytes ?? lookupResourceBytes(url, sizes);
+		const wastedBytes =
+			itemWastedBytes(item) ??
+			unusedHit?.wastedBytes ??
+			estimateBlockingWastedBytes(totalBytes, url);
 		out.push({
 			url,
 			fileName: getCleanFileName(url),
 			bytes: totalBytes,
 			wastedBytes,
-			wastedMs: asNumber(item.wastedMs),
+			wastedMs: asNumber(item.wastedMs) ?? asNumber(item.duration),
 		});
 		if (out.length >= 20) break;
 	}
@@ -542,9 +768,9 @@ export function formatImageInsight(opts: {
 	return detail ? `${name} (${detail})` : name;
 }
 
-/** Bytes → `1,158.9 KiB` (PSI-style binary kibibytes). */
+/** Bytes → `1,158.9 KiB` (PSI-style binary kibibytes). Null → empty (tables hide the column). */
 export function formatKiB(bytes: number | null | undefined): string {
-	if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '—';
+	if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '';
 	const kib = bytes / 1024;
 	return `${kib.toLocaleString('en-US', { maximumFractionDigits: 1, minimumFractionDigits: 0 })} KiB`;
 }
@@ -652,14 +878,18 @@ function pickLcpElement(audits: Record<string, LhAudit>): PsiLcpElement | null {
 	const selector = node ? String(node.selector ?? '').trim() || null : null;
 	const nodeLabel = node ? String(node.nodeLabel ?? '').trim() || null : null;
 
+	const snippetSrc = snippet
+		? snippet.match(/\b(?:src|href)=["']([^"']+)["']/i)?.[1]?.trim() ||
+			snippet.match(/\b(?:src|srcset)=["']([^"'\s,]+)/i)?.[1]?.trim() ||
+			null
+		: null;
+	const rowUrl = itemUrl(row);
+	const src = snippetSrc || (rowUrl && isResourceUrl(rowUrl) ? rowUrl : null);
+
 	let label = nodeLabel || '';
-	if (snippet) {
-		const srcMatch = snippet.match(/\b(?:src|srcset)=["']([^"'\s,]+)/i);
-		if (srcMatch?.[1]) label = getCleanFileName(srcMatch[1]);
-	}
+	if (src) label = getCleanFileName(src);
 	if (!label) {
-		const url = itemUrl(row);
-		label = url ? getCleanFileName(url) : selector || 'LCP element';
+		label = rowUrl ? getCleanFileName(rowUrl) : selector || 'LCP element';
 	}
 
 	const isImgOrMedia =
@@ -695,6 +925,7 @@ function pickLcpElement(audits: Record<string, LhAudit>): PsiLcpElement | null {
 		nodeLabel,
 		hasLazyLoading,
 		missingFetchPriority,
+		src,
 		warnings,
 	};
 }
@@ -770,50 +1001,79 @@ function pickMainThreadWork(audits: Record<string, LhAudit>): PsiMainThreadTask[
 	return out;
 }
 
+function isFontUrl(url: string, item?: Record<string, unknown>): boolean {
+	if (/\.(woff2?|ttf|otf|eot)(\?|#|$)/i.test(url)) return true;
+	if (!item) return false;
+	const mime = String(item.mimeType ?? item.resourceType ?? '').toLowerCase();
+	return mime.includes('font') || String(item.resourceType ?? '').toLowerCase() === 'font';
+}
+
+function extractFontUrlsFromText(text: string): string[] {
+	if (!text) return [];
+	const urls: string[] = [];
+	const re = /url\(\s*['"]?([^'")\s]+)['"]?\s*\)/gi;
+	let m: RegExpExecArray | null;
+	while ((m = re.exec(text))) {
+		const u = m[1]?.trim();
+		if (u && /\.(woff2?|ttf|otf|eot)(\?|#|$)/i.test(u)) urls.push(u);
+	}
+	return urls;
+}
+
+function resolveFontUrls(item: Record<string, unknown>): string[] {
+	const source = String(item.source ?? item.snippet ?? '');
+	const fromCss = extractFontUrlsFromText(source).filter((u) => isResourceUrl(u) || u.startsWith('/'));
+	if (fromCss.length) return fromCss;
+	const url = itemUrl(item) || String(item.url ?? item.href ?? '').trim();
+	if (url && (isResourceUrl(url) || url.startsWith('/')) && !/\.(css|js|mjs)(\?|#|$)/i.test(url)) {
+		return [url];
+	}
+	if (url && isFontUrl(url, item)) return [url];
+	return [];
+}
+
 function pickFonts(audits: Record<string, LhAudit>): PsiFontOpportunity[] {
+	const sizes = resourceSizeIndex(audits);
 	const fontDisplay = collectAuditItems(audits, ['font-display', 'font-display-insight']);
-	const unused = audits['unused-css-rules']?.details?.items ?? [];
-	const network =
-		(audits['network-requests']?.details?.items as Array<Record<string, unknown>> | undefined) ?? [];
+	const network = flattenAuditItems(audits['network-requests']?.details?.items);
+	const cache = collectAuditItems(audits, ['uses-long-cache-ttl', 'cache-insight']);
 
-	const fromNetwork = network.filter((item) => {
-		const url = String(item.url ?? '');
-		const mime = String(item.mimeType ?? item.resourceType ?? '').toLowerCase();
-		return (
-			/\.(woff2?|ttf|otf)(\?|$)/i.test(url) ||
-			mime.includes('font') ||
-			String(item.resourceType ?? '').toLowerCase() === 'font'
-		);
-	});
+	const byUrl = new Map<string, { url: string; bytes: number | null; wastedBytes: number | null }>();
+	for (const item of fontDisplay) {
+		for (const url of resolveFontUrls(item)) {
+			if (byUrl.has(url)) continue;
+			byUrl.set(url, {
+				url,
+				bytes: itemBytes(item) ?? lookupResourceBytes(url, sizes),
+				wastedBytes: itemWastedBytes(item),
+			});
+		}
+	}
 
-	const candidates = [
-		...fontDisplay.map((item) => ({
-			url: String(item.url ?? ''),
-			bytes: asNumber(item.wastedBytes) ?? asNumber(item.totalBytes),
-		})),
-		...fromNetwork.map((item) => ({
-			url: String(item.url ?? ''),
-			bytes: asNumber(item.transferSize) ?? asNumber(item.resourceSize),
-		})),
-		...unused
-			.filter((item) => /\.(woff2?|ttf|otf)/i.test(String(item.url ?? '')))
-			.map((item) => ({
-				url: String(item.url ?? ''),
-				bytes: asNumber(item.wastedBytes) ?? asNumber(item.totalBytes),
-			})),
-	];
+	/** If font-display listed nothing usable, fall back to large fonts seen on the network. */
+	if (byUrl.size === 0) {
+		for (const item of [...network, ...cache]) {
+			const url = itemUrl(item) || String(item.url ?? '').trim();
+			if (!url || !isResourceUrl(url) || !isFontUrl(url, item) || byUrl.has(url)) continue;
+			const bytes = itemBytes(item) ?? lookupResourceBytes(url, sizes);
+			if (bytes == null || bytes < 80_000) continue;
+			byUrl.set(url, { url, bytes, wastedBytes: itemWastedBytes(item) });
+			if (byUrl.size >= 8) break;
+		}
+	}
 
-	const seen = new Set<string>();
 	const out: PsiFontOpportunity[] = [];
-	for (const c of candidates) {
-		if (!c.url || !isResourceUrl(c.url) || seen.has(c.url)) continue;
-		seen.add(c.url);
-		const bytes = c.bytes;
+	for (const row of byUrl.values()) {
+		const bytes = row.bytes ?? lookupResourceBytes(row.url, sizes);
+		const fileName = getCleanFileName(row.url);
+		const cdnSavingsBytes =
+			row.wastedBytes ?? estimateFontCdnSavingsBytes(bytes, fileName);
+		if (bytes == null && cdnSavingsBytes == null) continue;
 		out.push({
-			url: c.url,
-			fileName: getCleanFileName(c.url),
+			url: row.url,
+			fileName,
 			bytes,
-			cdnSavingsBytes: bytes != null ? Math.round(bytes * 0.55) : null,
+			cdnSavingsBytes,
 		});
 		if (out.length >= 8) break;
 	}
@@ -946,9 +1206,9 @@ export function parsePageSpeedPayload(
 	};
 }
 
-/** Bytes → human label (`12.3 KB`, `1.2 MB`). Zero → `0 KB`. */
+/** Bytes → human label (`12.3 KB`, `1.2 MB`). Zero → `0 KB`. Null → empty (tables hide the column). */
 export function formatBytes(bytes: number | null | undefined): string {
-	if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '—';
+	if (bytes == null || !Number.isFinite(bytes) || bytes < 0) return '';
 	if (bytes === 0) return '0 KB';
 	const k = 1024;
 	const sizes = ['Bytes', 'KB', 'MB'] as const;
@@ -958,7 +1218,7 @@ export function formatBytes(bytes: number | null | undefined): string {
 }
 
 export function formatMs(ms: number | null | undefined): string {
-	if (ms == null || !Number.isFinite(ms)) return '—';
+	if (ms == null || !Number.isFinite(ms)) return '';
 	if (ms >= 1000) return `${(ms / 1000).toFixed(2)} s`;
 	return `${Math.round(ms)} ms`;
 }

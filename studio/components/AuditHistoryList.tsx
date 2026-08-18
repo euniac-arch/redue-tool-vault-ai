@@ -1,33 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Trash2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
-import {
-	isHealthyStatus,
-	notifyAuditHistorySync,
-	scanSiteOnce,
-	upsertGuestAuditOnRescan,
-	type AuditHistoryEntry,
-} from '@/lib/audit-history-storage';
-import type { AuditOverallStatus, AuditReport } from '@/lib/site-auditor';
-
-const STATUS_SCORE_COLOR: Record<AuditOverallStatus, string> = {
-	CRITICAL: 'text-rose-400',
-	POOR: 'text-rose-400',
-	FAIR: 'text-amber-400',
-	GOOD: 'text-emerald-400',
-	EXCELLENT: 'text-emerald-400',
-};
-
-const CATEGORY_ICON: Record<string, string> = {
-	seo: '🔎',
-	performance: '⚡',
-	schema: '🧩',
-	accessibility: '♿',
-	geo: '🤖',
-};
+import { useAuditPayload } from '@/components/audit/AuditPayloadProvider';
+import { ScoreGradeBadge } from '@/components/audit/ScoreGradeBadge';
+// import { SiteLogoThumbnail } from '@/components/audit/SiteLogoThumbnail';
+import { resolveHistoryGeoHeadline, saveGuestAudit, type AuditHistoryEntry } from '@/lib/audit-history-storage';
+import { rememberAudit } from '@/lib/audit/report-client-cache';
+import { measuredScoreFromParts } from '@/lib/audit/diagnosis-scores';
+// import { resolveReportLogoUrl } from '@/lib/audit/logo-url';
+import { resolveAuditScoreFromHistory } from '@/lib/audit/resolveAuditScore';
+import { gradeThemeFromScore } from '@/lib/audit/score-grade';
+import { formatTargetCategory } from '@/lib/audit/target-entity';
 
 function siteLabelFromUrl(raw: string): string {
 	try {
@@ -37,195 +23,240 @@ function siteLabelFromUrl(raw: string): string {
 	}
 }
 
+function resolveHistorySiteName(item: AuditHistoryEntry): string {
+	const brand = item.report?.siteMeta?.brandName?.trim();
+	if (brand) return brand;
+	const title =
+		item.report?.metrics?.pageTitle?.trim() || item.report?.metrics?.documentTitle?.trim();
+	if (title) {
+		const first = title.split(/\s+[|\-–—]\s+/)[0]?.trim();
+		return first || title;
+	}
+	return siteLabelFromUrl(item.url);
+}
+
+function resolveHistoryCategory(
+	item: AuditHistoryEntry,
+	siteName: string,
+	lang: 'ko' | 'en',
+): string | null {
+	const meta = item.report?.siteMeta;
+	if (!meta) return null;
+	const label = formatTargetCategory(meta, lang).trim();
+	const generic = lang === 'en' ? 'General' : '일반';
+	if (!label || label === generic) return null;
+	const compact = (value: string) => value.replace(/\s+/g, '').toLowerCase();
+	if (compact(label) === compact(siteName)) return null;
+	return label;
+}
+
 interface AuditHistoryListProps {
 	items: AuditHistoryEntry[];
 	onDelete: (id: string) => Promise<void> | void;
 	deletingId?: string | null;
-	/** Called after a successful re-scan so the parent can refresh scores in-place. */
-	onRescanned?: (entry: AuditHistoryEntry) => void;
 }
 
 export function AuditHistoryList({
 	items,
 	onDelete,
 	deletingId = null,
-	onRescanned,
 }: AuditHistoryListProps) {
 	const t = useTranslations('audit.history');
+	const tDist = useTranslations('audit.scoreDistribution');
 	const locale = useLocale();
 	const router = useRouter();
+	const { persistAudit } = useAuditPayload();
 	const dateLocale = locale === 'en' ? 'en-US' : 'ko-KR';
 	const [confirmId, setConfirmId] = useState<string | null>(null);
-	const [rescanningId, setRescanningId] = useState<string | null>(null);
-	const [rescanError, setRescanError] = useState<string | null>(null);
 
-	async function handleDelete(id: string) {
-		await onDelete(id);
-		setConfirmId(null);
+	/** History [결과보기]: bind stored report and open RESULT immediately — no scan animation. */
+	function viewStoredResult(item: AuditHistoryEntry) {
+		try {
+			if (item.report) {
+				rememberAudit(item.id, item.report);
+				saveGuestAudit(item.id, item.report);
+				persistAudit(item.report, { auditId: item.id, cmsType: item.report.cmsType });
+			}
+			router.push(`/audit/result?id=${encodeURIComponent(item.id)}`);
+		} catch (err) {
+			console.error('[history] view result failed:', err);
+			router.push(`/audit/result?id=${encodeURIComponent(item.id)}`);
+		}
 	}
 
-	async function handleRescan(item: AuditHistoryEntry) {
-		if (rescanningId) return;
-		setRescanningId(item.id);
-		setRescanError(null);
-
+	async function handleDelete(id: string) {
 		try {
-			const data = await scanSiteOnce(item.url, locale, {
-				forceRefresh: true,
-				replaceId: item.id,
-			});
-			const { id, ...rest } = data;
-			const nextReport = rest as AuditReport;
-			const nextId = (id && String(id).trim()) || item.id;
-
-			const entry = upsertGuestAuditOnRescan(nextId, nextReport, { replaceId: item.id });
-			notifyAuditHistorySync({ ids: [nextId, item.id] });
-			onRescanned?.(entry);
-
-			router.push(`/audit/result?id=${encodeURIComponent(nextId)}&t=${Date.now()}`);
-		} catch (err) {
-			setRescanError((err as Error).message || t('rescanFailed'));
+			await onDelete(id);
 		} finally {
-			setRescanningId(null);
+			setConfirmId(null);
+		}
+	}
+
+	function handleRescan(item: AuditHistoryEntry) {
+		try {
+			const target = (item.url || item.report?.url || '').trim();
+			if (!target) {
+				router.push(`/audit/result?id=${encodeURIComponent(item.id)}&forceRefresh=true&t=${Date.now()}`);
+				return;
+			}
+			const params = new URLSearchParams();
+			params.set('url', target);
+			params.set('replaceId', item.id);
+			params.set('forceRefresh', 'true');
+			params.set('t', String(Date.now()));
+			router.push(`/audit/result?${params.toString()}`);
+		} catch (err) {
+			console.error('[history] rescan failed:', err);
 		}
 	}
 
 	return (
-		<ul className="flex flex-col gap-3">
+		<ul className="flex flex-col gap-2.5">
 			{items.map((item) => {
-				const healthy = isHealthyStatus(item.status);
-				const scoreColor = STATUS_SCORE_COLOR[item.status];
+				const auditScore = resolveAuditScoreFromHistory(item);
+				const technicalPercent = auditScore.normalizedScore;
+				const geoHeadline = resolveHistoryGeoHeadline(item);
+				const overallScore = measuredScoreFromParts(
+					geoHeadline?.score ?? technicalPercent,
+					technicalPercent,
+					{ url: item.url, hasSsl: item.report?.hasSsl },
+				);
+				const overallStyles = gradeThemeFromScore(overallScore);
 				const isDeleting = deletingId === item.id;
 				const awaitingConfirm = confirmId === item.id;
-				const isRescanning = rescanningId === item.id;
+
+				const domain = siteLabelFromUrl(item.url);
+				const siteName = resolveHistorySiteName(item);
+				const category = resolveHistoryCategory(item, siteName, locale === 'en' ? 'en' : 'ko');
+				const auditedAt = new Date(item.createdAt).toLocaleString(dateLocale, {
+					year: 'numeric',
+					month: '2-digit',
+					day: '2-digit',
+					hour: '2-digit',
+					minute: '2-digit',
+				});
 
 				return (
 					<li
 						key={item.id}
-						className="flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-4 sm:p-5"
+						className="overflow-visible rounded-xl border border-slate-200 bg-white shadow-sm transition-colors duration-200 hover:border-slate-300 dark:border-zinc-800 dark:bg-zinc-900/80 dark:shadow-none dark:hover:border-zinc-700"
 					>
-						<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-							<div className="min-w-0 flex-1">
-								<a
-									href={item.url}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="block truncate font-mono text-sm text-slate-200 hover:text-accent-light"
-									title={item.url}
-								>
-									{siteLabelFromUrl(item.url)}
-								</a>
-								<p className="mt-1 text-xs text-slate-500">
-									{new Date(item.createdAt).toLocaleString(dateLocale, {
-										year: 'numeric',
-										month: '2-digit',
-										day: '2-digit',
-										hour: '2-digit',
-										minute: '2-digit',
-									})}
-								</p>
-							</div>
-
-							<div className="flex shrink-0 items-center gap-2">
-								<span className={`text-2xl font-extrabold tabular-nums ${scoreColor}`}>
-									{item.score}
-									<span className="text-sm font-semibold text-slate-500">/{item.maxScore}</span>
-								</span>
-								<span
-									className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
-										healthy
-											? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
-											: 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
-									}`}
-								>
-									{item.statusLabel}
-								</span>
-							</div>
-						</div>
-
-						<div className="flex flex-wrap gap-1.5">
-							{item.categories.map((cat) => {
-								const pass = cat.status === 'PASS';
-								return (
-									<span
-										key={cat.id}
-										className={`inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium ${
-											pass
-												? 'border-emerald-500/20 bg-emerald-500/[0.08] text-emerald-300'
-												: 'border-rose-500/20 bg-rose-500/[0.08] text-rose-300'
-										}`}
-										title={`${cat.label}: ${cat.score}/${cat.maxScore}`}
+						<div className="flex flex-col gap-3 p-3.5 pl-6 sm:p-4 sm:pl-[26px] md:flex-row md:items-center md:justify-between md:gap-6">
+							{/* Left: brand logo + site identity + actions */}
+							<div className="flex min-w-0 flex-1 items-start gap-3">
+								{/* <SiteLogoThumbnail
+									siteUrl={item.url}
+									siteName={siteName}
+									logoUrl={resolveReportLogoUrl(item.report)}
+								/> */}
+								<div className="flex min-w-0 flex-1 flex-col gap-2.5">
+								<div className="min-w-0">
+									<p
+										className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5"
+										title={category ? `${siteName} · ${category}` : siteName}
 									>
-										<span>{CATEGORY_ICON[cat.id] ?? '•'}</span>
-										<span className="max-w-[7rem] truncate">{cat.label}</span>
-										<span className="tabular-nums opacity-80">
-											{cat.score}/{cat.maxScore}
+										<span className="truncate text-lg font-bold leading-snug text-slate-900 dark:text-white">
+											{siteName}
 										</span>
-									</span>
-								);
-							})}
-						</div>
+										{category ? (
+											<span className="shrink-0 rounded-md bg-slate-100 px-1.5 py-px font-sans text-[11px] font-medium text-slate-500 dark:bg-white/[0.06] dark:text-zinc-400">
+												{category}
+											</span>
+										) : null}
+									</p>
+									<div className="mt-1 flex min-w-0 flex-wrap items-end gap-x-2 gap-y-0.5">
+										<a
+											href={item.url}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="truncate font-mono text-sm text-zinc-500 transition hover:text-accent dark:text-zinc-400 dark:hover:text-accent-light"
+											title={item.url}
+										>
+											{domain}
+										</a>
+										<time
+											dateTime={item.createdAt}
+											className="shrink-0 font-sans text-[10px] font-light text-slate-400 dark:text-zinc-500"
+										>
+											{auditedAt}
+										</time>
+									</div>
+								</div>
 
-						{rescanError && !rescanningId ? (
-							<p className="text-xs text-rose-300" role="alert">
-								{rescanError}
-							</p>
-						) : null}
-
-						<div className="flex flex-wrap items-center gap-2">
-							<Link
-								href={`/audit/result?id=${encodeURIComponent(item.id)}`}
-								className="rounded-xl bg-accent px-4 py-2 text-sm font-bold text-white shadow-lg shadow-accent/20 transition hover:bg-accent-light"
-							>
-								{t('viewResult')}
-							</Link>
-							<button
-								type="button"
-								disabled={Boolean(rescanningId) || isDeleting}
-								onClick={() => void handleRescan(item)}
-								className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/5 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 disabled:cursor-wait disabled:opacity-70"
-							>
-								{isRescanning ? (
-									<>
-										<span
-											className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-cyan-300/30 border-t-cyan-300"
-											aria-hidden
-										/>
-										<span>{t('rescanning')}</span>
-									</>
-								) : (
-									t('rescan')
-								)}
-							</button>
-							{awaitingConfirm ? (
-								<>
+								<div className="mt-auto flex flex-wrap items-center gap-2">
 									<button
 										type="button"
-										disabled={isDeleting || Boolean(rescanningId)}
-										onClick={() => void handleDelete(item.id)}
-										className="rounded-xl border border-rose-500/50 bg-rose-500/20 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/30 disabled:opacity-50"
+										onClick={() => viewStoredResult(item)}
+										className="rounded-lg bg-accent px-3.5 py-1.5 text-sm font-bold text-white shadow-md shadow-accent/20 transition hover:bg-accent-light"
 									>
-										{isDeleting ? t('deleting') : t('deleteConfirm')}
+										{t('viewResult')}
 									</button>
 									<button
 										type="button"
-										disabled={isDeleting || Boolean(rescanningId)}
-										onClick={() => setConfirmId(null)}
-										className="rounded-xl border border-white/[0.08] bg-white/5 px-4 py-2 text-sm font-semibold text-slate-400 transition hover:bg-white/10 hover:text-slate-200 disabled:opacity-50"
+										disabled={isDeleting}
+										onClick={() => handleRescan(item)}
+										className="inline-flex items-center rounded-lg border border-slate-200 bg-transparent px-3.5 py-1.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:opacity-70 dark:border-zinc-700 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:bg-white/[0.04]"
 									>
-										{t('deleteCancel')}
+										{t('rescan')}
 									</button>
-								</>
-							) : (
-								<button
-									type="button"
-									disabled={isDeleting || Boolean(rescanningId)}
-									onClick={() => setConfirmId(item.id)}
-									className="rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-4 py-2 text-sm font-semibold text-rose-300 transition hover:border-rose-500/40 hover:bg-rose-500/15 disabled:opacity-50"
+									{awaitingConfirm ? (
+										<>
+											<button
+												type="button"
+												disabled={isDeleting}
+												onClick={() => void handleDelete(item.id)}
+												className="inline-flex items-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-50 dark:border-rose-500/50 dark:bg-rose-500/20 dark:text-rose-200 dark:hover:bg-rose-500/30"
+											>
+												{isDeleting ? t('deleting') : t('deleteConfirm')}
+											</button>
+											<button
+												type="button"
+												disabled={isDeleting}
+												onClick={() => setConfirmId(null)}
+												className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50 dark:border-zinc-700 dark:bg-transparent dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+											>
+												{t('deleteCancel')}
+											</button>
+										</>
+									) : (
+										<button
+											type="button"
+											disabled={isDeleting}
+											onClick={() => setConfirmId(item.id)}
+											aria-label={t('delete')}
+											title={t('delete')}
+											className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-rose-50 hover:text-rose-600 disabled:opacity-50 dark:text-zinc-500 dark:hover:bg-rose-500/10 dark:hover:text-rose-400"
+										>
+											<Trash2 className="h-4 w-4" aria-hidden />
+										</button>
+									)}
+								</div>
+							</div>
+							</div>
+
+							{/* Right: overall score + AI trust / tech SEO lines */}
+							<div className="flex flex-col items-end gap-1.5 md:min-w-[22rem]">
+								<p
+									className={`text-[1.75rem] font-extrabold leading-none tabular-nums md:text-3xl ${overallStyles.text}`}
 								>
-									{t('delete')}
-								</button>
-							)}
+									{overallScore}
+									<span className="text-sm font-semibold text-zinc-500 md:text-base">
+										{' '}
+										{tDist('mainScoreSuffix')}
+									</span>
+								</p>
+								<ScoreGradeBadge score={overallScore} isHttps={auditScore.isHttps} />
+								<div className="flex flex-nowrap items-center justify-end gap-1">
+									<span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+										{tDist('chart.aiTrust.full')}
+										<span className="tabular-nums">{geoHeadline?.score ?? '—'}</span>
+									</span>
+									<span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+										{tDist('chart.techSeo.full')}
+										<span className="tabular-nums">{technicalPercent}</span>
+									</span>
+								</div>
+							</div>
 						</div>
 					</li>
 				);

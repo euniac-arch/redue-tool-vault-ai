@@ -136,6 +136,19 @@ export const CMS_DISPLAY_OPTIONS = [
 ] as const;
 
 export function displayCmsToKey(cmsType: string): string {
+	const raw = (cmsType || '').trim();
+	const lower = raw.toLowerCase();
+	if (/그누보드|gnuboard|youngcart|영카트/.test(raw) || /gnuboard|youngcart/.test(lower)) {
+		return 'gnuboard';
+	}
+	if (/wordpress|워드프레스/.test(lower) || raw.includes('워드프레스')) return 'wordpress';
+	if (/cafe24|카페24/.test(lower) || raw.includes('카페24')) return 'cafe24';
+	if (/next/.test(lower)) return 'nextjs';
+	if (/laravel/.test(lower)) return 'laravel';
+	if (/^react$/i.test(raw) || lower.includes('react')) return 'react';
+	if (/imweb|아임웹|makeshop|메이크샵|godomall|고도몰|jsp|asp|커스텀|custom|자체구축/.test(lower) || raw.includes('커스텀') || raw.includes('아임웹')) {
+		return 'custom';
+	}
 	const map: Record<string, string> = {
 		Cafe24: 'cafe24',
 		Gnuboard: 'gnuboard',
@@ -145,7 +158,23 @@ export function displayCmsToKey(cmsType: string): string {
 		Laravel: 'laravel',
 		'Custom HTML/PHP': 'custom',
 	};
-	return map[cmsType] || 'nextjs';
+	return map[raw] || map[cmsType] || 'custom';
+}
+
+/** Map audit/HTML CMS labels onto Solve workspace select values. */
+export function toSolveCmsDisplay(cmsType: string | null | undefined): string {
+	if (!cmsType || cmsType === 'UNKNOWN') return 'Custom HTML/PHP';
+	const key = displayCmsToKey(cmsType);
+	const labels: Record<string, string> = {
+		cafe24: 'Cafe24',
+		gnuboard: 'Gnuboard',
+		nextjs: 'Next.js',
+		wordpress: 'WordPress',
+		react: 'React',
+		laravel: 'Laravel',
+		custom: 'Custom HTML/PHP',
+	};
+	return labels[key] || 'Custom HTML/PHP';
 }
 
 export function difficultyLabel(level: string | undefined): string {

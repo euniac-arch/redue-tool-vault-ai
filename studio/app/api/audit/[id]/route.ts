@@ -2,13 +2,10 @@ import { revalidatePath } from 'next/cache';
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
-import {
-	deleteAuditProjectsByIds,
-	getAuditProjectById,
-} from '@/lib/firebase/audit-projects';
+import { deleteAuditProjectsByIds } from '@/lib/firebase/audit-projects';
 import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 import { prisma } from '@/lib/prisma';
-import type { AuditReport } from '@/lib/site-auditor';
+import { loadSavedAuditReport } from '@/lib/audit/load-saved-report';
 
 export const runtime = 'nodejs';
 
@@ -24,59 +21,22 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 		return NextResponse.json({ error: '진단 ID가 필요합니다.' }, { status: 400 });
 	}
 
-	const firestoreDoc = await getAuditProjectById(id).catch(() => null);
-	if (firestoreDoc?.auditPayload?.report) {
+	const saved = await loadSavedAuditReport(id);
+	if (saved) {
 		return NextResponse.json({
-			id: firestoreDoc.id,
-			createdAt: firestoreDoc.createdAt,
-			score: firestoreDoc.score,
-			issueCount: firestoreDoc.issueCount,
-			report: firestoreDoc.auditPayload.report,
-			source: 'firestore',
+			id: saved.id,
+			createdAt: saved.createdAt,
+			score: saved.score,
+			issueCount: saved.issueCount,
+			report: saved.report,
+			source: saved.source,
 		});
 	}
 
-	// When Firestore is authoritative and the doc is gone, do not resurrect via Prisma.
-	if (isFirebaseAdminConfigured()) {
-		return NextResponse.json(
-			{ error: DELETED_OR_MISSING, code: 'DELETED_OR_MISSING' },
-			{ status: 404 },
-		);
-	}
-
-	const lead = await prisma.auditLead.findUnique({
-		where: { id },
-		select: {
-			id: true,
-			url: true,
-			score: true,
-			maxScore: true,
-			statusLabel: true,
-			reportJson: true,
-			createdAt: true,
-		},
-	});
-
-	if (!lead) {
-		return NextResponse.json(
-			{ error: DELETED_OR_MISSING, code: 'DELETED_OR_MISSING' },
-			{ status: 404 },
-		);
-	}
-
-	let report: AuditReport;
-	try {
-		report = JSON.parse(lead.reportJson) as AuditReport;
-	} catch {
-		return NextResponse.json({ error: '저장된 진단 데이터가 손상되었습니다.' }, { status: 500 });
-	}
-
-	return NextResponse.json({
-		id: lead.id,
-		createdAt: lead.createdAt.toISOString(),
-		report,
-		source: 'prisma',
-	});
+	return NextResponse.json(
+		{ error: DELETED_OR_MISSING, code: 'DELETED_OR_MISSING' },
+		{ status: 404 },
+	);
 }
 
 /**
@@ -110,16 +70,18 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 		if (firestoreDeleted > 0) {
 			revalidatePath('/audit/history');
 			revalidatePath('/admin/projects');
+			revalidatePath(`/report/${id}`);
 		}
 		return NextResponse.json({ ok: true, deleted: firestoreDeleted > 0, firestoreDeleted });
 	}
 
-	if (lead.userId !== session.user.id) {
+	if (lead.userId && lead.userId !== session.user.id) {
 		return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
 	}
 
 	await prisma.auditLead.delete({ where: { id } });
 	revalidatePath('/audit/history');
 	revalidatePath('/admin/projects');
+	revalidatePath(`/report/${id}`);
 	return NextResponse.json({ ok: true, deleted: true, firestoreDeleted });
 }

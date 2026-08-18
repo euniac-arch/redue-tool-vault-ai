@@ -2,32 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
+import { AUDIT_PARSER_STEPS } from '@/lib/audit/parser-steps';
 
-interface ScanStep {
-	tag: string;
-	message: string;
-}
-
-const STEPS: Record<'ko' | 'en', ScanStep[]> = {
-	ko: [
-		{ tag: 'CONNECT', message: '대상 URL에 HTTPS 핸드셰이크 및 HTML 응답 수신 중...' },
-		{ tag: 'HTML Parsing', message: '메타 태그, Canonical, OG 태그 및 Open Graph 이미지 추출 중...' },
-		{ tag: 'Heading Hierarchy', message: 'H1–H3 헤딩 구조 및 중복/순서 비약 검증 중...' },
-		{ tag: 'JSON-LD Schema', message: 'Schema.org 규격 대조 · NewsArticle / Organization / Person 검증 중...' },
-		{ tag: 'E-E-A-T Signal', message: '저자(Author) 프로필 및 발행자(Publisher) 지식 그래프 분석 중...' },
-		{ tag: 'GEO Citation Rate', message: 'Perplexity / ChatGPT Search AI 인용 신호 분석 및 리포트 생성 완료' },
-	],
-	en: [
-		{ tag: 'CONNECT', message: 'Opening HTTPS session and fetching HTML response...' },
-		{ tag: 'HTML Parsing', message: 'Extracting meta tags, canonical, OG tags & Open Graph image...' },
-		{ tag: 'Heading Hierarchy', message: 'Validating H1–H3 structure, duplicates, and hierarchy skips...' },
-		{ tag: 'JSON-LD Schema', message: 'Cross-checking Schema.org · NewsArticle / Organization / Person...' },
-		{ tag: 'E-E-A-T Signal', message: 'Analyzing author profiles and publisher knowledge graph...' },
-		{ tag: 'GEO Citation Rate', message: 'Scoring Perplexity / ChatGPT Search citation signals — report ready' },
-	],
-};
-
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = AUDIT_PARSER_STEPS.length;
 /** Pace while waiting on the network / parser. */
 const SLOW_INTERVAL_MS = 450;
 /** Pace once backend payload is ready — fast-forward remaining checks. */
@@ -57,8 +34,8 @@ export function AuditLoading({
 	forceRefresh = false,
 }: AuditLoadingProps) {
 	const t = useTranslations('audit');
-	const locale = useLocale() as 'ko' | 'en';
-	const steps = STEPS[locale] ?? STEPS.ko;
+	const locale = useLocale();
+	const steps = AUDIT_PARSER_STEPS;
 	/** Number of checks fully activated (0–6). */
 	const [completedSteps, setCompletedSteps] = useState(0);
 	const completedRef = useRef(false);
@@ -100,8 +77,8 @@ export function AuditLoading({
 	const activeIndex = completedSteps >= TOTAL_STEPS ? TOTAL_STEPS - 1 : completedSteps;
 
 	return (
-		<div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#07090d] shadow-2xl shadow-black/40">
-			<div className="flex items-center gap-2 border-b border-white/[0.06] bg-white/[0.03] px-4 py-2.5">
+		<div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#07090d] shadow-2xl shadow-slate-200/60 dark:shadow-black/40">
+			<div className="flex items-center gap-2 border-b border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-white/[0.03] px-4 py-2.5">
 				<span className="h-2.5 w-2.5 rounded-full bg-rose-500/80" />
 				<span className="h-2.5 w-2.5 rounded-full bg-amber-400/80" />
 				<span className="h-2.5 w-2.5 rounded-full bg-emerald-400/80" />
@@ -110,7 +87,7 @@ export function AuditLoading({
 
 			<div className="px-5 py-6 sm:px-7">
 				<div className="mb-5 flex flex-col gap-1">
-					<p className="text-base font-bold text-white sm:text-lg">
+					<p className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">
 						{forceRefresh ? t('loadingRescanTitle') : t('loadingTitle')}
 					</p>
 					<p className="truncate font-mono text-xs text-cyan-400/90">{url || '—'}</p>
@@ -125,7 +102,7 @@ export function AuditLoading({
 						return (
 							<div
 								key={step.tag}
-								className={`flex gap-2 rounded-lg px-2 py-1.5 transition-all duration-200 ${
+								className={`flex flex-nowrap items-center gap-2 rounded-lg px-2 py-1.5 transition-all duration-200 ${
 									active
 										? 'bg-accent/10 ring-1 ring-accent/30'
 										: isCompleteRow
@@ -136,7 +113,7 @@ export function AuditLoading({
 								<span
 									className={`shrink-0 tabular-nums ${
 										isCompleteRow && !active
-											? 'text-emerald-400'
+											? 'text-emerald-700 dark:text-emerald-400'
 											: active
 												? 'text-accent-light'
 												: 'text-slate-600'
@@ -146,17 +123,17 @@ export function AuditLoading({
 								</span>
 								<span
 									className={`shrink-0 font-bold ${
-										active ? 'text-cyan-300' : isCompleteRow ? 'text-slate-400' : 'text-slate-600'
+										active ? 'text-cyan-800 dark:text-cyan-300' : isCompleteRow ? 'text-slate-600 dark:text-slate-400' : 'text-slate-600'
 									}`}
 								>
 									[{step.tag}]
 								</span>
 								<span
-									className={
-										active ? 'text-slate-100' : isCompleteRow ? 'text-slate-400' : 'text-slate-600'
-									}
+									className={`min-w-0 truncate ${
+										active ? 'text-slate-900 dark:text-slate-100' : isCompleteRow ? 'text-slate-600 dark:text-slate-400' : 'text-slate-600'
+									}`}
 								>
-									{step.message}
+									{locale === 'en' ? step.descEn : step.desc}
 								</span>
 								{active && <span className="ml-1 inline-block h-3.5 w-1.5 animate-pulse bg-accent-light" />}
 							</div>
@@ -171,7 +148,7 @@ export function AuditLoading({
 							{completedSteps}/{TOTAL_STEPS}
 						</span>
 					</div>
-					<div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+					<div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/[0.06]">
 						<div
 							className="h-full rounded-full bg-gradient-to-r from-accent to-cyan-400 transition-all duration-300 ease-out"
 							style={{ width: `${progressPct}%` }}

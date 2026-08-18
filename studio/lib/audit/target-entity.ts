@@ -4,6 +4,12 @@ import {
 	checkViewport,
 	type LighthouseViewportAudit,
 } from '@/lib/audit/viewport';
+import {
+	GNUBOARD_HTML_RE,
+	isGnuboardHtml,
+	isYoungcartHtml,
+	toAuditCmsLabel,
+} from '@/lib/crawling/cms-from-html';
 import type { AuditReport } from '@/lib/site-auditor';
 
 type AuditLang = 'ko' | 'en';
@@ -26,15 +32,22 @@ function domainFromUrl(raw: string): string {
 function buildSignalCorpus(report: AuditReport): string {
 	const paths = (report.pageMetas ?? []).map((p) => p.urlPath || '').join(' ');
 	const urls = (report.collectedUrls ?? []).join(' ');
-	return [report.url, urls, paths, report.footerText ?? ''].join(' ').toLowerCase();
+	const nav = (report.navItems ?? []).map((n) => n.url || '').join(' ');
+	return [report.url, urls, paths, nav, report.footerText ?? ''].join(' ').toLowerCase();
 }
 
 /** Lightweight CMS guess from crawl URL / page-meta signals (no filesystem). */
 export function inferCmsFromAuditReport(report: AuditReport, lang: AuditLang = 'ko'): string {
+	const stored = (report.cmsType || '').trim();
+	if (stored && stored !== 'UNKNOWN') {
+		return stored;
+	}
+
 	const corpus = buildSignalCorpus(report);
-	const hasYoungcart =
-		/youngcart|yc4_|\/shop\/item\.php|\/shop\/list\.php|cart\.php|orderform\.php/.test(corpus);
+	const hasYoungcart = isYoungcartHtml(corpus) || /cart\.php|orderform\.php/.test(corpus);
 	const hasGnuboard =
+		isGnuboardHtml(corpus) ||
+		GNUBOARD_HTML_RE.test(corpus) ||
 		/board\.php|\/bbs\/|g5_|gnuboard|head\.sub\.php|theme\/basic|bo_table=/.test(corpus);
 
 	if (hasGnuboard && hasYoungcart) {
@@ -43,10 +56,11 @@ export function inferCmsFromAuditReport(report: AuditReport, lang: AuditLang = '
 	if (hasGnuboard) return lang === 'ko' ? '그누보드' : 'Gnuboard';
 	if (hasYoungcart) return lang === 'ko' ? '영카트' : 'YoungCart';
 	if (/wp-content|wp-includes|wp-json|wordpress/.test(corpus)) return 'WordPress';
+	if (/imweb|doothost|cdn\.imweb/.test(corpus)) return lang === 'ko' ? '아임웹' : 'Imweb';
 	if (/cafe24/.test(corpus)) return 'Cafe24';
 	if (/_next\/static|__next/.test(corpus)) return 'Next.js';
 	if (/laravel|\/public\/index\.php/.test(corpus)) return 'Laravel';
-	return lang === 'ko' ? '커스텀 HTML/PHP' : 'Custom HTML/PHP';
+	return toAuditCmsLabel('자체구축 / 기타', lang);
 }
 
 /** e.g. "의료 / 암치료 클리닉" — industry parent + site keyword. */
@@ -83,11 +97,10 @@ export function resolveTargetBrandName(
 export function formatTargetScanStamp(
 	iso: string,
 	lang: AuditLang = 'ko',
-): { dateTime: string | null; badge: string } {
-	const badge = lang === 'ko' ? '실시간' : 'Live';
+): { dateTime: string | null } {
 	const d = new Date(iso);
 	if (Number.isNaN(d.getTime())) {
-		return { dateTime: null, badge };
+		return { dateTime: null };
 	}
 	if (lang === 'ko') {
 		const formattedDate = d
@@ -99,7 +112,7 @@ export function formatTargetScanStamp(
 			minute: '2-digit',
 			second: '2-digit',
 		});
-		return { dateTime: `${formattedDate} ${formattedTime}`, badge };
+		return { dateTime: `${formattedDate} ${formattedTime}` };
 	}
 	const date = d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 	const time = d.toLocaleTimeString('en-US', {
@@ -108,7 +121,7 @@ export function formatTargetScanStamp(
 		minute: '2-digit',
 		second: '2-digit',
 	});
-	return { dateTime: `${date} ${time}`, badge };
+	return { dateTime: `${date} ${time}` };
 }
 
 /** Google-recommended TTFB threshold (≤200ms). */
@@ -266,4 +279,45 @@ export function displayTargetUrl(raw: string): string {
 	} catch {
 		return raw.replace(/\/$/, '');
 	}
+}
+
+export type PortalCollectorId = 'google' | 'naver' | 'gptbot';
+
+export interface PortalCollectorStatus {
+	id: PortalCollectorId;
+	label: string;
+	/** Short crawler name for tooltip / aria (Googlebot, Yeti, GPTBot). */
+	crawler: string;
+	allowed: boolean;
+}
+
+function isAiBotsCheckPassing(report: AuditReport): boolean | null {
+	const checks = report.checklist?.length ? report.checklist : report.categories.flatMap((c) => c.checks);
+	const botCheck = checks.find((c) => c.id === 'ai-bots-allowed');
+	if (!botCheck) return null;
+	return (botCheck.status ?? (botCheck.passed ? 'pass' : 'fail')) === 'pass';
+}
+
+/**
+ * Googlebot / Yeti / GPTBot collection chips for the Target Entity header.
+ * Google & Naver follow combined robots.txt + meta robots; GPTBot uses the
+ * per-bot robots map when present.
+ */
+export function resolvePortalCollectorStatuses(report: AuditReport): PortalCollectorStatus[] {
+	const indexAllowed = report.indexStatus?.allowed ?? true;
+	const googleAllowed = report.indexStatus
+		? Boolean(report.indexStatus.robotsTxtOk && report.indexStatus.metaRobotsOk)
+		: indexAllowed;
+	const naverAllowed = googleAllowed;
+
+	const gptFromMetrics = report.metrics?.aiBotAccess?.gptbot;
+	const gptFromCheck = isAiBotsCheckPassing(report);
+	const gptAllowed =
+		typeof gptFromMetrics === 'boolean' ? gptFromMetrics : gptFromCheck !== null ? gptFromCheck : true;
+
+	return [
+		{ id: 'google', label: 'Google', crawler: 'Googlebot', allowed: googleAllowed },
+		{ id: 'naver', label: 'Naver', crawler: 'Yeti', allowed: naverAllowed },
+		{ id: 'gptbot', label: 'GPTBot', crawler: 'GPTBot', allowed: gptAllowed },
+	];
 }

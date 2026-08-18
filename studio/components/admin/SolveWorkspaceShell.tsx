@@ -161,10 +161,21 @@ export function SolveWorkspaceShell({
 		setReanalyzing(true);
 		setReanalyzeError(null);
 		try {
-			const res = await fetch('/api/audit/scan', {
+			const res = await fetch(`/api/audit/scan?t=${Date.now()}`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ url: audit.targetUrl, lang: 'ko' }),
+				cache: 'no-store',
+				headers: {
+					'Content-Type': 'application/json',
+					'Cache-Control': 'no-cache, no-store, must-revalidate',
+					Pragma: 'no-cache',
+				},
+				body: JSON.stringify({
+					url: audit.targetUrl,
+					lang: 'ko',
+					forceRefresh: true,
+					t: Date.now(),
+					...(firestoreDocId ? { replaceId: firestoreDocId } : {}),
+				}),
 			});
 			const data = (await res.json().catch(() => ({}))) as AuditReport & {
 				id?: string | null;

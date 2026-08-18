@@ -1,8 +1,9 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
+import { useResolvedReputation } from '@/components/audit/AuditDataContext';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
-import { resolveExternalReputation, type GeoActionPriority } from '@/lib/audit/geo-score';
+import type { GeoActionPriority } from '@/lib/audit/geo-score';
 import type { AuditReport } from '@/lib/site-auditor';
 
 interface GeoActionPlanPanelProps {
@@ -19,21 +20,24 @@ export function GeoActionPlanPanel({ report, reportData }: GeoActionPlanPanelPro
 	const t = useTranslations('audit.geoActionPlan');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
-	const { actionPlan } = resolveExternalReputation(report, reportData, lang);
+	const actionPlan = useResolvedReputation(report, reportData, lang)?.actionPlan ?? [];
 
 	return (
-		<section className="audit-report-section flex flex-col gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-5 sm:p-6">
+		<section
+			id="action-plan-85"
+			className="pdf-page-item audit-report-section scroll-mt-24 flex flex-col gap-4 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] p-5 sm:p-6"
+		>
 			<div>
 				<p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#D4AF37]">{t('subtitle')}</p>
-				<h2 className="mt-1 text-lg font-extrabold text-white">{t('title')}</h2>
+				<h2 className="mt-1 text-lg font-extrabold text-slate-900 dark:text-white">{t('title')}</h2>
 			</div>
 
 			<ol className="flex flex-col gap-3">
 				{actionPlan.map((item) => (
 					<li
 						key={item.id}
-						className={`flex flex-col gap-2 rounded-xl border border-white/[0.08] p-4 sm:flex-row sm:items-start sm:gap-4 ${
-							item.priority === 'urgent' ? 'bg-rose-500/[0.06]' : 'bg-indigo-500/[0.05]'
+						className={`flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-white/[0.08] p-4 sm:flex-row sm:items-start sm:gap-4 ${
+							item.priority === 'urgent' ? 'bg-rose-50 dark:bg-rose-500/[0.06]' : 'bg-indigo-50 dark:bg-indigo-500/[0.05]'
 						}`}
 					>
 						<div className="flex shrink-0 items-center gap-1.5">
@@ -45,8 +49,8 @@ export function GeoActionPlanPanel({ report, reportData }: GeoActionPlanPanelPro
 							</span>
 						</div>
 						<div>
-							<p className="text-sm font-bold text-slate-100">{item.title}</p>
-							<p className="mt-1 text-xs leading-relaxed text-slate-400">
+							<p className="text-sm font-bold text-slate-900 dark:text-slate-100">{item.title}</p>
+							<p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
 								<span className="text-slate-500">└ </span>
 								{item.description}
 							</p>

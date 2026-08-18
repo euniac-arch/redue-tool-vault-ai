@@ -1,13 +1,25 @@
 /**
  * Ready-to-paste JSON-LD fix snippets — generated only for schemas that the
  * live crawl actually found missing or incomplete (same fail/warn filter as
- * `buildPrioritizedActions`). Placeholder values are filled from real
- * `report.siteMeta`/`report.metrics` signals wherever available; anything
- * the crawler can't know (a person's name, a FAQ answer…) is left as an
- * obvious `{{ }}`-style placeholder for the webmaster to replace.
+ * `buildPrioritizedActions`). Values are filled from crawled `siteMeta` /
+ * NAP / specialties. Article/NewsArticle is emitted only for press/media.
  */
 
+import { extractRepresentative } from '@/lib/audit/extractors/entity';
+import { isNewsMediaVertical } from '@/lib/audit/recommended-schemas';
+import { schemaMappingFromReport } from '@/lib/audit/live-criteria';
+import { extractValidSpecialties } from '@/lib/geo/clean-medical-entities';
+import {
+	buildFaqEntities,
+	canonicalSiteUrl,
+	collectAuditTargetKeywords,
+	domainFromUrl,
+	napFromAuditReport,
+	resolveSchemaOrgType,
+} from '@/lib/geo/prescription-patches';
+import { resolveIndustryConfigFromSite, toFaqPageJsonLd } from '@/lib/registry/universalIndustryRegistry';
 import type { AuditCheckItem, AuditLang, AuditReport } from '@/lib/site-auditor';
+import type { GeoNapInfo, GeoSiteContext, SchemaOrgPrimaryType } from '@/types/geo-prescription';
 
 export type JsonLdSnippetSchema = 'organization' | 'article' | 'person' | 'faq';
 
@@ -18,6 +30,8 @@ export interface JsonLdFixSnippet {
 	description: string;
 	code: string;
 }
+
+const PLACEHOLDER_RE = /\{\{\s*[^}]+\s*\}\}/;
 
 function resolveStatus(check: AuditCheckItem): 'pass' | 'fail' | 'warning' {
 	return check.status ?? (check.passed ? 'pass' : 'fail');
@@ -32,153 +46,344 @@ function needsFix(checks: AuditCheckItem[], id: string): boolean {
 	return check ? resolveStatus(check) !== 'pass' : false;
 }
 
-function domainFromUrl(raw: string): string {
-	try {
-		return new URL(raw).hostname.replace(/^www\./, '');
-	} catch {
-		return raw.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0] || raw;
-	}
-}
-
 function pretty(obj: unknown): string {
 	return JSON.stringify(obj, null, 2);
 }
 
-function buildOrganizationSnippet(report: AuditReport, domain: string, lang: AuditLang): JsonLdFixSnippet {
-	const brand = report.siteMeta?.brandName || domain;
-	const missing = report.metrics?.organizationMissing;
+function wrapScript(payload: Record<string, unknown>): string {
+	return `<script type="application/ld+json">\n${pretty(payload)}\n</script>`;
+}
 
-	const code = `<script type="application/ld+json">\n${pretty({
+function absoluteUrl(raw: string | undefined, fallback: string): string {
+	const value = (raw || '').trim();
+	if (/^https?:\/\//i.test(value)) return value;
+	if (value.startsWith('//')) return `https:${value}`;
+	return fallback;
+}
+
+function logoFromReport(report: AuditReport, siteUrl: string): string {
+	const stored = (report.logoUrl || report.siteMeta?.logoUrl || '').trim();
+	if (/^https?:\/\//i.test(stored)) return stored;
+	const fallback = `${siteUrl}/logo.png`;
+	for (const snippet of report.metrics?.jsonLdSnippets ?? []) {
+		const logoObject = snippet.match(
+			/"logo"\s*:\s*\{[^}]*"url"\s*:\s*"(https?:[^"]+)"/i,
+		);
+		if (logoObject?.[1]) return logoObject[1];
+		const logoPlain = snippet.match(/"logo"\s*:\s*"(https?:[^"]+)"/i);
+		if (logoPlain?.[1]) return logoPlain[1];
+		const image = snippet.match(/"image"\s*:\s*"(https?:[^"]+)"/i);
+		if (image?.[1]) return image[1];
+	}
+	return absoluteUrl(report.siteMeta?.ogImage, fallback);
+}
+
+function postalAddress(nap: GeoNapInfo, location: string): Record<string, unknown> | string | undefined {
+	if (nap.streetAddress || nap.addressLocality || nap.addressRegion) {
+		return {
+			'@type': 'PostalAddress',
+			...(nap.streetAddress ? { streetAddress: nap.streetAddress } : {}),
+			...(nap.addressLocality ? { addressLocality: nap.addressLocality } : {}),
+			...(nap.addressRegion ? { addressRegion: nap.addressRegion } : {}),
+			addressCountry: 'KR',
+		};
+	}
+	if (nap.address) return nap.address;
+	if (location) {
+		return {
+			'@type': 'PostalAddress',
+			addressLocality: location,
+			addressCountry: 'KR',
+		};
+	}
+	return undefined;
+}
+
+function sameAsFromReport(report: AuditReport, siteUrl: string): string[] {
+	const found = new Set<string>([siteUrl]);
+	for (const snippet of report.metrics?.jsonLdSnippets ?? []) {
+		const matches = snippet.matchAll(/"sameAs"\s*:\s*(\[[^\]]*\]|"(https?:[^"]+)")/gi);
+		for (const match of matches) {
+			const raw = match[1];
+			if (!raw) continue;
+			if (raw.startsWith('[')) {
+				try {
+					const list = JSON.parse(raw) as unknown;
+					if (Array.isArray(list)) {
+						for (const item of list) {
+							if (typeof item === 'string' && /^https?:\/\//i.test(item)) found.add(item);
+						}
+					}
+				} catch {
+					/* truncated snippet */
+				}
+			} else if (match[2]) {
+				found.add(match[2]);
+			}
+		}
+	}
+	return Array.from(found);
+}
+
+function siteContextFromReport(report: AuditReport, lang: AuditLang): GeoSiteContext {
+	const url = canonicalSiteUrl(report.url);
+	const domain = report.siteMeta?.domain || domainFromUrl(url);
+	const brand = report.siteMeta?.brandName || domain;
+	const category = report.siteMeta?.category || report.siteMeta?.primaryKeyword || (lang === 'en' ? 'clinic' : '의원');
+	const primaryKeyword = report.siteMeta?.primaryKeyword || category;
+	const location = report.siteMeta?.location || report.siteMeta?.broadLocation || '';
+	const industryType = report.siteMeta?.industryType || 'GENERAL';
+	const existingTypes = report.metrics?.schemaTypes ?? [];
+	const nap = napFromAuditReport(report);
+	if (!nap.name) nap.name = brand;
+	const specialties = (report.siteMeta?.coreSpecialties?.length
+		? report.siteMeta.coreSpecialties
+		: collectAuditTargetKeywords(report)
+	).slice(0, 5);
+
+	return {
+		url,
+		domain,
+		brandName: brand,
+		category,
+		primaryKeyword,
+		location,
+		industryType,
+		schemaType: resolveSchemaOrgType({
+			industryType,
+			keyword: primaryKeyword,
+			category,
+			existingTypes,
+			description: report.siteMeta?.metaDescription,
+			brandName: brand,
+		}),
+		lang,
+		description: report.siteMeta?.metaDescription,
+		ogTitle: report.siteMeta?.ogTitle,
+		ogDescription: report.siteMeta?.ogDescription,
+		ogImage: report.siteMeta?.ogImage,
+		existingSchemaTypes: existingTypes,
+		nap,
+		targetKeywords: collectAuditTargetKeywords(report),
+		specialties,
+		title: report.siteMeta?.title,
+		metaKeywords: report.siteMeta?.metaKeywords,
+		navMenuTexts: report.siteMeta?.navMenuTexts,
+		businessEntity: report.siteMeta?.businessEntity,
+		entityPhrases: report.siteMeta?.entityPhrases,
+		needSignals: report.siteMeta?.needSignals,
+	};
+}
+
+function buildEntitySnippet(report: AuditReport, ctx: GeoSiteContext, lang: AuditLang): JsonLdFixSnippet {
+	const missing = report.metrics?.organizationMissing;
+	const logo = logoFromReport(report, ctx.url);
+	const address = postalAddress(ctx.nap, ctx.location);
+	const schemaType: SchemaOrgPrimaryType = ctx.schemaType;
+	const payload: Record<string, unknown> = {
 		'@context': 'https://schema.org',
-		'@type': 'Organization',
-		name: brand,
-		url: `https://${domain}`,
-		logo: `https://${domain}/logo.png`,
-		sameAs: [`https://${domain}`, `https://blog.naver.com/${domain}`],
-	})}\n</script>`;
+		'@type': schemaType,
+		'@id': `${ctx.url}#entity`,
+		name: ctx.brandName,
+		url: ctx.url,
+		logo,
+		image: logo,
+		...(ctx.nap.telephone ? { telephone: ctx.nap.telephone } : {}),
+		...(address ? { address } : {}),
+		sameAs: sameAsFromReport(report, ctx.url),
+	};
+	if (ctx.location) payload.areaServed = ctx.location;
+	const knowsAbout = extractValidSpecialties(
+		Array.from(new Set([...ctx.specialties, ctx.primaryKeyword, ctx.category])).filter(Boolean),
+	).slice(0, 8);
+	if (knowsAbout.length) payload.knowsAbout = knowsAbout;
+	if (schemaType === 'MedicalClinic' || schemaType === 'Hospital' || schemaType === 'Dentist' || schemaType === 'VeterinaryCare') {
+		payload.medicalSpecialty = ctx.specialties.length ? ctx.specialties : [ctx.primaryKeyword];
+	}
 
 	return {
 		id: 'organization',
-		schemaType: 'Organization',
-		title: lang === 'en' ? 'Organization' : 'Organization (상호/기업 정보)',
+		schemaType,
+		title:
+			lang === 'en'
+				? `${schemaType} (brand / NAP entity)`
+				: `${schemaType} (상호·NAP 엔티티)`,
 		description:
 			lang === 'en'
 				? missing?.length
-					? `Currently missing: ${missing.join(', ')}`
-					: 'No Organization schema was detected on the page.'
+					? `Currently missing: ${missing.join(', ')}. Paste this ${schemaType} block with the crawled brand and logo.`
+					: `No ${schemaType} entity was detected. This block maps the live clinic/business name, domain, and logo.`
 				: missing?.length
-					? `현재 누락된 필드: ${missing.join(', ')}`
-					: '페이지에서 Organization 스키마가 감지되지 않았습니다.',
-		code,
+					? `현재 누락된 필드: ${missing.join(', ')}. 진단된 상호·로고를 넣은 ${schemaType} 블록입니다.`
+					: `페이지에서 ${schemaType} 엔티티가 감지되지 않았습니다. 실제 상호·도메인·로고를 매핑한 완성형 코드입니다.`,
+		code: wrapScript(payload),
 	};
 }
 
-function buildArticleSnippet(report: AuditReport, domain: string, lang: AuditLang): JsonLdFixSnippet {
-	const brand = report.siteMeta?.brandName || domain;
+function buildArticleSnippet(report: AuditReport, ctx: GeoSiteContext, lang: AuditLang): JsonLdFixSnippet {
 	const missing = report.metrics?.articleMissing;
-	const authorName = lang === 'en' ? '{{ Author name }}' : '{{ 작성자명 }}';
-	const headline = report.metrics?.pageTitle || (lang === 'en' ? '{{ Content headline }}' : '{{ 콘텐츠 제목 }}');
+	const headline = report.metrics?.pageTitle || report.siteMeta?.title || ctx.brandName;
+	const published = (report.fetchedAt || new Date().toISOString()).slice(0, 10);
+	const logo = logoFromReport(report, ctx.url);
 
-	const code = `<script type="application/ld+json">\n${pretty({
+	const payload = {
 		'@context': 'https://schema.org',
-		'@type': 'Article',
+		'@type': 'NewsArticle',
 		headline,
-		author: { '@type': 'Person', name: authorName },
-		datePublished: '{{ YYYY-MM-DD }}',
+		author: {
+			'@type': 'Person',
+			name: lang === 'en' ? `${ctx.brandName} Editorial Team` : `${ctx.brandName} 편집팀`,
+		},
+		datePublished: published,
+		dateModified: published,
+		image: logo,
 		publisher: {
 			'@type': 'Organization',
-			name: brand,
-			logo: { '@type': 'ImageObject', url: `https://${domain}/logo.png` },
+			name: ctx.brandName,
+			logo: { '@type': 'ImageObject', url: logo },
 		},
-	})}\n</script>`;
+		mainEntityOfPage: ctx.url,
+	};
 
 	return {
 		id: 'article',
-		schemaType: 'Article / NewsArticle',
-		title: lang === 'en' ? 'Article / NewsArticle' : 'Article / NewsArticle (기사·발행물)',
+		schemaType: 'NewsArticle',
+		title: lang === 'en' ? 'NewsArticle (press / media)' : 'NewsArticle (언론·보도)',
 		description:
 			lang === 'en'
 				? missing?.length
 					? `Currently missing: ${missing.join(', ')}`
-					: 'No Article/NewsArticle schema was detected.'
+					: 'No NewsArticle schema was detected on this press/media page.'
 				: missing?.length
 					? `현재 누락된 필드: ${missing.join(', ')}`
-					: '페이지에서 Article/NewsArticle 스키마가 감지되지 않았습니다.',
-		code,
+					: '언론·미디어 페이지에서 NewsArticle 스키마가 감지되지 않았습니다.',
+		code: wrapScript(payload),
 	};
 }
 
-function buildPersonSnippet(report: AuditReport, domain: string, lang: AuditLang): JsonLdFixSnippet {
-	const brand = report.siteMeta?.brandName || domain;
+function buildPersonSnippet(report: AuditReport, ctx: GeoSiteContext, lang: AuditLang): JsonLdFixSnippet {
 	const missing = report.metrics?.personMissing;
-
-	const code = `<script type="application/ld+json">\n${pretty({
+	const config = resolveIndustryConfigFromSite({
+		lang,
+		brandName: ctx.brandName,
+		location: ctx.location,
+		primaryKeyword: ctx.primaryKeyword,
+		category: ctx.category,
+		services: ctx.specialties,
+		domain: ctx.domain,
+		url: ctx.url,
+		legacyIndustry: ctx.industryType,
+		title: ctx.title || ctx.brandName,
+		description: ctx.description,
+		keywords: ctx.metaKeywords,
+		schemaTypes: ctx.existingSchemaTypes,
+		navMenuTexts: ctx.navMenuTexts,
+	});
+	const extracted = extractRepresentative(
+		[report.footerText, (report.metrics?.jsonLdSnippets ?? []).join('\n')].filter(Boolean).join('\n'),
+		lang,
+	);
+	const jobTitle =
+		report.siteMeta?.representativeJobTitle ||
+		(extracted.isExtracted ? extracted.jobTitle : '') ||
+		config.personJobTitle;
+	const directorName =
+		report.siteMeta?.representativeName ||
+		(extracted.isExtracted ? extracted.name : `${ctx.brandName} ${jobTitle}`);
+	const payload: Record<string, unknown> = {
 		'@context': 'https://schema.org',
 		'@type': 'Person',
-		'@id': `https://${domain}/#person`,
-		name: lang === 'en' ? `${brand} Medical / Research Team` : `${brand} 의료진/연구팀`,
-		jobTitle: lang === 'en' ? 'Medical Coordinator / Research Team' : '의료 코디네이터 / 전문 연구팀',
-		worksFor: { '@id': `https://${domain}/#organization` },
-	})}\n</script>`;
+		'@id': `${ctx.url}#director`,
+		name: directorName,
+		jobTitle,
+		worksFor: {
+			'@type': ctx.schemaType,
+			'@id': `${ctx.url}#entity`,
+			name: ctx.brandName,
+			url: ctx.url,
+		},
+		url: `${ctx.url}/#director`,
+	};
+	const knowsAbout = extractValidSpecialties(
+		ctx.specialties.length ? ctx.specialties : [ctx.primaryKeyword],
+	).slice(0, 5);
+	if (knowsAbout.length) payload.knowsAbout = knowsAbout;
 
 	return {
 		id: 'person',
 		schemaType: 'Person',
-		title: lang === 'en' ? 'Person (E-E-A-T author profile)' : 'Person (E-E-A-T 대표/저자 프로필)',
+		title: lang === 'en' ? `Person (${jobTitle})` : `Person (${jobTitle} 프로필)`,
 		description:
 			lang === 'en'
 				? missing?.length
 					? `Currently missing: ${missing.join(', ')}`
-					: 'No Person schema was detected.'
+					: `No Person schema was detected. This block is a ${jobTitle} profile bound to the live ${config.schemaType} entity.`
 				: missing?.length
 					? `현재 누락된 필드: ${missing.join(', ')}`
-					: '페이지에서 Person 스키마가 감지되지 않았습니다.',
-		code,
+					: `페이지에서 Person 스키마가 감지되지 않았습니다. 실제 ${config.defaultCategory} 엔티티에 연결한 ${jobTitle} 프로필입니다.`,
+		code: wrapScript(payload),
 	};
 }
 
-function buildFaqSnippet(report: AuditReport, lang: AuditLang): JsonLdFixSnippet {
-	const topic = report.siteMeta?.primaryKeyword || report.siteMeta?.category || (lang === 'en' ? 'this service' : '이 서비스');
-	const location = report.siteMeta?.broadLocation ? `${report.siteMeta.broadLocation} ` : '';
-	const question =
-		lang === 'en' ? `What should I know before choosing ${topic}?` : `${location}${topic} 선택 전 꼭 알아야 할 점은 무엇인가요?`;
-
-	const code = `<script type="application/ld+json">\n${pretty({
-		'@context': 'https://schema.org',
-		'@type': 'FAQPage',
-		mainEntity: [
-			{
-				'@type': 'Question',
-				name: question,
-				acceptedAnswer: {
-					'@type': 'Answer',
-					text: lang === 'en' ? '{{ Answer content }}' : '{{ 답변 내용 }}',
-				},
-			},
-		],
-	})}\n</script>`;
+function buildFaqSnippet(report: AuditReport, ctx: GeoSiteContext, lang: AuditLang): JsonLdFixSnippet {
+	const config = resolveIndustryConfigFromSite({
+		lang,
+		brandName: ctx.brandName,
+		location: ctx.location,
+		primaryKeyword: ctx.primaryKeyword,
+		category: ctx.category,
+		services: extractValidSpecialties(ctx.specialties.length ? ctx.specialties : [ctx.primaryKeyword]),
+		domain: ctx.domain,
+		url: ctx.url,
+		legacyIndustry: ctx.industryType,
+		title: ctx.title || ctx.brandName,
+		description: ctx.description,
+		keywords: ctx.metaKeywords,
+		schemaTypes: ctx.existingSchemaTypes,
+	});
+	const generated = config.profile.faqGenerator({
+		brandName: ctx.brandName,
+		location: ctx.location,
+		primaryKeyword: config.primaryKeyword,
+		services: config.services,
+		domain: ctx.domain,
+		url: ctx.url,
+		lang,
+	});
+	const faqs = (generated.length >= 3 ? generated : buildFaqEntities(ctx).map(([question, answer]) => ({ question, answer }))).slice(0, 5);
+	const payload = toFaqPageJsonLd(faqs, { url: ctx.url, lang });
 
 	return {
 		id: 'faq',
-		schemaType: 'FAQPage / HowTo',
-		title: lang === 'en' ? 'FAQPage / HowTo' : 'FAQPage / HowTo (AI 인용 최우선 스키마)',
+		schemaType: 'FAQPage',
+		title: lang === 'en' ? 'FAQPage (GEO citation Q&A)' : 'FAQPage (서비스 기반 Q&A)',
 		description:
 			lang === 'en'
-				? 'No FAQPage / HowTo schema was detected — this is the schema AI engines cite most often.'
-				: 'FAQPage / HowTo 스키마가 감지되지 않았습니다 — AI 검색엔진이 가장 우선적으로 인용하는 구조입니다.',
-		code,
+				? `No FAQPage schema was detected. ${faqs.length} industry Q&As were generated from the live crawl.`
+				: `FAQPage 스키마가 감지되지 않았습니다. 업종 레지스트리와 사이트 서비스명으로 Q&A ${faqs.length}종을 완성했습니다.`,
+		code: wrapScript(payload),
 	};
+}
+
+/** True when generated code still contains unfinished `{{ }}` tokens. */
+export function jsonLdSnippetHasPlaceholder(code: string): boolean {
+	return PLACEHOLDER_RE.test(code);
 }
 
 /** Only returns snippets for schemas whose corresponding checklist item is fail/warning. */
 export function buildJsonLdFixSnippets(report: AuditReport, lang: AuditLang = 'ko'): JsonLdFixSnippet[] {
 	const checks = report.checklist?.length ? report.checklist : report.categories.flatMap((c) => c.checks);
-	const domain = report.siteMeta?.domain || domainFromUrl(report.url);
+	const newsVertical = isNewsMediaVertical(schemaMappingFromReport(report));
+	const ctx = siteContextFromReport(report, lang);
 
 	const snippets: JsonLdFixSnippet[] = [];
-	if (needsFix(checks, 'organization')) snippets.push(buildOrganizationSnippet(report, domain, lang));
-	if (needsFix(checks, 'article-fields')) snippets.push(buildArticleSnippet(report, domain, lang));
-	if (needsFix(checks, 'person-eeat')) snippets.push(buildPersonSnippet(report, domain, lang));
-	if (needsFix(checks, 'faq-howto-schema')) snippets.push(buildFaqSnippet(report, lang));
+	if (needsFix(checks, 'organization') || needsFix(checks, 'jsonld-present')) {
+		snippets.push(buildEntitySnippet(report, ctx, lang));
+	}
+	if (newsVertical && (needsFix(checks, 'article-fields') || needsFix(checks, 'news-article'))) {
+		snippets.push(buildArticleSnippet(report, ctx, lang));
+	}
+	if (needsFix(checks, 'person-eeat')) snippets.push(buildPersonSnippet(report, ctx, lang));
+	if (needsFix(checks, 'faq-howto-schema')) snippets.push(buildFaqSnippet(report, ctx, lang));
 	return snippets;
 }

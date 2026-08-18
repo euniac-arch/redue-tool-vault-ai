@@ -1,4 +1,5 @@
 import dns from 'node:dns';
+import { coerceHttpUrl, InvalidAuditUrlError } from '@/lib/audit/normalize-url';
 
 const BLOCKED_HOSTNAMES = new Set(['localhost', 'localhost.localdomain', '0.0.0.0']);
 
@@ -33,13 +34,12 @@ export class UnsafeAuditUrlError extends Error {}
 export async function assertPublicHttpUrl(input: string): Promise<URL> {
 	let url: URL;
 	try {
-		url = new URL(input.trim());
-	} catch {
+		url = coerceHttpUrl(input);
+	} catch (err) {
+		if (err instanceof InvalidAuditUrlError) {
+			throw new UnsafeAuditUrlError(err.message);
+		}
 		throw new UnsafeAuditUrlError('올바른 URL 형식이 아닙니다. (예: https://example.com)');
-	}
-
-	if (url.protocol !== 'http:' && url.protocol !== 'https:') {
-		throw new UnsafeAuditUrlError('http 또는 https URL만 진단할 수 있습니다.');
 	}
 
 	const hostname = url.hostname.toLowerCase();

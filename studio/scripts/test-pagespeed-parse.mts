@@ -2,7 +2,9 @@ import {
 	parsePageSpeedPayload,
 	formatImageInsight,
 	formatKiB,
+	estimateFontCdnSavingsBytes,
 } from '../lib/audit/pagespeed.ts';
+import { buildPageSpeedPrescription } from '../lib/audit/pagespeed-prescription.ts';
 
 const payload = {
 	lighthouseResult: {
@@ -70,6 +72,12 @@ const payload = {
 							totalBytes: 800_000,
 							wastedBytes: 400_000,
 						},
+						{
+							url: 'https://ex.com/fonts/NanumSquareRoundR.woff2',
+							cacheLifetimeMs: 604_800_000,
+							totalBytes: 259_788,
+							wastedBytes: 25_978,
+						},
 					],
 				},
 			},
@@ -118,9 +126,9 @@ const payload = {
 							items: [
 								{
 									node: {
-										snippet: '<img src="/img/logo-n.png" loading="lazy" alt="Logo">',
+										snippet: '<img src="/images/mv1.jpg" loading="lazy" alt="Logo">',
 										selector: 'header > img',
-										nodeLabel: 'logo-n.png',
+										nodeLabel: 'mv1.jpg',
 									},
 								},
 							],
@@ -149,6 +157,53 @@ const payload = {
 							scripting: 70,
 							scriptParseCompile: 20,
 						},
+						{
+							url: 'https://ex.com/js/jquery-1.12.4.min.js',
+							total: 120,
+							scripting: 90,
+							scriptParseCompile: 20,
+						},
+						{
+							url: 'https://code.jquery.com/jquery-3.5.1.min.js',
+							total: 110,
+							scripting: 80,
+							scriptParseCompile: 15,
+						},
+					],
+				},
+			},
+			'render-blocking-resources': {
+				details: {
+					items: [
+						{
+							url: 'https://ex.com/js/jquery-ui.js',
+							totalBytes: 128_900,
+							wastedMs: 3390,
+						},
+						{
+							url: 'https://ex.com/js/swiper.js',
+							totalBytes: 200_000,
+							wastedMs: 800,
+						},
+					],
+				},
+			},
+			'unused-javascript': {
+				details: {
+					items: [
+						{
+							url: 'https://ex.com/js/jquery-ui.js?v=3',
+							totalBytes: 128_900,
+							wastedBytes: 80_000,
+						},
+					],
+				},
+			},
+			'font-display': {
+				details: {
+					items: [
+						{ url: 'https://ex.com/fonts/NanumSquareRoundR.woff2' },
+						{ url: 'https://ex.com/fonts/empty-no-size.woff2' },
 					],
 				},
 			},
@@ -169,6 +224,7 @@ const payload = {
 };
 
 const snap = parsePageSpeedPayload(payload, { url: 'https://ex.com/', strategy: 'mobile' });
+const rx = buildPageSpeedPrescription(snap);
 
 const checks = [
 	snap.images.length === 2,
@@ -183,15 +239,35 @@ const checks = [
 			img.reasons.includes('responsive-size') &&
 			img.reasons.includes('compression'),
 	),
-	(snap.cacheResources?.length ?? 0) === 2,
+	(snap.cacheResources?.length ?? 0) === 3,
 	snap.cacheResources?.[0]?.ttlLabel === 'None',
 	formatKiB(snap.cacheTotalWastedBytes) === '9,768 KiB',
 	snap.lcpElement?.hasLazyLoading === true,
 	snap.lcpElement?.missingFetchPriority === true,
-	snap.lcpElement?.label === 'logo-n.png',
+	snap.lcpElement?.label === 'mv1.jpg',
+	snap.lcpElement?.src === '/images/mv1.jpg',
 	snap.scriptExecution.some((s) => s.origin === 'third-party'),
 	snap.scriptExecution.some((s) => s.origin === 'first-party'),
 	snap.mainThreadWork.length === 2,
+	snap.renderBlocking.some(
+		(r) => r.fileName === 'jquery-ui.js' && r.wastedBytes === 80_000 && r.wastedMs === 3390,
+	),
+	snap.renderBlocking.some(
+		(r) => r.fileName === 'swiper.js' && r.wastedBytes === 70_000 && r.wastedMs === 800,
+	),
+	snap.fonts.some((f) => f.fileName === 'NanumSquareRoundR.woff2' && f.bytes === 259_788),
+	snap.fonts.every((f) => f.fileName !== 'empty-no-size.woff2'),
+	snap.fonts.some(
+		(f) =>
+			f.fileName === 'NanumSquareRoundR.woff2' &&
+			f.cdnSavingsBytes === estimateFontCdnSavingsBytes(259_788, 'NanumSquareRoundR.woff2'),
+	),
+	rx.lcpImagePath === '/images/mv1.jpg',
+	rx.lcpWebpPath === '/images/mv1.webp',
+	rx.blockingScriptName === 'jquery-ui.js',
+	rx.blockingScriptPath === '/js/jquery-ui.js',
+	rx.duplicateJquery?.versions.includes('1.12.4') === true,
+	rx.duplicateJquery?.versions.includes('3.5.1') === true,
 ];
 
 console.log(
@@ -212,6 +288,9 @@ console.log(
 				origin: s.origin,
 				ms: s.totalMs,
 			})),
+			blocking: snap.renderBlocking,
+			fonts: snap.fonts,
+			prescription: rx,
 		},
 		null,
 		2,

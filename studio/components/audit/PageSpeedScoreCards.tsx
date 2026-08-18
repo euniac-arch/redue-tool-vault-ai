@@ -20,24 +20,24 @@ const TIER_STYLES: Record<
 > = {
 	poor: {
 		ring: 'ring-rose-400/40',
-		bg: 'bg-rose-500/10',
-		text: 'text-rose-300',
+		bg: 'bg-rose-50 dark:bg-rose-500/10',
+		text: 'text-rose-700 dark:text-rose-300',
 		stroke: 'stroke-rose-400',
 		track: 'stroke-rose-500/15',
 		labelKey: 'poor',
 	},
 	'needs-improvement': {
 		ring: 'ring-amber-400/40',
-		bg: 'bg-amber-500/10',
-		text: 'text-amber-300',
+		bg: 'bg-amber-50 dark:bg-amber-500/10',
+		text: 'text-amber-700 dark:text-amber-300',
 		stroke: 'stroke-amber-400',
 		track: 'stroke-amber-500/15',
 		labelKey: 'needsImprovement',
 	},
 	good: {
 		ring: 'ring-emerald-400/40',
-		bg: 'bg-emerald-500/10',
-		text: 'text-emerald-300',
+		bg: 'bg-emerald-50 dark:bg-emerald-500/10',
+		text: 'text-emerald-700 dark:text-emerald-300',
 		stroke: 'stroke-emerald-400',
 		track: 'stroke-emerald-500/15',
 		labelKey: 'good',
@@ -77,12 +77,12 @@ export function PageSpeedScoreCards({ snapshot, loading, compact }: PageSpeedSco
 		<div className={compact ? 'flex flex-col gap-3' : 'flex flex-col gap-3'}>
 			<div className="flex flex-wrap items-end justify-between gap-2">
 				<div>
-					<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-300/80">
+					<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300/80">
 						{t('cardsBadge')}
 					</p>
-					<p className="mt-0.5 text-sm font-semibold text-slate-200">{t('cardsTitle')}</p>
+					<p className="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-200">{t('cardsTitle')}</p>
 				</div>
-				<span className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-slate-400">
+				<span className="rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-400">
 					{t('strategyLabel', {
 						strategy: t(`strategyNames.${snapshot.strategy}`),
 					})}
@@ -101,7 +101,7 @@ export function PageSpeedScoreCards({ snapshot, loading, compact }: PageSpeedSco
 						<article
 							key={cat.id}
 							role="listitem"
-							className={`flex flex-col items-center rounded-xl border border-white/10 ${style.bg} p-3.5 ring-1 ${style.ring}`}
+							className={`flex flex-col items-center rounded-xl border border-slate-200 dark:border-white/10 ${style.bg} p-3.5 ring-1 ${style.ring}`}
 						>
 							<p className="w-full text-center text-[10px] font-bold uppercase tracking-wide text-slate-500">
 								{t(`categories.${CATEGORY_LABEL_KEY[cat.id]}`)}
@@ -173,21 +173,21 @@ function PageSpeedScoreCardsSkeleton() {
 
 	return (
 		<div className="flex flex-col gap-3" aria-busy="true" aria-live="polite" role="status">
-			<div className="flex items-start gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/[0.05] px-3.5 py-3">
+			<div className="flex items-start gap-2.5 rounded-xl border border-emerald-200 dark:border-emerald-500/20 bg-emerald-50 dark:bg-emerald-500/[0.05] px-3.5 py-3">
 				<span className="relative mt-1 flex h-2 w-2 shrink-0">
 					<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400/60" />
 					<span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
 				</span>
 				<div className="min-w-0 flex-1">
-					<p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-300/70">
+					<p className="text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-700 dark:text-emerald-300/70">
 						{t('measuring')}
-						<span className="ml-2 tabular-nums text-emerald-400/80">
+						<span className="ml-2 tabular-nums text-emerald-600 dark:text-emerald-400/80">
 							{t('progressStepLabel', { current: stepIndex + 1, total: PROGRESS_STEPS.length })}
 						</span>
 					</p>
 					<p
 						key={messageKey}
-						className="psi-progress-msg mt-1 text-xs font-semibold leading-snug text-emerald-100/90"
+						className="psi-progress-msg mt-1 text-xs font-semibold leading-snug text-emerald-800 dark:text-emerald-100/90"
 					>
 						{t(`progressSteps.${stepKey}`)}
 					</p>
@@ -197,11 +197,11 @@ function PageSpeedScoreCardsSkeleton() {
 				{[0, 1, 2, 3].map((i) => (
 					<div
 						key={i}
-						className="flex h-[148px] flex-col items-center justify-center gap-2 animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.04] p-3.5"
+						className="flex h-[148px] flex-col items-center justify-center gap-2 animate-pulse rounded-xl border border-slate-200 dark:border-white/[0.06] bg-white dark:bg-white/[0.04] p-3.5"
 					>
-						<div className="h-2.5 w-16 rounded bg-white/10" />
-						<div className="h-[72px] w-[72px] rounded-full border-4 border-white/[0.06]" />
-						<div className="h-2.5 w-12 rounded bg-white/10" />
+						<div className="h-2.5 w-16 rounded bg-slate-200 dark:bg-white/10" />
+						<div className="h-[72px] w-[72px] rounded-full border-4 border-slate-200 dark:border-white/[0.06]" />
+						<div className="h-2.5 w-12 rounded bg-slate-200 dark:bg-white/10" />
 					</div>
 				))}
 			</div>
