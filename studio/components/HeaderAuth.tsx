@@ -164,7 +164,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 									{link.label}
 								</a>
 							))}
-							{me.role === 'admin' && (
+							{typeof me.role === 'string' && me.role.toLowerCase() === 'admin' && (
 								<>
 									<a
 										href="/admin"

@@ -12,12 +12,16 @@ import {
 	isMasterAdminPassword,
 	MASTER_ADMIN_EMAIL,
 	MASTER_ADMIN_ID,
+	MASTER_ADMIN_NAME,
 	MASTER_ADMIN_ROLE,
+	applyRuntimeAuthEnv,
 	normalizeLoginIdentifier,
 	resolveNextAuthSecret,
 } from './master-admin';
 import { ensureMasterAdminUser } from './ensure-master-admin';
 import { prisma } from './prisma';
+
+applyRuntimeAuthEnv();
 
 /**
  * Kakao's OAuth token response includes `refresh_token_expires_in`, a field
@@ -50,6 +54,7 @@ export const authOptions: AuthOptions = {
 	adapter: buildAdapter(),
 	session: { strategy: 'jwt' },
 	secret: resolveNextAuthSecret() || undefined,
+	useSecureCookies: process.env.NODE_ENV === 'production',
 	pages: {
 		signIn: '/login',
 	},
@@ -78,23 +83,16 @@ export const authOptions: AuthOptions = {
 				const password = credentials.password;
 
 				if (isMasterAdminLoginId(loginId) && isMasterAdminPassword(password)) {
-					try {
-						const admin = await ensureMasterAdminUser();
-						return {
-							id: admin.id || MASTER_ADMIN_ID,
-							email: MASTER_ADMIN_EMAIL,
-							name: admin.name,
-							role: MASTER_ADMIN_ROLE,
-						};
-					} catch (err) {
-						console.error('[auth] ensureMasterAdminUser failed; issuing bootstrap JWT anyway:', err);
-						return {
-							id: MASTER_ADMIN_ID,
-							email: MASTER_ADMIN_EMAIL,
-							name: 'REDUE Admin',
-							role: MASTER_ADMIN_ROLE,
-						};
-					}
+					// Never block login on SQLite/Postgres writes (Vercel FS is read-only).
+					void ensureMasterAdminUser().catch((err) => {
+						console.error('[auth] ensureMasterAdminUser failed; JWT bootstrap continues:', err);
+					});
+					return {
+						id: MASTER_ADMIN_ID,
+						email: MASTER_ADMIN_EMAIL,
+						name: MASTER_ADMIN_NAME,
+						role: MASTER_ADMIN_ROLE,
+					};
 				}
 
 				const email = normalizeLoginIdentifier(loginId);

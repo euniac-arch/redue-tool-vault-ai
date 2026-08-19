@@ -88,7 +88,7 @@ export function AdminProfileMenu() {
 								<p className="mt-0.5 truncate text-xs text-slate-500">{me.email}</p>
 							)}
 							<p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-								{me.role === 'admin' ? 'Administrator' : 'User'}
+								{typeof me.role === 'string' && me.role.toLowerCase() === 'admin' ? 'Administrator' : 'User'}
 							</p>
 						</div>
 						<button

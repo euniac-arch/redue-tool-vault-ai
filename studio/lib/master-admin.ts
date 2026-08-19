@@ -50,14 +50,39 @@ export function isMasterAdminPassword(password: string): boolean {
 /**
  * Dev-only NextAuth secret so local login still issues JWTs when
  * `NEXTAUTH_SECRET` is missing from `.env.local`.
+ * Production also needs a stable secret — an empty value makes NextAuth
+ * refuse cookies and Vercel logins fail across serverless instances.
  */
+const NEXTAUTH_SECRET_FALLBACK = 'redue-nextauth-secret-admin-master-fallback';
+
 export function resolveNextAuthSecret(): string {
-	const fromEnv = process.env.NEXTAUTH_SECRET?.trim();
-	if (fromEnv) return fromEnv;
-	if (process.env.NODE_ENV === 'production') {
-		return '';
+	return (
+		process.env.NEXTAUTH_SECRET?.trim() ||
+		process.env.AUTH_SECRET?.trim() ||
+		NEXTAUTH_SECRET_FALLBACK
+	);
+}
+
+/**
+ * Vercel production often ships `.env` with `NEXTAUTH_URL=http://localhost:3000`.
+ * NextAuth CSRF then rejects credentials on the real https host.
+ */
+export function applyRuntimeAuthEnv(): void {
+	const current = (process.env.NEXTAUTH_URL || '').trim();
+	const isLocalhost = !current || /localhost|127\.0\.0\.1/i.test(current);
+	if (isLocalhost && process.env.VERCEL) {
+		const preferProd = process.env.VERCEL_ENV === 'production';
+		const hostRaw = preferProd
+			? process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL
+			: process.env.VERCEL_URL || process.env.VERCEL_PROJECT_PRODUCTION_URL;
+		const host = (hostRaw || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
+		if (host) {
+			process.env.NEXTAUTH_URL = `https://${host}`;
+		}
 	}
-	return 'redue-dev-nextauth-secret-admin-master-fallback';
+	if (!process.env.NEXTAUTH_SECRET?.trim()) {
+		process.env.NEXTAUTH_SECRET = resolveNextAuthSecret();
+	}
 }
 
 function envAdminEmails(): string[] {
