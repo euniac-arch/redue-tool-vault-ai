@@ -221,7 +221,7 @@ export async function POST(request: Request) {
 				maxScore: report.maxScore,
 				statusLabel: report.statusLabel,
 				reportJson,
-				userId: session?.user?.id ?? null,
+				userId: (session as { user?: { id?: string } } | null)?.user?.id ?? null,
 			};
 
 			if (forceRefresh) {
