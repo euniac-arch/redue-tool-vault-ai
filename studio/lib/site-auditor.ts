@@ -245,7 +245,7 @@ export interface AuditReport {
 	sitemap?: SitemapCheckResult;
 }
 
-type Strings = typeof STRINGS.ko;
+type Strings = typeof STRINGS.ko | typeof STRINGS.en;
 
 const STRINGS = {
 	ko: {

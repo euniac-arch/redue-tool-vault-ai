@@ -895,6 +895,7 @@ export function contextFromDiagnostic(
 			| 'navMenuTexts'
 			| 'representativeName'
 			| 'representativeTitle'
+			| 'brandOnlyAsIs'
 		>
 	>,
 ): GeoSiteContext {

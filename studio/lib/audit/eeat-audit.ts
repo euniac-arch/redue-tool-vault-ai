@@ -166,7 +166,9 @@ export function buildEeatPrimaryKeywords(input: EeatKeywordInput): string[] {
 			.some((s) => looksLikePlasticSpecialty(String(s)));
 
 	const cleaned = cleanMedicalEntities(
-		[...(input.specialties ?? []), input.primaryKeyword, input.category],
+		[...(input.specialties ?? []), input.primaryKeyword, input.category].filter(
+			(v): v is string => Boolean(v),
+		),
 		{ plasticOk, limit: 8 },
 	).filter((kw) => {
 		if (GENERIC_KEYWORD.test(kw)) return false;

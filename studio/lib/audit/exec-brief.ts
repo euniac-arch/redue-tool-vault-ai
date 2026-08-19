@@ -576,7 +576,9 @@ export function buildExecBriefModel(
 		legacyIndustry: live.siteMeta?.industryType,
 		title: live.metrics?.pageTitle || live.siteMeta?.brandName,
 		description: live.metrics?.metaDescription,
-		keywords: [live.siteMeta?.category, live.siteMeta?.primaryKeyword, ...(live.siteMeta?.entityPhrases ?? [])],
+		keywords: [live.siteMeta?.category, live.siteMeta?.primaryKeyword, ...(live.siteMeta?.entityPhrases ?? [])].filter(
+			(v): v is string => Boolean(v),
+		),
 		brandName: conversion.brandName,
 		location: conversion.location || live.siteMeta?.broadLocation || live.siteMeta?.location,
 		primaryKeyword: conversion.primaryKeyword,

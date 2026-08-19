@@ -254,7 +254,7 @@ function stripBrandAndLocation(phrase: string, brandName: string, location?: str
  * Drops brand, geo, UI chrome, and intent-only modifiers.
  */
 export function refineCategoryNouns(
-	raw: readonly string[],
+	raw: readonly (string | null | undefined)[],
 	opts?: {
 		brandName?: string;
 		location?: string;

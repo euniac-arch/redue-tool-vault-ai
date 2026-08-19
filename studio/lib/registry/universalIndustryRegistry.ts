@@ -64,7 +64,7 @@ export interface IndustryCopyContext {
 	brandName?: string;
 	location?: string;
 	primaryKeyword?: string;
-	services?: readonly string[];
+	services?: readonly (string | null | undefined)[];
 	domain?: string;
 	url?: string;
 	lang?: RegistryLang;
@@ -1674,10 +1674,14 @@ const DETECT_SIGNALS: Record<Exclude<IndustryType, 'general'>, readonly DetectSi
 
 function joinDetectCorpus(input: IndustryDetectInput | string): string {
 	if (typeof input === 'string') return cleanPhrase(input);
-	const keywordText = Array.isArray(input.keywords)
-		? input.keywords.filter(Boolean).join(' ')
-		: input.keywords || '';
-	return [input.title, input.description, keywordText, input.extraText].map(cleanPhrase).filter(Boolean).join(' \n ');
+	const keywords = input.keywords;
+	const keywordText: string = Array.isArray(keywords)
+		? keywords.filter(Boolean).join(' ')
+		: typeof keywords === 'string'
+			? keywords
+			: '';
+	const parts: (string | null | undefined)[] = [input.title, input.description, keywordText, input.extraText];
+	return parts.map(cleanPhrase).filter(Boolean).join(' \n ');
 }
 
 function scoreSignals(corpus: string, signals: readonly DetectSignal[]): number {

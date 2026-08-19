@@ -273,7 +273,7 @@ export function rawTechnicalScoreFromChecks(
 }
 
 export function schemaMappingFromAudit(
-	report?: Pick<AuditReport, 'siteMeta' | 'metrics'> | null,
+	report?: Partial<Pick<AuditReport, 'siteMeta' | 'metrics'>> | null,
 ): {
 	industry?: string;
 	category?: string;
@@ -324,7 +324,7 @@ export function normalizeNewsArticleCheck(
 }
 
 export function collectReportChecks(
-	report?: Pick<AuditReport, 'checklist' | 'categories'> | null,
+	report?: Partial<Pick<AuditReport, 'checklist' | 'categories'>> | null,
 ): AuditCheckItem[] {
 	if (!report) return [];
 	if (report.checklist?.length) return report.checklist;
@@ -332,7 +332,7 @@ export function collectReportChecks(
 }
 
 export function resolveHasCoreEntity(
-	report?: Pick<AuditReport, 'siteMeta' | 'metrics' | 'checklist' | 'categories'> | null,
+	report?: Partial<Pick<AuditReport, 'siteMeta' | 'metrics' | 'checklist' | 'categories'>> | null,
 	vertical?: SchemaVertical,
 ): boolean {
 	const mapping = schemaMappingFromAudit(report);
@@ -342,8 +342,9 @@ export function resolveHasCoreEntity(
 	return org ? checkVerdict(org) === 'pass' : false;
 }
 
-type ChecklistReportInput = Pick<AuditReport, 'siteMeta' | 'metrics' | 'checklist' | 'categories' | 'lang'> &
-	Partial<Pick<AuditReport, 'url' | 'hasSsl' | 'collectedUrls'>>;
+type ChecklistReportInput = Partial<
+	Pick<AuditReport, 'siteMeta' | 'metrics' | 'checklist' | 'categories' | 'lang' | 'url' | 'hasSsl' | 'collectedUrls'>
+>;
 
 type DiagnosticReportInput = Partial<
 	Pick<

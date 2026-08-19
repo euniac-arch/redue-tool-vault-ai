@@ -96,9 +96,9 @@ function flattenCloneBackground(node: HTMLElement, color: string) {
 	node.style.backgroundColor = color;
 	node.style.boxShadow = 'none';
 	node.style.backdropFilter = 'none';
-	node.style.webkitBackdropFilter = 'none';
+	(node.style as any).webkitBackdropFilter = 'none';
 	node.style.maskImage = 'none';
-	node.style.webkitMaskImage = 'none';
+	(node.style as any).webkitMaskImage = 'none';
 }
 
 async function saveExecBriefCard(el: HTMLElement, kind: 'png' | 'pdf', filenameBase: string) {

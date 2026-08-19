@@ -191,7 +191,7 @@ export function buildSovQueryPresets(
 		location: region,
 		primaryKeyword: mainService,
 		category: mainService,
-		coreSpecialties: [mainService, subService].filter(Boolean),
+		coreSpecialties: [mainService, subService].filter((v): v is string => Boolean(v)),
 	}).sovPresets;
 }
 

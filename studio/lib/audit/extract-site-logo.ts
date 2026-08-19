@@ -11,7 +11,8 @@
  */
 
 import * as cheerio from 'cheerio';
-import type { CheerioAPI, Element } from 'cheerio';
+import type { CheerioAPI } from 'cheerio';
+import type { Element } from 'domhandler';
 import { normalizeSchemaType, parseJsonLdDocument } from '@/lib/audit/parser';
 
 export type { ReportLogoSource } from '@/lib/audit/logo-url';
@@ -245,7 +246,9 @@ function collectScopedImgs($: CheerioAPI, scopes: string[]): Element[] {
 	const seen = new Set<Element>();
 	const out: Element[] = [];
 	for (const sel of scopes) {
-		$(sel).each((_, el) => {
+		$(sel).each((_, node) => {
+			if (node.type !== 'tag') return;
+			const el = node as Element;
 			if (seen.has(el)) return;
 			seen.add(el);
 			out.push(el);

@@ -42,7 +42,7 @@ export function isLlmsTxtDocument(text: string | null | undefined, status?: numb
 }
 
 export function resolveHasLlmsTxt(
-	report?: Pick<AuditReport, 'metrics' | 'collectedUrls' | 'url'> | null,
+	report?: Partial<Pick<AuditReport, 'metrics' | 'collectedUrls' | 'url'>> | null,
 ): boolean {
 	if (!report) return false;
 	if (report.metrics?.hasLlmsTxt === true) return true;
@@ -79,7 +79,7 @@ export function buildLlmsTxtCheckItem(args: {
 /** Append the `/llms.txt` row when a stored report is missing it. */
 export function ensureLlmsTxtChecklistItem(
 	checks: AuditCheckItem[],
-	report?: Pick<AuditReport, 'metrics' | 'collectedUrls' | 'url' | 'lang'> | null,
+	report?: Partial<Pick<AuditReport, 'metrics' | 'collectedUrls' | 'url' | 'lang'>> | null,
 ): AuditCheckItem[] {
 	if (!checks.length) return checks;
 	const existing = checks.find((item) => item.id === LLMS_TXT_CHECK_ID);

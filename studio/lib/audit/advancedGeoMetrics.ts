@@ -365,7 +365,7 @@ export interface LlmsTxtInput {
 	legacyIndustry?: string | null;
 	services?: readonly string[];
 	nap?: AdvancedGeoNap;
-	representativeName?: string;
+	representativeName?: string | null;
 	representativeTitle?: string;
 	location?: string;
 	primaryKeyword?: string;

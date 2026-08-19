@@ -422,7 +422,7 @@ export function buildHttpsCheckItem(args: {
 /** Inject the HTTPS security row for stored reports that predate this check. */
 export function ensureHttpsChecklistItem(
 	checks: AuditCheckItem[],
-	report?: Pick<AuditReport, 'url' | 'lang' | 'hasSsl'> | null,
+	report?: Partial<Pick<AuditReport, 'url' | 'lang' | 'hasSsl'>> | null,
 ): AuditCheckItem[] {
 	if (!checks.length && !report?.url) return checks;
 	const isHttps = resolveIsHttps({ url: report?.url, hasSsl: report?.hasSsl });

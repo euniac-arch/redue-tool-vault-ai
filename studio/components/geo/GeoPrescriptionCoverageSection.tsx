@@ -64,7 +64,7 @@ function uniqueLevel3Cards(combos: readonly ExpandedQueryCombo[]): Level3Card[] 
 		seen.add(key);
 		cards.push({
 			id: row.id,
-			tokens: row.tokens.map(softenQueryToken),
+			tokens: row.tokens.map((token) => softenQueryToken(token)),
 			rank: row.rank,
 			theme: row.rank === 1 ? 'emerald' : 'cyan',
 		});
@@ -101,7 +101,7 @@ export function GeoPrescriptionCoverageSection({
 
 	const resolvedBrand = coverage?.brandName?.trim() || brandName;
 	const toBeKeywords = (coverage?.toBeKeywords?.length ? coverage.toBeKeywords : DEMO_TO_BE_KEYWORDS).map(
-		softenComparativeQuery,
+		(query) => softenComparativeQuery(query),
 	);
 	const level3Combinations = coverage ? uniqueLevel3Cards(coverage.afterCombos) : DEMO_LEVEL3;
 	const weights = keywordWeights?.length ? keywordWeights : null;
@@ -264,7 +264,7 @@ export function GeoPrescriptionCoverageSection({
 									{t('rank', { rank: item.rank })}
 								</span>
 								<span className="block text-xs font-bold text-slate-200 break-keep leading-relaxed">
-									“{item.tokens.map(softenQueryToken).join(' + ')}”
+									“{item.tokens.map((token) => softenQueryToken(token)).join(' + ')}”
 								</span>
 							</div>
 

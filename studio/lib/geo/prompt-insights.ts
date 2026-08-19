@@ -93,7 +93,7 @@ function joinLabel(location: string, cluster: string): string {
 }
 
 function schemaHintsFor(schema: SchemaOrgPrimaryType): string[] {
-	const hints = [schema];
+	const hints: string[] = [schema];
 	if (
 		isMedicalSchema(schema) ||
 		schema === 'Restaurant' ||
