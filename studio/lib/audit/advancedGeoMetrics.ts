@@ -7,6 +7,8 @@
  * leftover verticals.
  */
 
+import { anonymizedCompetitorLabel } from '@/lib/audit/anonymize-competitor';
+import { buildSovMarketAnalysis, industryCategoryLabel, resolveIndustryVoice } from '@/lib/audit/universal-compliant-engine';
 import { matchCompetitorRoster } from '@/lib/audit/competitor-match';
 import {
 	SOV_LEADER_RESIDUAL_RATIO,
@@ -29,6 +31,7 @@ import {
 	type RegistryLang,
 	type ResolveIndustryConfigInput,
 } from '@/lib/registry/universalIndustryRegistry';
+import { generateLlmsTxt, type SiteDiagnosticResult } from '@/lib/audit/llms-txt';
 
 export type AdvancedGeoLang = RegistryLang;
 
@@ -272,6 +275,8 @@ export interface CalculateDynamicSovOptions {
 	categoryName?: string;
 	lang?: AdvancedGeoLang;
 	targetQuery?: string;
+	/** Audited site's display name — binds the vulnerability callout to the real target instead of a generic pronoun. */
+	targetSiteName?: string;
 }
 
 export type RegionCompetitionTier = 'high' | 'mid' | 'local';
@@ -361,6 +366,7 @@ export interface LlmsTxtInput {
 	services?: readonly string[];
 	nap?: AdvancedGeoNap;
 	representativeName?: string;
+	representativeTitle?: string;
 	location?: string;
 	primaryKeyword?: string;
 	url?: string;
@@ -592,13 +598,16 @@ export function buildVulnerabilityInsight(input: {
 	leaderShare: number;
 	toBeShare: number;
 	reclaimPotential?: number;
+	/** 진단 대상 사이트명 — 누락 시 안전한 기본값("자사"/"This business")으로 대체된다. */
+	targetSiteName?: string;
 	lang?: AdvancedGeoLang;
 }): string {
 	const lang = langOf(input.lang);
+	const siteName = cleanPhrase(input.targetSiteName) || (lang === 'en' ? 'This business' : '자사');
 	if (lang === 'en') {
-		return `Competitors also lack schema and /llms.txt, so #1 stays at ${input.leaderShare}%. Apply GEO prescriptions first to absorb 3rd-party blog leakage and capture up to ${input.toBeShare}%.`;
+		return `Major competitors also have incomplete structured-data signals and remain around ${input.leaderShare}%. Applying GEO prescriptions first can absorb traffic that was leaking to third-party blogs, with a goal of reaching about ${input.toBeShare}% share.`;
 	}
-	return `경쟁사 역시 스키마·/llms.txt가 미비하여 ${input.leaderShare}%에 머물러 있습니다. 귀사가 GEO 처방을 선제 적용하면 3자 블로그로 새는 트래픽을 흡수해 최대 ${input.toBeShare}%까지 독점할 수 있습니다.`;
+	return `주요 경쟁사 역시 구조화 데이터 신호가 불완전하여 ${input.leaderShare}% 수준에 머물러 있습니다. GEO 처방을 선제 적용할 경우 3자 블로그로 분산되던 트래픽을 흡수하여 최대 ${input.toBeShare}% 수준의 점유율 확보를 목표로 최적화할 수 있습니다.`;
 }
 
 function detectHasSchema(input: {
@@ -638,6 +647,7 @@ function buildUnifiedTargetQuery(region: string, mainService: string, lang: Adva
 
 function buildUnifiedLossInsight(input: {
 	region: string;
+	/** Currently active/selected keyword chip — NOT the site's static main service. */
 	service: string;
 	clientRank: number;
 	asIsShare: number;
@@ -682,6 +692,10 @@ export function calculateUnifiedMarketSov(
 	const service = cleanPhrase(mainService);
 	const brand = cleanPhrase(clientName);
 	const targetQuery = cleanPhrase(options?.targetQuery) || buildUnifiedTargetQuery(loc, service, lang);
+	// Bottom summary must echo the *selected* keyword chip, not the site's
+	// static main service — falls back to mainService only when no explicit
+	// query was chosen yet (first render / loading state).
+	const insightKeyword = cleanPhrase(options?.targetQuery) || service;
 	const shareTable = resolveKeywordSovShares(targetQuery);
 	const rankShares = rankShareSlots(shareTable);
 	const ranked = toSearchRankList(rawSearchResults);
@@ -697,8 +711,20 @@ export function calculateUnifiedMarketSov(
 	});
 	const foundIndex = matched.clientIndex;
 	const fallbackBrand = brand || (lang === 'en' ? 'This business' : '자사');
-	const slotName = (idx: number, fallbackRank: number) =>
-		matched.slots[idx]?.name || unifiedFallbackName(loc, fallbackRank, lang);
+	const industryLabel =
+		options?.industryConfig?.profile.label[lang] ||
+		industryCategoryLabel(
+			resolveIndustryVoice({
+				industryType: options?.industryConfig?.type,
+				category: options?.categoryName || service,
+				keywords: [service, targetQuery],
+			}),
+			lang,
+		);
+	const slotName = (idx: number, fallbackRank: number, isClient: boolean) =>
+		isClient
+			? matched.slots[idx]?.name || fallbackBrand
+			: anonymizedCompetitorLabel(fallbackRank, lang, industryLabel);
 
 	let items: LeaderboardItem[];
 	let clientRank: number;
@@ -706,11 +732,12 @@ export function calculateUnifiedMarketSov(
 	if (foundIndex !== -1 && foundIndex < 3) {
 		items = [0, 1, 2].map((idx) => {
 			const slot = matched.slots[idx];
+			const isClient = slot?.isClient === true || idx === foundIndex;
 			return {
 				rank: idx + 1,
-				name: slotName(idx, idx + 1),
+				name: slotName(idx, idx + 1, isClient),
 				share: rankShares[idx],
-				isClient: slot?.isClient === true || idx === foundIndex,
+				isClient,
 				isRealData: slot?.isRealData === true || (slot?.isClient === true && foundIndex !== -1),
 			};
 		});
@@ -719,14 +746,14 @@ export function calculateUnifiedMarketSov(
 		items = [
 			{
 				rank: 1,
-				name: slotName(0, 1),
+				name: slotName(0, 1, false),
 				share: shareTable.rank1,
 				isClient: false,
 				isRealData: matched.slots[0]?.isRealData === true,
 			},
 			{
 				rank: 2,
-				name: slotName(1, 2),
+				name: slotName(1, 2, false),
 				share: shareTable.rank2,
 				isClient: false,
 				isRealData: matched.slots[1]?.isRealData === true,
@@ -767,12 +794,15 @@ export function calculateUnifiedMarketSov(
 		toBeShare,
 		reclaimGain,
 		leaderboard,
-		lossInsight: buildUnifiedLossInsight({
-			region: loc,
-			service,
-			clientRank,
-			asIsShare,
-			directoryShare: shareTable.thirdParty,
+		lossInsight: buildSovMarketAnalysis({
+			location: loc,
+			primaryKeywords: [insightKeyword],
+			metrics: {
+				currentShare: asIsShare,
+				targetShare: toBeShare,
+				directoryShare: shareTable.thirdParty,
+				clientRank,
+			},
 			lang,
 		}),
 	};
@@ -815,6 +845,7 @@ export function unifiedToDynamicSov(
 			leaderShare,
 			toBeShare: unified.toBeShare,
 			reclaimPotential: unified.reclaimGain,
+			targetSiteName: options?.targetSiteName || unified.brandName,
 			lang,
 		}),
 	};
@@ -864,11 +895,16 @@ export function applyKeywordSovToDynamic(
 	const leaderShare = leader?.share ?? shareTable.rank1;
 	const region = cleanPhrase(options?.region);
 	const service = cleanPhrase(options?.mainService);
+	// Bottom summary must track whichever keyword chip is active — never the
+	// site's static main service — so it stays 1:1 in sync with the leaderboard
+	// above. Falls back to mainService, then the previous query, when the
+	// selected chip text is still empty (initial render / loading state).
+	const insightKeyword = query || service || cleanPhrase(sov.targetQuery);
 	const lossInsight =
-		region || service
+		region || insightKeyword
 			? buildUnifiedLossInsight({
 					region,
-					service,
+					service: insightKeyword,
 					clientRank: sov.clientRank,
 					asIsShare,
 					directoryShare: shareTable.thirdParty,
@@ -901,6 +937,7 @@ export function applyKeywordSovToDynamic(
 			leaderShare,
 			toBeShare,
 			reclaimPotential: reclaimGain,
+			targetSiteName: options?.targetSiteName || sov.brandName,
 			lang,
 		}),
 	};
@@ -1076,6 +1113,7 @@ export function computeShareOfVoice(input: ShareOfVoiceInput = {}): ShareOfVoice
 			leaderShare: leaderSharePct,
 			toBeShare,
 			reclaimPotential: reclaimGain,
+			targetSiteName: ownName,
 			lang,
 		});
 
@@ -1371,8 +1409,8 @@ function officialUrl(input: LlmsTxtInput, config: IndustryConfig): string {
 }
 
 /**
- * Standard `/llms.txt` markdown: brand, industry, top 1–3 services, NAP,
- * representative, and three core FAQs from the industry registry.
+ * Standard `/llms.txt` markdown: brand, industry, top 1–5 services, NAP,
+ * representative, and core FAQs from the industry registry.
  */
 export function buildLlmsTxtContent(input: LlmsTxtInput = {}): string {
 	const lang = langOf(input.lang);
@@ -1393,7 +1431,7 @@ export function buildLlmsTxtContent(input: LlmsTxtInput = {}): string {
 	const brand = cleanPhrase(input.brandName) || config.brandName || (lang === 'en' ? 'This business' : '이 업체');
 	const location = cleanPhrase(input.location) || config.location;
 	const industryLabel = config.profile.label[lang];
-	const services = (input.services?.length ? input.services.map(cleanPhrase).filter(Boolean) : config.services).slice(0, 3);
+	const services = (input.services?.length ? input.services.map(cleanPhrase).filter(Boolean) : config.services).slice(0, 5);
 	const ranked = services.length ? services : [config.primaryKeyword || config.defaultCategory];
 	const faqs = (
 		input.faqs?.length
@@ -1412,48 +1450,28 @@ export function buildLlmsTxtContent(input: LlmsTxtInput = {}): string {
 		.slice(0, 3);
 	const nap = formatNapLine(input.nap, brand, lang);
 	const url = officialUrl(input, config);
-	const representativeName =
-		cleanPhrase(input.representativeName) || (lang === 'en' ? 'Not listed' : '미등록');
-	const blurb =
-		cleanPhrase(input.description) ||
-		(lang === 'en'
-			? `${industryLabel}${location ? ` in ${location}` : ''}. Official facts for AI crawlers and RAG citation.`
-			: `${location ? `${location} ` : ''}${industryLabel} 공식 사실. AI 크롤러·RAG 인용용 /llms.txt.`);
-
-	const lines: string[] = [
-		`# ${brand}`,
-		'',
-		`> ${blurb}`,
-		'',
-		lang === 'en'
-			? `Industry: ${industryLabel} · Schema.org: ${config.schemaType} · ${config.personJobTitle}`
-			: `업종: ${industryLabel} · Schema.org: ${config.schemaType} · ${config.personJobTitle}`,
-		'',
-		lang === 'en' ? '## Services' : '## 서비스',
-		'',
-		...ranked.map((service, i) => `- ${i + 1}. ${service}`),
-		'',
-		'## NAP',
-		'',
-		`- name: ${nap.name}`,
-		`- address: ${nap.address}`,
-		`- telephone: ${nap.telephone}`,
-		url ? `- url: ${url}` : `- url: ${lang === 'en' ? 'Not listed' : '미기재'}`,
-		'',
-		`## ${config.representativeTitle}`,
-		'',
-		`- name: ${representativeName}`,
-		`- jobTitle: ${config.personJobTitle}`,
-		'',
-		'## FAQ',
-		'',
-	];
-
-	for (const faq of faqs) {
-		lines.push(`### ${cleanPhrase(faq.question)}`, '', cleanPhrase(faq.answer), '');
-	}
-
-	return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`;
+	const representativeTitle =
+		cleanPhrase(input.representativeTitle) || config.representativeTitle || config.personJobTitle;
+	const snapshot: SiteDiagnosticResult = {
+		brandName: brand,
+		description:
+			cleanPhrase(input.description) ||
+			(lang === 'en'
+				? `${industryLabel}${location ? ` in ${location}` : ''}. Official facts for AI crawlers and RAG citation.`
+				: `${location ? `${location} ` : ''}${industryLabel} 공식 사실. AI 크롤러·RAG 인용용 /llms.txt.`),
+		industry: industryLabel,
+		schemaType: config.schemaType,
+		representativeTitle,
+		representativeName: cleanPhrase(input.representativeName),
+		services: ranked,
+		address: nap.address === (lang === 'en' ? 'Not listed' : '미기재') ? '' : nap.address,
+		telephone: nap.telephone === (lang === 'en' ? 'Not listed' : '미기재') ? '' : nap.telephone,
+		url,
+		faqs,
+		location,
+		lang,
+	};
+	return generateLlmsTxt(snapshot);
 }
 
 /** Compose all 2026 GEO metrics from one industry-aware input. */
@@ -1514,3 +1532,5 @@ export {
 export type { SovLeaderboardItem, SovShareTable } from '@/lib/audit/sovLeaderboardData';
 export { detectIndustry, getIndustryProfile, resolveIndustryConfig };
 export type { FaqItem, IndustryConfig, IndustryType };
+export { extractSiteDiagnostic, generateLlmsTxt } from '@/lib/audit/llms-txt';
+export type { SiteDiagnosticResult } from '@/lib/audit/llms-txt';

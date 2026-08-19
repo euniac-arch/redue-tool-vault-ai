@@ -58,8 +58,8 @@ export const HTTPS_ENGINE_SCORE_CAP = 64 as const;
 export const HTTPS_ENGINE_SCORE_FLOOR = 30 as const;
 
 export const HTTPS_P0_LABEL = {
-	ko: '[P0: 긴급] 무료 Let\'s Encrypt SSL 보안 프로토콜 즉시 적용',
-	en: '[P0: Urgent] Apply free Let\'s Encrypt SSL immediately',
+	ko: '[P0: 긴급] HTTPS 보안 프로토콜 (SSL 인증서) 즉시 적용',
+	en: '[P0: Urgent] Apply HTTPS security protocol (SSL certificate) immediately',
 } as const;
 
 export const HTTPS_SECURITY_ALERT = {
@@ -375,17 +375,17 @@ const HTTPS_COPY: Record<
 > = {
 	ko: {
 		label: HTTPS_P0_LABEL.ko,
-		why: 'http:// 비보안 프로토콜은 브라우저 경고·AI 엔진 인용 신뢰도를 동시에 무너뜨립니다. 무료 Let\'s Encrypt SSL을 즉시 적용하세요.',
+		why: 'http:// 비보안 프로토콜은 브라우저 경고를 유발하고 AI 엔진의 인용 신뢰도를 차단합니다. 카페24/가비아 등 호스팅사 콘솔 또는 Let\'s Encrypt를 통해 SSL 보안 인증서를 즉시 설치하세요.',
 		passWhy: 'HTTPS 보안 프로토콜이 적용되어 브라우저·AI 검색 신뢰 기준을 충족, 정상 통과되었습니다.',
-		impact: 'SSL 적용 시 보안 감점·등급 상한(Hard Cap)이 해제되고 AI 인용 신뢰도가 회복됩니다.',
+		impact: 'HTTPS 적용 시 보안 감점 및 등급 상한이 해제되며, 주요 AI 검색엔진의 공식 출처 인용 신뢰도가 정상화됩니다.',
 		passEvidence: 'protocol=https · SSL 적용',
 		failEvidence: 'protocol=http · SSL 미적용',
 	},
 	en: {
 		label: HTTPS_P0_LABEL.en,
-		why: 'Plain HTTP triggers browser warnings and collapses AI-engine citation trust. Apply free Let\'s Encrypt SSL immediately.',
+		why: 'Plain HTTP triggers browser warnings and blocks AI-engine citation trust. Install an SSL certificate immediately via your host console (Cafe24, Gabia, etc.) or Let\'s Encrypt.',
 		passWhy: 'HTTPS is enabled, so the browser and AI-search trust bar is met and passed.',
-		impact: 'Enabling SSL lifts the security penalty and the S/A grade hard cap, restoring AI citation trust.',
+		impact: 'Enabling HTTPS lifts the security penalty and grade cap, and restores official-source citation trust in major AI search engines.',
 		passEvidence: 'protocol=https · SSL enabled',
 		failEvidence: 'protocol=http · SSL not applied',
 	},

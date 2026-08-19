@@ -267,21 +267,23 @@ export function AuditExecutiveSummary({
 							<p className="text-sm font-bold text-amber-900 dark:text-amber-200">
 								{t('exposureBenefitsTitle')}
 							</p>
-							<ul className="mt-3 grid grid-cols-1 items-stretch gap-2 md:grid-cols-3 md:gap-3">
+							<ul className="mt-6 grid grid-cols-1 items-stretch gap-5 md:grid-cols-3">
 								{EXPOSURE_BENEFIT_ITEMS.map(({ key, icon }) => (
 									<li
 										key={key}
-										className="flex h-full flex-col break-keep whitespace-normal rounded-lg border border-amber-100 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-900/10"
+										className="flex h-full flex-col justify-between break-keep whitespace-normal rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/60"
 									>
-										<span className="text-2xl leading-none" aria-hidden>
-											{icon}
-										</span>
-										<p className="mt-2.5 text-sm font-bold leading-snug text-slate-800 dark:text-slate-100">
-											{t(`exposureBenefitsItems.${key}.title`)}
-										</p>
-										<p className="mt-1.5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-											{t(`exposureBenefitsItems.${key}.body`)}
-										</p>
+										<div>
+											<div className="mb-3 text-2xl" aria-hidden>
+												{icon}
+											</div>
+											<h4 className="mb-2 text-base font-bold text-slate-900 dark:text-white">
+												{t(`exposureBenefitsItems.${key}.title`)}
+											</h4>
+											<p className="text-xs leading-relaxed text-slate-500 sm:text-sm dark:text-slate-400">
+												{t(`exposureBenefitsItems.${key}.body`)}
+											</p>
+										</div>
 									</li>
 								))}
 							</ul>
@@ -294,7 +296,7 @@ export function AuditExecutiveSummary({
 								{EXPOSURE_ROADMAP_ITEMS.map(({ key, icon }) => (
 									<li
 										key={key}
-										className="flex h-full flex-col break-keep whitespace-normal rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40"
+										className="flex h-full flex-col justify-between break-keep whitespace-normal rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/40"
 									>
 										<span className="text-2xl leading-none" aria-hidden>
 											{icon}
@@ -308,6 +310,9 @@ export function AuditExecutiveSummary({
 									</li>
 								))}
 							</ul>
+							<p className="mt-6 text-center text-[11px] text-slate-500">
+								{t('exposureGuideDisclaimer')}
+							</p>
 						</div>
 					</div>
 				</details>

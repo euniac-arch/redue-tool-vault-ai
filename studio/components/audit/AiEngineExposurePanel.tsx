@@ -18,6 +18,7 @@ import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import type { IndustryConfig } from '@/lib/registry/universalIndustryRegistry';
 import type { AuditReport } from '@/lib/site-auditor';
 import { isProxyIndexEngine, liveGroundingOrderIndex, type AIEngineId } from '@/types/geo-diagnostic';
+import type { GroundingStatusColor, GroundingTier } from '@/types/live-engine-check';
 import type { LiveCheckEngineId, LiveCheckResponse, LiveEngineCheckResult } from '@/types/live-engine-check';
 
 type ExposurePanelTab = 'exposure' | 'domestic';
@@ -271,6 +272,44 @@ function MeasurementBadge({
 	);
 }
 
+const TIER_SCORE_CLASS: Record<GroundingStatusColor, string> = {
+	green: 'text-emerald-500 dark:text-emerald-400',
+	blue: 'text-sky-500 dark:text-sky-400',
+	yellow: 'text-amber-500 dark:text-amber-400',
+	red: 'text-rose-500 dark:text-rose-400',
+};
+
+const TIER_BADGE_CLASS: Record<GroundingStatusColor, string> = {
+	green: 'border border-emerald-500/30 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300',
+	blue: 'border border-sky-500/30 bg-sky-500/20 text-sky-700 dark:text-sky-300',
+	yellow: 'border border-amber-500/30 bg-amber-500/20 text-amber-700 dark:text-amber-300',
+	red: 'border border-rose-500/30 bg-rose-500/20 text-rose-700 dark:text-rose-300',
+};
+
+function resolveLiveTier(live: LiveEngineCheckResult): {
+	tier: GroundingTier;
+	color: GroundingStatusColor;
+} {
+	if (live.tier === 'STRONG' || live.tier === 'NEUTRAL' || live.tier === 'WEAK' || live.tier === 'NOT_FOUND') {
+		return { tier: live.tier, color: live.statusColor || (live.tier === 'STRONG' ? 'green' : live.tier === 'NEUTRAL' ? 'blue' : live.tier === 'WEAK' ? 'yellow' : 'red') };
+	}
+	return live.isCited ? { tier: 'NEUTRAL', color: 'blue' } : { tier: 'NOT_FOUND', color: 'red' };
+}
+
+function liveConfirmKey(tier: GroundingTier): 'liveTierStrongConfirm' | 'liveTierNeutralConfirm' | 'liveTierWeakConfirm' | 'liveTierNotFoundConfirm' {
+	if (tier === 'STRONG') return 'liveTierStrongConfirm';
+	if (tier === 'NEUTRAL') return 'liveTierNeutralConfirm';
+	if (tier === 'WEAK') return 'liveTierWeakConfirm';
+	return 'liveTierNotFoundConfirm';
+}
+
+function liveBadgeKey(tier: GroundingTier): 'liveTierStrongBadge' | 'liveTierNeutralBadge' | 'liveTierWeakBadge' | 'liveTierNotFoundBadge' {
+	if (tier === 'STRONG') return 'liveTierStrongBadge';
+	if (tier === 'NEUTRAL') return 'liveTierNeutralBadge';
+	if (tier === 'WEAK') return 'liveTierWeakBadge';
+	return 'liveTierNotFoundBadge';
+}
+
 function EngineScoreBlock({
 	readinessScore,
 	live,
@@ -284,7 +323,7 @@ function EngineScoreBlock({
 }) {
 	const t = useTranslations('audit.aiEngines');
 	const meta = getRatingMeta(readinessScore, lang);
-	const cited = Boolean(live?.isCited);
+	const { tier, color } = live ? resolveLiveTier(live) : { tier: 'NOT_FOUND' as const, color: 'red' as const };
 
 	return (
 		<div className="my-3 rounded-lg border border-slate-200 bg-slate-100/80 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
@@ -321,37 +360,21 @@ function EngineScoreBlock({
 								{t('liveResultLabel')}
 							</span>
 							<div className="flex items-baseline gap-1">
-								<span
-									className={`text-2xl font-black tabular-nums ${
-										cited ? 'text-emerald-500 dark:text-emerald-400' : 'text-rose-500 dark:text-rose-400'
-									}`}
-								>
+								<span className={`text-2xl font-black tabular-nums ${TIER_SCORE_CLASS[color]}`}>
 									<AnimatedScore value={live.liveScore} />
 								</span>
 								<span className="text-xs text-slate-400 dark:text-zinc-500">{t('scoreMax')}</span>
 							</div>
-							<p
-								className={`mt-0.5 text-[11px] font-bold ${
-									cited ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
-								}`}
-							>
-								{cited
-									? t('liveCitedConfirm', { score: live.liveScore })
-									: t('liveUncitedConfirm', { score: live.liveScore })}
+							<p className={`mt-0.5 text-[11px] font-bold ${TIER_SCORE_CLASS[color]}`}>
+								{t(liveConfirmKey(tier), { score: live.liveScore })}
 							</p>
 						</div>
 					</div>
 
 					<div className="flex items-center justify-between gap-2 border-t border-slate-200/80 pt-2 text-[11px] dark:border-zinc-800/80">
 						<span className="text-slate-500 dark:text-zinc-400">{t('liveVerdictLabel')}</span>
-						<span
-							className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-								cited
-									? 'border border-emerald-500/30 bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
-									: 'border border-rose-500/30 bg-rose-500/20 text-rose-700 dark:text-rose-300'
-							}`}
-						>
-							{cited ? t('liveCitedBadge') : t('liveUncitedBadge')}
+						<span className={`rounded px-2 py-0.5 text-[10px] font-bold ${TIER_BADGE_CLASS[color]}`}>
+							{t(liveBadgeKey(tier))}
 						</span>
 					</div>
 
@@ -364,6 +387,8 @@ function EngineScoreBlock({
 
 function EvidenceSnippetBox({ live }: { live: LiveEngineCheckResult }) {
 	const t = useTranslations('audit.aiEngines');
+	const { tier, color } = resolveLiveTier(live);
+	const cited = tier !== 'NOT_FOUND';
 	return (
 		<div className="mt-2 rounded-lg border border-indigo-500/30 bg-white/80 p-3 text-xs dark:bg-zinc-950/80">
 			<div className="mb-1 flex items-center justify-between gap-2">
@@ -371,21 +396,25 @@ function EvidenceSnippetBox({ live }: { live: LiveEngineCheckResult }) {
 					<span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden />
 					{t('evidenceTitle')}
 				</span>
-				<span
-					className={`rounded px-2 py-0.5 text-[10px] font-bold ${
-						live.isCited
-							? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300'
-							: 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
-					}`}
-				>
-					{live.isCited ? t('citedYes') : t('citedNo')}
+				<span className={`rounded px-2 py-0.5 text-[10px] font-bold ${TIER_BADGE_CLASS[color]}`}>
+					{t(liveBadgeKey(tier))}
 				</span>
 			</div>
 			<p className="mt-1 text-[11px] leading-relaxed text-slate-600 dark:text-zinc-300">
-				&ldquo;{sanitizeEvidenceSnippet(live.evidenceSnippet, live.isCited)}&rdquo;
+				&ldquo;{sanitizeEvidenceSnippet(live.evidenceSnippet, cited)}&rdquo;
 			</p>
 			{live.citationUrl ? (
 				<p className="mt-1.5 truncate text-[10px] text-indigo-600/80 dark:text-indigo-300/80">{live.citationUrl}</p>
+			) : null}
+			{tier === 'WEAK' && live.weaknessReasons && live.weaknessReasons.length > 0 ? (
+				<div className="mt-2 rounded-md bg-amber-50/80 px-2 py-1.5 dark:bg-amber-500/10">
+					<p className="text-[10px] font-bold text-amber-700 dark:text-amber-300">{t('weaknessTitle')}</p>
+					<ul className="mt-1 list-disc space-y-0.5 pl-4 text-[10px] text-amber-800 dark:text-amber-200">
+						{live.weaknessReasons.map((reason) => (
+							<li key={reason}>{reason}</li>
+						))}
+					</ul>
+				</div>
 			) : null}
 		</div>
 	);

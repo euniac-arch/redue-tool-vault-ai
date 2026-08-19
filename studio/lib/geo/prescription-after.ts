@@ -40,6 +40,8 @@ export interface PrescriptionAfterOptions {
 	title?: string;
 	metaKeywords?: string;
 	navMenuTexts?: string[];
+	representativeName?: string;
+	representativeTitle?: string;
 }
 
 function siteContext(
@@ -63,6 +65,8 @@ function siteContext(
 		title: opts?.title,
 		metaKeywords: opts?.metaKeywords,
 		navMenuTexts: opts?.navMenuTexts,
+		representativeName: opts?.representativeName,
+		representativeTitle: opts?.representativeTitle,
 	});
 }
 

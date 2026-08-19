@@ -10,6 +10,12 @@ import {
 } from '@/lib/audit/parser';
 import { extractSiteLogoUrl } from '@/lib/audit/extract-site-logo';
 import { extractRepresentative } from '@/lib/audit/extractors/entity';
+import { extractOnpageNap } from '@/lib/audit/extractors/nap';
+import {
+	extractGeoAeoSiteData,
+	type GeoCoordinates,
+	type OpeningHoursSpec,
+} from '@/lib/audit/extractors/geo-aeo-site-data';
 import { cleanMedicalEntities } from '@/lib/geo/clean-medical-entities';
 import { extractCoreSpecialties, filterNavMenuTexts } from '@/lib/geo/core-specialties';
 import { formatColloquialLocation } from '@/lib/geo/query-location';
@@ -77,6 +83,24 @@ export interface SiteMetadata {
 	representativeName?: string;
 	/** Footer / Person-schema jobTitle (대표 / 대표이사 / 원장). */
 	representativeJobTitle?: string;
+	/** On-page / JSON-LD telephone, hyphenated (e.g. 02-1234-5678). */
+	telephone?: string;
+	/** Full road/jibun address, else the best administrative locality found. */
+	address?: string;
+	/** Weekday opening hours parsed from footer / greeting (default 09:00–18:00). */
+	openingHours?: OpeningHoursSpec;
+	/** JSON-LD or locality-mapped WGS84 coordinates. */
+	geo?: GeoCoordinates;
+	/** Naver/Kakao maps, YouTube, Instagram, Naver blog entity links. */
+	sameAs?: string[];
+	/** Schema.org MedicalSpecialty enumeration names (Oncologic, RadiationTherapy, …). */
+	medicalSpecialty?: string[];
+	/** MedicalClinic.isAcceptingNewPatients — default true. */
+	isAcceptingNewPatients?: boolean;
+	postalCode?: string;
+	streetAddress?: string;
+	addressLocality?: string;
+	addressRegion?: string;
 }
 
 type AuditLang = 'ko' | 'en';
@@ -980,7 +1004,8 @@ export function extractSiteMetadata(
 	const personNodes = nodes.filter((n) => hasType(n, 'Person'));
 	const schemaPersonName = personNodes.map((n) => cleanText(n.name, 40)).find(Boolean);
 	const schemaJobTitle = personNodes.map((n) => cleanText(n.jobTitle, 40)).find(Boolean);
-	const footerText = extractFooterLegalText($);
+	const footerText = extractFooterLegalText($, 2500);
+	const onpageNap = extractOnpageNap($, rawHtml ?? '', pageUrl);
 	const extractedRep = extractRepresentative(
 		[footerText, rawHtml ?? '', schemaPersonName ? `"@type":"Person","name":"${schemaPersonName}","jobTitle":"${schemaJobTitle || ''}"` : '']
 			.filter(Boolean)
@@ -991,6 +1016,28 @@ export function extractSiteMetadata(
 	const representativeJobTitle = extractedRep.isExtracted
 		? extractedRep.jobTitle
 		: schemaJobTitle || undefined;
+	const telephone = onpageNap.telephone || undefined;
+	const address =
+		onpageNap.address ||
+		[onpageNap.addressRegion, onpageNap.addressLocality, onpageNap.streetAddress].filter(Boolean).join(' ') ||
+		schemaLocation ||
+		undefined;
+	const geoAeo = extractGeoAeoSiteData({
+		html: rawHtml ?? '',
+		$,
+		industryType,
+		keywords: [
+			...schemaKnowsAbout,
+			...schemaSpecialties,
+			...coreSpecialties,
+			primaryKeyword,
+			title,
+			metaDescription,
+			metaKeywords || '',
+		],
+		addressText: address,
+		location: location || broadLocation,
+	});
 
 	const classifiedKeywords = classifyMetaKeywords({
 		brandName,
@@ -1039,6 +1086,17 @@ export function extractSiteMetadata(
 		serviceKeywords: classifiedKeywords.categoryNouns,
 		representativeName,
 		representativeJobTitle,
+		telephone,
+		address,
+		openingHours: geoAeo.openingHours,
+		geo: geoAeo.geo,
+		sameAs: geoAeo.sameAs.length ? geoAeo.sameAs : undefined,
+		medicalSpecialty: geoAeo.medicalSpecialty.length ? geoAeo.medicalSpecialty : undefined,
+		isAcceptingNewPatients: geoAeo.isAcceptingNewPatients,
+		postalCode: geoAeo.postalCode,
+		streetAddress: onpageNap.streetAddress || geoAeo.streetAddress || undefined,
+		addressLocality: onpageNap.addressLocality || geoAeo.addressLocality || undefined,
+		addressRegion: onpageNap.addressRegion || geoAeo.addressRegion || undefined,
 		title,
 		metaDescription,
 		ogTitle: ogTitle || undefined,

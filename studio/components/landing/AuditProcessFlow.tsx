@@ -1,41 +1,31 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { LANDING_CARD } from '@/components/landing/landing-ui';
 
-const STEPS = [
-	{ key: 'url', n: '①' },
-	{ key: 'analyze', n: '②' },
-	{ key: 'diagnose', n: '③' },
-	{ key: 'extract', n: '④' },
-	{ key: 'report', n: '⑤' },
-] as const;
+const STEPS = ['url', 'analyze', 'report'] as const;
 
-/** Horizontal 5-step audit process under the outcome cards. */
+/** Three-step audit process inside a single card. */
 export function AuditProcessFlow() {
 	const t = useTranslations('landing.process');
 
 	return (
-		<section className="rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] px-5 py-7 sm:px-8 sm:py-8">
-			<h2 className="text-center text-lg font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-xl">
-				{t('title')}
-			</h2>
-			<ol className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-stretch">
-				{STEPS.map((step, index) => (
-					<li key={step.key} className="flex min-w-0 items-center lg:flex-1">
-						<div className="flex w-full items-center gap-3 rounded-xl border border-slate-200 dark:border-white/[0.06] bg-slate-50 dark:bg-black/25 px-3 py-3 lg:flex-col lg:gap-2 lg:px-2 lg:py-4 lg:text-center">
-							<span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent/20 text-sm font-black text-indigo-700 dark:text-accent-light">
-								{step.n}
-							</span>
-							<span className="text-sm font-semibold leading-snug text-slate-800 dark:text-slate-200 lg:text-xs xl:text-sm">
-								{t(`steps.${step.key}`)}
-							</span>
+		<section aria-label={t('title')} className={`${LANDING_CARD} mt-8 px-8 py-6`}>
+			<ol className="flex flex-col items-center justify-between gap-5 lg:flex-row lg:gap-4">
+				{STEPS.map((key, index) => (
+					<li key={key} className="flex w-full flex-col items-center lg:w-auto lg:flex-1 lg:flex-row">
+						<div className="flex flex-1 flex-col items-center text-center">
+							<p className="text-[20px] font-bold text-[#818CF8]">{t(`steps.${key}.n`)}</p>
+							<p className="mt-1 text-base font-bold text-white">{t(`steps.${key}.title`)}</p>
+							<p className="mt-1 text-[13px] text-[#94A3B8]">{t(`steps.${key}.desc`)}</p>
 						</div>
 						{index < STEPS.length - 1 ? (
 							<span
 								aria-hidden
-								className="ml-3 hidden shrink-0 text-sm font-bold text-accent-light/70 lg:ml-2 lg:inline xl:ml-2.5"
+								className="mt-2 text-[20px] text-[#475569] lg:mt-0 lg:px-3"
 							>
-								➔
+								<span className="lg:hidden">↓</span>
+								<span className="hidden lg:inline">→</span>
 							</span>
 						) : null}
 					</li>

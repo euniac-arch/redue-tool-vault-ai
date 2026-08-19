@@ -20,6 +20,7 @@ import {
 	resolveHumanPageTitle,
 	stripHardcodedMetaEchoes,
 	stripHardcodedCanonicalTags,
+	stripRedueSchemaBlocks,
 	enforceHttps,
 	refineAssignedPageType,
 	buildMainPageItemListBuckets,
@@ -799,11 +800,73 @@ assert(boardPhp.includes("'@type' => 'ImageObject'"), 'publisher logo ImageObjec
 assert(boardPhp.includes('redue-alt-autofix'), 'v14 alt autofix');
 assert(boardPhp.includes('redue-js-defer-fix'), 'v15 js defer autofix (defense-in-depth)');
 assert(boardPhp.includes("date('Y-01-01T00:00:00+09:00')"), 'v15 Article datePublished default');
-assert(boardPhp.includes("'sameAs' => array($origin"), 'Organization sameAs array');
+assert(boardPhp.includes("'sameAs' => $same_as_array") || boardPhp.includes('$same_as_array = array($origin)'), 'Organization sameAs array');
 assert(boardPhp.includes("blog.naver.com/' . $domain_host"), 'sameAs Naver blog host');
 assert(boardPhp.includes("$origin . '/#person'"), 'Person @id origin/#person');
 assert(boardPhp.includes('의료진/연구팀'), 'default Person E-E-A-T name');
 assert(boardPhp.includes('의료 코디네이터 / 전문 연구팀'), 'default Person jobTitle');
+assert(boardPhp.includes("$rep_name"), 'compiled $rep_name binding');
+assert(boardPhp.includes("$rep_title"), 'compiled $rep_title binding');
+assert(boardPhp.includes("'founder'"), 'Organization founder node');
+assert(boardPhp.includes("'physician'"), 'Organization physician node');
+assert(boardPhp.includes("'@type' => 'Physician'"), 'Physician @type');
+assert(boardPhp.includes('MedicalClinic'), 'MEDICAL org includes MedicalClinic');
+assert(boardPhp.includes('name="author"'), 'author meta in OB callback');
+assert(boardPhp.includes('name="representative"'), 'representative meta in OB callback');
+assert(boardPhp.includes("$GLOBALS['redue_rep_name']"), 'redue_rep_name global seed');
+assert(boardPhp.includes('rel="help"') && boardPhp.includes('llms.txt'), 'llms.txt help link in OB');
+assert(boardPhp.includes('rel="alternate"') && boardPhp.includes('text/markdown'), 'llms.txt alternate markdown link');
+assert(boardPhp.includes('isAcceptingNewPatients'), 'MedicalClinic isAcceptingNewPatients');
+assert(boardPhp.includes('openingHoursSpecification'), 'openingHoursSpecification node');
+assert(boardPhp.includes("'@type' => 'GeoCoordinates'"), 'GeoCoordinates node');
+assert(boardPhp.includes('SpeakableSpecification'), 'speakable cssSelector spec');
+assert(boardPhp.includes("'reviewedBy'"), 'reviewedBy person @id');
+assert(boardPhp.includes("'Oncologic'") && boardPhp.includes("'RadiationTherapy'"), 'default MEDICAL specialty mapping');
+
+{
+	const namedPhp = generateDynamicPhpSchema(
+		{
+			siteName: '한국중입자 암치료연구소',
+			targetUrl: 'https://example.com',
+			pages: [{ urlPath: '/', title: '홈', pageType: 'WebPage' }],
+			industryType: 'MEDICAL',
+			footerText: '상호: 중입자암치료지원연구소 | 대표자: 김중입 | 전화: 02-1234-5678',
+			representativeName: '김중입',
+			representativeTitle: '대표원장',
+		},
+	);
+	assert(namedPhp.includes("'김중입'"), 'admin representative compiled into PHP');
+	assert(namedPhp.includes("'대표원장'"), 'admin jobTitle compiled into PHP');
+	assert(namedPhp.includes("$GLOBALS['schema_person']"), 'schema_person seeded from representative');
+	const geoPhp = generateDynamicPhpSchema({
+		siteName: '한국중입자 암치료연구소',
+		targetUrl: 'https://example.com',
+		pages: [{ urlPath: '/', title: '홈', pageType: 'WebPage' }],
+		industryType: 'MEDICAL',
+		representativeName: '김중입',
+		representativeTitle: '대표원장',
+		openingHoursOpens: '09:30',
+		openingHoursCloses: '17:30',
+		latitude: '37.4837',
+		longitude: '127.0324',
+		sameAs: ['https://map.naver.com/p/entry/place/123', 'https://www.instagram.com/clinic'],
+		medicalSpecialty: ['Oncologic', 'RadiationTherapy'],
+		isAcceptingNewPatients: true,
+	});
+	assert(geoPhp.includes("'09:30'"), 'admin opening hours opens compiled');
+	assert(geoPhp.includes("'17:30'"), 'admin opening hours closes compiled');
+	assert(geoPhp.includes('map.naver.com'), 'Naver map sameAs compiled');
+	assert(geoPhp.includes('instagram.com'), 'Instagram sameAs compiled');
+	assert(geoPhp.includes("'37.4837'"), 'latitude compiled');
+	const emptyPhp = generateDynamicPhpSchema({
+		siteName: '한국중입자 암치료연구소',
+		targetUrl: 'https://example.com',
+		pages: [{ urlPath: '/', title: '홈', pageType: 'WebPage' }],
+		industryType: 'MEDICAL',
+	});
+	assert(emptyPhp.includes("$site_name . ' 의료진/연구팀'"), 'empty representative uses fallback Person name');
+	assert(emptyPhp.includes("if ( is_string($rep_name) && $rep_name !== '' )"), 'founder/physician gated on non-empty $rep_name');
+}
 assert(boardPhp.includes('Description Extender'), 'Description Extender comment');
 assert(boardPhp.includes('$_redue_desc_len'), 'runtime description length check');
 assert(!/\$legal_name = 'Copyright/i.test(boardPhp), 'legalName has no Copyright English');
@@ -957,6 +1020,17 @@ assert(
 );
 assert((cleanInjected.result.match(/REDUE_AI_STUDIO:START/g) || []).length === 1, 'single controller inject');
 assert((cleanInjected.result.match(/application\/ld\+json/g) || []).length === 1, 'single JSON-LD script');
+
+{
+	const alreadyInjected = `${cleanInjected.result}\n<!-- REDUE v30 PRECISION SEO START -->\n<link rel="canonical" href="https://old.example/">\n<!-- REDUE v30 PRECISION SEO END -->\n`;
+	const overwritten = injectBeforeClosingHead(alreadyInjected, boardPhp);
+	assert(overwritten.ok, 'overwrite inject ok');
+	assert((overwritten.result.match(/REDUE_AI_STUDIO:START/g) || []).length === 1, 'idempotent overwrite keeps one START marker');
+	assert(!overwritten.result.includes('https://old.example/'), 'strips prior PRECISION SEO canonical block');
+	const leftoverGuard = "<?php\nif ( ! defined('REDUE_UNIVERSAL_ENGINE_ACTIVE') ) {\n\tdefine('REDUE_UNIVERSAL_ENGINE_ACTIVE', true);\n\tob_start(function($buffer){ return $buffer; });\n}\n?>\n<html><head></head>";
+	const strippedGuard = stripRedueSchemaBlocks(leftoverGuard);
+	assert(!strippedGuard.includes('REDUE_UNIVERSAL_ENGINE_ACTIVE'), 'strips leftover UNIVERSAL_ENGINE_ACTIVE guard');
+}
 
 console.log('OK', {
 	primary: targets[0].path,

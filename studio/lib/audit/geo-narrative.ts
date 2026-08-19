@@ -970,7 +970,7 @@ export function buildHeuristicGeoNarrative(input: GeoNarrativeRequest): GeoNarra
 					vertical === 'medical-clinic' || vertical === 'medical-hospital' || vertical === 'dental'
 						? buildMedicalSimulatorQuery(loc, input.mainSpecialty || category, 'ko')
 						: loc
-							? `${loc}에서 평가 좋은 ${category} 추천해줘. 믿을 만한 곳 어디야?`
+							? `${loc} ${category} 도입 의료기관 및 진료시간 안내`
 							: `${category} 관련해서 가장 평가 좋은 대표 추천 알려줘.`,
 				beforeAnswer: allCoreHealthy
 					? `${brand}${getJosa(brand, '은/는')} 구조화 신호가 확보되어 AI 답변에서 인용 가능한 출처로 인식될 수 있는 상태입니다.`

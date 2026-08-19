@@ -70,6 +70,9 @@ export function advancedGeoInputFromReport(
 	const extractedRep = extractRepresentative(entityCorpus, lang);
 	const representativeName =
 		meta?.representativeName || (extractedRep.isExtracted ? extractedRep.name : undefined);
+	const representativeTitle =
+		meta?.representativeJobTitle || (extractedRep.isExtracted ? extractedRep.jobTitle : undefined);
+	const nap = napFromAuditReport(report as AuditReport);
 	return {
 		lang,
 		brandName: meta?.brandName,
@@ -92,7 +95,8 @@ export function advancedGeoInputFromReport(
 		url: report.url || meta?.targetUrl,
 		domain: meta?.domain,
 		representativeName,
-		nap: napFromAuditReport(report as AuditReport),
+		representativeTitle,
+		nap,
 		jsonLdCorpus,
 		html: entityCorpus,
 		text: textParts.join('\n'),

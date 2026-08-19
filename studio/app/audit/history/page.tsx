@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { AuditHistoryList } from '@/components/AuditHistoryList';
+import { HISTORY_VIEW_ALL, HistoryPaginationBar } from '@/components/audit/HistoryPaginationBar';
+import { PageListLoader } from '@/components/ui/PageListLoader';
 import {
 	AUDIT_HISTORY_SYNC_CHANNEL,
 	AUDIT_HISTORY_SYNC_KEY,
@@ -28,6 +30,7 @@ export default function AuditHistoryPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [query, setQuery] = useState('');
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+	const [viewCount, setViewCount] = useState(10);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 	const [syncTick, setSyncTick] = useState(0);
 
@@ -121,6 +124,10 @@ export default function AuditHistoryPage() {
 		});
 	}, [items, query, statusFilter]);
 
+	const totalItems = filtered.length;
+	const currentPagedList =
+		viewCount === HISTORY_VIEW_ALL ? filtered : filtered.slice(0, viewCount);
+
 	async function handleDelete(id: string) {
 		setDeletingId(id);
 		setError(null);
@@ -147,7 +154,7 @@ export default function AuditHistoryPage() {
 	return (
 		<main className="flex flex-col gap-6">
 			<div>
-				<Link href="/" className="text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
+				<Link href="/" className="text-sm text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
 					{t('backToHome')}
 				</Link>
 			</div>
@@ -155,14 +162,14 @@ export default function AuditHistoryPage() {
 			<header className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 				<div>
 					<h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">{t('title')}</h1>
-					<p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+					<p className="mt-1 text-sm text-slate-600 dark:text-slate-300/80">
 						{t('totalCount', { count: items.length })}
 						{!session?.user ? ` · ${t('guestHint')}` : null}
 					</p>
 				</div>
 				<Link
 					href="/"
-					className="w-fit rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-200 dark:shadow-none dark:hover:border-white/20 dark:hover:bg-white/10"
+					className="w-fit rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-cyan-500 hover:bg-cyan-500 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
 				>
 					{t('newAudit')}
 				</Link>
@@ -174,7 +181,7 @@ export default function AuditHistoryPage() {
 					value={query}
 					onChange={(event) => setQuery(event.target.value)}
 					placeholder={t('searchPlaceholder')}
-					className="w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-accent dark:border-white/[0.08] dark:bg-black/40 dark:text-slate-100"
+					className="w-full flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition-all focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 dark:border-slate-800 dark:bg-slate-950/90 dark:text-white dark:placeholder-slate-500"
 				/>
 				<div className="flex gap-2">
 					{(
@@ -188,10 +195,10 @@ export default function AuditHistoryPage() {
 							key={value}
 							type="button"
 							onClick={() => setStatusFilter(value)}
-							className={`rounded-xl px-3 py-2 text-xs font-bold transition ${
+							className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors ${
 								statusFilter === value
-									? 'bg-accent text-white shadow-lg shadow-accent/20'
-									: 'border border-slate-200 bg-white text-slate-600 hover:text-slate-900 dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-400 dark:hover:text-white'
+									? 'border border-cyan-500 bg-cyan-500 text-slate-950'
+									: 'border border-slate-200 bg-white text-slate-600 hover:border-cyan-500/40 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-[#0E162B] dark:hover:text-white'
 							}`}
 						>
 							{label}
@@ -206,15 +213,15 @@ export default function AuditHistoryPage() {
 				</div>
 			)}
 
-			{loading && <div className="h-40 animate-pulse rounded-2xl border border-slate-200 bg-slate-100 dark:border-white/[0.08] dark:bg-[#111419]" />}
+			{loading && <PageListLoader label={t('listLoading')} />}
 
 			{!loading && items.length === 0 && (
-				<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center dark:border-white/[0.12] dark:bg-[#111419]">
-					<p className="text-base font-semibold text-slate-800 dark:text-slate-200">{t('emptyTitle')}</p>
-					<p className="max-w-md text-sm text-slate-500">{t('emptyDescription')}</p>
+				<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center backdrop-blur-sm dark:border-slate-800/80 dark:bg-[#0B1120]/80">
+					<p className="text-base font-semibold text-slate-800 dark:text-white">{t('emptyTitle')}</p>
+					<p className="max-w-md text-sm text-slate-500 dark:text-slate-300/80">{t('emptyDescription')}</p>
 					<Link
 						href="/"
-						className="rounded-xl bg-accent px-5 py-3 text-sm font-bold text-white shadow-lg shadow-accent/30 transition hover:bg-accent-light"
+						className="rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-cyan-900/40 transition-all hover:from-cyan-400 hover:to-blue-500"
 					>
 						{t('emptyCta')}
 					</Link>
@@ -222,17 +229,24 @@ export default function AuditHistoryPage() {
 			)}
 
 			{!loading && items.length > 0 && filtered.length === 0 && (
-				<div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500 shadow-sm dark:border-white/[0.08] dark:bg-[#111419] dark:shadow-none">
+				<div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500 backdrop-blur-sm dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:text-slate-300/80">
 					{t('noMatches')}
 				</div>
 			)}
 
 			{!loading && filtered.length > 0 && (
-				<AuditHistoryList
-					items={filtered}
-					onDelete={handleDelete}
-					deletingId={deletingId}
-				/>
+				<div>
+					<HistoryPaginationBar
+						totalItems={totalItems}
+						viewCount={viewCount}
+						onViewCountChange={setViewCount}
+					/>
+					<AuditHistoryList
+						items={currentPagedList}
+						onDelete={handleDelete}
+						deletingId={deletingId}
+					/>
+				</div>
 			)}
 		</main>
 	);

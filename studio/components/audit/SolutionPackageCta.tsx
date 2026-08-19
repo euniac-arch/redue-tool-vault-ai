@@ -133,10 +133,10 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery }: Soluti
 				</div>
 
 				<div className="flex shrink-0 flex-col justify-center border-t border-indigo-500/20 pt-5 md:w-60 md:border-l md:border-t-0 md:pl-8 md:pt-0">
-					<div className="text-2xl font-extrabold tracking-tight text-indigo-200">
-						{formatKrw(ENTERPRISE_PACKAGE_PRICE_KRW, lang)}~
+					<div className="break-keep text-2xl font-extrabold tracking-tight text-indigo-200">
+						₩{formatKrw(ENTERPRISE_PACKAGE_PRICE_KRW, lang)}~
 					</div>
-					<p className="mt-1 text-xs text-slate-400">{t('enterprise.priceNote')}</p>
+					<p className="mt-1 break-keep text-xs text-slate-400">{t('enterprise.priceNote')}</p>
 					<button
 						type="button"
 						disabled
@@ -146,6 +146,8 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery }: Soluti
 					</button>
 				</div>
 			</article>
+
+			<p className="break-keep text-[11px] leading-relaxed text-slate-500">{t('legalDisclaimer')}</p>
 
 			{selected && typeof document !== 'undefined'
 				? createPortal(

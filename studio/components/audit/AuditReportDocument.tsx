@@ -16,6 +16,7 @@ import type { PageSpeedStrategy } from '@/components/audit/PageSpeedReport';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import type { PageSpeedSnapshot } from '@/lib/audit/pagespeed';
 import { AuditDataProvider } from '@/components/audit/AuditDataContext';
+import { ReportLegalDisclaimer } from '@/components/audit/ReportLegalDisclaimer';
 import { buildDiagnosisScoreSnapshot } from '@/lib/audit/diagnosis-scores';
 import type { AuditReport } from '@/lib/site-auditor';
 
@@ -246,7 +247,7 @@ export function AuditReportDocument({
 							variant={publicView ? 'light' : 'dark'}
 							sectionId="official-validation-tools"
 						/>
-						<p className="mt-2 mb-16 flex items-center pt-1 text-[11px] font-medium text-slate-500">
+						<p className="mt-2 mb-4 flex items-center pt-1 text-[11px] font-medium text-slate-500">
 							<Clock
 								className="mr-1.5 inline-block h-3.5 w-3.5 shrink-0 opacity-70"
 								aria-hidden
@@ -257,6 +258,7 @@ export function AuditReportDocument({
 								ms: liveReport.responseTimeMs,
 							})}
 						</p>
+						<ReportLegalDisclaimer />
 					</div>
 				</div>
 			</div>

@@ -510,8 +510,8 @@ export function computeExternalReputationFromSignals(
 			title: lang === 'en' ? HTTPS_P0_LABEL.en : HTTPS_P0_LABEL.ko,
 			description:
 				lang === 'en'
-					? 'HTTP sites are hard-capped at grade B. Apply free Let\'s Encrypt SSL so browsers and AI engines can trust the origin.'
-					: 'HTTP 사이트는 종합 등급이 B(78점)로 강제 캡핑됩니다. 무료 Let\'s Encrypt SSL을 적용해야 브라우저·AI 엔진 신뢰가 회복됩니다.',
+					? 'HTTP sites are hard-capped at grade B. Enable HTTPS (SSL certificate) via your host console or Let\'s Encrypt so browsers and AI engines can trust the origin.'
+					: 'HTTP 사이트는 종합 등급이 B(78점)로 강제 캡핑됩니다. 호스팅사 콘솔 또는 Let\'s Encrypt로 HTTPS(SSL 인증서)를 적용해야 브라우저·AI 엔진 신뢰가 회복됩니다.',
 		});
 	}
 	if (!bingPlacesRegistered) {

@@ -4,6 +4,8 @@
  * API failure / empty results fall back to statistical placeholder names.
  */
 
+import { anonymizedCompetitorLabel } from '@/lib/audit/anonymize-competitor';
+import { industryCategoryLabel, resolveIndustryVoice } from '@/lib/audit/universal-compliant-engine';
 import { matchCompetitorRoster } from '@/lib/audit/competitor-match';
 import { isSameBrandEntity } from '@/lib/geo/brand-entities';
 import { generateQueryMatrix } from '@/lib/geo/query-matrix';
@@ -382,7 +384,6 @@ export function bindCompetitorSov(input: {
 	const mainService = cleanPhrase(input.mainService);
 	const categoryName = cleanPhrase(input.categoryName) || (lang === 'en' ? 'specialist' : '전문 기관');
 	const targetQuery = cleanPhrase(input.targetQuery) || buildCompetitorSearchQuery(region, mainService);
-	const fallback = statisticalFallbackNames(region, categoryName, lang);
 	const rankedNames = toSearchRankList(input.rankedNames?.length ? input.rankedNames : input.realNames);
 	const matched = matchCompetitorRoster({
 		clientName: input.clientName,
@@ -397,15 +398,16 @@ export function bindCompetitorSov(input: {
 		.filter((slot) => !slot.isClient && slot.isRealData)
 		.map((slot) => slot.name)
 		.slice(0, 2);
-	const peerNames = matched.slots.filter((slot) => !slot.isClient).map((slot) => slot.name);
-	const competitor1 = realNames[0] || peerNames[0] || fallback[0];
-	const competitor2 = realNames[1] || peerNames[1] || fallback[1];
 	const brandShare = 0;
 	const directoryShare = THIRD_PARTY_SHARE;
 	const remaining = Math.max(0, 100 - brandShare - directoryShare);
 	const leaderShare = Math.round(remaining * SOV_LEADER_RESIDUAL_RATIO);
 	const runnerShare = remaining - leaderShare;
 	const clientIndex = findClientSearchIndex(input.clientName, rankedNames);
+	const industryLabel = industryCategoryLabel(
+		resolveIndustryVoice({ category: mainService, keywords: [mainService, categoryName] }),
+		lang,
+	);
 
 	return {
 		targetQuery,
@@ -414,13 +416,13 @@ export function bindCompetitorSov(input: {
 		directoryShare,
 		competitors: [
 			{
-				name: competitor1,
+				name: anonymizedCompetitorLabel(1, lang, industryLabel),
 				share: leaderShare,
 				isDominant: true,
 				isRealData: Boolean(realNames[0]),
 			},
 			{
-				name: competitor2,
+				name: anonymizedCompetitorLabel(2, lang, industryLabel),
 				share: runnerShare,
 				isDominant: false,
 				isRealData: Boolean(realNames[1]),
@@ -428,7 +430,7 @@ export function bindCompetitorSov(input: {
 		],
 		rankedNames,
 		clientRank: toClientRank(clientIndex),
-		lossInsight: buildLossInsight(region, mainService, competitor1, lang),
+		lossInsight: buildLossInsight(region, mainService, anonymizedCompetitorLabel(1, lang, industryLabel), lang),
 		source: realNames.length > 0 ? input.source : 'fallback',
 	};
 }

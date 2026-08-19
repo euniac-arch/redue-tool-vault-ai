@@ -43,6 +43,7 @@
  */
 
 import { dedupeRepeatedPhrase } from '@/lib/audit/brand-name';
+import { resolveEngineRepresentative } from '@/lib/audit/extractors/entity';
 
 export const REDUE_SCHEMA_MARKER_START = 'REDUE_AI_STUDIO:START';
 export const REDUE_SCHEMA_MARKER_END = 'REDUE_AI_STUDIO:END';
@@ -102,7 +103,8 @@ export const REDUE_V7_SCHEMA_PATCH_SUCCESS = REDUE_V20_SCHEMA_PATCH_SUCCESS;
 /** Short developer guide shown in completion modal / report. */
 export const REDUE_V20_SCHEMA_EXTENSION_GUIDE = `특수 확장 변수 (서브페이지에서 JSON-LD 직접 출력 금지 — 데이터만 바인딩):
 • $GLOBALS['schema_faq_items'] = [ ['q'=>'질문','a'=>'답변'], … ]  → FAQPage (서브페이지 우선; 미지정 시 v30 기본 Q&A 2종이 메인·서브 모든 비게시판 페이지에 자동 결합)
-• $GLOBALS['schema_person'] = ['name'=>'이름','jobTitle'=>'직함', …]  → Person + worksFor (미지정 시 기본 E-E-A-T Person 자동 결합)
+• $GLOBALS['schema_person'] = ['name'=>'이름','jobTitle'=>'직함', …]  → Person + worksFor + Organization.founder/physician (관리자 대표자명 또는 푸터/인사말 자동 추출 $rep_name; 미지정 시 {site_name} 의료진/연구팀 Fallback)
+• ob_start()가 </head> 직전에 <meta name="author"> / <meta name="representative"> 를 $rep_name 또는 런타임 텍스트 스캔으로 주입
 • $GLOBALS['schema_article'] = ['type'=>'Article'|'NewsArticle','headline'=>…, …]  → Article/NewsArticle (datePublished/dateModified 미지정 시 ISO 8601 자동 보완; 미지정 시 브랜드+Description 기반 기본 Article이 메인·서브·게시판 포함 모든 페이지에 자동 결합). v31: $bo_table/URL/제목에 notice|press|news|media|insight|board·보도·뉴스·공지 등이 있으면 NewsArticle로 자동 승격하고 headline·image·dates·author·publisher(logo)를 $config/$g5/$wr에서 주입
 • v14 Alt Auto-Fixer: 공통 헤더 최하단 JS가 빈/누락 img[alt]를 $site_name 기반으로 자동 보완
 • v15 JS Defer Auto-Fixer: 외부 script[src]에 async/defer 없으면 defer 자동 부여 (클라이언트 보강)
@@ -357,8 +359,18 @@ export function buildJsDomDeferEngineScriptTag(): string {
  * Universal v30 Master Engine — returns the full self-contained `<?php … ?>` block
  * (OB + schema controller). Alias of `buildUniversalObSeoEnginePhp()`.
  */
-export function generateUniversalPhpSeoEngine(): string {
-	return buildUniversalObSeoEnginePhp();
+export function generateUniversalPhpSeoEngine(opts?: {
+	representativeName?: string;
+	representativeTitle?: string;
+	openingHoursOpens?: string;
+	openingHoursCloses?: string;
+	latitude?: string;
+	longitude?: string;
+	sameAs?: string[];
+	medicalSpecialty?: string[];
+	isAcceptingNewPatients?: boolean;
+}): string {
+	return buildUniversalObSeoEnginePhp(opts);
 }
 
 /** Short developer guide shown alongside the v30 Universal Master Engine snippet/tab. */
@@ -376,6 +388,59 @@ export const REDUE_V27_UNIVERSAL_OB_ENGINE_GUIDE = REDUE_V30_UNIVERSAL_OB_ENGINE
  * full hybrid `redue_dynamic_schema_controller()` path.
  * Auto-detects Gnuboard `G5_URL` when present; never hardcodes domain/brand.
  */
+function buildRepresentativeObMetaPhp(): string {
+	return `
+		// D. Representative meta — $GLOBALS['redue_rep_name'] / schema_person, else footer/인사말 scan
+		$rep_name = '';
+		$rep_title = '';
+		if ( isset($GLOBALS['redue_rep_name']) && is_string($GLOBALS['redue_rep_name']) ) {
+			$rep_name = trim($GLOBALS['redue_rep_name']);
+		}
+		if ( isset($GLOBALS['redue_rep_title']) && is_string($GLOBALS['redue_rep_title']) ) {
+			$rep_title = trim($GLOBALS['redue_rep_title']);
+		}
+		if ( $rep_name === '' && isset($GLOBALS['schema_person']) && is_array($GLOBALS['schema_person']) && ! empty($GLOBALS['schema_person']['name']) ) {
+			$rep_name = trim((string) $GLOBALS['schema_person']['name']);
+			if ( ! empty($GLOBALS['schema_person']['jobTitle']) ) {
+				$rep_title = trim((string) $GLOBALS['schema_person']['jobTitle']);
+			}
+		}
+		if ( $rep_name === '' ) {
+			$plain = preg_replace('/<script\\b[^>]*>[\\s\\S]*?<\\/script>/i', ' ', $buffer);
+			$plain = preg_replace('/<style\\b[^>]*>[\\s\\S]*?<\\/style>/i', ' ', is_string($plain) ? $plain : $buffer);
+			$plain = html_entity_decode(strip_tags(is_string($plain) ? $plain : $buffer), ENT_QUOTES, 'UTF-8');
+			if ( is_string($plain) && preg_match('/(?:대표자|대표원장|대표이사|대표(?!공인|변호|세무|번호|전화)|원장)(?!번호|전화|문의|상담|메일)\\s*[:|：]?\\s*([가-힣]{2,5}|[a-zA-Z][a-zA-Z\\s.]{1,19})/u', $plain, $rep_m) ) {
+				$candidate = trim($rep_m[1]);
+				if ( $candidate !== '' && ! preg_match('/병원|연구소|센터|안내|소개|진료안내|고객센터/u', $candidate) && ! preg_match('/^(대표자명?|대표이사|대표원장|대표자|원장)$/u', $candidate) ) {
+					$rep_name = $candidate;
+					if ( $rep_title === '' && preg_match('/(대표자|대표원장|대표이사|대표|원장)/u', $rep_m[0], $rep_t) ) {
+						$rep_title = $rep_t[1];
+					}
+				}
+			}
+		}
+		$buffer = preg_replace('/<meta\\b(?=[^>]*\\bname=["\\']author["\\'])[^>]*>\\s*/i', '', $buffer);
+		$buffer = preg_replace('/<meta\\b(?=[^>]*\\bname=["\\']representative["\\'])[^>]*>\\s*/i', '', $buffer);
+		$buffer = preg_replace('/<link\\b(?=[^>]*\\brel=["\\'](?:help|alternate)["\\'])(?=[^>]*llms\\.txt)[^>]*>\\s*/i', '', $buffer);
+		$llms_origin = preg_replace('#^(https?://[^/]+).*#', '$1', $canonical_url);
+		if ( ! is_string($llms_origin) || $llms_origin === '' ) { $llms_origin = $canonical_url; }
+		$llms_href = htmlspecialchars(rtrim($llms_origin, '/') . '/llms.txt', ENT_QUOTES, 'UTF-8');
+		$rep_tags = '';
+		if ( $rep_name !== '' ) {
+			$GLOBALS['redue_rep_name'] = $rep_name;
+			if ( $rep_title !== '' ) { $GLOBALS['redue_rep_title'] = $rep_title; }
+			$rep_esc = htmlspecialchars($rep_name, ENT_QUOTES, 'UTF-8');
+			$rep_tags .= "\\n" . '<meta name="author" content="' . $rep_esc . '">' . "\\n";
+			$rep_tags .= '<meta name="representative" content="' . $rep_esc . '">' . "\\n";
+		}
+		$rep_tags .= '<link rel="help" type="text/markdown" href="' . $llms_href . '" title="LLMs Context">' . "\\n";
+		$rep_tags .= '<link rel="alternate" type="text/markdown" href="' . $llms_href . '">' . "\\n";
+		if ( preg_match('/<\\/head>/i', $buffer) ) {
+			$buffer = preg_replace('/<\\/head>/i', $rep_tags . '</head>', $buffer, 1);
+		}
+`;
+}
+
 export function buildUniversalObRegistrationPhp(): string {
 	return `if ( ! defined('REDUE_UNIVERSAL_ENGINE_ACTIVE') ) {
 	define('REDUE_UNIVERSAL_ENGINE_ACTIVE', true);
@@ -458,11 +523,23 @@ export function buildUniversalObRegistrationPhp(): string {
 		// A. Strip ALL existing canonical & og:url tags (theme / controller echo / duplicates)
 		$buffer = preg_replace('/<link\\b(?=[^>]*\\brel=["\\']canonical["\\'])[^>]*>\\s*/i', '', $buffer);
 		$buffer = preg_replace('/<meta\\b(?=[^>]*\\bproperty=["\\']og:url["\\'])[^>]*>\\s*/i', '', $buffer);
+		$buffer = preg_replace('/<link\\b(?=[^>]*\\brel=["\\'](?:help|alternate)["\\'])(?=[^>]*llms\\.txt)[^>]*>\\s*/i', '', $buffer);
+		$buffer = preg_replace('/<!--\\s*REDUE v30 PRECISION SEO START[\\s\\S]*?REDUE v30 PRECISION SEO END\\s*-->\\s*/i', '', $buffer);
 
 		// B. Charset-After First-Chunk Injection: purified pair right after charset (before large CSS)
 		$seo_tags  = "\\n<!-- REDUE v30 PRECISION SEO START — SEO Standard Canonical Pair (Bot Optimized Top Position) -->\\n";
 		$seo_tags .= '<link rel="canonical" href="' . htmlspecialchars($canonical_url, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		$seo_tags .= '<meta property="og:url" content="' . htmlspecialchars($canonical_url, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		$llms_origin = preg_replace('#^(https?://[^/]+).*#', '$1', $canonical_url);
+		if ( ! is_string($llms_origin) || $llms_origin === '' ) { $llms_origin = $canonical_url; }
+		$llms_href = htmlspecialchars(rtrim($llms_origin, '/') . '/llms.txt', ENT_QUOTES, 'UTF-8');
+		$seo_tags .= '<link rel="help" type="text/markdown" href="' . $llms_href . '" title="LLMs Context">' . "\\n";
+		$seo_tags .= '<link rel="alternate" type="text/markdown" href="' . $llms_href . '">' . "\\n";
+		if ( isset($GLOBALS['redue_rep_name']) && is_string($GLOBALS['redue_rep_name']) && trim($GLOBALS['redue_rep_name']) !== '' ) {
+			$rep_esc_ob = htmlspecialchars(trim($GLOBALS['redue_rep_name']), ENT_QUOTES, 'UTF-8');
+			$seo_tags .= '<meta name="author" content="' . $rep_esc_ob . '">' . "\\n";
+			$seo_tags .= '<meta name="representative" content="' . $rep_esc_ob . '">' . "\\n";
+		}
 		$seo_tags .= "<!-- REDUE v30 PRECISION SEO END -->\\n";
 
 		$charset_re = '/(<meta\\b[^>]*(?:\\bcharset\\s*=|http-equiv=["\\']Content-Type["\\'][^>]*charset)[^>]*>)/i';
@@ -480,7 +557,7 @@ export function buildUniversalObRegistrationPhp(): string {
 		$buffer = preg_replace_callback('/<script\\b(?![^>]*\\b(defer|async|type=["\\']module["\\']|type=["\\']application\\/ld\\+json["\\'])\\b)([^>]*\\bsrc\\s*=\\s*["\\'][^"\\']+["\\'][^>]*)>/i', function($matches) {
 			return preg_replace('/>$/', ' defer>', $matches[0]);
 		}, $buffer);
-
+${buildRepresentativeObMetaPhp()}
 		return $buffer;
 	});
 }`;
@@ -603,9 +680,26 @@ export function buildNewsArticleAutoDetectPhp(): string {
  *   5. FAQPage on all non-board pages (universal 2-item fallback when unbound)
  *   6. Person E-E-A-T node + Alt Auto-Fixer
  */
-export function buildUniversalObSeoEnginePhp(): string {
+export function buildUniversalObSeoEnginePhp(opts?: {
+	representativeName?: string;
+	representativeTitle?: string;
+	openingHoursOpens?: string;
+	openingHoursCloses?: string;
+	latitude?: string;
+	longitude?: string;
+	sameAs?: string[];
+	medicalSpecialty?: string[];
+	isAcceptingNewPatients?: boolean;
+}): string {
+	const compiled = resolveEngineRepresentative({
+		adminName: opts?.representativeName,
+		adminTitle: opts?.representativeTitle,
+		industryType: 'MEDICAL',
+	});
+	const seedPhp = buildRepresentativeGlobalsSeedPhp(compiled.name, compiled.jobTitle || '대표원장');
 	return `<?php
 /* ${REDUE_SCHEMA_MARKER_START} — Crawler-Optimized Canonical & Schema Engine (Charset-After First-Chunk · v32) */
+${seedPhp}
 ${buildUniversalObRegistrationPhp()}
 
 // 3. 스키마 컨트롤러 중복 실행 방지 가드 (여러 번 호출되어도 단 1회만 실행)
@@ -642,6 +736,25 @@ if ( ! function_exists( 'redue_dynamic_schema_controller_body' ) ) {
 			: ('https://' . preg_replace('#^https?://#i', '', isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost'));
 		$origin = preg_replace('#^http://#i', 'https://', $origin);
 		$schema_meta_image = $origin . '/logo.png';
+		$domain_host = parse_url($origin, PHP_URL_HOST);
+		if ( ! is_string($domain_host) || $domain_host === '' ) {
+			$domain_host = preg_replace('#^https?://#i', '', $origin);
+			$domain_host = preg_replace('#/.*$#', '', $domain_host);
+		}
+
+${buildRepresentativeResolvePhp(compiled.name, compiled.jobTitle || '대표원장')}
+${buildGeoAeoBindingsPhp({
+	siteName: 'Site',
+	pages: [],
+	industryType: 'MEDICAL',
+	openingHoursOpens: opts?.openingHoursOpens,
+	openingHoursCloses: opts?.openingHoursCloses,
+	latitude: opts?.latitude,
+	longitude: opts?.longitude,
+	sameAs: opts?.sameAs,
+	medicalSpecialty: opts?.medicalSpecialty,
+	isAcceptingNewPatients: opts?.isAcceptingNewPatients,
+})}
 
 		$page_url = redue_get_exact_canonical();
 		$request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
@@ -668,17 +781,41 @@ ${buildNewsArticleAutoDetectPhp()}
 		$graph = array();
 
 		// Organization & WebPage Node
-		$graph[] = array(
-			'@type' => array('Organization', 'ProfessionalService'),
+		$org_types = array('Organization', 'MedicalClinic', 'ProfessionalService');
+		$org_node = array(
+			'@type' => $org_types,
 			'@id' => $origin . '/#organization',
 			'name' => $site_name,
 			'url' => $origin,
 			'logo' => array('@type' => 'ImageObject', 'url' => $schema_meta_image),
+			'isAcceptingNewPatients' => $is_accepting_new_patients,
+			'medicalSpecialty' => $medical_specialty,
+			'sameAs' => $same_as_array,
 			'address' => array(
 				'@type' => 'PostalAddress',
-				'addressCountry' => 'KR'
-			)
+				'postalCode' => $postal_code,
+				'streetAddress' => $street_address,
+				'addressLocality' => $locality,
+				'addressRegion' => $region,
+				'addressCountry' => 'KR',
+			),
+			'geo' => array(
+				'@type' => 'GeoCoordinates',
+				'latitude' => $latitude,
+				'longitude' => $longitude,
+			),
+			'openingHoursSpecification' => array(
+				array(
+					'@type' => 'OpeningHoursSpecification',
+					'dayOfWeek' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
+					'opens' => $opens,
+					'closes' => $closes,
+				),
+			),
+			'speakable' => $speakable_spec,
 		);
+${buildOrgFounderPhysicianPhp('\t\t')}
+		$graph[] = $org_node;
 
 		$graph[] = array(
 			'@type' => 'WebPage',
@@ -687,7 +824,9 @@ ${buildNewsArticleAutoDetectPhp()}
 			'headline' => $schema_meta_title,
 			'description' => $schema_meta_description,
 			'url' => $page_url,
-			'isPartOf' => array('@type' => 'WebSite', 'url' => $origin, 'name' => $site_name)
+			'isPartOf' => array('@type' => 'WebSite', 'url' => $origin, 'name' => $site_name),
+			'reviewedBy' => array('@id' => $origin . '/#person'),
+			'speakable' => $speakable_spec,
 		);
 
 		// Article / NewsArticle Node — news/press boards & subpages → NewsArticle (Google/AI citation fields)
@@ -725,6 +864,8 @@ ${buildNewsArticleAutoDetectPhp()}
 					'url' => $schema_meta_image,
 				),
 			),
+			'reviewedBy' => array('@id' => $origin . '/#person'),
+			'speakable' => $speakable_spec,
 		);
 
 		// FAQPage Node
@@ -762,10 +903,21 @@ ${buildNewsArticleAutoDetectPhp()}
 		}
 
 		// Person E-E-A-T Node
+		$person = null;
+		if ( isset($GLOBALS['schema_person']) && is_array($GLOBALS['schema_person']) ) {
+			$person = $GLOBALS['schema_person'];
+		}
+		$person_eeat_name = ( is_string($rep_name) && $rep_name !== '' )
+			? $rep_name
+			: ( is_array($person) && ! empty($person['name']) ? $person['name'] : ( $site_name . ' 의료진/연구팀' ) );
+		$person_eeat_title = ( is_string($rep_title) && $rep_title !== '' )
+			? $rep_title
+			: ( is_array($person) && ! empty($person['jobTitle']) ? $person['jobTitle'] : '의료 코디네이터 / 전문 연구팀' );
 		$graph[] = array(
 			'@type' => 'Person',
 			'@id' => $origin . '/#person',
-			'name' => $site_name . ' 연구팀/담당자',
+			'name' => $person_eeat_name,
+			'jobTitle' => $person_eeat_title,
 			'worksFor' => array('@id' => $origin . '/#organization')
 		);
 
@@ -859,6 +1011,24 @@ export type DynamicPhpSchemaInput = {
 	footerText?: string;
 	/** Organization.areaServed place names from audit (e.g. 대한민국, 일본) */
 	areaServed?: string[];
+	/** Detected or admin-overridden representative legal name (Person / founder). */
+	representativeName?: string;
+	/** Detected or admin-overridden jobTitle (대표원장 / 대표자). */
+	representativeTitle?: string;
+	/** Weekday opening hours (HH:mm) — default 09:00–18:00. */
+	openingHoursOpens?: string;
+	openingHoursCloses?: string;
+	latitude?: string;
+	longitude?: string;
+	/** Maps / SNS entity links compiled into Organization.sameAs. */
+	sameAs?: string[];
+	/** Schema.org MedicalSpecialty names (Oncologic, RadiationTherapy, …). */
+	medicalSpecialty?: string[];
+	isAcceptingNewPatients?: boolean;
+	postalCode?: string;
+	streetAddress?: string;
+	addressLocality?: string;
+	addressRegion?: string;
 	/** Optional pre-built LLM mapping JSON (preferred over pages[]) */
 	mappingJson?: SchemaMappingJson;
 };
@@ -890,6 +1060,140 @@ export const HARDCODED_META_ECHO_KEYS = [
 
 function phpSingleQuoted(value: string): string {
 	return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+}
+
+/** Compile-time `$GLOBALS['redue_rep_*']` seed so ob_start can inject author meta. */
+function buildRepresentativeGlobalsSeedPhp(name: string, title: string): string {
+	return `$GLOBALS['redue_rep_name'] = ${phpSingleQuoted(name)};
+$GLOBALS['redue_rep_title'] = ${phpSingleQuoted(title)};
+if ( $GLOBALS['redue_rep_name'] !== '' ) {
+	if ( ! isset($GLOBALS['schema_person']) || ! is_array($GLOBALS['schema_person']) ) {
+		$GLOBALS['schema_person'] = array();
+	}
+	if ( empty($GLOBALS['schema_person']['name']) ) {
+		$GLOBALS['schema_person']['name'] = $GLOBALS['redue_rep_name'];
+	}
+	if ( empty($GLOBALS['schema_person']['jobTitle']) && $GLOBALS['redue_rep_title'] !== '' ) {
+		$GLOBALS['schema_person']['jobTitle'] = $GLOBALS['redue_rep_title'];
+	}
+}`;
+}
+
+/** Runtime `$rep_name` / `$rep_title` resolve inside the schema controller body. */
+function buildRepresentativeResolvePhp(compiledName: string, compiledTitle: string): string {
+	return `		$rep_name = ${phpSingleQuoted(compiledName)};
+		$rep_title = ${phpSingleQuoted(compiledTitle)};
+		if ( isset($GLOBALS['schema_person']) && is_array($GLOBALS['schema_person']) && ! empty($GLOBALS['schema_person']['name']) ) {
+			$_redue_pn = trim((string) $GLOBALS['schema_person']['name']);
+			if ( $_redue_pn !== '' ) {
+				$rep_name = $_redue_pn;
+				if ( ! empty($GLOBALS['schema_person']['jobTitle']) ) {
+					$rep_title = trim((string) $GLOBALS['schema_person']['jobTitle']);
+				}
+			}
+		} elseif ( isset($schema_person) && is_array($schema_person) && ! empty($schema_person['name']) ) {
+			$_redue_pn = trim((string) $schema_person['name']);
+			if ( $_redue_pn !== '' ) {
+				$rep_name = $_redue_pn;
+				if ( ! empty($schema_person['jobTitle']) ) {
+					$rep_title = trim((string) $schema_person['jobTitle']);
+				}
+			}
+		}
+		if ( ! is_string($rep_name) ) { $rep_name = ''; }
+		if ( ! is_string($rep_title) ) { $rep_title = ''; }
+		$GLOBALS['redue_rep_name'] = $rep_name;
+		$GLOBALS['redue_rep_title'] = $rep_title;
+		if ( $rep_name !== '' ) {
+			if ( ! isset($GLOBALS['schema_person']) || ! is_array($GLOBALS['schema_person']) ) {
+				$GLOBALS['schema_person'] = array();
+			}
+			if ( empty($GLOBALS['schema_person']['name']) ) {
+				$GLOBALS['schema_person']['name'] = $rep_name;
+			}
+			if ( empty($GLOBALS['schema_person']['jobTitle']) && $rep_title !== '' ) {
+				$GLOBALS['schema_person']['jobTitle'] = $rep_title;
+			}
+		}`;
+}
+
+function buildOrgFounderPhysicianPhp(indent = '\t\t\t'): string {
+	return `${indent}if ( is_string($rep_name) && $rep_name !== '' ) {
+${indent}	$org_node['founder'] = array(
+${indent}		'@type' => 'Person',
+${indent}		'name' => $rep_name,
+${indent}		'jobTitle' => $rep_title !== '' ? $rep_title : '대표자',
+${indent}	);
+${indent}	$org_node['physician'] = array(
+${indent}		'@type' => 'Physician',
+${indent}		'name' => $rep_name,
+${indent}		'jobTitle' => $rep_title !== '' ? $rep_title : '대표자',
+${indent}	);
+${indent}}`;
+}
+
+function normalizeEngineHhMm(raw: string | undefined, fallback: string): string {
+	const match = String(raw || '')
+		.trim()
+		.match(/^(\d{1,2}):(\d{2})$/);
+	if (!match) return fallback;
+	return `${String(Math.min(23, Math.max(0, Number(match[1])))).padStart(2, '0')}:${match[2]}`;
+}
+
+function normalizeEngineCoord(raw: string | undefined, fallback: string): string {
+	const value = String(raw || '').trim();
+	return /^-?\d+(\.\d+)?$/.test(value) ? value : fallback;
+}
+
+/** Compile GEO/AEO bindings: hours, geo, sameAs, medicalSpecialty, speakable, postalCode. */
+function buildGeoAeoBindingsPhp(input: DynamicPhpSchemaInput): string {
+	const opens = normalizeEngineHhMm(input.openingHoursOpens, '09:00');
+	const closes = normalizeEngineHhMm(input.openingHoursCloses, '18:00');
+	const latitude = normalizeEngineCoord(input.latitude, '37.4837');
+	const longitude = normalizeEngineCoord(input.longitude, '127.0324');
+	const industry = String(input.industryType || '').toUpperCase();
+	const specialties =
+		input.medicalSpecialty && input.medicalSpecialty.length > 0
+			? input.medicalSpecialty.filter(Boolean)
+			: industry === 'MEDICAL'
+				? ['Oncologic', 'RadiationTherapy']
+				: [];
+	const sameAs = (input.sameAs || []).filter((url) => /^https?:\/\//i.test(url));
+	const accepting = input.isAcceptingNewPatients !== false;
+	const postal = String(input.postalCode || '').replace(/\D/g, '').slice(0, 5);
+	const street = String(input.streetAddress || '').trim();
+	const locality = String(input.addressLocality || '').trim();
+	const region = String(input.addressRegion || '').trim();
+
+	return `		$opens = ${phpSingleQuoted(opens)};
+		$closes = ${phpSingleQuoted(closes)};
+		$latitude = ${phpSingleQuoted(latitude)};
+		$longitude = ${phpSingleQuoted(longitude)};
+		$is_accepting_new_patients = ${accepting ? 'true' : 'false'};
+		$medical_specialty = ${specialties.length ? phpStringList(specialties, '\t\t') : 'array()'};
+		$same_as_extra = ${sameAs.length ? phpStringList(sameAs, '\t\t') : 'array()'};
+		$postal_code = ${phpSingleQuoted(postal)};
+		$street_address = ${phpSingleQuoted(street)};
+		$locality = ${phpSingleQuoted(locality)};
+		$region = ${phpSingleQuoted(region)};
+		$same_as_array = array($origin);
+		if ( is_array($same_as_extra) ) {
+			foreach ( $same_as_extra as $_redue_sa ) {
+				if ( is_string($_redue_sa) && $_redue_sa !== '' && ! in_array($_redue_sa, $same_as_array, true) ) {
+					$same_as_array[] = $_redue_sa;
+				}
+			}
+		}
+		if ( is_string($domain_host) && $domain_host !== '' ) {
+			$_redue_naver_blog = 'https://blog.naver.com/' . $domain_host;
+			if ( ! in_array($_redue_naver_blog, $same_as_array, true) ) {
+				$same_as_array[] = $_redue_naver_blog;
+			}
+		}
+		$speakable_spec = array(
+			'@type' => 'SpeakableSpecification',
+			'cssSelector' => array('meta[name="description"]', 'h1', '.summary', '.faq-answer'),
+		);`;
 }
 
 function tryDecodeUriComponent(value: string): string {
@@ -1696,6 +2000,7 @@ export type OrgContactInfo = {
 		addressLocality: string;
 		addressRegion: string;
 		addressCountry: 'KR';
+		postalCode?: string;
 	};
 };
 
@@ -1759,12 +2064,15 @@ export function extractOrgContactFromFooter(footerText: string): OrgContactInfo 
 		// Keep 시/구 signal in locality when region was abbreviated (서울 → 서울특별시-style keep as-is)
 		const region = regionHit[1];
 		if (street.length >= 2 || locality) {
+			const postalHit =
+				text.match(/(?:우편번호|우편|ZIP)\s*[:：]?\s*(\d{5})/i)?.[1] || text.match(/\b(\d{5})\b/)?.[1];
 			out.address = {
 				'@type': 'PostalAddress',
 				streetAddress: street || locality,
 				addressLocality: locality || street.split(/\s+/)[0] || '',
 				addressRegion: region,
 				addressCountry: 'KR',
+				...(postalHit ? { postalCode: postalHit } : {}),
 			};
 			// Prefer street as road/jibun; if street fell back to locality, clear duplicate locality noise
 			if (out.address.streetAddress === out.address.addressLocality && afterLocality) {
@@ -1791,6 +2099,11 @@ function phpOrgContactBindings(contact: OrgContactInfo, indent = '\t\t\t\t'): st
 		const a = contact.address;
 		lines.push(`${indent}'address' => array(`);
 		lines.push(`${indent}\t'@type' => 'PostalAddress',`);
+		if (a.postalCode) {
+			lines.push(`${indent}\t'postalCode' => ${phpSingleQuoted(a.postalCode)},`);
+		} else {
+			lines.push(`${indent}\t'postalCode' => $postal_code,`);
+		}
 		lines.push(`${indent}\t'streetAddress' => ${phpSingleQuoted(a.streetAddress)},`);
 		lines.push(`${indent}\t'addressLocality' => ${phpSingleQuoted(a.addressLocality)},`);
 		lines.push(`${indent}\t'addressRegion' => ${phpSingleQuoted(a.addressRegion)},`);
@@ -2989,7 +3302,29 @@ export function buildDynamicPhpSchemaController(input: DynamicPhpSchemaInput): s
 	const orgContact = extractOrgContactFromFooter(
 		[input.footerText, input.copyrightText].filter(Boolean).join('\n'),
 	);
+	if (!input.postalCode && orgContact.address?.postalCode) {
+		input = { ...input, postalCode: orgContact.address.postalCode };
+	}
+	if (!input.streetAddress && orgContact.address?.streetAddress) {
+		input = { ...input, streetAddress: orgContact.address.streetAddress };
+	}
+	if (!input.addressLocality && orgContact.address?.addressLocality) {
+		input = { ...input, addressLocality: orgContact.address.addressLocality };
+	}
+	if (!input.addressRegion && orgContact.address?.addressRegion) {
+		input = { ...input, addressRegion: orgContact.address.addressRegion };
+	}
 	const orgContactPhp = phpOrgContactBindings(orgContact);
+	const compiledRep = resolveEngineRepresentative({
+		adminName: input.representativeName,
+		adminTitle: input.representativeTitle,
+		htmlCorpus: [input.footerText, input.copyrightText].filter(Boolean).join('\n'),
+		industryType: input.industryType,
+	});
+	const orgTypePhp =
+		(input.industryType || '').toUpperCase() === 'MEDICAL'
+			? `array('Organization', 'ProfessionalService', 'MedicalClinic')`
+			: `array('Organization', 'ProfessionalService')`;
 	const mainBuckets = buildMainPageItemListBuckets({
 		origin,
 		pageMeta,
@@ -3013,6 +3348,7 @@ ${itemsPhp}
 
 	return `<?php
 /* ${REDUE_SCHEMA_MARKER_START} v32 — Crawler-Optimized Canonical & Schema Engine (Charset-After First-Chunk · REQUEST_URI+SCRIPT_NAME · Exact Subpage Canonical · Head+Body Script Defer · Article Guaranteed All Pages · FAQPage Non-Board · Person E-E-A-T · Alt JS Auto-Fix · Description Extender · sameAs · v12 Master Core: Index Parent · PostalAddress · legalName · og:type · Parent Fallback · CollectionPage · ItemList) */
+${buildRepresentativeGlobalsSeedPhp(compiledRep.name, compiledRep.jobTitle)}
 ${buildUniversalObRegistrationPhp()}
 
 if ( ! function_exists( 'redue_dynamic_schema_controller_safe' ) ) {
@@ -3053,6 +3389,19 @@ if ( ! function_exists( 'redue_dynamic_schema_controller_body' ) ) {
 			$site_name = $config['cf_title'];
 		}
 		$legal_name = ${phpSingleQuoted(legalName)};
+${buildRepresentativeResolvePhp(compiledRep.name, compiledRep.jobTitle)}
+${buildGeoAeoBindingsPhp(input)}
+		$telephone = ${phpSingleQuoted(orgContact.telephone || '')};
+		$email = ${phpSingleQuoted(orgContact.email || '')};
+		if ( $street_address === '' && ${phpSingleQuoted(orgContact.address?.streetAddress || '')} !== '' ) {
+			$street_address = ${phpSingleQuoted(orgContact.address?.streetAddress || '')};
+		}
+		if ( $locality === '' && ${phpSingleQuoted(orgContact.address?.addressLocality || '')} !== '' ) {
+			$locality = ${phpSingleQuoted(orgContact.address?.addressLocality || '')};
+		}
+		if ( $region === '' && ${phpSingleQuoted(orgContact.address?.addressRegion || '')} !== '' ) {
+			$region = ${phpSingleQuoted(orgContact.address?.addressRegion || '')};
+		}
 		$main_file = ${phpSingleQuoted(mainFile)};
 		$schema_meta_image = preg_replace('#^http://#i', 'https://', ${phpSingleQuoted(imageUrl)});
 		$area_served = ${areaServedPhp};
@@ -3216,8 +3565,8 @@ ${buildNewsArticleAutoDetectPhp()}
 		$graph = array();
 
 		if ( $is_main ) {
-			$graph[] = array(
-				'@type' => array('Organization', 'ProfessionalService'),
+			$org_node = array(
+				'@type' => ${orgTypePhp},
 				'@id' => $origin . '/#organization',
 				'name' => $site_name,
 				'legalName' => $legal_name,
@@ -3227,8 +3576,25 @@ ${buildNewsArticleAutoDetectPhp()}
 					'url' => $schema_meta_image,
 				),
 				'image' => $schema_meta_image,
-				/* v12: brand knowledge-graph signal — official origin + Naver blog host */
-				'sameAs' => array($origin, 'https://blog.naver.com/' . $domain_host),
+				'telephone' => $telephone,
+				'email' => $email,
+				'isAcceptingNewPatients' => $is_accepting_new_patients,
+				'medicalSpecialty' => $medical_specialty,
+				'sameAs' => $same_as_array,
+				'geo' => array(
+					'@type' => 'GeoCoordinates',
+					'latitude' => $latitude,
+					'longitude' => $longitude,
+				),
+				'openingHoursSpecification' => array(
+					array(
+						'@type' => 'OpeningHoursSpecification',
+						'dayOfWeek' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
+						'opens' => $opens,
+						'closes' => $closes,
+					),
+				),
+				'speakable' => $speakable_spec,
 ${orgContactPhp ? `${orgContactPhp}\n` : ''}				'contactPoint' => array(
 					'@type' => 'ContactPoint',
 					'contactType' => 'customer support',
@@ -3238,6 +3604,24 @@ ${orgContactPhp ? `${orgContactPhp}\n` : ''}				'contactPoint' => array(
 				'areaServed' => $area_served,
 				'knowsAbout' => ${knowsAboutPhp},
 			);
+			if ( empty($org_node['address']) || ! is_array($org_node['address']) ) {
+				$org_node['address'] = array(
+					'@type' => 'PostalAddress',
+					'postalCode' => $postal_code,
+					'streetAddress' => $street_address,
+					'addressLocality' => $locality,
+					'addressRegion' => $region,
+					'addressCountry' => 'KR',
+				);
+			} elseif ( ! empty($postal_code) && empty($org_node['address']['postalCode']) ) {
+				$org_node['address']['postalCode'] = $postal_code;
+			}
+			if ( $telephone !== '' && empty($org_node['telephone']) ) { $org_node['telephone'] = $telephone; }
+			if ( $email !== '' && empty($org_node['email']) ) { $org_node['email'] = $email; }
+			if ( $telephone === '' ) { unset($org_node['telephone']); }
+			if ( $email === '' ) { unset($org_node['email']); }
+${buildOrgFounderPhysicianPhp('\t\t\t')}
+			$graph[] = $org_node;
 			$graph[] = array(
 				'@type' => 'WebSite',
 				'@id' => $origin . '/#website',
@@ -3272,6 +3656,10 @@ ${mainBucketPhp}
 				'about' => array('@id' => $origin . '/#organization'),
 				'primaryImageOfPage' => array('@id' => $origin . '/#primaryimage'),
 			);
+			if ( $meta['type'] === 'MedicalWebPage' ) {
+				$graph[count($graph) - 1]['reviewedBy'] = array('@id' => $origin . '/#person');
+				$graph[count($graph) - 1]['speakable'] = $speakable_spec;
+			}
 		} else {
 			$crumb_items = array(
 				array(
@@ -3351,6 +3739,10 @@ ${mainBucketPhp}
 				);
 			}
 			$graph[] = $page_node;
+			if ( $meta['type'] === 'MedicalWebPage' ) {
+				$graph[count($graph) - 1]['reviewedBy'] = array('@id' => $origin . '/#person');
+				$graph[count($graph) - 1]['speakable'] = $speakable_spec;
+			}
 
 			if ( in_array('ItemList', $types, true) || $meta['type'] === 'ItemList' ) {
 				$graph[] = array(
@@ -3449,44 +3841,37 @@ ${mainBucketPhp}
 			}
 		}
 
-		/* Person E-E-A-T — $GLOBALS['schema_person'] preferred; else default graph node on main + subpages */
+		/* Person E-E-A-T — $rep_name / $GLOBALS['schema_person'] preferred; else {site_name} 의료진/연구팀 */
 		$person = null;
 		if ( isset($GLOBALS['schema_person']) && is_array($GLOBALS['schema_person']) ) {
 			$person = $GLOBALS['schema_person'];
 		} elseif ( isset($schema_person) && is_array($schema_person) ) {
 			$person = $schema_person;
 		}
-		if ( is_array($person) && ! empty($person['name']) ) {
-			$person_url = ! empty($person['url'])
-				? preg_replace('#^http://#i', 'https://', $person['url'])
-				: $page_url;
-			$person_node = array(
-				'@type' => 'Person',
-				'@id' => $origin . '/#person',
-				'name' => $person['name'],
-				'url' => $person_url,
-				'jobTitle' => ! empty($person['jobTitle']) ? $person['jobTitle'] : '의료 코디네이터 / 전문 연구팀',
-				'worksFor' => array(
-					'@id' => $origin . '/#organization',
-				),
-			);
-			if ( ! empty($person['image']) ) {
-				$person_node['image'] = preg_replace('#^http://#i', 'https://', $person['image']);
-			}
-			if ( ! empty($person['description']) ) { $person_node['description'] = $person['description']; }
-			$graph[] = $person_node;
-		} else {
-			/* v12 default Person — E-E-A-T checklist Pass on main & major subpages */
-			$graph[] = array(
-				'@type' => 'Person',
-				'@id' => $origin . '/#person',
-				'name' => $site_name . ' 의료진/연구팀',
-				'jobTitle' => '의료 코디네이터 / 전문 연구팀',
-				'worksFor' => array(
-					'@id' => $origin . '/#organization',
-				),
-			);
+		$person_eeat_name = ( is_string($rep_name) && $rep_name !== '' )
+			? $rep_name
+			: ( is_array($person) && ! empty($person['name']) ? $person['name'] : ( $site_name . ' 의료진/연구팀' ) );
+		$person_eeat_title = ( is_string($rep_title) && $rep_title !== '' )
+			? $rep_title
+			: ( is_array($person) && ! empty($person['jobTitle']) ? $person['jobTitle'] : '의료 코디네이터 / 전문 연구팀' );
+		$person_url = ( is_array($person) && ! empty($person['url']) )
+			? preg_replace('#^http://#i', 'https://', $person['url'])
+			: $page_url;
+		$person_node = array(
+			'@type' => 'Person',
+			'@id' => $origin . '/#person',
+			'name' => $person_eeat_name,
+			'url' => $person_url,
+			'jobTitle' => $person_eeat_title,
+			'worksFor' => array(
+				'@id' => $origin . '/#organization',
+			),
+		);
+		if ( is_array($person) && ! empty($person['image']) ) {
+			$person_node['image'] = preg_replace('#^http://#i', 'https://', $person['image']);
 		}
+		if ( is_array($person) && ! empty($person['description']) ) { $person_node['description'] = $person['description']; }
+		$graph[] = $person_node;
 
 		/* Article / NewsArticle — $GLOBALS['schema_article'] preferred; else v30/v31 auto-fill (NewsArticle on news/press) */
 		$article = null;
@@ -3550,6 +3935,8 @@ ${mainBucketPhp}
 					);
 				}
 			}
+			$article_node['reviewedBy'] = array('@id' => $origin . '/#person');
+			$article_node['speakable'] = $speakable_spec;
 			$graph[] = $article_node;
 			$article_bound = true;
 		}
@@ -3583,6 +3970,8 @@ ${mainBucketPhp}
 						'url' => $schema_meta_image !== '' ? $schema_meta_image : ( $origin . '/logo.png' ),
 					),
 				),
+				'reviewedBy' => array('@id' => $origin . '/#person'),
+				'speakable' => $speakable_spec,
 			);
 		}
 
@@ -3626,6 +4015,19 @@ export function generateDynamicPhpSchema(
 		copyrightText?: string;
 		footerText?: string;
 		areaServed?: string[];
+		representativeName?: string;
+		representativeTitle?: string;
+		openingHoursOpens?: string;
+		openingHoursCloses?: string;
+		latitude?: string;
+		longitude?: string;
+		sameAs?: string[];
+		medicalSpecialty?: string[];
+		isAcceptingNewPatients?: boolean;
+		postalCode?: string;
+		streetAddress?: string;
+		addressLocality?: string;
+		addressRegion?: string;
 	},
 ): string {
 	// SchemaMappingJson path (LLM compact output)
@@ -3645,6 +4047,19 @@ export function generateDynamicPhpSchema(
 			copyrightText: siteOpts?.copyrightText,
 			footerText: siteOpts?.footerText,
 			areaServed: siteOpts?.areaServed,
+			representativeName: siteOpts?.representativeName,
+			representativeTitle: siteOpts?.representativeTitle,
+			openingHoursOpens: siteOpts?.openingHoursOpens,
+			openingHoursCloses: siteOpts?.openingHoursCloses,
+			latitude: siteOpts?.latitude,
+			longitude: siteOpts?.longitude,
+			sameAs: siteOpts?.sameAs,
+			medicalSpecialty: siteOpts?.medicalSpecialty,
+			isAcceptingNewPatients: siteOpts?.isAcceptingNewPatients,
+			postalCode: siteOpts?.postalCode,
+			streetAddress: siteOpts?.streetAddress,
+			addressLocality: siteOpts?.addressLocality,
+			addressRegion: siteOpts?.addressRegion,
 			mappingJson: mapping,
 		});
 	}
@@ -3663,18 +4078,69 @@ export function generateDynamicPhpSchema(
 		copyrightText: siteOpts?.copyrightText ?? input.copyrightText,
 		footerText: siteOpts?.footerText ?? input.footerText,
 		areaServed: siteOpts?.areaServed ?? input.areaServed,
+		representativeName: siteOpts?.representativeName ?? input.representativeName,
+		representativeTitle: siteOpts?.representativeTitle ?? input.representativeTitle,
+		openingHoursOpens: siteOpts?.openingHoursOpens ?? input.openingHoursOpens,
+		openingHoursCloses: siteOpts?.openingHoursCloses ?? input.openingHoursCloses,
+		latitude: siteOpts?.latitude ?? input.latitude,
+		longitude: siteOpts?.longitude ?? input.longitude,
+		sameAs: siteOpts?.sameAs ?? input.sameAs,
+		medicalSpecialty: siteOpts?.medicalSpecialty ?? input.medicalSpecialty,
+		isAcceptingNewPatients: siteOpts?.isAcceptingNewPatients ?? input.isAcceptingNewPatients,
+		postalCode: siteOpts?.postalCode ?? input.postalCode,
+		streetAddress: siteOpts?.streetAddress ?? input.streetAddress,
+		addressLocality: siteOpts?.addressLocality ?? input.addressLocality,
+		addressRegion: siteOpts?.addressRegion ?? input.addressRegion,
 	});
 }
 
 /** Remove previously injected REDUE schema blocks (PHP or HTML comment wrappers). */
 export function stripRedueSchemaBlocks(source: string): string {
-	let out = source;
+	let out = String(source || '');
 	out = out.replace(
 		/<\?php\s*\/\*\s*REDUE_AI_STUDIO:START[\s\S]*?REDUE_AI_STUDIO:END\s*\*\/\s*\?>\s*/gi,
 		'',
 	);
 	out = out.replace(/\/\*\s*REDUE_AI_STUDIO:START[\s\S]*?REDUE_AI_STUDIO:END\s*\*\//gi, '');
 	out = out.replace(/<!--\s*REDUE SEO\/GEO Auto-Inject[\s\S]*?<!--\s*\/REDUE SEO\/GEO Auto-Inject\s*-->\s*/gi, '');
+	out = out.replace(/<!--\s*REDUE v30 PRECISION SEO START[\s\S]*?REDUE v30 PRECISION SEO END\s*-->\s*/gi, '');
+	out = out.replace(/<\?php\s*redue_dynamic_schema_controller\s*\(\s*\)\s*;\s*\?>\s*/gi, '');
+	out = stripPhpDefinedConstantBlock(out, 'REDUE_UNIVERSAL_ENGINE_ACTIVE');
+	return out;
+}
+
+/** Brace-aware strip of leftover `if (!defined('CONST')) { ... }` engine guards. */
+function stripPhpDefinedConstantBlock(source: string, constant: string): string {
+	const needles = [`defined('${constant}')`, `defined("${constant}")`];
+	let out = source;
+	for (const needle of needles) {
+		let idx = out.indexOf(needle);
+		while (idx >= 0) {
+			const ifIdx = out.lastIndexOf('if', idx);
+			if (ifIdx < 0 || idx - ifIdx > 96) {
+				idx = out.indexOf(needle, idx + needle.length);
+				continue;
+			}
+			const braceStart = out.indexOf('{', idx);
+			if (braceStart < 0) break;
+			let depth = 0;
+			let end = -1;
+			for (let i = braceStart; i < out.length; i++) {
+				const ch = out[i];
+				if (ch === '{') depth += 1;
+				else if (ch === '}') {
+					depth -= 1;
+					if (depth === 0) {
+						end = i + 1;
+						break;
+					}
+				}
+			}
+			if (end < 0) break;
+			out = `${out.slice(0, ifIdx)}${out.slice(end)}`;
+			idx = out.indexOf(needle);
+		}
+	}
 	return out;
 }
 

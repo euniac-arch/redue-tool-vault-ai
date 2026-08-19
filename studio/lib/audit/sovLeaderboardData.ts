@@ -42,8 +42,8 @@ export const SOV_SAMPLE_DATA: Record<string, SovLeaderboardItem> = {
 		currentSov: 4,
 		targetSov: 45,
 		potentialGain: 41,
-		rank1: { name: '동래준피부과의원', share: 31, badgeText: '실시간' },
-		rank2: { name: '미담한의원 동래', share: 19, badgeText: '실시간' },
+		rank1: { name: '경쟁 A사 (의료)', share: 31, badgeText: '실시간' },
+		rank2: { name: '경쟁 B사 (의료)', share: 19, badgeText: '실시간' },
 		mySite: { name: '스카이피부과의원', share: 4, rankText: '3위 밖' },
 		thirdPartyShare: 46,
 	},
@@ -52,8 +52,8 @@ export const SOV_SAMPLE_DATA: Record<string, SovLeaderboardItem> = {
 		currentSov: 5,
 		targetSov: 48,
 		potentialGain: 43,
-		rank1: { name: '미담한의원 동래', share: 27, badgeText: '실시간' },
-		rank2: { name: '작은거인한의원', share: 16, badgeText: '실시간' },
+		rank1: { name: '경쟁 A사 (의료)', share: 27, badgeText: '실시간' },
+		rank2: { name: '경쟁 B사 (의료)', share: 16, badgeText: '실시간' },
 		mySite: { name: '스카이피부과의원', share: 5, rankText: '3위 밖' },
 		thirdPartyShare: 52,
 	},
@@ -62,8 +62,8 @@ export const SOV_SAMPLE_DATA: Record<string, SovLeaderboardItem> = {
 		currentSov: 7,
 		targetSov: 52,
 		potentialGain: 45,
-		rank1: { name: '예일의원', share: 29, badgeText: '실시간' },
-		rank2: { name: '부산벧엘피부과의원', share: 18, badgeText: '실시간' },
+		rank1: { name: '경쟁 A사 (의료)', share: 29, badgeText: '실시간' },
+		rank2: { name: '경쟁 B사 (의료)', share: 18, badgeText: '실시간' },
 		mySite: { name: '스카이피부과의원', share: 7, rankText: '3위 밖' },
 		thirdPartyShare: 46,
 	},
@@ -84,8 +84,8 @@ export function classifySovQueryIntent(keyword: string | null | undefined): SovQ
 	const query = normalizeSovKeyword(keyword);
 	if (!query) return 'recommend';
 	if (/추천$/.test(query) || /recommended$/i.test(query)) return 'recommend';
-	if (/잘하는곳$/.test(query) || /^best\b/i.test(query)) return 'best';
-	if (/추천|잘하는|recommended|best\b/i.test(query)) return 'custom';
+	if (/잘하는곳$/.test(query) || /진료 시스템 및 위치 안내$/.test(query) || /^best\b/i.test(query)) return 'best';
+	if (/추천|잘하는|recommended|best\b|진료 시스템|위치 안내/i.test(query)) return 'custom';
 	return 'base';
 }
 

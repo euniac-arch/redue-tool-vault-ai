@@ -103,6 +103,9 @@ export function ReportPDFTemplate({ report, summary }: ReportPDFTemplateProps) {
 					<p className="mt-2 block text-sm leading-relaxed text-slate-800">{expectedResult.text}</p>
 				</article>
 			</div>
+			<p className="border-t border-slate-200 px-5 py-3 text-[10.5px] leading-relaxed text-slate-500 sm:px-6">
+				{t('disclaimer')}
+			</p>
 		</section>
 	);
 }

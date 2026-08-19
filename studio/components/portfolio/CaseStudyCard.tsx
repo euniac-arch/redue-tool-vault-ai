@@ -77,7 +77,7 @@ export function CaseStudyCard({ data, outcomeLabels, resultHref }: CaseStudyCard
 
 	return (
 		<article
-			className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm backdrop-blur-xl transition duration-300 hover:scale-[1.012] hover:border-emerald-300 hover:shadow-md dark:border-slate-800 dark:bg-[#0d1117]/90 dark:shadow-[0_0_40px_-24px_rgba(16,185,129,0.35)] dark:hover:border-emerald-500/30 dark:hover:shadow-[0_0_56px_-16px_rgba(16,185,129,0.45)] sm:p-6"
+			className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1120]/80 p-5 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-[#0E162B] hover:shadow-[0_8px_30px_rgba(6,182,212,0.08)] sm:p-6"
 			aria-label={`${siteInfo.name} 진단 점수 ${formatScore(normalizedScore.before.score)}점에서 ${formatScore(normalizedScore.after.score)}점으로 ${formatScore(lift)}점 상승`}
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
@@ -89,11 +89,11 @@ export function CaseStudyCard({ data, outcomeLabels, resultHref }: CaseStudyCard
 			}}
 		>
 			<div
-				className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100 bg-[radial-gradient(ellipse_at_50%_50%,rgba(16,185,129,0.09),transparent_68%)]"
+				className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_50%_50%,rgba(6,182,212,0.08),transparent_68%)] opacity-0 transition-opacity duration-300 group-hover:opacity-100"
 				aria-hidden="true"
 			/>
 			<div
-				className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-emerald-400/50 to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-100"
+				className="pointer-events-none absolute inset-y-0 left-0 w-px bg-gradient-to-b from-transparent via-cyan-400/50 to-transparent opacity-60 transition-opacity duration-300 group-hover:opacity-100"
 				aria-hidden="true"
 			/>
 
@@ -145,25 +145,25 @@ function IdentityColumn({
 			}}
 			transition={expandTransition}
 		>
-			<span className="w-fit rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold tracking-wide text-indigo-700 dark:border-indigo-400/25 dark:bg-indigo-500/10 dark:text-indigo-300">
+			<span className="w-fit rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold tracking-wide text-cyan-400">
 				{siteInfo.category}
 			</span>
 			<div className="min-w-0">
-				<h3 className="truncate text-xl font-extrabold tracking-tight text-slate-900 sm:text-2xl dark:text-white">
+				<h3 className="truncate text-xl font-extrabold tracking-tight text-white sm:text-2xl">
 					{siteInfo.name}
 				</h3>
 				<p className="mt-1 font-mono text-xs text-slate-500">{siteInfo.domain}</p>
 			</div>
 			<div className="flex flex-wrap gap-1.5">
 				{siteInfo.techStack ? (
-					<span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-medium text-slate-600 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400">
+					<span className="rounded-md border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs text-slate-300">
 						{siteInfo.techStack}
 					</span>
 				) : null}
 				{pills.map((label) => (
 					<span
 						key={label}
-						className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/[0.08] dark:text-emerald-300"
+						className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-400"
 					>
 						{label}
 					</span>
@@ -186,7 +186,7 @@ function IdentityColumn({
 					<Link
 						href={resultHref}
 						aria-label={`${siteInfo.name} 진단 결과보기`}
-						className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-300 bg-transparent px-3 py-1.5 text-xs font-semibold text-emerald-700 transition-colors duration-200 hover:border-emerald-400 hover:bg-emerald-50 hover:text-emerald-800 dark:border-emerald-500/50 dark:text-emerald-400 dark:hover:border-emerald-400 dark:hover:bg-emerald-950/20 dark:hover:text-emerald-300 sm:text-sm"
+						className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-cyan-500 hover:bg-cyan-500 hover:text-slate-950 sm:text-sm"
 					>
 						진단 결과보기
 						<ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
@@ -209,7 +209,7 @@ function HeroMetric({
 	lift: number;
 }) {
 	return (
-		<div className="flex flex-col items-center justify-center gap-3 border-y border-slate-200 py-4 lg:border-x lg:border-y-0 lg:px-4 lg:py-0 dark:border-white/[0.06]">
+		<div className="flex flex-col items-center justify-center gap-3 border-y border-slate-800/80 py-4 lg:border-x lg:border-y-0 lg:px-4 lg:py-0">
 			<div className="flex items-end justify-center gap-3 sm:gap-5">
 				<div className="flex flex-col items-center">
 					<span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Before</span>
@@ -248,7 +248,7 @@ function HeroMetric({
 				</div>
 			</div>
 
-			<span className="case-study-glow inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 shadow-sm dark:border-emerald-400/40 dark:bg-emerald-500/10 dark:text-emerald-300 dark:shadow-[inset_0_1px_0_0_rgba(167,243,208,0.18)]">
+			<span className="inline-flex items-center gap-1 rounded-md border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-400">
 				🚀 +{formatScore(lift)}pt 상승
 			</span>
 		</div>
@@ -265,15 +265,15 @@ function AxisMiniBreakdown({ axes }: { axes: CaseStudyAxis[] }) {
 						key={axis.key}
 						className={`rounded-lg px-2.5 py-1.5 transition-colors ${
 							highlight
-								? 'border border-emerald-200 bg-emerald-50 shadow-sm dark:border-emerald-400/35 dark:bg-emerald-500/[0.08] dark:shadow-[0_0_22px_-10px_rgba(16,185,129,0.7)]'
-								: 'border border-transparent bg-slate-50 dark:bg-white/[0.03]'
+								? 'border border-cyan-500/20 bg-cyan-500/10'
+								: 'border border-slate-800/80 bg-slate-900/60'
 						}`}
 					>
 						<div className="flex items-center justify-between gap-3">
 							<span className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
 								{AXIS_SHORT_LABELS[axis.key] ?? axis.label}
 								{highlight ? (
-									<span className="rounded-full bg-emerald-100 px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wide text-emerald-700 dark:bg-emerald-400/15 dark:text-emerald-300">
+									<span className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wide text-cyan-400">
 										MAX
 									</span>
 								) : null}

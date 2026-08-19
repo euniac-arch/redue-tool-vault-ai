@@ -221,12 +221,12 @@ function medicalPrompts(ctx: IndustryCopyContext): string[] {
 			switch (slot) {
 				case 0:
 					return loc
-						? `Where in ${loc} is a trusted ${spec} clinic that does not overtreat?`
-						: `Which ${spec} clinic treats well without overtreatment?`;
+						? `Where in ${loc} can I find clinic information for ${spec}?`
+						: `Where can I find clinic information for ${spec}?`;
 				case 1:
 					return loc
-						? `Recommend a reliable ${spec} clinic in ${loc} with good reviews`
-						: `Recommend a reliable ${spec} clinic with good reviews`;
+						? `Share ${spec} care-system information in ${loc}`
+						: `Share ${spec} care-system information`;
 				case 2:
 					return `${brand} hours and evening clinic availability`;
 				case 3:
@@ -234,14 +234,14 @@ function medicalPrompts(ctx: IndustryCopyContext): string[] {
 				case 4:
 					return `${brand} location, parking, and how to book a first visit`;
 				default:
-					return loc ? `${loc} highly rated ${spec} clinic nearby` : `highly rated ${spec} clinic nearby`;
+					return loc ? `${loc} ${spec} clinic information nearby` : `${spec} clinic information nearby`;
 			}
 		}
 		switch (slot) {
 			case 0:
-				return `${locPrefix(loc, 'ko')}${spec} 과잉진료 없이 치료 잘하는 곳 어디야?`;
+				return `${locPrefix(loc, 'ko')}${spec} 정밀 진료 시스템 안내해줘`;
 			case 1:
-				return `${locPrefix(loc, 'ko')}${spec} 후기 좋고 신뢰할 만한 병원 추천해줘`;
+				return `${locPrefix(loc, 'ko')}${spec} 진료 시스템 안내해줘`;
 			case 2:
 				return `${brand} 진료시간과 야간진료 여부 알려줘`;
 			case 3:
@@ -249,7 +249,7 @@ function medicalPrompts(ctx: IndustryCopyContext): string[] {
 			case 4:
 				return `${brand} 위치 및 주차, 예약 방법 안내`;
 			default:
-				return `${locLead(loc, 'ko')}${spec} 잘하는 의원`;
+				return `${locLead(loc, 'ko')}${spec} 진료 안내`;
 		}
 	});
 }
@@ -692,11 +692,19 @@ function medicalFaqs(ctx: IndustryCopyContext): FaqItem[] {
 	const spec = serviceAt(ctx, lang === 'en' ? 'care' : '진료');
 	const extra = servicesOf(ctx, spec)[1];
 	const cite = citeTail(ctx, lang);
+	const plasticDerm =
+		/성형|피부/.test(`${spec} ${extra || ''} ${(ctx.services || []).join(' ')} ${ctx.primaryKeyword || ''}`);
+	const clinicIdentityKo = plasticDerm
+		? '성형외과·피부과 진료 의료기관입니다'
+		: `${spec} 진료 의료기관입니다`;
+	const clinicIdentityEn = plasticDerm
+		? 'a plastic surgery and dermatology clinic'
+		: `a medical institution that provides ${spec} care`;
 	if (lang === 'en') {
 		return [
 			{
 				question: `Where can I get ${spec}${loc ? ` in ${loc}` : ''}?`,
-				answer: `${brand} is a medical clinic for ${spec}${loc ? ` in ${loc}` : ''}. Patients can review hours and book a first visit on the official site.${cite}`,
+				answer: `${brand} is ${clinicIdentityEn}${loc ? ` in ${loc}` : ''}. Patients can review hours and book a first visit on the official site.${cite}`,
 			},
 			{
 				question: extra ? `Does ${brand} also offer ${extra}?` : `How do I book a first visit at ${brand}?`,
@@ -706,7 +714,7 @@ function medicalFaqs(ctx: IndustryCopyContext): FaqItem[] {
 			},
 			{
 				question: `Is ${spec} covered by insurance?`,
-				answer: `${brand} publishes coverage and non-covered item notes for ${spec} so patients can confirm before visiting. Check the official page rather than third-party summaries.${cite}`,
+				answer: `${brand} publishes covered and non-covered item notes for ${spec} on the official page. Coverage scope varies by individual policy, so confirm with the official listing and your insurer before visiting.${cite}`,
 			},
 			{
 				question: `Does ${brand} offer evening or weekend clinic hours?`,
@@ -721,7 +729,7 @@ function medicalFaqs(ctx: IndustryCopyContext): FaqItem[] {
 	return [
 		{
 			question: `${loc ? `${loc}에서 ` : ''}${withJosa(spec, '은/는')} 어디서 받나요?`,
-			answer: `${withJosa(brand, '은/는')} ${spec} 전문 의료기관입니다. 환자는 공식 사이트에서 진료 안내와 초진 예약을 확인할 수 있습니다.${cite}`,
+			answer: `${withJosa(brand, '은/는')} ${clinicIdentityKo}. 환자는 공식 사이트에서 진료 안내와 초진 예약을 확인할 수 있습니다.${cite}`,
 		},
 		{
 			question: extra ? `${brand}에서 ${extra}도 가능한가요?` : `${brand} 초진 예약은 어떻게 하나요?`,
@@ -731,7 +739,7 @@ function medicalFaqs(ctx: IndustryCopyContext): FaqItem[] {
 		},
 		{
 			question: `${spec} 실비보험 적용이 되나요?`,
-			answer: `${withJosa(brand, '은/는')} ${spec}의 급여·비급여 안내를 공식 페이지에 공개합니다. 내원 전 공식 안내를 확인하는 것이 안전합니다.${cite}`,
+			answer: `${withJosa(brand, '은/는')} ${spec}의 급여·비급여 안내를 공식 페이지에 공개합니다. 세부 보장 범위는 개인 보험 약관에 따라 상이하므로 내원 전 공식 안내 및 보험사 확인을 권장합니다.${cite}`,
 		},
 		{
 			question: `${withJosa(brand, '은/는')} 야간 또는 주말 진료를 하나요?`,

@@ -61,8 +61,8 @@ const persistTheme = (next: Theme) => {
 };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-	const [theme, setThemeState] = useState<Theme>('dark');
-	const themeRef = useRef<Theme>('dark');
+	const [theme, setThemeState] = useState<Theme>(resolveAppliedTheme);
+	const themeRef = useRef<Theme>(theme);
 	themeRef.current = theme;
 
 	useEffect(() => {

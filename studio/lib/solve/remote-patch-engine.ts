@@ -41,6 +41,19 @@ export type RemoteSchemaPayload = {
 	navItems?: SchemaNavItem[];
 	footerText?: string;
 	legalName?: string;
+	representativeName?: string;
+	representativeTitle?: string;
+	openingHoursOpens?: string;
+	openingHoursCloses?: string;
+	latitude?: string;
+	longitude?: string;
+	sameAs?: string[];
+	medicalSpecialty?: string[];
+	isAcceptingNewPatients?: boolean;
+	postalCode?: string;
+	streetAddress?: string;
+	addressLocality?: string;
+	addressRegion?: string;
 };
 
 export type RemotePatchExecuteResult = {
@@ -101,6 +114,19 @@ export function buildRemoteInjectSnippet(
 			navItems: payload.navItems,
 			footerText: payload.footerText,
 			legalName: payload.legalName,
+			representativeName: payload.representativeName,
+			representativeTitle: payload.representativeTitle,
+			openingHoursOpens: payload.openingHoursOpens,
+			openingHoursCloses: payload.openingHoursCloses,
+			latitude: payload.latitude,
+			longitude: payload.longitude,
+			sameAs: payload.sameAs,
+			medicalSpecialty: payload.medicalSpecialty,
+			isAcceptingNewPatients: payload.isAcceptingNewPatients,
+			postalCode: payload.postalCode,
+			streetAddress: payload.streetAddress,
+			addressLocality: payload.addressLocality,
+			addressRegion: payload.addressRegion,
 		});
 		return { snippet, engine: 'php-dynamic' };
 	}

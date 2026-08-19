@@ -82,10 +82,10 @@ export function GEOPromptReasonCard({ reasons }: GEOPromptReasonCardProps) {
 										>
 											{reason.index}
 										</span>
-										<p className={`text-[11px] font-extrabold uppercase tracking-wide ${tone.kicker}`}>
+										<p className={`break-keep text-[11px] font-extrabold tracking-wide ${tone.kicker}`}>
 											{reason.title}
 										</p>
-										<span className="text-[10px] font-semibold text-slate-400">{reason.subtitle}</span>
+										<span className="break-keep text-[10px] font-semibold text-slate-400">{reason.subtitle}</span>
 									</div>
 									{reason.example ? (
 										<p className="mt-2">

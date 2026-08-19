@@ -232,7 +232,7 @@ const actions = buildPrioritizedActions(
 	{ newsVertical: false },
 );
 assert('P0 HTTPS card is first', actions[0]?.id === 'https' && actions[0]?.priority === 'P0', actions[0]?.id);
-assert('P0 label is the Let\'s Encrypt card', actions[0]?.label === HTTPS_P0_LABEL.ko);
+assert('P0 label is the HTTPS SSL card', actions[0]?.label === HTTPS_P0_LABEL.ko);
 
 if (failed) {
 	console.error(`\n${failed} assertion(s) failed`);

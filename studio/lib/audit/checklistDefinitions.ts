@@ -31,7 +31,7 @@ export interface ChecklistItemDef {
 
 export const AUDIT_CHECKLIST_DEFINITIONS: ChecklistItemDef[] = [
 	// 1. 보안 & 인프라 (2개 · 15점)
-	{ id: 'ssl_https', name: "[P0: 긴급] 무료 Let's Encrypt SSL 보안 프로토콜 즉시 적용", maxScore: 10, category: 'security_infra', pLevel: 'P0' },
+	{ id: 'ssl_https', name: '[P0: 긴급] HTTPS 보안 프로토콜 (SSL 인증서) 즉시 적용', maxScore: 10, category: 'security_infra', pLevel: 'P0' },
 	{ id: 'server_ttfb', name: '서버 응답 속도 (TTFB < 1500ms)', maxScore: 5, category: 'security_infra', pLevel: 'P2' },
 
 	// 2. 웹 성능 & 접근성 (3개 · 12점)

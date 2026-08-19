@@ -932,21 +932,50 @@ export function extractInternalLinks($: CheerioAPI, pageUrl: string, limit = 120
  * appear in corpus but must not bind as legalName (v10 filter).
  */
 export function extractFooterLegalText($: CheerioAPI, limit = 1200): string {
-	const scopes = ['footer', '#ft', '.footer', '#footer', '.ft_info', '.footer_info', '.business_info', '#business'];
+	const scopes = [
+		'footer',
+		'#ft',
+		'.footer',
+		'#footer',
+		'.ft_info',
+		'.footer_info',
+		'.business_info',
+		'#business',
+		'address',
+		'[class*="footer"]',
+		'[id*="footer"]',
+		'[class*="ft_"]',
+		'[class*="contact"]',
+		'[id*="contact"]',
+	];
+	const seen = new Set<string>();
 	const chunks: string[] = [];
 	for (const sel of scopes) {
 		$(sel).each((_, el) => {
 			const text = $(el).text().replace(/\s+/g, ' ').trim();
-			if (text.length >= 4) chunks.push(text);
+			if (text.length < 4) return;
+			const key = text.slice(0, 80);
+			if (seen.has(key)) return;
+			seen.add(key);
+			chunks.push(text);
 		});
-		if (chunks.length > 0) break;
 	}
+	$('a[href^="tel:"], a[href^="TEL:"]').each((_, el) => {
+		const href = ($(el).attr('href') || '').trim();
+		const label = $(el).text().replace(/\s+/g, ' ').trim();
+		const line = `${label} ${href}`.trim();
+		if (line.length >= 4 && !seen.has(line)) {
+			seen.add(line);
+			chunks.push(line);
+		}
+	});
 	// Whole-document fallback — prefer labeled 상호명/법인명/상호 first
 	if (chunks.length === 0) {
 		const body = $('body').text().replace(/\s+/g, ' ').trim();
 		const labeled =
 			body.match(/(?:상호명|법인명|상호)\s*[:：]\s*[^.|]{2,80}/i) ||
-			body.match(/(?:주식회사|\(주\)|㈜|사업자(?:등록)?명?)[^.]{0,120}/i);
+			body.match(/(?:주식회사|\(주\)|㈜|사업자(?:등록)?명?)[^.]{0,120}/i) ||
+			body.match(/(?:대표자|대표원장|대표이사|대표번호|주소|소재지|TEL)\s*[:：][^|]{2,80}/i);
 		if (labeled?.[0]) chunks.push(labeled[0].trim());
 	}
 	const joined = chunks.join('\n').trim();
@@ -999,24 +1028,82 @@ export function extractNavItems($: CheerioAPI, pageUrl: string, limit = 40): Nav
 }
 
 /** Full DOM pass used by the precision audit engine (no LLM). */
+export function emptyPageParseResult(): PageParseResult {
+	return {
+		meta: {
+			title: '',
+			titleLength: 0,
+			pageTitle: '',
+			metaDescription: '',
+			metaDescriptionLength: 0,
+			canonical: null,
+			ogTitle: null,
+			ogDescription: null,
+			ogImage: null,
+			htmlLang: null,
+		},
+		headings: {
+			h1Count: 0,
+			h1Texts: [],
+			h2Texts: [],
+			levels: [],
+			hasSkip: false,
+			skipExamples: [],
+			hasH1ToH3: false,
+		},
+		schema: {
+			rawBlockCount: 0,
+			validBlockCount: 0,
+			parseErrors: 0,
+			types: [],
+			nodes: [],
+			snippets: [],
+			organizationMissing: [],
+			articleMissing: [],
+			personMissing: [],
+			hasOrganization: false,
+			hasArticle: false,
+			hasNewsArticle: false,
+			hasAboutPage: false,
+			hasMedicalWebPage: false,
+			hasPerson: false,
+			hasWebSite: false,
+			hasWebPage: false,
+			hasBreadcrumb: false,
+			hasFaqOrHowTo: false,
+			hasBusinessOrApp: false,
+			nap: { name: null, telephone: null, address: null },
+		},
+		images: { total: 0, missingAlt: 0, coveragePct: 0 },
+		bodyTextLength: 0,
+		renderBlockingScripts: 0,
+		internalLinks: [],
+	};
+}
+
 export function parsePageHtml(
 	$: CheerioAPI,
 	pageUrl?: string,
 	siteName?: string,
 	rawHtml?: string,
 ): PageParseResult {
-	const hydration = extractHydrationSignals(rawHtml || '');
-	const bodyTextLength = $('body').text().replace(/\s+/g, ' ').trim().length;
-	const renderBlockingScripts = $('script[src]:not([async]):not([defer])').length;
-	return {
-		meta: parseMeta($, siteName, hydration),
-		headings: parseHeadings($),
-		schema: parseJsonLd($, rawHtml, hydration),
-		images: parseImages($),
-		bodyTextLength,
-		renderBlockingScripts,
-		internalLinks: pageUrl ? extractInternalLinks($, pageUrl) : [],
-	};
+	try {
+		const hydration = extractHydrationSignals(rawHtml || '');
+		const bodyTextLength = $('body').text().replace(/\s+/g, ' ').trim().length;
+		const renderBlockingScripts = $('script[src]:not([async]):not([defer])').length;
+		return {
+			meta: parseMeta($, siteName, hydration),
+			headings: parseHeadings($),
+			schema: parseJsonLd($, rawHtml, hydration),
+			images: parseImages($),
+			bodyTextLength,
+			renderBlockingScripts,
+			internalLinks: pageUrl ? extractInternalLinks($, pageUrl) : [],
+		};
+	} catch (error) {
+		console.error('[parser] parsePageHtml failed:', error);
+		return emptyPageParseResult();
+	}
 }
 
 /** Target schema types for coverage % (developer-tool style rubric). */

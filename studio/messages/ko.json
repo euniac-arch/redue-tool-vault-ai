@@ -1,6 +1,9 @@
 {
+	"portfolioPage": {
+		"loading": "포트폴리오를 불러오는 중입니다..."
+	},
 	"nav": {
-		"tagline": "정밀 SEO & GEO 진단 엔진",
+		"tagline": "AI SEO & GEO 정밀 진단",
 		"scanner": "진단 엔진",
 		"auditHistory": "진단 내역",
 		"geoOptimization": "GEO 최적화",
@@ -25,18 +28,27 @@
 	},
 	"hero": {
 		"badge": "무료 · 회원가입 없이 · 10초 정밀 진단",
+		"engines": "4대 실시간 라이브 실측 | 2대 포털 색인 시뮬레이션 통합 지원",
+		"enginesLive": "4대 실시간 라이브 실측",
+		"enginesProxy": "2대 포털 색인 시뮬레이션 통합 지원",
 		"title": "검색되는 회사를 넘어, AI가 추천하는 회사로.",
 		"titleLine1": "검색되는 회사를 넘어,",
 		"titleLine2": "AI가 추천하는 회사로.",
 		"description": "Google 검색부터 ChatGPT·Gemini·Perplexity까지, 검색엔진과 AI가 우리 사이트를 어떻게 이해하고 있는지 정밀 진단합니다. 10초 안에 SEO · GEO · Schema · E-E-A-T 핵심 결함과 개선 우선순위를 확인하세요.",
-		"descriptionLine1": "Google 검색부터 ChatGPT·Gemini·Perplexity까지, 검색엔진과 AI가 우리 사이트를 어떻게 이해하고 있는지 정밀 진단합니다.",
-		"descriptionLine2": "10초 안에 SEO · GEO · Schema · E-E-A-T 핵심 결함과 개선 우선순위를 확인하세요.",
-		"placeholder": "https://your-company.com",
-		"button": "10초 정밀 진단 시작",
+		"descriptionLine1": "Google 검색부터 ChatGPT·Gemini·Perplexity까지,",
+		"descriptionLine2": "AI 검색에서 먼저 선택되는 이유를 만듭니다.",
+		"placeholder": "https://your-domain.com",
+		"button": "10초 무료 진단 시작",
 		"buttonLoading": "진단 페이지로 이동 중...",
 		"invalidUrl": "유효한 도메인 또는 URL을 입력해 주세요.",
 		"launchError": "진단을 시작하지 못했습니다. 도메인을 확인한 뒤 다시 시도해 주세요.",
-		"formHint": "URL만 입력하면 SEO · 스키마 · GEO(AI 인용) 결함 리포트가 즉시 생성됩니다.",
+		"formHint": "※ 별도의 회원가입 없이 즉시 6대 AI 검색 준비도 통합 정밀 진단 리포트가 생성됩니다.",
+		"formDisclaimer": "※ ChatGPT·Perplexity·Gemini·Claude는 실시간 질의 실측을 진행하며, Copilot·Naver Cue:는 Bing 및 스마트플레이스 신호 가중치 기반 시뮬레이션으로 산출됩니다.",
+		"points": {
+			"speed": "10초 정밀 진단",
+			"unified": "AI·SEO·GEO 통합 분석",
+			"actionable": "실행 가능한 인사이트"
+		},
 		"whyCardsSectionTitle": "진단하면 무엇을 알 수 있나요?",
 		"whyCardsSectionSubtitle": "진단 결과물 기준으로, 지금 바로 확인할 수 있는 핵심입니다.",
 		"whyCards": {
@@ -86,14 +98,51 @@
 			"from": "\"검색되는가?\"",
 			"to": "\"AI가 이해·신뢰·인용하는가?\""
 		},
+		"trustProof": {
+			"ariaLabel": "핵심 신뢰 지표",
+			"items": {
+				"speed": { "title": "10초", "sub": "정밀 진단" },
+				"engines": { "title": "AI 6종", "sub": "4실측 · 2색인" },
+				"sites": { "title": "10만+", "sub": "웹사이트 분석" },
+				"security": { "title": "99.9%", "sub": "보안 보장" }
+			}
+		},
+		"diagnosisAreas": {
+			"title": "대표 진단 영역",
+			"learnMore": "자세히 보기 →",
+			"items": {
+				"ai": {
+					"title": "AI 검색 노출",
+					"line1": "AI 답변·추천 노출",
+					"line2": "가능성 진단",
+					"description": "AI 답변·추천 노출 가능성 진단"
+				},
+				"seo": {
+					"title": "SEO",
+					"line1": "검색엔진 최적화",
+					"line2": "핵심 지표 진단",
+					"description": "검색엔진 최적화 핵심 지표 진단"
+				},
+				"geo": {
+					"title": "GEO",
+					"line1": "생성형 AI 최적화",
+					"line2": "신뢰도 진단",
+					"description": "생성형 AI 최적화 신뢰도 진단"
+				},
+				"schema": {
+					"title": "Schema",
+					"line1": "구조화 데이터",
+					"line2": "구현 상태 진단",
+					"description": "구조화 데이터 구현 상태 진단"
+				}
+			}
+		},
 		"process": {
 			"title": "진단은 이렇게 진행됩니다",
 			"steps": {
-				"url": "URL 입력",
-				"analyze": "10초 자동 분석",
-				"diagnose": "SEO·GEO·Schema 진단",
-				"extract": "핵심 결함 추출",
-				"report": "AI 검색 경쟁력 리포트"
+				"url": { "n": "01", "title": "URL 입력", "desc": "분석할 사이트 주소 입력" },
+				"analyze": { "n": "02", "title": "AI·SEO·GEO 분석", "desc": "6대 AI 검색 준비도 + 핵심 지표 분석" },
+				"report": { "n": "03", "title": "맞춤 리포트 확인", "desc": "실행 가능한 인사이트 제공" }
 			}
 		},
 		"preview": {
@@ -107,12 +156,27 @@
 			"formula": "📊 산출 공식: 외부 신뢰도(80점 · 50%) + 기술 점수(98점 · 50%)",
 			"judgment": "🔎 핵심 판정: 온페이지 스키마 최적화는 우수하나, AI 외부 신뢰 신호 보강 필요",
 			"actionCallout": "⚠️ [원클릭 패치 시] 종합 점수 89점 ➔ 91점(+2점) 즉시 상승 가능",
-			"enginesTitle": "6대 주요 AI 엔진 인용 현황",
+			"enginesTitle": "6대 AI 검색 준비도 인용 현황",
 			"level2": "Level 2 부분 노출",
 			"level3": "Level 3 우수",
 			"defectTitle": "🔴 치명적 결함 01: 렌더링 차단 스크립트 7개 (권장 ≤5)",
 			"defectImpact": "📉 예상 손실: 로딩 지연으로 인한 초기 이탈률 증가 및 AI 크롤러 색인 누락 위험",
 			"label": "진단 결과 예시",
+			"overallLabel": "종합 점수",
+			"overallGrade": "매우 우수",
+			"metrics": {
+				"ai": "AI 검색 노출",
+				"seo": "SEO",
+				"geo": "GEO",
+				"schema": "Schema"
+			},
+			"tags": {
+				"ai": "AI 추천 가능성 높음",
+				"seo": "SEO 핵심 12개 통과",
+				"geo": "GEO 인용 친화도 우수",
+				"schema": "구조화 데이터 보완 필요"
+			},
+			"viewFull": "샘플 리포트 전체 보기",
 			"aiTrustLabel": "AI 검색 신뢰도",
 			"aiTrustScore": "58 / 100",
 			"aiTrustGrade": "C+",
@@ -121,10 +185,545 @@
 			"techScoreGrade": "보통",
 			"summary": "⚠️ 주요 결함 8건 발견 | 🎯 핵심 결함 보완 시 +18점 개선 가능"
 		},
+		"strengths": {
+			"ariaLabel": "REDUE만의 강점",
+			"items": {
+				"engines": {
+					"title": "6대 AI 검색 준비도 통합 진단",
+					"line1": "4대 실시간 라이브 실측",
+					"line2": "2대 포털 색인 시뮬레이션"
+				},
+				"speed": {
+					"title": "10초 정밀 파싱",
+					"line1": "빠르고 정확한 진단으로",
+					"line2": "시간 절약"
+				},
+				"insight": {
+					"title": "실행 가능한 인사이트",
+					"line1": "문제 원인과 해결 방안",
+					"line2": "구체적 제시"
+				},
+				"security": {
+					"title": "보안 & 비공개",
+					"line1": "데이터 저장 없이",
+					"line2": "안전한 일회성 분석"
+				}
+			}
+		},
+		"stories": {
+			"title": "실제 고객의 이야기",
+			"quoteLine1": "REDUE 진단 이후 AI 답변 노출이 3배 증가하고,",
+			"quoteLine2": "SEO 트래픽도 45% 향상되었습니다.",
+			"author": "- 이재영 담당자, IT 서비스 기업",
+			"prev": "이전 후기",
+			"next": "다음 후기"
+		},
+		"press": {
+			"title": "언론/파트너"
+		},
+		"story": {
+			"problem": {
+				"badge": "AI SEARCH PARADIGM SHIFT",
+				"title": "검색 결과에 없는 게 문제가 아닙니다.",
+				"titleLine2": "AI의 추천 목록에 없는 게 문제입니다.",
+				"subtitle": "Google 검색에서는 사이트가 노출되더라도, ChatGPT·Gemini·Perplexity 같은 AI가 지역·업종·서비스를 기준으로 업체를 추천할 때 자사 브랜드가 후보에서 누락될 수 있습니다.",
+				"reach": {
+					"title": "🎯 AI 추천 사정거리",
+					"subtitle": "단계별 추천 도달 반경",
+					"levels": {
+						"1": {
+							"badge": "01 · Level 1",
+							"title": "브랜드 직접 검색",
+							"status": "상호명을 직접 쳤을 때만 최소 노출 (유입 한계)"
+						},
+						"2": {
+							"badge": "02 · Level 2",
+							"title": "지역 + 핵심 업종 탐색",
+							"status": "지역 및 진료/업종 카테고리 질의 시 인용"
+						},
+						"3": {
+							"badge": "03 · Level 3",
+							"title": "대화형 1순위 추천 (GEO 목표)",
+							"status": "증상·니즈·후기 질문에도 AI가 최우선 단독 추천"
+						}
+					}
+				},
+				"impact": {
+					"title": "📊 점유율 & 기회비용",
+					"sovTitle": "실제 진단 데이터 기준 SoV 점유율",
+					"currentLabel": "현재 실측",
+					"currentValue": "5%",
+					"targetLabel": "목표 점유율",
+					"targetValue": "48%",
+					"lift": "1위 추천 진입 및 최대 48% 수준의 점유율 탈환을 목표로 최적화합니다.",
+					"costTitle": "월 약 450,000원 기회 손실",
+					"simEstimate": "*(시뮬레이션 추정치)",
+					"costBody": "AI 신뢰도 및 추천 신호 부족으로 인한 월간 잠재 고객 유출 추정액",
+					"costNote": "* 기회비용 및 트래픽 가치는 업종별 키워드 평균 CPC와 질의 시뮬레이션을 역산한 이론적 추정치이며, 실제 매출이나 특정 성과를 보증하지 않습니다."
+				}
+			},
+			"proof": {
+				"badge": "REAL AUDIT CASE STUDY",
+				"title": "AI는 왜 이 회사를 추천하지 않을까요?",
+				"subtitle": "검색엔진에 등록되어 있어도, AI가 신뢰할 수 있는 구조화 데이터와 엔티티가 없으면 추천 목록에서 자동 제외됩니다.",
+				"sampleLabel": "진단 결과 예시 · 청담미소의원",
+				"scoreLabel": "종합 AI 경쟁력",
+				"scoreValue": "49",
+				"scoreMax": "/ 100점",
+				"aiTrust": "🌐 AI 검색 신뢰도",
+				"aiTrustScore": "51점",
+				"aiTrustMeta": "상위 49%",
+				"tech": "⚙️ SEO·GEO·Schema",
+				"techScore": "47점",
+				"techMeta": "미흡/위험",
+				"defects": {
+					"https": {
+						"tag": "P0 긴급",
+						"title": "HTTPS 보안 미적용",
+						"detail": "AI 인용 신뢰도 차단"
+					},
+					"schema": {
+						"tag": "P1 필수",
+						"title": "Schema.org 구조화 데이터 부재",
+						"detail": "JSON-LD 0블록"
+					},
+					"llms": {
+						"tag": "P1 필수",
+						"title": "/llms.txt AI 전용 인덱스 404",
+						"detail": "크롤러 인덱스 누락"
+					},
+					"eeat": {
+						"tag": "P2 주의",
+						"title": "E-E-A-T 대표원장 지식그래프 결손",
+						"detail": "Person 미연동"
+					},
+					"nap": {
+						"tag": "P2 주의",
+						"title": "4대 포털 지도 NAP & 좌표 미동기화",
+						"detail": "로컬 신호 취약"
+					}
+				},
+				"sim": {
+					"kicker": "⚡ 1-Click GEO 처방 시뮬레이션",
+					"title": "패치 적용 후 크롤러 재수집에 따른 AI 추천 풀 진입을 목표로 지원",
+					"fromLabel": "현재 점수",
+					"from": "49점 (C/D 등급)",
+					"toLabel": "패치 후 예상",
+					"to": "77점+ (B/A 등급 진입)",
+					"delta": "+28점 급상승 🚀",
+					"gains": {
+						"citation": "6대 AI 검색 준비도 기준 추천 인용 풀(Citation Pool) 1~2위 진입",
+						"leak": "경쟁사로 이탈하던 월 160+건 잠재 고객 유출 방어",
+						"query": "'청담 + 피부시술' 대화형 비브랜드 검색 1순위 추천 노출"
+					},
+					"cta": "내 사이트도 무료로 점수 확인하기 ➔"
+				}
+			},
+			"reach": {
+				"badge": "AI RECOGNITION DEPTH",
+				"title": "AI가 우리 회사를 어디까지 알고 있는가?",
+				"subtitle": "AI는 단순히 웹사이트가 존재한다는 사실만으로는 브랜드를 추천하지 않습니다. 구조화된 지식 깊이에 따라 AI의 추천 반경이 완전히 달라집니다.",
+				"levels": {
+					"1": {
+						"badge": "LEVEL 01 · 얕은 인지",
+						"title": "브랜드 직접 검색",
+						"query": "청담미소의원 어디 있어?",
+						"labels": {
+							"recognized": "AI 인식 정보",
+							"exposure": "노출 방식",
+							"insight": "한계점"
+						},
+						"recognized": "상호명 텍스트 단편",
+						"exposure": "브랜드명을 정확히 쳤을 때만 등장",
+						"insight": "신규 고객 유입 불가 (기존 고객 확인용)",
+						"fix": "🛠️ 엔티티 기본 식별 신호 주입"
+					},
+					"2": {
+						"badge": "LEVEL 02 · 맥락 확장",
+						"title": "지역 + 업종 카테고리",
+						"query": "청담 피부과 추천해줘",
+						"labels": {
+							"recognized": "AI 인식 정보",
+							"exposure": "노출 방식",
+							"insight": "한계점"
+						},
+						"recognized": "지역(청담) + 진료과목 카테고리 매핑",
+						"exposure": "플레이스 목록 및 관련 병원 리스트 중 하나로 인용",
+						"insight": "타 병원과 단순 나열식 비교 (1순위 선점 부족)",
+						"fix": "🛠️ LocalBusiness & NAP 지도 동기화"
+					},
+					"3": {
+						"badge": "LEVEL 03 · 최종 목표 (GEO)",
+						"title": "비브랜드 자연어 1순위 추천",
+						"query": "청담에서 여의사 리프팅 정밀 진료 및 맞춤 시술 시스템 안내해 줄래?",
+						"labels": {
+							"recognized": "AI 인식 정보",
+							"exposure": "노출 방식",
+							"insight": "달성 효과"
+						},
+						"recognized": "대표원장 이력 + 핵심 시술 + 진료시간 + FAQ 팩트 완비",
+						"exposure": "브랜드명을 몰라도 AI가 신뢰할 수 있는 1순위 정답 카드로 단독 지목",
+						"insight": "경쟁사로 빠져나갈 잠재 고객의 유입 기회 확보를 목표로 최적화",
+						"fix": "🚀 Schema.org + E-E-A-T + /llms.txt 완비"
+					}
+				}
+			},
+			"sov": {
+				"badge": "SHARE OF VOICE (SoV) ANALYSIS",
+				"title": "검색 순위보다 중요한 건",
+				"titleLine2": "AI가 누구를 추천하느냐입니다.",
+				"subtitle": "포털 1페이지에 있어도 AI 답변에서 누락되면 52%의 트래픽이 3자 블로그로 흩어집니다. 구조화 데이터 선점으로 잃어버린 점유율을 되찾으세요.",
+				"barTitle": "현재 검색 시장 점유율(SoV) 분기 현황",
+				"rows": {
+					"other": {
+						"name": "기타 (3자 분산)",
+						"note": "블로그·카페로 트래픽 누수"
+					},
+					"a": {
+						"name": "경쟁사 A",
+						"note": "1위 추천 유지"
+					},
+					"b": {
+						"name": "경쟁사 B",
+						"note": "2위 인용"
+					},
+					"own": {
+						"name": "자사 (현재 상태)",
+						"note": "순위 밖 / 미추천"
+					}
+				},
+				"asIs": {
+					"label": "현재 자사 점유율 (As-Is)",
+					"value": "5%",
+					"status": "AI 추천 목록 3위 밖 탈락"
+				},
+				"lift": "+43%p 탈환 목표",
+				"toBe": {
+					"label": "GEO 처방 적용 후 목표 (To-Be)",
+					"value": "48%",
+					"status": "1위 추천 진입 목표"
+				},
+				"cta": "⚡ 내 업종의 AI 점유율(SoV) 무료 확인하기",
+				"ctaNote": "※ 사이트 URL 입력 시 10초 만에 실시간 경쟁사 점유율을 분석합니다."
+			},
+			"modules": {
+				"badge": "THE 5-PILLAR PRESCRIPTION",
+				"kicker": "The Prescription",
+				"title": "REDUE 5대 GEO 처방 시스템",
+				"subtitle": "진단된 온페이지 결함을 AI 검색엔진이 1순위로 신뢰하고 파싱하는 표준 신호(Signal)로 직접 치료합니다.",
+				"labels": {
+					"problem": "현재 문제",
+					"prescription": "REDUE 처방",
+					"effect": "기대 효과"
+				},
+				"trust": "💡 기존 사이트를 리뉴얼할 필요 없이, <strong>단 1회의 엔진 주입으로 5대 처방이 즉시 활성화</strong>됩니다.",
+				"cta": "10초 무료 진단으로 내 결함 확인하기 ➔",
+				"items": {
+					"schema": {
+						"badge": "MODULE 01 · CORE FOUNDATION",
+						"title": "Schema / Entity (공식 엔티티 식별)",
+						"summary": "AI가 사이트를 단순 텍스트가 아닌 '공식 기관/브랜드' 엔티티로 식별하도록 구조화",
+						"problem": "MedicalClinic/LocalBusiness 스키마가 없어 AI가 업종과 브랜드를 식별하지 못함",
+						"prescription": "MedicalClinic, Organization, Person, Geo 좌표를 무결점 JSON-LD로 동적 주입",
+						"effect": "AI가 브랜드·의료진·진료과목을 추측이 아닌 구조화된 사실 신호로 인용하도록 지원"
+					},
+					"faq": {
+						"badge": "MODULE 02",
+						"title": "AI Citation Structure (FAQPage 마크업)",
+						"summary": "대화형 AI가 질문-답변 단위로 즉시 발췌할 수 있는 단문 Q&A 구조화",
+						"problem": "비정형 본문 텍스트로 인해 AI가 답변 추출 시 문맥 왜곡 또는 누락 발생",
+						"prescription": "대표 질의 5종 FAQPage 스키마 및 speakable 셀렉터 자동 주입",
+						"effect": "Perplexity·ChatGPT 상단 정답 카드 출처(Source)로 1순위 다이렉트 인용"
+					},
+					"nap": {
+						"badge": "MODULE 03",
+						"title": "Local / NAP Sync (로컬 지도 정합성)",
+						"summary": "네이버 스마트플레이스 · Google 지도 · Bing Places 데이터 일치",
+						"problem": "포털 지도 간 상호·주소·전화 불일치로 지역 기반 AI 추천에서 탈락",
+						"prescription": "sameAs 지식그래프 링크 및 WGS84 위경도 좌표 메타데이터 완결",
+						"effect": "\"지역명 + 업종\" 검색 시 AI 로컬 추천 핀 및 플레이스 우선 노출"
+					},
+					"rag": {
+						"badge": "MODULE 04",
+						"title": "RAG / Fact Density (팩트 중심 청킹)",
+						"summary": "AI 크롤러의 RAG(검색 증강 생성)에 최적화된 고밀도 팩트 구조",
+						"problem": "이미지 위주 구성 및 낮은 텍스트 비율로 AI RAG 청킹 실패",
+						"prescription": "수치·진료과목·절차가 명시된 시맨틱 마크업 및 외부 배포용 팩트 칼럼 생성",
+						"effect": "AI 환각(Hallucination) 방어 및 고관여 전문 답변의 1차 근거 채택"
+					},
+					"llms": {
+						"badge": "MODULE 05",
+						"title": "AI Index / /llms.txt (AI 크롤러 전용 통로)",
+						"summary": "GPTBot · PerplexityBot · ClaudeBot 전용 표준 마크다운 인덱스",
+						"problem": "복잡한 HTML 렌더링 지연으로 AI 봇의 핵심 데이터 수집 누락 (404 상태)",
+						"prescription": "사이트 루트(/llms.txt)에 공식 팩트·NAP·서비스 요약본 배포 및 헤더 링크",
+						"effect": "AI 크롤링 비용 절감 및 3영업일 셋업 후 주요 AI 크롤러 재수집에 따른 인덱싱 반영을 목표"
+					}
+				}
+			},
+			"contrast": {
+				"kicker": "Simulation",
+				"title": "Before ➔ After AI 추천 시뮬레이션",
+				"subtitle": "동일한 잠재 고객의 질문에 AI 검색엔진이 반응하는 방식이 180도 달라집니다.",
+				"query": "청담 피부시술 정밀 진료 및 맞춤 시술 시스템 안내해 줘",
+				"queryLabel": "👤 잠재 고객의 질문",
+				"beforeLabel": "BEFORE · 현재 상태",
+				"afterLabel": "AFTER · 개선 시뮬레이션",
+				"beforeLevel": "Level 1 · 브랜드 한정",
+				"afterLevel": "Level 2~3 · 대화형 추천",
+				"beforeResultLabel": "⚠️ AI 추천 결과:",
+				"beforeResultTitle": "자사 브랜드 누락",
+				"beforeReply": "청담 지역 피부시술은 주로 포털 상위 블로그 및 A·B 의원이 언급되고 있습니다. 자사는 구조화 데이터 미비로 추천 후보에서 제외되었습니다.",
+				"afterResultLabel": "✨ 1순위 다이렉트 추천:",
+				"afterBrand": "청담미소의원",
+				"afterReply": "<brand>청담미소의원</brand>의 공식 진료 정보와 위치를 안내합니다. 검증된 MedicalClinic 스키마와 대표원장 프로필, 진료시간 및 체계적인 진료 가이드를 제공합니다.",
+				"afterSource": "🔗 공식 출처: misoclinic.com (Schema.org / FAQPage 검증 완료)",
+				"beforeTags": {
+					"brand": "❌ 브랜드 직접 검색만 노출",
+					"signal": "❌ AI 인용 신호 부재"
+				},
+				"afterTags": {
+					"reach": "✓ 비브랜드 질의 도달 확장",
+					"rank": "✓ 1순위 추천 후보군 선점"
+				},
+				"summary": {
+					"reach": "비브랜드 질의 도달 범위 확대",
+					"cite": "AI 인용 가능성 극대화",
+					"score": "AI 검색 준비도 77점+ 달성"
+				}
+			},
+			"roi": {
+				"badge": "VALUE & BUSINESS IMPACT",
+				"title": "AI 검색 최적화는 단순한 기술 작업이 아니라,",
+				"titleLine2": "지속 가능한 오가닉 유입 자산을 구축하는 일입니다.",
+				"subtitle": "매달 나가는 검색광고비(CPC)는 클릭 즉시 소멸하지만, 온페이지 GEO 처방은 한 번의 세팅으로 24시간 AI 추천 트래픽을 지속적으로 유치합니다.",
+				"score": {
+					"label": "기술 준비도 & AI 인용 확률",
+					"fromLabel": "현재 진단 (As-Is)",
+					"from": "49점",
+					"delta": "↓ +28점 상승을 목표",
+					"toLabel": "개선 후 예상 (To-Be)",
+					"to": "77점+",
+					"fromGrade": "C/D 등급 (노출 위험)",
+					"toGrade": "🟢 B/A 등급 진입, 상위 23% 진입 목표",
+					"note": "3영업일 셋업 후 주요 AI 크롤러 재수집에 따른 인용 지수 회복을 목표로 합니다."
+				},
+				"value": {
+					"label": "월간 추정 기회 가치 (Estimated Value)",
+					"from": "월 약 45만 원 ~",
+					"to": "월 최대 224만 원 상당",
+					"simEstimate": "*(시뮬레이션 추정치)",
+					"desc": "키워드 검색광고(CPC) 대체 및 AI 추천 1순위 노출 환산액",
+					"pillars": {
+						"defend": "🛡️ 손실 방어: 월 160+건 경쟁사 유출 환자 차단",
+						"reach": "🎯 타깃 도달: 대화형 비브랜드 고관여 잠재 고객 선점",
+						"asset": "🔄 지속성: 월 고정 광고비 없는 지속 가능한 오가닉 유입 자산 구축"
+					},
+					"note": "* 기회비용 및 트래픽 가치는 업종별 키워드 평균 CPC와 질의 시뮬레이션을 역산한 이론적 추정치이며, 실제 매출이나 특정 성과를 보증하지 않습니다."
+				},
+				"offer": {
+					"title": "“매월 수십~수백만 원의 잠재 고객 유출을, 단 1회 19만 원부터 막을 수 있다면?”",
+					"body": "진단된 모든 취약점은 REDUE GEO 스피드 셋업(3영업일)으로 즉시 해결됩니다.",
+					"cta": "⚡ 3영업일 점수 복구 패키지 확인 ➔"
+				}
+			},
+			"engines": {
+				"kicker": "Compatibility",
+				"title": "6대 AI 검색 준비도 통합 정밀 진단",
+				"subtitle": "ChatGPT·Perplexity·Gemini·Claude는 실시간 웹 검색 실측, Copilot·Naver Cue:는 포털 생태계 색인 시뮬레이션으로 산출합니다.",
+				"liveGroup": "4대 글로벌 AI (실시간 라이브 실측 🟢)",
+				"proxyGroup": "2대 포털 생태계 AI (색인 시뮬레이션 🔵)",
+				"live": "🟢 실시간 실측",
+				"proxy": "🔵 포털 색인 추정",
+				"liveBadge": "실시간 웹 검색 실측",
+				"proxyBadge": "포털 생태계 색인 시뮬레이션",
+				"disclaimer": "※ ChatGPT·Perplexity·Gemini·Claude는 실시간 질의 실측을 진행하며, Copilot·Naver Cue:는 Bing 및 스마트플레이스 신호 가중치 기반 시뮬레이션으로 산출됩니다."
+			},
+			"pricing": {
+				"badge": "PLANS & PRICING",
+				"kicker": "Pricing",
+				"title": "REDUE 서비스 가격",
+				"subtitle": "문제의 크기를 확인했다면, 필요한 정비 범위를 선택하세요. 단 1회의 세팅으로 AI 검색 추천 풀에 진입합니다.",
+				"popular": "⭐ 가장 인기",
+				"enterpriseBadge": "🔒 준비 중",
+				"footnote": "※ 모든 패키지는 사이트 진단 결과 및 CMS 환경(그누보드, 워드프레스, 아임웹 등)에 따라 실제 작업 범위가 조율될 수 있습니다.",
+				"disclaimer": "※ AI 검색 추천 순위는 각 AI 엔진의 알고리즘 정책 및 크롤링 주기에 따라 순차 반영되며, 특정 순위나 매출을 보장하지 않습니다.",
+				"refundNotice": {
+					"title": "📋 서비스 계약 및 환불 규정 안내",
+					"workStart": "본 서비스는 개별 사이트 맞춤형 디지털 엔지니어링 작업으로, 스크립트 작성 및 주입 작업 착수 후에는 단순 변심에 의한 청약철회가 제한될 수 있습니다.",
+					"algorithm": "AI 검색 노출 및 추천 결과는 각 AI 플랫폼(OpenAI, Google, Anthropic, Naver 등)의 독자적 알고리즘 업데이트 및 크롤링 정책에 따라 변동될 수 있습니다."
+				},
+				"plans": {
+					"speed": {
+						"name": "스피드 셋업",
+						"tagline": "AI 검색 기본 구조 빠른 정비",
+						"price": "₩190,000",
+						"vat": "(VAT 별도)",
+						"unit": "/ 1회 세팅",
+						"cta": "19만원으로 기본 정비하기 ➔",
+						"items": {
+							"0": "✓ JSON-LD 기본 구조화 (MedicalClinic/LocalBusiness)",
+							"1": "✓ /llms.txt AI 전용 인덱스 생성",
+							"2": "✓ 메타데이터 & 시맨틱 태그 최적화",
+							"3": "✓ 기본 GEO 신호 주입",
+							"4": "⏱️ 3영업일 내 작업 완료"
+						}
+					},
+					"pro": {
+						"name": "GEO 프로",
+						"tagline": "AI 추천 노출 & 외부 신뢰 신호 집중 최적화",
+						"price": "₩490,000",
+						"vat": "(VAT 별도)",
+						"unit": "/ 1회 집중 패키지",
+						"cta": "⚡ GEO 프로 패키지 신청하기",
+						"items": {
+							"0": "✓ 스피드 셋업 전체 포함",
+							"1": "✓ 네이버 스마트플레이스 / 지도 연동 점검",
+							"2": "✓ Entity / E-E-A-T 대표자 지식그래프 강화",
+							"3": "✓ FAQPage 5종 & speakable 정밀 주입",
+							"4": "✓ 실측 재진단 4회 제공",
+							"5": "📊 개선 전후 비교 성과 리포트 발행"
+						}
+					},
+					"enterprise": {
+						"name": "엔터프라이즈",
+						"tagline": "업계 상위 점유율 목표 & 커스텀 솔루션",
+						"price": "₩990,000~",
+						"vat": "(VAT 별도 / 맞춤 견적)",
+						"unit": "/ 맞춤 견적",
+						"cta": "사전 상담 및 맞춤 견적 문의 ➔",
+						"items": {
+							"0": "✓ Digital PR 및 언론 보도 배포 연계",
+							"1": "✓ Wikidata 지식패널 Q-ID 등록",
+							"2": "✓ 4대 글로벌/로컬 지도 무결점 동기화",
+							"3": "✓ RAG 질의 침투형 콘텐츠 구축",
+							"4": "✓ 3개월 알고리즘 변화 밀착 모니터링"
+						}
+					}
+				}
+			},
+			"faq": {
+				"badge": "FREQUENTLY ASKED QUESTIONS",
+				"kicker": "FAQ",
+				"title": "자주 묻는 질문",
+				"subtitle": "REDUE GEO 서비스 도입 전 가장 많이 묻는 질문들을 모았습니다.",
+				"items": {
+					"renewal": {
+						"q": "기존 홈페이지를 새로 만들어야 하나요?",
+						"a": "아닙니다. 사이트 재구축(리뉴얼) 없이 기존 홈페이지를 100% 그대로 유지한 채 적용됩니다. 헤더에 REDUE 경량 스키마 엔진을 1회 주입하고 사이트 루트에 /llms.txt를 배포하는 방식이므로 디자인이나 기존 기능에 전혀 영향을 주지 않습니다."
+					},
+					"timing": {
+						"q": "작업 후 바로 ChatGPT나 Perplexity에 반영되나요?",
+						"a": "온페이지 주입 즉시 크롤러 인덱싱 신호는 즉각 활성화됩니다. 이후 GPTBot, PerplexityBot, Google AI 등 주요 AI 크롤러의 수집 주기에 따라 통상 3영업일에서 2주 이내에 AI 검색 인용 지수가 갱신되고 추천 결과에 순차 반영됩니다."
+					},
+					"builder": {
+						"q": "그누보드, 워드프레스 등 어떤 홈페이지에도 적용 가능한가요?",
+						"a": "네, 100% 호환됩니다. 그누보드, 워드프레스, 아임웹, 카페24, 식스샵, 자체 개발(PHP/Node/React) 등 HTML 소스 수정이나 FTP/CMS 관리자 접근이 가능한 모든 웹사이트에 완벽히 적용됩니다."
+					},
+					"rank": {
+						"q": "AI 검색 1위 추천이 100% 보장되나요?",
+						"a": "AI 추천 알고리즘은 사용자의 질문 의도와 외부 신뢰도를 종합 평가하므로 특정 순위를 기계적으로 영구 보장하지는 않습니다. 다만, AI가 귀사를 신뢰할 수 있는 공식 출처(Source)로 인식하고 1순위 추천 정답 카드에 채택될 수 있는 최고 수준의 기술적·구조적 표준(Level 3 도달)을 완벽히 구축해 드립니다."
+					},
+					"diff": {
+						"q": "19만 원(스피드 셋업)과 49만 원(GEO 프로)의 차이는 무엇인가요?",
+						"a": "19만 원 패키지는 JSON-LD 스키마와 /llms.txt를 신속 배포하는 핵심 온페이지 기초 세팅이며, 49만 원 패키지는 여기에 더해 네이버 스마트플레이스 연동, 대표원장 E-E-A-T 지식그래프 구축, 실측 4회 재진단 및 개선 전후 비교 리포트 발행까지 포함된 풀스택 점유율 독점 관리 패키지입니다."
+					}
+				}
+			},
+			"sticky": {
+				"badge": "10초 무료 정밀 진단",
+				"title": "지금 귀사의 사이트는 <score>AI에게 몇 점</score>일까요?",
+				"button": "무료 진단하기"
+			}
+		},
 		"closing": {
-			"title": "우리 사이트는 AI에게 어떻게 평가되고 있을까요?",
-			"subtitle": "1분 만에 6대 AI 엔진 인용 가능성과 122개 정밀 항목을 확인해보세요.",
-			"button": "무료 정밀 진단 시작하기"
+			"badge": "⚡ REAL-TIME AI AUDIT",
+			"title": "지금 귀사의 사이트는",
+			"titleLine2": "AI에게 몇 점으로 평가받고 있을까요?",
+			"subtitle": "URL 입력 한 번으로 4대 AI 실시간 실측과 2대 포털 생태계 색인 시뮬레이션을 통합한 검색 준비도와 경쟁사 유출 점유율을 10초 만에 분석해 드립니다.",
+			"placeholder": "https://your-domain.com",
+			"button": "10초 무료 정밀 진단 ➔",
+			"note": "✓ 회원가입 없음 · ✓ 신용카드 등록 없음 · ✓ 즉시 34개 항목 정밀 분석 리포트 발행",
+			"disclaimer": "※ ChatGPT·Perplexity·Gemini·Claude는 실시간 질의 실측을 진행하며, Copilot·Naver Cue:는 Bing 및 스마트플레이스 신호 가중치 기반 시뮬레이션으로 산출됩니다."
+		},
+		"footer": {
+			"ariaLabel": "사이트 푸터",
+			"sitemapAria": "사이트맵",
+			"legalNavAria": "약관 및 정책",
+			"brandFull": "REDUE AI SEO GEO STUDIO",
+			"slogan": "검색되는 회사를 넘어, AI가 1순위로 추천하는 회사로.",
+			"llmsCta": "🤖 /llms.txt AI 전용 인덱스",
+			"auditCta": "⚡ 10초 정밀 진단",
+			"cols": {
+				"solutions": "GEO 솔루션",
+				"plans": "서비스 & 요금제",
+				"resources": "지원 & 리소스",
+				"agents": "AI 크롤러 정책"
+			},
+			"solutions": {
+				"audit": "10초 AI 정밀 진단",
+				"prescription": "5대 GEO 처방 시스템",
+				"schema": "Schema.org JSON-LD 생성기",
+				"faq": "대화형 FAQPage 마크업",
+				"llms": "/llms.txt 루트 인덱서"
+			},
+			"plans": {
+				"speed": "스피드 셋업 (₩190,000, VAT 별도)",
+				"pro": "GEO 프로 패키지 (₩490,000, VAT 별도)",
+				"enterprise": "엔터프라이즈 맞춤 견적",
+				"reaudit": "실측 4회 재진단 서비스",
+				"report": "비교 성과 리포트"
+			},
+			"resources": {
+				"faq": "자주 묻는 질문 (FAQ)",
+				"guide": "AI 검색 알고리즘 가이드",
+				"eeat": "E-E-A-T 지식그래프 표준",
+				"sim": "도입 전후 시뮬레이션",
+				"status": "작업 진행 현황 조회"
+			},
+			"agents": {
+				"gpt": "GPTBot (OpenAI) 인덱스 준수",
+				"perplexity": "PerplexityBot 소스 최적화",
+				"claude": "ClaudeBot RAG 팩트 매핑",
+				"google": "Google-Extended 프로토콜",
+				"naver": "Naver Cue: 플레이스 연계"
+			},
+			"legal": {
+				"nameLabel": "상호명",
+				"name": "레드유 (Redue)",
+				"ceoLabel": "대표자",
+				"ceo": "박성준",
+				"bizNoLabel": "사업자등록번호",
+				"bizNo": "693-03-00235",
+				"mailOrderLabel": "통신판매업신고",
+				"mailOrder": "제 2026-부산사하-0000호",
+				"emailLabel": "고객센터 이메일",
+				"email": "contact@redue.kr",
+				"phoneLabel": "유선 상담 / 기술 문의",
+				"phone": "010-3210-9801",
+				"hours": "상담시간: 평일 10:00 ~ 18:00, 주말/공휴일 휴무",
+				"addressLabel": "사업장 소재지",
+				"address": "부산광역시 사하구 구평동 서포로 30번길 이편한세상사하1차 102동 2803호",
+				"stack": "기술 스택: REDUE Universal GEO Engine v30 · Schema.org Validated"
+			},
+			"links": {
+				"diagnose": "진단하기",
+				"service": "서비스",
+				"pricing": "가격",
+				"sample": "리포트 샘플",
+				"about": "회사 소개",
+				"blog": "블로그",
+				"guide": "가이드",
+				"contact": "문의하기",
+				"terms": "이용약관",
+				"privacy": "개인정보처리방침",
+				"refund": "환불규정",
+				"security": "보안",
+				"faq": "FAQ"
+			},
+			"copyright": "© 2026 REDUE AI SEO GEO STUDIO. All rights reserved.",
+			"trademarkNotice": "※ ChatGPT, Gemini, Perplexity, Claude, Copilot, Naver Clova 등은 각 해당 기업의 등록 상표이며, REDUE는 해당 플랫폼들의 공개 웹 표준 및 인덱싱 프로토콜에 맞춘 최적화 기술을 제공합니다.",
+			"disclaimer": "※ AI 검색 추천 순위는 각 AI 엔진의 알고리즘 정책 및 크롤링 주기에 따라 상이하며, 특정 순위나 매출을 영구 보장하지 않습니다."
 		},
 		"guideHighlight": {
 			"title": "💡 AI 검색 시대, 우리 사이트는 AI 추천 사정거리 안에 있나요?",
@@ -536,6 +1135,10 @@
 				"htaccess": {
 					"title": "서버/보안 — HTTPS 리디렉션 & 브라우저 캐싱",
 					"desc": "HTTP→HTTPS 301과 정적 자산 Expires/Cache-Control을 .htaccess에 적용하세요."
+				},
+				"duplicateJquery": {
+					"title": "중복된 jQuery 라이브러리 로드 감지",
+					"desc": "페이지 내에서 서로 다른 버전의 jQuery({versions})가 {files} 파일을 통해 중복으로 로드되고 있어, 불필요한 네트워크 트래픽과 렌더링 지연을 유발합니다. 최신 버전 하나만 남기고 나머지 jQuery 스크립트 태그를 제거해 하나로 통합하세요."
 				}
 			}
 		},
@@ -569,7 +1172,8 @@
 			"expectedDelta": "{current}점 → {projected}점 (+{gain}점)",
 			"appliedStatus": "처방전 적용 완료",
 			"appliedExpectedLabel": "처방전 적용 결과",
-			"appliedDelta": "{current}점 → {projected}점 적용 완료 (+{gain}점)"
+			"appliedDelta": "{current}점 → {projected}점 적용 완료 (+{gain}점)",
+			"disclaimer": "※ 본 요약 리포트의 점수 및 추정치는 공개 웹 표준과 시뮬레이션 알고리즘에 기반한 기술적 지표이며, 개별 AI 엔진의 정책 변화에 따라 실제 반영 결과는 달라질 수 있습니다."
 		},
 		"tabs": {
 			"geo": "AI 검색 신뢰도 · GEO 진단 결과",
@@ -645,6 +1249,14 @@
 			"liveUncitedBadge": "✗ AI 답변 내 미인용",
 			"liveCitedConfirm": "✓ 실시간 추천 확인 ({score}점)",
 			"liveUncitedConfirm": "✗ 실시간 미인용 ({score}점)",
+			"liveTierStrongConfirm": "✓ 실시간 최우선 추천/인용 ({score}점)",
+			"liveTierNeutralConfirm": "✓ 공식 엔티티 정보 인용 확인 ({score}점)",
+			"liveTierWeakConfirm": "△ 단순 언급 확인 (추천 신호 약함 - GEO 보강 필요) ({score}점)",
+			"liveTierNotFoundConfirm": "✕ 실시간 AI 답변 미노출 ({score}점)",
+			"liveTierStrongBadge": "✓ 최우선 추천/인용",
+			"liveTierNeutralBadge": "✓ 공식 정보 인용",
+			"liveTierWeakBadge": "△ 추천 신호 약함",
+			"liveTierNotFoundBadge": "✕ 미노출",
 			"visibilityTitle": "실제 AI 검색 결과",
 			"visibilityQueryTests": "질의 테스트",
 			"visibilityAnswerHits": "AI 답변 노출",
@@ -670,6 +1282,7 @@
 			"evidenceTitle": "실시간 AI 답변 검증 결과",
 			"citedYes": "✓ 답변 내 인용 확인",
 			"citedNo": "✗ 답변 내 미인용",
+			"weaknessTitle": "약세 신호 이유",
 			"liveCheckFooterNotice": "Copilot과 Clova 카드는 실시간 API 실측이 아닌 Bing·네이버 색인 기반 시뮬레이션 추정 데이터입니다. Gemini, ChatGPT, Perplexity, Claude만 실시간 웹 검색 인용 여부를 직접 검증합니다."
 		},
 		"aiRankingModal": {
@@ -800,18 +1413,31 @@
 			"fabLabelShort": "핵심 요약",
 			"fabAria": "핵심 진단 요약과 개선 효과 보기",
 			"closeAria": "핵심 요약 닫기",
-			"statusKicker": "01 · 현재 상태 & 노출 확률",
+			"statusKicker": "01 · 현재 상태 & AI 추천 노출 확률",
 			"aiIndexLabel": "Overall AI Index",
-			"indexedRatio": "{indexed} / {total} AI 엔진 인용",
+			"indexedRatio": {
+				"mentionOnly": "{indexed} / {total} AI 엔진 단순 언급 (추천 신호 취약)",
+				"cited": "{indexed} / {total} AI 엔진 인용",
+				"recommended": "{indexed} / {total} AI 엔진 추천 인용"
+			},
+			"unbrandedUrgent": "⚠️ 비브랜드 검색 개선 시급",
 			"statusLineLabel": "상태 한 줄 평",
 			"statusLine": {
-				"brandOnly": "브랜드 직접 검색 외에 세부 카테고리/증상 키워드에서는 AI 추천 인용률이 낮습니다.",
+				"brandOnly": "상호명 직접 검색 외에 지역·핵심 서비스 질의에서는 AI 공식 인용 신호가 부족합니다.",
 				"categoryGap": "카테고리·지역 질의까지는 일부 노출되지만, 광의 의도(Level 3) 추천은 아직 약합니다.",
 				"nearOptimal": "주요 엔진에서 인용 기반이 형성되었습니다. 잔여 엔진의 Level 3 확장이 다음 과제입니다.",
 				"optimal": "주요 AI 엔진에서 비브랜드 질의까지 인용되는 안정권에 가깝습니다."
 			},
 			"improveKicker": "02 · 핵심 개선 포인트 TOP 3",
 			"improveEmpty": "즉시 조치가 필요한 치명 결함이 없습니다. 잔여 신호를 유지·관리하면 됩니다.",
+			"statusPrefix": "현황",
+			"causePrefix": "원인",
+			"pTag": {
+				"p0Priority": "[P0: 최우선]",
+				"p0Urgent": "[P0: 긴급]",
+				"p1": "[P1]",
+				"p2": "[P2]"
+			},
 			"improveTheme": {
 				"schema": "온페이지 스키마 보완",
 				"geo": "GEO 최적화 스크립트 적용",
@@ -820,6 +1446,8 @@
 				"eeat": "E-E-A-T 엔티티 보강",
 				"onpage": "온페이지 SEO 보완",
 				"engine": "AI 엔진 인용 공백 해소",
+				"ssl": "HTTPS 보안 전환",
+				"llms": "/llms.txt AI 인덱스",
 				"generic": "우선 보완 과제"
 			},
 			"severity": {
@@ -828,14 +1456,18 @@
 				"info": "권장"
 			},
 			"roiKicker": "03 · 적용 시 기대 효과 및 ROI",
-			"roiCurrent": "현재 노출 지수",
+			"roiCurrent": "현재 AI 지수",
 			"roiProjected": "처방전 적용 후 예상",
-			"roiGain": "+{gain} 상승",
+			"roiGain": "+{gain}%p 상승",
 			"roiGainNone": "추가 상승 여지 제한적",
 			"roiStable": "{threshold}%+ 안정권 진입",
 			"roiApproaching": "A등급({threshold}%) 진입까지 보완 필요",
-			"roiInflow": "처방전 적용 시 노출 지수가 <score>{from}% ➔ {to}%</score>로 올라가며, 검색엔진·AI 추천 답변 노출 확대로 <gain>잠재 고객 유입·접속률이 약 {lift}% 상승</gain>할 여지가 있습니다.",
-			"roiInflowHold": "현재 측정 기준으로도 인용 기반이 안정적입니다. 처방전으로 잔여 결함을 관리하면 유입·접속률을 유지할 수 있습니다.",
+			"roiFoundation": "A등급 {threshold}% 진입 기반 마련",
+			"roiTechnical": "기술점수 {score}점",
+			"roiEffectsTitle": "기대 효과",
+			"roiInflow": "처방전 적용 시 노출 지수가 <score>{from}% ➔ {to}%</score>로 올라가며, 검색엔진·AI 인용 신호 확대로 <gain>온라인 문의 및 유입 전환율 개선에 기여</gain>할 수 있습니다.",
+			"roiInflowHold": "현재 측정 기준으로도 인용 기반이 안정적입니다. 처방전으로 잔여 결함을 관리하면 유입·접속 신호를 유지할 수 있습니다.",
+			"disclaimer": "※ 본 요약 리포트의 점수 및 추정치는 공개 웹 표준과 시뮬레이션 알고리즘에 기반한 기술적 지표이며, 개별 AI 엔진의 정책 변화에 따라 실제 반영 결과는 달라질 수 있습니다.",
 			"ctaAnswerCenter": "처방전 해답 센터 바로가기",
 			"ctaApplyFirst": "처방전 적용하고 해답 센터 열기",
 			"saveImage": "이미지 저장",
@@ -1372,8 +2004,8 @@
 			"execCalloutGain": "핵심 결함 보완 시 종합 점수 +{gain}점 상승 가능 ({current}점 → {target}점)",
 			"quickCtaUrgent": "긴급 조치 필요",
 			"quickCtaPriority": "우선 조치 권장",
-			"quickCtaTitle": "경쟁사에 월 {count}+건의 잠재 고객이 유출되는 중입니다",
-			"quickCtaHint": "스키마 구조화 + /llms.txt 세팅 시 3일 이내에 AI 검색 인용 지수가 회복됩니다.",
+			"quickCtaTitle": "시뮬레이션 모델 기준 월 약 {count}건의 잠재 고객 탐색 수요가 분산되는 것으로 추정됩니다.",
+			"quickCtaHint": "스키마 구조화 + /llms.txt 세팅 시 3영업일 셋업 후 주요 AI 크롤러 재수집에 따른 인용 지수 회복을 목표로 합니다.",
 			"quickCtaButton": "⚡ 3일 점수 복구 작업 의뢰하기 (견적 확인)",
 			"quickCtaLossKicker": "기회비용 손실 추정",
 			"quickCtaValueKicker": "경제적 가치 추정",
@@ -1396,53 +2028,54 @@
 			"exposureFooterNoteHold": "💡 현재 온페이지 스키마 결함({count}건)을 패치할 경우, 최상위 노출도를 유지하며 데이터 신뢰도를 완벽하게 보완합니다.",
 			"exposureFooterNoteClean": "💡 온페이지 스키마 결함이 거의 없습니다. 현재 실측 기반으로도 AI 상단 인용 여건이 {target}점 수준입니다.",
 			"exposureFooterNoteStable": "현재 노출 상태를 안정적으로 유지하며 데이터 신뢰도를 보완합니다.",
-			"exposureGuideTitle": "🚀 100점(상위 1%) 도달을 위한 넥스트 스텝 & 기대 효과 보기",
-			"exposureBenefitsTitle": "👑 최상위 등급(95~100점) 유지 시 주어지는 압도적 혜택",
+			"exposureGuideTitle": "🚀 100점(상위 1%) 기술 지표 달성을 위한 넥스트 스텝 & 기대 효과",
+			"exposureBenefitsTitle": "👑 최상위 등급(95~100점) 유지 시 핵심 비즈니스 기대 효과",
 			"exposureBenefitsItems": {
 				"ai": {
-					"title": "AI 답변 최상단 고정 인용",
-					"body": "ChatGPT, Perplexity 등 대화형 AI가 사용자의 질문에 우리 브랜드를 가장 먼저 추천하고 인용합니다."
+					"title": "AI 답변 상위 인용 및 우선 추천 채택 지원",
+					"body": "ChatGPT, Perplexity 등 대화형 AI가 사용자의 자연어 질의에 귀사 브랜드를 우선적인 추천 답변 후보군으로 인용하도록 구조화 신호를 완성합니다."
 				},
 				"cost": {
-					"title": "마케팅 비용 획기적 절감",
-					"body": "검색 최상단 노출 및 높은 클릭률(CTR) 확보로 유료 검색 광고(SA) 의존도를 대폭 낮출 수 있습니다."
+					"title": "지속 가능한 오가닉 유입 채널 구축",
+					"body": "검색 가시성 향상과 높은 스니펫 매칭률을 바탕으로 24시간 자생적 유입을 형성하여 유료 검색광고(SA) 의존도 완화에 기여합니다."
 				},
 				"trust": {
-					"title": "독보적인 브랜드 신뢰도 구축",
-					"body": "AI와 검색엔진 모두가 보증하는 '가장 신뢰할 수 있는 출처'로 분류되어 경쟁사와의 격차를 벌립니다."
+					"title": "공식 엔티티 신뢰도 및 방어력 확보",
+					"body": "AI 지식그래프에 '검증된 공식 출처(Grounding Source)'로 식별되어 모델 업데이트 시 발생할 수 있는 인용 누락 리스크를 사전에 방어합니다."
 				}
 			},
 			"exposureRoadmapTitle": "🎯 100점 달성을 위한 중장기 최적화 로드맵 (Action Plan)",
 			"exposureRoadmapItems": {
 				"footprint": {
 					"title": "외부 신뢰도(Digital Footprint) 보강",
-					"body": "블로그, 뉴스, 포럼 등 외부 채널에서의 자연스러운 브랜드 언급량(Mentions) 확대"
+					"body": "공신력 있는 외부 매체 및 지식 채널에서의 자연스러운 브랜드 멘션(Mentions)과 인용 출처 확장"
 				},
 				"local": {
 					"title": "로컬 플랫폼 등록 확장",
-					"body": "Google Business 외에 Bing Places, Apple Maps 등 누락된 글로벌/로컬 지도 플랫폼 추가 등록"
+					"body": "Google 비즈니스 외 Bing Places, Apple Business Connect 등 주요 글로벌/로컬 지도 정보 무결점 동기화"
 				},
 				"eeat": {
-					"title": "E-E-A-T 콘텐츠 구축",
-					"body": "고객의 핵심 질의(FAQ)에 명확히 답하는 전문적이고 깊이 있는 장문형 정보 콘텐츠 주기적 발행"
+					"title": "E-E-A-T 콘텐츠 아키텍처 구축",
+					"body": "고객의 핵심 질의(FAQ)에 명확한 사실(Fact)로 응답하는 전문 Q&A 구조화 콘텐츠 주기적 배포"
 				}
 			},
+			"exposureGuideDisclaimer": "※ 기술 지표 달성에 따른 AI 검색 인용 지수는 검색엔진 크롤링 주기 및 외부 평판 데이터에 따라 순차 반영되며, 특정 순위나 영구 노출을 보장하지 않습니다.",
 			"blueprint": {
-				"bannerTitle": "상위 1%(100점) 독점을 위한 4대 실무 엔지니어링 청사진",
+				"bannerTitle": "상위 1% 기술 지표 달성을 위한 4대 실무 엔지니어링 청사진",
 				"bannerSubtitle": "디지털 PR · 위키데이터 지식패널 · 4대 지도 NAP 무결점 동기화 로드맵",
 				"bannerCta": "청사진 보기",
 				"badge": "SEO × GEO ENTERPRISE ROADMAP",
-				"title": "상위 1%(100점) 독점을 위한 4대 실무 엔지니어링",
-				"desc": "웹사이트 온페이지 코드 수정을 넘어, 인터넷 전체 지식그래프와 AI 검색엔진 두뇌에 브랜드를 1위 출처로 각인합니다.",
+				"title": "상위 1% 기술 지표 달성을 위한 4대 실무 엔지니어링",
+				"desc": "웹사이트 온페이지 코드 수정을 넘어, 인터넷 지식그래프와 AI 검색엔진에 브랜드를 공식 신뢰 출처(Grounding Source)로 구축합니다.",
 				"meta": "약 3분 분량 · 병원, 법무법인, 고가 펜션, 프랜차이즈 본사 전용 의사결정 로드맵",
 				"closeAria": "모달 닫기",
 				"cards": {
 					"pr": {
-						"title": "1. 외부 신뢰도(Digital PR) & 지식패널 영구 각인",
+						"title": "1. 외부 신뢰도(Digital PR) & 지식패널 및 위키데이터 공식 엔티티 등록",
 						"lead": "대화형 AI는 자사 웹사이트의 주장뿐만 아니라, 공신력 있는 제3자 출처(위키, 메이저 언론보도)의 교차 검증 데이터를 바탕으로 추천 순위를 확정합니다.",
 						"item1": {
 							"label": "위키데이터 & 지식패널 엔티티 등록:",
-							"body": "공공 지식 베이스에 브랜드 고유 Q-ID를 발급·등록하여 AI 두뇌에 영구 각인"
+							"body": "공공 지식 베이스에 브랜드 고유 Q-ID를 발급·등록하여 공식 엔티티로 구축"
 						},
 						"item2": {
 							"label": "AI 인용 최적화 언론보도(Digital PR):",
@@ -1454,7 +2087,7 @@
 						"lead": "Google, Apple Intelligence, 네이버 클로바 등 플랫폼별 AI는 지도의 상호·주소·연락처(NAP) 데이터가 1글자의 오차 없이 일치할 때만 공식 엔티티로 식별합니다.",
 						"item1": {
 							"label": "4대 포털 지도(Google, Apple, Naver, Kakao) 전수 일치화:",
-							"body": "플랫폼 간 정보 불일치를 0%로 해결하여 지역 검색 인용 점유율 극대화"
+							"body": "플랫폼 간 데이터 불일치를 최소화하여 로컬 검색 인용 신뢰도를 극대화"
 						},
 						"item2": {
 							"label": "글로벌 AI 로컬 시그널 연동:",
@@ -1462,22 +2095,22 @@
 						}
 					},
 					"rag": {
-						"title": "3. RAG 질의 침투형 콘텐츠 & 경쟁사 점유율 탈환",
+						"title": "3. RAG 질의 침투형 콘텐츠 & 업계 주요 타깃 키워드 점유율 확대",
 						"lead": "소비자의 복잡하고 구체적인 롱테일 AI 질문에 맞춰, AI 답변 첫 줄에 자사가 즉시 인용되도록 최적화된 청크(Chunk) 콘텐츠를 배치합니다.",
 						"item1": {
 							"label": "AI 검색 전용 청킹(Chunking) 아티클:",
 							"body": "AI가 직답으로 복사하도록 <chunk>[질문 ➔ 1줄 직답 ➔ 3대 근거]</chunk> 구조(500~800자) 아티클 발행"
 						},
 						"item2": {
-							"label": "1위 경쟁사 키워드 탈환:",
-							"body": "현재 1순위 추천 경쟁사의 키워드 패턴을 역추적하여 비교 우위 구조화 스키마 주입"
+							"label": "업계 주요 타깃 키워드 점유율 확대 및 비교 검색어 구조화:",
+							"body": "주요 비교 검색어 패턴을 분석하여 구조화 스키마로 주입"
 						}
 					},
 					"guard": {
 						"title": "4. AI 환각(할루시네이션) 방어 & 브랜드 가드레일",
 						"lead": "가격, 서비스 범위, 위치에 대해 AI가 왜곡된 거짓 답변을 내지 못하도록 공식 출처를 고정하고 지속적인 모델 업데이트에 대응합니다.",
 						"item1": {
-							"label": "AI 환각(오답·왜곡) 원천 차단:",
+							"label": "AI 환각(오답·왜곡) 최소화 및 브랜드 공식 팩트 가드레일 구축:",
 							"body": "비공식 출처를 밀어내고 브랜드 공식 데이터(Grounding Source)를 고정 등록"
 						},
 						"item2": {
@@ -1496,12 +2129,12 @@
 					"faqLabel": "JSON-LD · FAQPage",
 					"llmsLabel": "/llms.txt",
 					"pr": {
-						"title": "1. 외부 신뢰도(Digital PR) & 지식패널 영구 각인",
+						"title": "1. 외부 신뢰도(Digital PR) & 지식패널 및 위키데이터 공식 엔티티 등록",
 						"qidTitle": "위키데이터 Q-ID 등록 절차",
 						"qid": {
 							"1": "위키데이터(https://www.wikidata.org)에서 상호·영문명·도메인으로 기존 항목을 검색합니다. 동일 엔티티가 있으면 새로 만들지 않습니다.",
 							"2": "항목이 없으면 Create a new Item으로 한국어/영어 Label과 Alias(약칭·영문 상호)를 등록합니다.",
-							"3": "Description에 “{지역} {업종}의 공식 상호”를 한 줄로 고정합니다.",
+							"3": "Description(설명)란에 업종 정의와 지역명을 한국어/영문으로 명확히 입력합니다. (예: 대한민국 대구광역시에 위치한 의료기관)",
 							"4": "아래 핵심 속성(P31, P856, P1448, P159, P1329, P17, P625, P154)을 입력합니다.",
 							"5": "각 속성의 Reference에 공식 홈페이지와 메이저 언론 기사 URL을 첨부합니다.",
 							"6": "발급된 Q-ID(Qxxxxx)를 사이트 JSON-LD sameAs와 /llms.txt에 동일하게 넣습니다.",
@@ -1521,9 +2154,9 @@
 						"pressTitle": "언론보도 프롬프트 구조",
 						"pressIntro": "AI가 1차 인용할 수 있도록, 상호·위치·강점이 앞부분에 고정된 팩트형 보도문을 요청하세요.",
 						"press": {
-							"role": "[역할] {매체} 경제/헬스케어 기자",
+							"role": "[역할] 공공 지식베이스 및 AI RAG 인용 표준에 최적화된 테크니컬 PR 에디터",
 							"goal": "[목표] AI가 복사할 수 있는 팩트 고정형 보도자료 작성",
-							"headline": "[헤드라인] {지역} {업종} {브랜드}, {핵심 차별점} 공식 발표",
+							"headline": "[형식] 주관적 감상이나 수식어를 배제하고 검증 가능한 팩트 위주의 단문 구조",
 							"lead": "[리드] 첫 80자에 상호·소재지·대표번호·공식 URL 포함",
 							"facts": "[사실] NAP + 설립연도 + 대표 서비스 3종",
 							"proofs": "[근거] 인증·수상·실적 등 검증 가능한 수치 3개",
@@ -1560,11 +2193,11 @@
 							"4": "[근거 1~3]은 위치·인증·실적처럼 검증 가능한 사실만 사용합니다."
 						},
 						"chunk": {
-							"q": "[질문] {지역}에서 {서비스} 어디가 좋나요?",
-							"a": "[직답] {브랜드}입니다. {한 줄 공식 사실}.",
-							"p1": "[근거 1] {위치·NAP 사실}",
-							"p2": "[근거 2] {인증·자격·수상}",
-							"p3": "[근거 3] {실적·공식 URL}"
+							"q": "[질문] 예시: '''{지역}에서 {핵심서비스} 운영 절차 및 도입 장비 안내'''",
+							"a": "[직답] 예시: '''{브랜드명}은 {지역}에 위치하여 {서비스}를 공식 제공하는 기관입니다.'''",
+							"p1": "[근거 1] 공인 인증, 정품 장비, 대표 면허 등 검증 가능한 객관적 수치 제시",
+							"p2": "[근거 2] 공식 도로명 주소, 진료/영업시간, 주차 및 예약 시스템 명시",
+							"p3": "[근거 3] FAQPage 스키마 및 공식 웹사이트 URL 출처 링크 결합"
 						},
 						"faqTitle": "FAQPage 스키마",
 						"faqIntro": "같은 청크를 FAQPage JSON-LD로 감싸 배포하면 ChatGPT·Perplexity가 Q&A 단위로 인용합니다."
@@ -1583,7 +2216,9 @@
 					}
 				},
 				"footerTitle": "병원 · 법무법인 · 고가 펜션 · 프랜차이즈 본사 전용",
-				"footerBody": "업계 1위 AI 독점 점유율 확보를 위한 1:1 맞춤 엔지니어링 컨설팅을 제공합니다.",
+				"footerBody": "업계 주요 타깃 키워드 점유율 확대를 위한 1:1 맞춤 엔지니어링 컨설팅을 제공합니다.",
+				"disclaimer1": "※ 위키데이터(Wikidata) 등록은 비영리 오픈 지식 커뮤니티의 편집 지침 및 등재 기준(Notability)을 준수하여 진행됩니다.",
+				"disclaimer2": "※ AI 플랫폼의 인용 결과 및 지식패널 노출 여부는 각 엔진(Google, OpenAI, Anthropic, Naver 등)의 자체 지식그래프 알고리즘 정책에 따르며, 특정 순위나 지표를 영구 보증하지 않습니다.",
 				"footerCta": "우리 브랜드 1:1 맞춤 엔터프라이즈 컨설팅 문의하기"
 			},
 			"statusBadge": {
@@ -1719,6 +2354,22 @@
 			"emptyDescription": "URL 하나만 입력하면 HTML/JSON-LD를 정밀 파싱한 리포트가 이 목록에 자동 저장됩니다.",
 			"emptyCta": "무료 진단 시작하기",
 			"noMatches": "검색 조건에 맞는 진단 내역이 없습니다.",
+			"listLoading": "진단 내역을 불러오는 중입니다...",
+			"paginationTotal": "전체 <n>{count}</n>건",
+			"paginationTotalRecords": "전체 <n>{count}</n>건의 진단 기록",
+			"paginationRange": "{start}-{end}건 표시 중",
+			"paginationPrev": "이전",
+			"paginationNext": "다음",
+			"paginationPageSize": "{size}개씩 보기",
+			"paginationViewAll": "전체 보기",
+			"paginationPageSizeAria": "표시 개수",
+			"paginationPageAria": "{page}페이지",
+			"scoreReadiness": "AI 검색 준비도",
+			"categoryFallback": "일반 웹사이트",
+			"gradeExcellent": "우수",
+			"gradeCaution": "주의",
+			"gradeRisk": "위험",
+			"viewReport": "리포트 보기 ➔",
 			"geoGradeLabel": "{grade}등급",
 			"rawScoreBadge": "정밀 실측 {score} / {max}",
 			"rawScoreTitle": "원점수 {score} / {max}점 → 100점 환산 {pct}점",
@@ -1944,10 +2595,10 @@
 			"leakageBadge": "[ {keyword} ] 검색 시 타사/경쟁 기관이 AI 답변을 독점 중",
 			"roiLabel": "예상 가치 · ROI",
 			"roiAppliedLabel": "처방전 적용 효과",
-			"roiBody": "처방전 적용 시 월 예상 {value}만원 상당의 오가닉 AI 추천 트래픽 확보 효과",
-			"roiAppliedBody": "처방전 적용 시 월 예상 {value}만원 상당의 오가닉 AI 추천 트래픽 확보 구간에 진입합니다.",
-			"roiHint": "업종 평균 검색광고 단가(CPC)와 현재 AI 노출 깊이(Level 1 유출)를 반영한 추정치입니다.",
-			"roiLossHeadline": "월 약 {value}원 기회 손실",
+			"roiBody": "처방전 적용 시 월 최대 {value}만 원 상당의 오가닉 트래픽 가치 환산 *(시뮬레이션 추정치)",
+			"roiAppliedBody": "처방전 적용 시 월 최대 {value}만 원 상당의 오가닉 트래픽 가치 환산 *(시뮬레이션 추정치)",
+			"roiHint": "* 기회 손실 및 트래픽 가치는 업종별 키워드 평균 CPC와 Level 1~3 질의 유입 시뮬레이션을 역산한 이론적 추정치이며, 특정 순위나 매출을 영구 보장하지 않습니다.",
+			"roiLossHeadline": "월 약 {value}원 기회 손실 *(시뮬레이션 추정치)",
 			"roiImpactBadgeCost": "기회비용",
 			"roiImpactBadgeValue": "경제적 가치",
 			"roiBasisTrigger": "ℹ️ 산출근거",
@@ -1956,23 +2607,24 @@
 			"roiBasisVolume": "월간 AI 검색 질의 예상 유입량: 약 {value}회",
 			"roiBasisGap": "자사 점유율({brand}%) vs 경쟁사 평균({competitor}%) 격차 {gap}% 반영",
 			"roiBasisDisclaimer": "※ 본 수치는 업종별 평균 CPC 단가 및 AI 검색 점유율 통계 모델을 기반으로 환산된 시뮬레이션 수치입니다.",
-			"roiLegalNote": "※ 본 수치는 업종별 평균 CPC 단가 및 AI 검색 점유율 통계 모델을 기반으로 환산된 시뮬레이션 수치입니다",
+			"roiLegalNote": "* 기회 손실 및 트래픽 가치는 업종별 키워드 평균 CPC와 Level 1~3 질의 유입 시뮬레이션을 역산한 이론적 추정치이며, 특정 순위나 매출을 영구 보장하지 않습니다.",
 			"ctaKicker": "전문가 1:1 대행",
 			"ctaGuarantee": "코드 수정이 어려우신가요? REDUE 전문가가 24시간 이내에 사이트 손상 없이 스키마 및 AI 최적화 패치를 완벽 적용해 드립니다.",
-			"ctaPatch": "전문가에게 이 처방전대로 사이트 100% 대행 패치 신청하기",
-			"ctaPatchLine1": "전문가에게 이 처방전대로",
-			"ctaPatchLine2": "사이트 100% 대행 패치 신청하기",
+			"ctaPatch": "전문가 맞춤 기술 패치 대행 신청하기",
+			"ctaPatchLine1": "전문가 맞춤 기술 패치",
+			"ctaPatchLine2": "대행 신청하기",
 			"ctaConsult": "실시간 GEO 최적화 무료 상담 문의",
 			"inquiryTitle": "대행 패치 신청",
 			"inquiryClose": "신청 창 닫기",
 			"inquiryPrefillLead": "[대행 패치 신청] {brand} ({url})",
 			"inquiryPrefillKeyword": "타겟 질의: {keyword}",
-			"inquiryPrefillAsk": "본 리포트의 GEO 처방전(Schema+FAQ+NAP) 기준으로 사이트 손상 없이 100% 대행 패치를 요청합니다."
+			"inquiryPrefillAsk": "본 리포트의 GEO 처방전(Schema+FAQ+NAP) 기준으로 사이트 손상 없이 전문가 맞춤 기술 패치 대행을 요청합니다."
 		},
 		"packages": {
 			"title": "REDUE AI 검색 최적화(GEO) 1:1 대행 패키지",
 			"subtitle": "진단된 취약점을 3영업일 이내에 수정하여 AI 검색 점유율 복구를 지원합니다.",
-			"priceSuffix": "/ 1회",
+			"priceSuffix": "(VAT 별도) / 1회",
+			"legalDisclaimer": "※ 본 진단 데이터는 사이트의 공개 웹 표준 및 메타데이터를 기반으로 분석한 기술 지표이며, 개별 AI 엔진의 알고리즘 정책 변화에 따라 실제 추천 결과는 달라질 수 있습니다.",
 			"inquiryTitle": "{package} 신청",
 			"inquiryClose": "신청 창 닫기",
 			"inquiryPrefillLead": "[{package} 신청] {brand} ({url})",
@@ -1999,10 +2651,10 @@
 				"features": {
 					"pr": "외부 신뢰도(Digital PR) 및 위키데이터 Q-ID 지식패널 등록",
 					"nap": "글로벌 & 로컬 4대 지도(Google, Apple, Naver, Kakao) NAP 무결점 동기화",
-					"rag": "RAG 질의 침투형 콘텐츠 아티클 & 1위 경쟁사 점유율 탈환",
+					"rag": "RAG 질의 침투형 콘텐츠 아티클 & 업계 주요 타깃 키워드 점유율 확대",
 					"guard": "AI 환각 방어 가드레일 & 3개월 알고리즘 패치 밀착 대응"
 				},
-				"priceNote": "1:1 맞춤 견적",
+				"priceNote": "(VAT 별도 / 맞춤 견적)",
 				"cta": "오픈 준비 중 (사전 상담 문의)"
 			}
 		},
@@ -2133,37 +2785,38 @@
 		},
 		"timelineForecast": {
 			"title": "📈 AI 검색 엔진 반영 타임라인 & 노출 예측",
-			"subtitle": "진단 기반 조치 적용 시 AI 크롤러 재색인 및 인용 순위 반영 일정을 시뮬레이션합니다.",
+			"subtitle": "진단 기반 조치 적용 시 AI 크롤러 재색인 및 인용 순위 반영 예상 일정(시뮬레이션 모델)을 안내합니다.",
+			"footnote": "※ 상기 타임라인은 평균 크롤러 수집 주기를 기반으로 한 시뮬레이션 예측치이며, 개별 AI 엔진의 알고리즘 갱신 정책에 따라 실제 반영 시점은 상이할 수 있습니다.",
 			"steps": {
 				"day0": {
 					"when": "Day 0",
 					"phase": "진단 당일",
 					"title": "기술 결함 패치 & 스키마 배포",
-					"desc": "온페이지 기술 구조 최적화 및 메타데이터 동기화"
+					"desc": "온페이지 기술 구조 최적화"
 				},
 				"week1": {
-					"when": "Day 7",
-					"phase": "1주 후",
-					"title": "AI 검색봇 재색인 완료",
-					"desc": "GPTBot, PerplexityBot 등 주요 크롤러 데이터 갱신"
+					"when": "Day 7 (1주 후)",
+					"phase": "",
+					"title": "AI 검색봇 재수집 진행 예상",
+					"desc": "GPTBot, PerplexityBot 등 주요 크롤러 데이터 갱신 유도"
 				},
 				"week2": {
-					"when": "Day 14",
-					"phase": "2주 후",
-					"title": "실시간 AI 검색 인용 시작",
-					"desc": "Perplexity, Bing Copilot 상위 답변 출처 노출"
+					"when": "Day 14 (2주 후)",
+					"phase": "",
+					"title": "실시간 AI 검색 인용 지수 반영 목표",
+					"desc": "Perplexity, Bing Copilot 상위 답변 출처 노출 지원"
 				},
 				"week4": {
-					"when": "Day 30",
-					"phase": "4주 후",
-					"title": "대화형 AI 추천 우선 정착",
-					"desc": "ChatGPT, Gemini 등 브랜드 단독/우선 권장"
+					"when": "Day 30 (4주 후)",
+					"phase": "",
+					"title": "대화형 AI 추천 풀 진입 기대",
+					"desc": "ChatGPT, Gemini 등 브랜드 관련 질의 우선 권장"
 				},
 				"week8": {
-					"when": "Day 60+",
-					"phase": "8주 후",
-					"title": "브랜드 권위(Authority) 극대화",
-					"desc": "AI 지식 그래프 완성 및 검색 상위 점유율 장기 유지"
+					"when": "Day 60+ (8주 후)",
+					"phase": "",
+					"title": "브랜드 신뢰도 및 인용 안정화",
+					"desc": "AI 지식그래프 연계 및 지속 가능한 유입 기반 구축"
 				}
 			},
 			"chart": {
@@ -2180,12 +2833,16 @@
 				},
 				"markers": {
 					"schema": "기술 결함 패치 & 스키마 배포",
-					"recrawl": "AI 검색봇 재색인 완료",
-					"citation": "실시간 AI 검색 인용 시작",
-					"trust": "대화형 AI 추천 우선 정착",
-					"priority": "브랜드 권위(Authority) 극대화"
+					"recrawl": "AI 검색봇 재수집 진행 예상",
+					"citation": "실시간 AI 검색 인용 지수 반영 목표",
+					"trust": "대화형 AI 추천 풀 진입 기대",
+					"priority": "브랜드 신뢰도 및 인용 안정화"
 				}
 			}
+		},
+		"reportLegalDisclaimer": {
+			"line1": "※ 본 리포트의 진단 점수 및 시뮬레이션 결과는 공개 웹 표준, JSON-LD 스키마, 크롤러 프로토콜 분석에 기반한 기술적 추정치입니다.",
+			"line2": "※ 개별 AI 엔진(OpenAI, Google, Anthropic, Perplexity, Naver 등)의 독자적 알고리즘 업데이트 및 검색 정책에 따라 실제 추천 결과는 달라질 수 있으며, 특정 순위나 매출을 법적으로 보증하지 않습니다."
 		},
 		"reportFooter": {
 			"ariaLabel": "사업자 정보 및 정책",
@@ -2296,7 +2953,8 @@
 				"gapAction": "JSON-LD, /llms.txt, FAQ 처방을 적용하면 1위 파이를 흡수해 자사 점유율을 {toBe}%까지 끌어올릴 수 있습니다.",
 				"vulnerabilityTitle": "역전 전략 · Vulnerability Gap",
 				"leaderFallback": "지역 1위 업체",
-				"vulnerabilityBody": "경쟁사 역시 스키마·/llms.txt가 미비하여 {comp1Share}%에 머물러 있습니다. 귀사가 GEO 처방을 선제 적용하면 3자 블로그로 새는 트래픽을 흡수해 최대 {toBeShare}%까지 독점할 수 있습니다."
+				"selfFallback": "자사",
+				"vulnerabilityBody": "주요 경쟁사 역시 구조화 데이터 신호가 불완전하여 {comp1Share}% 수준에 머물러 있습니다. GEO 처방을 선제 적용할 경우 3자 블로그로 분산되던 트래픽을 흡수하여 최대 {toBeShare}% 수준의 점유율 확보를 목표로 최적화할 수 있습니다."
 			},
 			"entity": {
 				"kicker": "Entity Disambiguation",

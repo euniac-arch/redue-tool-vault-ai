@@ -2,6 +2,7 @@
 
 import { Target } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { softenComparativeQuery, softenQueryToken } from '@/lib/audit/anonymize-competitor';
 import { PrescriptionAppliedBadge } from '@/components/geo/PrescriptionAppliedBadge';
 import type { ExpandedQueryCombo, ExpandedQueryCoverage, KeywordWeight } from '@/types/geo-prescription';
 
@@ -40,13 +41,13 @@ const DEMO_LEVEL3: Level3Card[] = [
 	},
 	{
 		id: 'demo-l3-2',
-		tokens: ['서울 서초구', '중입자치료', '잘하는 곳'],
+		tokens: ['서울 서초구', '중입자치료', '진료 안내'],
 		rank: 1,
 		theme: 'emerald',
 	},
 	{
 		id: 'demo-l3-3',
-		tokens: ['서울 서초구', '암치료', '잘하는 곳'],
+		tokens: ['서울 서초구', '암치료', '진료 안내'],
 		rank: 2,
 		theme: 'cyan',
 	},
@@ -63,7 +64,7 @@ function uniqueLevel3Cards(combos: readonly ExpandedQueryCombo[]): Level3Card[] 
 		seen.add(key);
 		cards.push({
 			id: row.id,
-			tokens: row.tokens,
+			tokens: row.tokens.map(softenQueryToken),
 			rank: row.rank,
 			theme: row.rank === 1 ? 'emerald' : 'cyan',
 		});
@@ -74,7 +75,7 @@ function uniqueLevel3Cards(combos: readonly ExpandedQueryCombo[]): Level3Card[] 
 }
 
 function highlightInsight(text: string) {
-	const targets = ['1순위 추천 답변으로 인용', 'top-ranked recommendation'];
+	const targets = ['1순위 추천 정답 카드로 인용 채택', 'top-ranked answer card'];
 	for (const target of targets) {
 		const idx = text.indexOf(target);
 		if (idx >= 0) {
@@ -99,7 +100,9 @@ export function GeoPrescriptionCoverageSection({
 	const t = useTranslations('audit.geoQueryCoverage');
 
 	const resolvedBrand = coverage?.brandName?.trim() || brandName;
-	const toBeKeywords = coverage?.toBeKeywords?.length ? coverage.toBeKeywords : DEMO_TO_BE_KEYWORDS;
+	const toBeKeywords = (coverage?.toBeKeywords?.length ? coverage.toBeKeywords : DEMO_TO_BE_KEYWORDS).map(
+		softenComparativeQuery,
+	);
 	const level3Combinations = coverage ? uniqueLevel3Cards(coverage.afterCombos) : DEMO_LEVEL3;
 	const weights = keywordWeights?.length ? keywordWeights : null;
 	const primaryWeight = weights?.[0] ?? null;
@@ -112,13 +115,15 @@ export function GeoPrescriptionCoverageSection({
 	const contributionPct = primaryWeight?.weight ?? (coverage ? null : 92);
 	const level1 = coverage?.spectrum.level1 || resolvedBrand;
 	const level2 = coverage?.spectrum.level2 || '서울 서초구 해외 중입자 치료 상담';
-	const level3 = coverage?.spectrum.level3 || '서울 서초구에서 해외 중입자 치료 상담 잘하는 곳 추천해줘';
+	const level3 =
+		softenComparativeQuery(coverage?.spectrum.level3 || '') ||
+		'서울 서초구에서 해외 중입자 치료 상담 안내해줘';
 	const beforeSummary =
 		coverage?.beforeSummary ||
 		`단어 제한: 현재 노출 가능한 쿼리는 브랜드명(Level 1)뿐입니다 ("${resolvedBrand}"). 카테고리 질의는 추천에서 제외되어 있습니다.`;
 	const insight =
 		coverage?.insight ||
-		"스키마 및 FAQ 패치로 AI가 '상담', '중입자치료', '암치료' 속성까지 확신을 갖고 1순위 추천 답변으로 인용하기 시작했습니다.";
+		"스키마 및 FAQ 패치로 AI가 '상담', '중입자치료', '암치료' 속성까지 확신을 갖고 1순위 추천 정답 카드로 인용 채택을 지원합니다.";
 	const showBrandOnlyWarning = coverage ? coverage.brandOnlyAsIs !== false : true;
 
 	return (
@@ -223,7 +228,7 @@ export function GeoPrescriptionCoverageSection({
 						{toBeKeywords.map((kw) => (
 							<span
 								key={kw}
-								className="px-2.5 py-1 rounded-lg bg-slate-900/80 border border-emerald-500/30 text-emerald-200 text-xs font-medium"
+								className="break-keep px-2.5 py-1 rounded-lg bg-slate-900/80 border border-emerald-500/30 text-emerald-200 text-xs font-medium"
 							>
 								✓ {kw}
 							</span>
@@ -259,7 +264,7 @@ export function GeoPrescriptionCoverageSection({
 									{t('rank', { rank: item.rank })}
 								</span>
 								<span className="block text-xs font-bold text-slate-200 break-keep leading-relaxed">
-									“{item.tokens.join(' + ')}”
+									“{item.tokens.map(softenQueryToken).join(' + ')}”
 								</span>
 							</div>
 

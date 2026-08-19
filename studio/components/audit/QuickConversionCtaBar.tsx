@@ -87,9 +87,11 @@ export function QuickConversionCtaBar({ score, model = null, urgent = true }: Qu
 			<button
 				type="button"
 				onClick={scrollToSolutionPackages}
-				className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-slate-800 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-100"
+				className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-slate-800/90 px-4 py-2.5 text-center text-sm font-bold leading-snug text-slate-100 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-amber-500/50 hover:bg-slate-700 active:bg-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/40"
 			>
-				<span>{t('quickCtaButton')}</span>
+				<span className="max-w-full whitespace-normal break-keep text-balance">
+					{t('quickCtaButton')}
+				</span>
 			</button>
 		</div>
 	);

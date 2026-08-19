@@ -68,6 +68,19 @@ interface FilePatchTabProps {
 	/** Footer 사업자 정보 → Organization.legalName */
 	footerText?: string;
 	legalName?: string;
+	representativeName?: string;
+	representativeTitle?: string;
+	openingHoursOpens?: string;
+	openingHoursCloses?: string;
+	latitude?: string;
+	longitude?: string;
+	sameAs?: string[];
+	medicalSpecialty?: string[];
+	isAcceptingNewPatients?: boolean;
+	postalCode?: string;
+	streetAddress?: string;
+	addressLocality?: string;
+	addressRegion?: string;
 }
 
 const UNIFIED_INJECT_SUCCESS = `[✅ 원본 백업 완료] ➔ [${REDUE_V14_SCHEMA_PATCH_SUCCESS}]`;
@@ -86,6 +99,19 @@ export function FilePatchTab({
 	navItems,
 	footerText,
 	legalName,
+	representativeName,
+	representativeTitle,
+	openingHoursOpens,
+	openingHoursCloses,
+	latitude,
+	longitude,
+	sameAs,
+	medicalSpecialty,
+	isAcceptingNewPatients,
+	postalCode,
+	streetAddress,
+	addressLocality,
+	addressRegion,
 }: FilePatchTabProps) {
 	const [workMode, setWorkMode] = useState<WorkMode>('local');
 	const [uploadMode, setUploadMode] = useState<UploadMode>(
@@ -116,6 +142,12 @@ export function FilePatchTab({
 	const [restoring, setRestoring] = useState(false);
 	const [patchReport, setPatchReport] = useState<BackupPatchReport | null>(null);
 	const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
+	const [repName, setRepName] = useState(representativeName || '');
+	const [repTitle, setRepTitle] = useState(representativeTitle || '');
+	const [hoursOpens, setHoursOpens] = useState(openingHoursOpens || '09:00');
+	const [hoursCloses, setHoursCloses] = useState(openingHoursCloses || '18:00');
+	const [sameAsText, setSameAsText] = useState((sameAs || []).join('\n'));
+	const [acceptingNewPatients, setAcceptingNewPatients] = useState(isAcceptingNewPatients !== false);
 	const [successModal, setSuccessModal] = useState<{
 		title: string;
 		message: string;
@@ -173,6 +205,30 @@ export function FilePatchTab({
 		setFsSupportReason(cap.reason || null);
 	}, []);
 
+	useEffect(() => {
+		if (representativeName) setRepName(representativeName);
+	}, [representativeName]);
+
+	useEffect(() => {
+		if (representativeTitle) setRepTitle(representativeTitle);
+	}, [representativeTitle]);
+
+	useEffect(() => {
+		if (openingHoursOpens) setHoursOpens(openingHoursOpens);
+	}, [openingHoursOpens]);
+
+	useEffect(() => {
+		if (openingHoursCloses) setHoursCloses(openingHoursCloses);
+	}, [openingHoursCloses]);
+
+	useEffect(() => {
+		if (sameAs && sameAs.length > 0) setSameAsText(sameAs.join('\n'));
+	}, [sameAs]);
+
+	useEffect(() => {
+		if (typeof isAcceptingNewPatients === 'boolean') setAcceptingNewPatients(isAcceptingNewPatients);
+	}, [isAcceptingNewPatients]);
+
 	const collectedUrls = useMemo(() => {
 		const refs = extractAuditCollectedUrls({
 			url: targetUrl,
@@ -185,6 +241,15 @@ export function FilePatchTab({
 	const auditPaths = useMemo(() => collectedUrls.map((r) => r.hrefPath), [collectedUrls]);
 
 	const resolvedSiteName = siteName || (targetUrl ? safeHostname(targetUrl) : 'Site');
+
+	const sameAsList = useMemo(
+		() =>
+			sameAsText
+				.split(/\r?\n/)
+				.map((line) => line.trim())
+				.filter((line) => /^https?:\/\//i.test(line)),
+		[sameAsText],
+	);
 
 	const auditPages: AuditPageMeta[] = useMemo(() => {
 		if (pageMetas.length > 0) {
@@ -247,8 +312,43 @@ export function FilePatchTab({
 				navItems,
 				footerText,
 				legalName,
+				representativeName: repName,
+				representativeTitle: repTitle,
+				openingHoursOpens: hoursOpens,
+				openingHoursCloses: hoursCloses,
+				latitude,
+				longitude,
+				sameAs: sameAsList,
+				medicalSpecialty,
+				isAcceptingNewPatients: acceptingNewPatients,
+				postalCode,
+				streetAddress,
+				addressLocality,
+				addressRegion,
 			}),
-		[schemaMappingJson, resolvedSiteName, targetUrl, industryType, cmsType, navItems, footerText, legalName],
+		[
+			schemaMappingJson,
+			resolvedSiteName,
+			targetUrl,
+			industryType,
+			cmsType,
+			navItems,
+			footerText,
+			legalName,
+			repName,
+			repTitle,
+			hoursOpens,
+			hoursCloses,
+			latitude,
+			longitude,
+			sameAsList,
+			medicalSpecialty,
+			acceptingNewPatients,
+			postalCode,
+			streetAddress,
+			addressLocality,
+			addressRegion,
+		],
 	);
 
 	const injectSnippet = useMemo(
@@ -962,6 +1062,19 @@ export function FilePatchTab({
 						navItems,
 						footerText,
 						legalName,
+						representativeName: repName,
+						representativeTitle: repTitle,
+						openingHoursOpens: hoursOpens,
+						openingHoursCloses: hoursCloses,
+						latitude,
+						longitude,
+						sameAs: sameAsList,
+						medicalSpecialty,
+						isAcceptingNewPatients: acceptingNewPatients,
+						postalCode,
+						streetAddress,
+						addressLocality,
+						addressRegion,
 					},
 				}),
 			});
@@ -1047,6 +1160,87 @@ export function FilePatchTab({
 					);
 				})}
 			</div>
+
+			<section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+				<div className="mb-3">
+					<h3 className="text-sm font-bold text-slate-900">GEO / AEO 엔티티 · 엔진 주입 데이터</h3>
+					<p className="mt-1 text-xs text-slate-600">
+						진단 시 푸터·인사말·메타에서 자동 추출됩니다. 수정한 값은 [엔진 주입/배포] 시{' '}
+						<code className="rounded bg-slate-100 px-1 font-mono text-[11px]">$org_node</code> ·{' '}
+						<code className="rounded bg-slate-100 px-1 font-mono text-[11px]">$rep_name</code> · llms.txt 링크에
+						반영됩니다.
+					</p>
+				</div>
+				<div className="grid gap-3 sm:grid-cols-2">
+					<label className="flex flex-col gap-1.5">
+						<span className="text-xs font-bold text-slate-500">대표자명</span>
+						<input
+							type="text"
+							value={repName}
+							onChange={(e) => setRepName(e.target.value)}
+							placeholder="자동 추출 또는 직접 입력"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+						/>
+					</label>
+					<label className="flex flex-col gap-1.5">
+						<span className="text-xs font-bold text-slate-500">대표자 직책</span>
+						<input
+							type="text"
+							value={repTitle}
+							onChange={(e) => setRepTitle(e.target.value)}
+							placeholder={industryType?.toUpperCase() === 'MEDICAL' ? '대표원장' : '대표자'}
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+						/>
+					</label>
+					<label className="flex flex-col gap-1.5">
+						<span className="text-xs font-bold text-slate-500">운영/상담 시작</span>
+						<input
+							type="time"
+							value={hoursOpens}
+							onChange={(e) => setHoursOpens(e.target.value || '09:00')}
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+						/>
+					</label>
+					<label className="flex flex-col gap-1.5">
+						<span className="text-xs font-bold text-slate-500">운영/상담 종료</span>
+						<input
+							type="time"
+							value={hoursCloses}
+							onChange={(e) => setHoursCloses(e.target.value || '18:00')}
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+						/>
+					</label>
+				</div>
+				<label className="mt-3 flex flex-col gap-1.5">
+					<span className="text-xs font-bold text-slate-500">지도/SNS SameAs 목록</span>
+					<textarea
+						value={sameAsText}
+						onChange={(e) => setSameAsText(e.target.value)}
+						rows={4}
+						placeholder={'https://map.naver.com/...\nhttps://place.map.kakao.com/...\nhttps://blog.naver.com/...'}
+						className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-800"
+					/>
+					<span className="text-[11px] text-slate-500">한 줄에 URL 하나씩 · Naver/Kakao 지도, YouTube, Instagram, 네이버 블로그</span>
+				</label>
+				<label className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+					<span className="text-xs font-bold text-slate-700">신규 환자/고객 접수 여부 (isAcceptingNewPatients)</span>
+					<button
+						type="button"
+						role="switch"
+						aria-checked={acceptingNewPatients}
+						onClick={() => setAcceptingNewPatients((v) => !v)}
+						className={`relative h-6 w-11 rounded-full transition ${
+							acceptingNewPatients ? 'bg-emerald-600' : 'bg-slate-300'
+						}`}
+					>
+						<span
+							className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
+								acceptingNewPatients ? 'left-5' : 'left-0.5'
+							}`}
+						/>
+					</button>
+				</label>
+			</section>
 
 			{workMode === 'local' ? (
 				<>

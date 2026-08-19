@@ -13,6 +13,9 @@ export const DEFAULT_FETCH_TIMEOUT_MS = 10_000;
 export const MAX_HTML_CHARS = 2_000_000;
 export const MAX_REDIRECTS = 8;
 export const AUDIT_USER_AGENT = 'Mozilla/5.0 (compatible; ReduAiAuditBot/1.0; +https://redue.ai/audit)';
+/** Fallback when WAFs reject the audit bot UA (403/401) or TLS/timeout kills the first hop. */
+export const BROWSER_USER_AGENT =
+	'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 export interface RedirectHop {
 	from: string;
@@ -166,29 +169,31 @@ export interface FetchPageOptions {
 	/** Skip SSRF/DNS on same-origin follow-up files (robots / sitemap / llms). */
 	skipSsrf?: boolean;
 	maxChars?: number;
+	/** Override User-Agent for this attempt. */
+	userAgent?: string;
+	/** Prevent recursive http→https upgrade retries. */
+	skipProtocolUpgrade?: boolean;
 }
 
-/**
- * Fetch a public URL, following redirects manually so the final DOM/headers
- * and the hop list are both available to the scorer.
- */
-export async function fetchPageResource(
-	inputUrl: string,
-	opts?: FetchPageOptions,
+function errorMessage(err: unknown): string {
+	if (err instanceof Error) return err.message;
+	return String(err);
+}
+
+function isBlockedStatus(status: number | null): boolean {
+	return status === 401 || status === 403 || status === 429;
+}
+
+async function fetchRedirectChain(
+	requested: URL,
+	opts: FetchPageOptions | undefined,
+	userAgent: string,
+	started: number,
 ): Promise<FetchedPage> {
-	const started = Date.now();
 	const timeoutMs = opts?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
 	const maxRedirects = opts?.maxRedirects ?? MAX_REDIRECTS;
 	const maxChars = opts?.maxChars ?? MAX_HTML_CHARS;
 	const accept = opts?.accept ?? 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8';
-
-	let requested: URL;
-	try {
-		requested = opts?.skipSsrf ? coerceHttpUrl(inputUrl) : await assertPublicHttpUrl(inputUrl);
-	} catch {
-		return emptyResult(inputUrl, Date.now() - started);
-	}
-
 	const requestedUrl = requested.href;
 	const chain: RedirectHop[] = [];
 	let current = requestedUrl;
@@ -197,7 +202,8 @@ export async function fetchPageResource(
 		let currentUrl: URL;
 		try {
 			currentUrl = hop === 0 || opts?.skipSsrf ? new URL(current) : await assertPublicHttpUrl(current);
-		} catch {
+		} catch (err) {
+			console.error('[fetch-page] redirect target rejected:', current, errorMessage(err));
 			return { ...emptyResult(requestedUrl, Date.now() - started), redirectChain: chain, finalUrl: current };
 		}
 
@@ -205,7 +211,7 @@ export async function fetchPageResource(
 		try {
 			const res = await fetch(fetchUrl, {
 				headers: {
-					'User-Agent': AUDIT_USER_AGENT,
+					'User-Agent': userAgent,
 					Accept: accept,
 					...(opts?.forceRefresh && hop === 0
 						? {
@@ -222,6 +228,11 @@ export async function fetchPageResource(
 			if (res.status >= 300 && res.status < 400) {
 				const next = resolveRedirectLocation(currentUrl.href, res.headers.get('location') || '');
 				if (!next || (next.protocol !== 'http:' && next.protocol !== 'https:')) {
+					console.error('[fetch-page] invalid redirect Location:', {
+						from: currentUrl.href,
+						location: res.headers.get('location'),
+						status: res.status,
+					});
 					break;
 				}
 				chain.push({ from: currentUrl.href, to: next.href, status: res.status });
@@ -248,7 +259,13 @@ export async function fetchPageResource(
 				hasHsts: Boolean(security.hsts),
 				hasCsp: Boolean(security.csp),
 			};
-		} catch {
+		} catch (err) {
+			console.error('[fetch-page] hop failed:', {
+				url: fetchUrl,
+				hop,
+				userAgent: userAgent === AUDIT_USER_AGENT ? 'audit-bot' : 'browser',
+				message: errorMessage(err),
+			});
 			return {
 				...emptyResult(requestedUrl, Date.now() - started),
 				redirectChain: chain,
@@ -258,10 +275,60 @@ export async function fetchPageResource(
 		}
 	}
 
+	console.error('[fetch-page] redirect loop exhausted:', { url: requestedUrl, hops: chain.length });
 	return {
 		...emptyResult(requestedUrl, Date.now() - started),
 		redirectChain: chain,
 		finalUrl: current,
 		unsafeRedirect: hasUnsafeRedirect(chain),
 	};
+}
+
+/**
+ * Fetch a public URL, following redirects manually so the final DOM/headers
+ * and the hop list are both available to the scorer.
+ */
+export async function fetchPageResource(
+	inputUrl: string,
+	opts?: FetchPageOptions,
+): Promise<FetchedPage> {
+	const started = Date.now();
+
+	let requested: URL;
+	try {
+		requested = opts?.skipSsrf ? coerceHttpUrl(inputUrl) : await assertPublicHttpUrl(inputUrl);
+	} catch (err) {
+		console.error('[fetch-page] URL rejected:', inputUrl, errorMessage(err));
+		return emptyResult(inputUrl, Date.now() - started);
+	}
+
+	const primaryUa = opts?.userAgent ?? AUDIT_USER_AGENT;
+	let result = await fetchRedirectChain(requested, opts, primaryUa, started);
+
+	const blocked = isBlockedStatus(result.status);
+	const emptyBody = !result.text;
+	if ((blocked || (emptyBody && result.status == null)) && primaryUa !== BROWSER_USER_AGENT) {
+		console.warn('[fetch-page] retrying with browser User-Agent', {
+			url: requested.href,
+			status: result.status,
+		});
+		const retry = await fetchRedirectChain(requested, opts, BROWSER_USER_AGENT, started);
+		if (retry.text || retry.status != null) {
+			result = retry;
+		}
+	}
+
+	if (!result.text && result.status == null && requested.protocol === 'http:' && !opts?.skipProtocolUpgrade) {
+		const httpsUrl = new URL(requested.href);
+		httpsUrl.protocol = 'https:';
+		console.warn('[fetch-page] HTTP fetch empty, trying HTTPS', httpsUrl.href);
+		const httpsResult = await fetchPageResource(httpsUrl.href, {
+			...opts,
+			skipProtocolUpgrade: true,
+			skipSsrf: true,
+		});
+		if (httpsResult.text || httpsResult.ok) return httpsResult;
+	}
+
+	return result;
 }

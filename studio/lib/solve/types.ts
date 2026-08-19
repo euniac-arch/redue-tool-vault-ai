@@ -90,6 +90,23 @@ export interface SolveAuditSnapshot {
 	footerText?: string;
 	/** Explicit legal entity when known (else inferred from footerText) */
 	legalName?: string;
+	/** Footer / 인사말 auto-extracted representative (admin form auto-fill). */
+	representativeName?: string;
+	/** 대표원장 / 대표자 / 대표이사 */
+	representativeTitle?: string;
+	/** Weekday consultation hours (HH:mm). */
+	openingHoursOpens?: string;
+	openingHoursCloses?: string;
+	latitude?: string;
+	longitude?: string;
+	/** Maps / SNS sameAs URLs (one per line in admin). */
+	sameAs?: string[];
+	medicalSpecialty?: string[];
+	isAcceptingNewPatients?: boolean;
+	postalCode?: string;
+	streetAddress?: string;
+	addressLocality?: string;
+	addressRegion?: string;
 	overallScore: number;
 	schemaCoveragePercent: number;
 	cmsType?: string;

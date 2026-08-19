@@ -82,7 +82,7 @@ assert('news vertical keeps NewsArticle', news[0] === 'NewsArticle', news.join('
 const query = buildMedicalSimulatorQuery('경기 안성', '정형·통증클리닉', 'ko');
 assert(
 	'medical query template',
-	query === '경기 안성에서 정형·통증클리닉 과잉진료 없이 치료 잘하는 곳 어디야?',
+	query === '경기 안성에서 정형·통증클리닉 정밀 진료 시스템 안내해줘',
 	query,
 );
 assert(!query.includes('전체에서'), 'query must not use 전체에서');

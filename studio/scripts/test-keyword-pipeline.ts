@@ -47,7 +47,7 @@ assert('has 실비 intent', /실비/.test(all), all);
 assert('has 예약 intent', /예약/.test(all), all);
 assert('medical uses 내원/예약 actionName', /내원\/예약/.test(all), all);
 assert('has 야간진료 intent', /야간진료/.test(all), all);
-assert('has conversational overtreatment prompt', /과잉진료 없이 치료 잘하는 곳/.test(all), all);
+assert('has conversational care-system prompt', /정밀 진료 시스템 안내해줘/.test(all), all);
 
 const meta: SiteMetadata = {
 	domain: 'anseong-clinic.example',

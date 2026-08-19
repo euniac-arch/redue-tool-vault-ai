@@ -81,6 +81,41 @@ html.dark .df-summary-box {
 	.theme-panel {
 		@apply border border-slate-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-slate-900/80 dark:shadow-none;
 	}
+
+	/* REDUE landing — Dark Modern SaaS */
+	.landing-page {
+		@apply bg-transparent text-white;
+	}
+	.landing-container {
+		@apply mx-auto w-full max-w-[1100px] px-5 sm:px-6;
+	}
+	.landing-card {
+		@apply rounded-2xl border border-[#1E2640] bg-[#0F1422]/80 p-5 backdrop-blur-md;
+	}
+	.landing-h1 {
+		@apply text-[28px] font-bold leading-tight tracking-tight text-white sm:text-[38px];
+	}
+	.landing-sub {
+		@apply text-[15px] font-medium leading-relaxed text-[#CBD5E1];
+	}
+	.landing-title {
+		@apply font-bold text-white;
+	}
+	.landing-desc {
+		@apply text-[13px] leading-normal text-[#94A3B8];
+	}
+	.landing-micro {
+		@apply text-xs text-[#64748B];
+	}
+	.landing-input {
+		@apply w-full rounded-xl border border-[#1E2640] bg-[#0B0F19] px-4 py-3 text-sm text-white placeholder:text-[#64748B] outline-none transition focus:border-[#6366F1] focus:ring-2 focus:ring-[#6366F1]/30;
+	}
+	.landing-btn-indigo {
+		@apply whitespace-nowrap rounded-xl bg-[#6366F1] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#818CF8] disabled:opacity-50;
+	}
+	.landing-btn-purple {
+		@apply whitespace-nowrap rounded-xl bg-[#7C3AED] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#8B5CF6] disabled:opacity-50;
+	}
 }
 
 /* ─── Admin workspace Light Theme (`/admin/*`) ─── */
@@ -254,20 +289,8 @@ html.dark .mobile-menu-overlay__footer {
 	border-top-color: rgba(255, 255, 255, 0.08);
 }
 
-/* ── Footer: floating action bar clearance + mobile stacking ─────────────── */
-/* Audit result only (`site-footer--clear-floating-bar`): keep copyright /
-   policy links above the fixed share bar when viewport < 1600px. */
-@media (max-width: 1599px) {
-	footer.site-footer.site-footer--clear-floating-bar {
-		padding-bottom: 90px;
-	}
-}
-
+/* ── Footer: mobile stacking (bottom clearance is Tailwind pb-28 / sm:pb-36) ─ */
 @media (max-width: 768px) {
-	footer.site-footer.site-footer--clear-floating-bar {
-		padding-bottom: 110px;
-	}
-
 	footer.site-footer .footer-info-list {
 		gap: 8px;
 		align-items: flex-start;
@@ -296,10 +319,6 @@ html.dark .mobile-menu-overlay__footer {
 }
 
 @media (max-width: 450px) {
-	footer.site-footer.site-footer--clear-floating-bar {
-		padding-bottom: 120px;
-	}
-
 	footer.site-footer .footer-policy-nav {
 		gap: 6px 10px;
 	}
@@ -1646,11 +1665,16 @@ html:not(.dark) .page-horizon {
 }
 
 html.dark .page-horizon {
-	opacity: 1;
+	opacity: 0.2;
 }
 
-/* Diagnosis results + login/signup: same art, washed so content stays readable */
+/* Same wash as the diagnosis-result content plate — readable over the beam. */
 html.dark .page-horizon--faint .page-horizon {
+	opacity: 0.2;
+}
+
+html.dark .landing-shell .page-horizon {
+	display: block;
 	opacity: 0.2;
 }
 

@@ -3,115 +3,170 @@
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 
-/**
- * Global site footer (legal / business info).
- * Rendered once by `ConditionalAppShell` for all non-admin pages as a sibling
- * of the main `max-w-5xl px-6` column: the footer itself is full-bleed, while
- * the inner wrapper reuses that same container so content edges line up.
- */
+const COLUMNS = [
+	{
+		titleKey: 'cols.solutions',
+		links: [
+			{ href: '/#audit-hero', key: 'solutions.audit' },
+			{ href: '/geo-optimization', key: 'solutions.prescription' },
+			{ href: '/geo-optimization', key: 'solutions.schema' },
+			{ href: '/geo-optimization', key: 'solutions.faq' },
+			{ href: '/llms.txt', key: 'solutions.llms' },
+		],
+	},
+	{
+		titleKey: 'cols.plans',
+		links: [
+			{ href: '/#pricing', key: 'plans.speed' },
+			{ href: '/#pricing', key: 'plans.pro' },
+			{ href: '/enterprise', key: 'plans.enterprise' },
+			{ href: '/audit/history', key: 'plans.reaudit' },
+			{ href: '/portfolio', key: 'plans.report' },
+		],
+	},
+	{
+		titleKey: 'cols.resources',
+		links: [
+			{ href: '/#faq', key: 'resources.faq' },
+			{ href: '/geo-optimization', key: 'resources.guide' },
+			{ href: '/geo-optimization', key: 'resources.eeat' },
+			{ href: '/#pricing', key: 'resources.sim' },
+			{ href: '/audit/history', key: 'resources.status' },
+		],
+	},
+	{
+		titleKey: 'cols.agents',
+		links: [
+			{ href: '/geo-optimization', key: 'agents.gpt' },
+			{ href: '/geo-optimization', key: 'agents.perplexity' },
+			{ href: '/geo-optimization', key: 'agents.claude' },
+			{ href: '/geo-optimization', key: 'agents.google' },
+			{ href: '/geo-optimization', key: 'agents.naver' },
+		],
+	},
+] as const;
+
 export function Footer({ clearFloatingBar = false }: { clearFloatingBar?: boolean }) {
-	const t = useTranslations('audit.reportFooter');
+	const t = useTranslations('landing.footer');
 
 	return (
 		<footer
 			id="site-footer"
-			className={`site-footer print:hidden mt-auto mb-0 w-full border-t border-slate-200 bg-white p-0 text-xs text-slate-600 transition-colors duration-300 dark:border-white/10 dark:bg-slate-950 dark:text-slate-400${
+			className={`site-footer print:hidden mt-auto w-full border-t border-slate-200 bg-white pt-12 pb-28 text-xs leading-relaxed text-slate-600 sm:pt-16 sm:pb-36 sm:text-sm dark:border-slate-800/80 dark:bg-[#070B14] dark:text-slate-400${
 				clearFloatingBar ? ' site-footer--clear-floating-bar' : ''
 			}`}
 			aria-label={t('ariaLabel')}
 		>
-			{/* Same container as ConditionalAppShell main column (`mx-auto max-w-5xl px-6`).
-			    `pt-10` mirrors the Header→content top gap so the content→footer gap is
-			    visually symmetric. */}
-			<div className="mx-auto w-full max-w-5xl px-6 pt-10 pb-10">
-				<div className="flex flex-col gap-10">
-					{/* Top — brand */}
-					<div className="flex flex-col gap-2">
-						<div className="flex items-center gap-2">
-							<span className="rounded-lg bg-accent px-2 py-1 text-sm font-bold text-white">
-								REDUE
-							</span>
-							<span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{t('brandName')}</span>
-						</div>
-						<p className="text-slate-500">{t('tagline')}</p>
+			<div className="mx-auto max-w-[960px] px-4 sm:px-6">
+				<div className="mb-8 flex flex-col items-start justify-between gap-4 border-b border-slate-200 pb-8 sm:flex-row sm:items-center dark:border-slate-800/70">
+					<div>
+						<p className="text-base font-black tracking-tight text-slate-900 sm:text-lg dark:text-white">{t('brandFull')}</p>
+						<p className="mt-0.5 text-xs text-slate-400">{t('slogan')}</p>
 					</div>
-
-					{/* Middle — business info */}
-					<div className="footer-info-list flex flex-col gap-2 leading-relaxed">
-						<p className="footer-info-row flex flex-wrap gap-x-3 gap-y-1">
-							<span>
-								<span className="text-slate-500">{t('ceoLabel')}</span>{' '}
-								<span className="text-slate-800 dark:text-slate-300">{t('ceo')}</span>
-							</span>
-							<span className="footer-info-sep text-slate-300 dark:text-white/15" aria-hidden>
-								|
-							</span>
-							<span>
-								<span className="text-slate-500">{t('phoneLabel')}</span>{' '}
-								<a
-									href="tel:01032109801"
-									className="text-slate-800 transition-colors hover:text-slate-950 dark:text-slate-300 dark:hover:text-white"
-								>
-									{t('phone')}
-								</a>
-							</span>
-						</p>
-						<p className="footer-info-row flex flex-wrap gap-x-3 gap-y-1">
-							<span>
-								<span className="text-slate-500">{t('bizNoLabel')}</span>{' '}
-								<span className="text-slate-800 dark:text-slate-300">{t('bizNo')}</span>
-							</span>
-							<span className="footer-info-sep text-slate-300 dark:text-white/15" aria-hidden>
-								|
-							</span>
-							<span>
-								<span className="text-slate-500">{t('mailOrderLabel')}</span>{' '}
-								<span className="text-slate-800 dark:text-slate-300">{t('mailOrder')}</span>
-							</span>
-						</p>
-						<p className="footer-info-row">
-							<span className="text-slate-500">{t('addressLabel')}</span>{' '}
-							<span className="text-slate-800 dark:text-slate-300">{t('address')}</span>
-						</p>
-						<p className="footer-info-row">
-							<span className="text-slate-500">{t('hoursLabel')}</span>{' '}
-							<span className="text-slate-800 dark:text-slate-300">{t('hours')}</span>
-						</p>
-					</div>
-
-					{/* Bottom — policies & copyright */}
-					<div className="footer-bottom flex flex-col gap-4 border-t border-slate-200 pt-8 sm:flex-row sm:items-center sm:justify-between dark:border-white/[0.06]">
-						<nav
-							className="footer-policy-nav flex flex-wrap items-center gap-x-2 gap-y-1"
-							aria-label={t('policiesAria')}
+					<div className="flex flex-wrap items-center gap-2">
+						<Link
+							href="/llms.txt"
+							className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-xs text-cyan-400 transition-all hover:bg-cyan-500/20"
 						>
-							<Link
-								href="/privacy"
-								className="font-semibold text-violet-700 transition-colors hover:text-slate-950 dark:text-violet-300 dark:hover:text-white"
-							>
-								{t('privacy')}
+							{t('llmsCta')}
+						</Link>
+						<Link
+							href="/#audit-hero"
+							className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs text-white transition-all hover:bg-slate-700"
+						>
+							{t('auditCta')}
+						</Link>
+					</div>
+				</div>
+
+				<nav className="grid grid-cols-2 gap-8 py-4 md:grid-cols-4" aria-label={t('sitemapAria')}>
+					{COLUMNS.map((col) => (
+						<div key={col.titleKey}>
+							<p className="text-xs font-bold uppercase tracking-wider text-slate-200">{t(col.titleKey)}</p>
+							<ul className="mt-3 space-y-1">
+								{col.links.map((link) => (
+									<li key={link.key}>
+										<Link href={link.href} className="inline-block py-1 text-slate-400 transition hover:text-white">
+											{t(link.key)}
+										</Link>
+									</li>
+								))}
+							</ul>
+						</div>
+					))}
+				</nav>
+
+				<div
+					itemScope
+					itemType="https://schema.org/Organization"
+					className="mt-4 border-t border-slate-800/60 pt-8 text-xs leading-relaxed text-slate-500"
+				>
+					<meta itemProp="url" content="https://redue.kr" />
+					<p>
+						<span className="text-slate-400">{t('legal.nameLabel')}</span>{' '}
+						<strong itemProp="name" className="font-semibold text-slate-300">
+							{t('legal.name')}
+						</strong>
+						<span className="mx-1.5 text-slate-700" aria-hidden>
+							|
+						</span>
+						<span className="text-slate-400">{t('legal.ceoLabel')}</span>{' '}
+						<span className="text-slate-300">{t('legal.ceo')}</span>
+						<span className="mx-1.5 text-slate-700" aria-hidden>
+							|
+						</span>
+						<span className="text-slate-400">{t('legal.bizNoLabel')}</span>{' '}
+						<span className="text-slate-300">{t('legal.bizNo')}</span>
+					</p>
+					<p className="mt-1.5">
+						<span className="text-slate-400">{t('legal.mailOrderLabel')}</span>{' '}
+						<span className="text-slate-300">{t('legal.mailOrder')}</span>
+						<span className="mx-1.5 text-slate-700" aria-hidden>
+							|
+						</span>
+						<span className="text-slate-400">{t('legal.emailLabel')}</span>{' '}
+						<a itemProp="email" href="mailto:contact@redue.kr" className="text-slate-300 hover:text-white">
+							{t('legal.email')}
+						</a>
+					</p>
+					<p className="mt-1.5">
+						<span className="text-slate-400">{t('legal.phoneLabel')}</span>{' '}
+						<a itemProp="telephone" href="tel:01032109801" className="text-slate-300 hover:text-white">
+							{t('legal.phone')}
+						</a>
+						<span className="mx-1.5 text-slate-700" aria-hidden>
+							|
+						</span>
+						<span className="text-slate-300">{t('legal.hours')}</span>
+					</p>
+					<p className="mt-1.5" itemProp="address" itemScope itemType="https://schema.org/PostalAddress">
+						<span className="text-slate-400">{t('legal.addressLabel')}</span>{' '}
+						<span itemProp="addressLocality" className="text-slate-300">
+							{t('legal.address')}
+						</span>
+					</p>
+					<p className="mt-1.5 text-slate-600">{t('legal.stack')}</p>
+				</div>
+
+				<div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-slate-900 pt-6 text-[11px] text-slate-600 sm:flex-row">
+					<div className="flex flex-col items-center gap-2 sm:items-start">
+						<p>{t('copyright')}</p>
+						<p className="mt-2 text-[10.5px] text-slate-500">{t('trademarkNotice')}</p>
+						<nav className="flex flex-wrap items-center gap-x-2" aria-label={t('legalNavAria')}>
+							<Link href="/terms" className="py-1 hover:text-slate-300">
+								{t('links.terms')}
 							</Link>
-							<span className="text-slate-300 dark:text-white/20" aria-hidden>
-								·
-							</span>
-							<Link
-								href="/terms"
-								className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-							>
-								{t('terms')}
+							<span aria-hidden>·</span>
+							<Link href="/privacy" className="py-1 hover:text-slate-300">
+								{t('links.privacy')}
 							</Link>
-							<span className="text-slate-300 dark:text-white/20" aria-hidden>
-								·
-							</span>
-							<Link
-								href="/email-refusal"
-								className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
-							>
-								{t('emailRefusal')}
+							<span aria-hidden>·</span>
+							<Link href="/terms" className="py-1 hover:text-slate-300">
+								{t('links.refund')}
 							</Link>
 						</nav>
-						<p className="footer-copyright text-slate-500">{t('copyright')}</p>
 					</div>
+					<p className="max-w-md text-center sm:text-right">{t('disclaimer')}</p>
 				</div>
 			</div>
 		</footer>

@@ -124,6 +124,19 @@ export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorksp
 					navItems={audit.navItems}
 					footerText={audit.footerText}
 					legalName={audit.legalName}
+					representativeName={audit.representativeName}
+					representativeTitle={audit.representativeTitle}
+					openingHoursOpens={audit.openingHoursOpens}
+					openingHoursCloses={audit.openingHoursCloses}
+					latitude={audit.latitude}
+					longitude={audit.longitude}
+					sameAs={audit.sameAs}
+					medicalSpecialty={audit.medicalSpecialty}
+					isAcceptingNewPatients={audit.isAcceptingNewPatients}
+					postalCode={audit.postalCode}
+					streetAddress={audit.streetAddress}
+					addressLocality={audit.addressLocality}
+					addressRegion={audit.addressRegion}
 				/>
 			) : null}
 			{tab === 'proposal' ? <ProposalTab audit={audit} /> : null}

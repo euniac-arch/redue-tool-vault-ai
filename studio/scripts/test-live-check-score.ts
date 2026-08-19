@@ -10,7 +10,9 @@ import {
 	detectCitedRank,
 	DEFAULT_CITED_SNIPPET,
 	DEFAULT_UNCITED_SNIPPET,
+	extractJsonFromText,
 	extractJsonObject,
+	LiveCheckParseError,
 	looksLikeRawJson,
 	mentionsBrandOrSite,
 	parseLLMResponse,
@@ -39,21 +41,21 @@ assert(
 assert('query empty category uses 해당 업종', resolveLiveCheckQuery({}) === '해당 업종 추천');
 
 assert('rank 1 score is 98', computeLiveScore({ isCited: true, rank: 1, hasCitationUrl: true, ruleScore: 40 }).liveScore === 98);
-assert('rank 2 score is 93', computeLiveScore({ isCited: true, rank: 2, hasCitationUrl: false, ruleScore: 40 }).liveScore === 93);
-assert('rank 3 score is 88', computeLiveScore({ isCited: true, rank: 3, hasCitationUrl: true, ruleScore: 40 }).liveScore === 88);
+assert('rank 2 score is 95', computeLiveScore({ isCited: true, rank: 2, hasCitationUrl: false, ruleScore: 40 }).liveScore === 95);
+assert('rank 3 stays in TIER 2 band', computeLiveScore({ isCited: true, rank: 3, hasCitationUrl: true, ruleScore: 40 }).liveScore === 85);
 assert(
-	'cited mention stays 75-84',
+	'cited mention stays 75-80',
 	(() => {
 		const score = computeLiveScore({ isCited: true, rank: null, hasCitationUrl: false, ruleScore: 60 }).liveScore;
-		return score >= 75 && score <= 84;
+		return score >= 75 && score <= 85;
 	})(),
 );
 assert(
-	'uncited maps rule score into 15-35',
+	'uncited keeps technical readiness score',
 	(() => {
 		const low = computeLiveScore({ isCited: false, rank: null, hasCitationUrl: false, ruleScore: 0 }).liveScore;
 		const high = computeLiveScore({ isCited: false, rank: null, hasCitationUrl: false, ruleScore: 100 }).liveScore;
-		return low === 15 && high === 35;
+		return low === 0 && high === 100;
 	})(),
 );
 assert(
@@ -124,10 +126,103 @@ assert('failed result is not grounded', failedResult.isLiveGrounded === false &&
 
 const live = buildLiveEngineResult(
 	'chatgpt',
-	{ isCited: true, rank: 1, evidenceSnippet: '1위로 추천', citationUrl: 'https://sky-clinic.com' },
+	{ isCited: true, mentionType: 'recommended', rank: 1, evidenceSnippet: '1위로 추천', citationUrl: 'https://sky-clinic.com' },
 	40,
 );
 assert('live result is grounded Level 3', live.isLiveGrounded && live.reachLevel === 'Level 3' && live.liveScore === 98);
+
+/* --------------------------------------------------------------------------
+ * Regression tests for the reported bugs:
+ * 1) ChatGPT false-positive on negated mentions ("언급되지 않았습니다" -> 98점)
+ * 2) Gemini markdown/preamble JSON parse failures ("Here is the JSON requested: ```")
+ * 3) mentionType-based score/verdict guards
+ * 4) Perplexity/Claude normal citation case still yields 98 + URL
+ * ------------------------------------------------------------------------ */
+
+// Bug 1: naive substring match used to flip a correct isCited:false to true
+// just because the brand name appeared inside a negated sentence.
+assert(
+	'negated mention is NOT counted as a positive mention',
+	!mentionsBrandOrSite('나인원의원이 언급되지 않았습니다.', '나인원의원', 'https://nineone-clinic.com'),
+);
+assert(
+	'English negation is NOT counted as a positive mention',
+	!mentionsBrandOrSite('Sky Clinic is not mentioned in the response.', 'Sky Clinic', 'https://sky-clinic.com'),
+);
+assert(
+	'positive mention still detected when there is no negation cue',
+	mentionsBrandOrSite('나인원의원을 추천합니다.', '나인원의원', 'https://nineone-clinic.com'),
+);
+
+const negatedInsideJson = parseLiveCheckPayload(
+	'{"isCited":false,"mentionType":"none","rank":null,"evidenceSnippet":"나인원의원이 언급되지 않았습니다.","citationUrl":""}',
+	'나인원의원',
+	'https://nineone-clinic.com',
+);
+assert(
+	'ChatGPT bug: negated evidenceSnippet never flips isCited to true',
+	!negatedInsideJson.isCited && negatedInsideJson.mentionType === 'none',
+);
+const negatedResult = buildLiveEngineResult('chatgpt', negatedInsideJson, 40);
+assert(
+	'ChatGPT bug: negated mention never scores in the passing (90s) band',
+	!negatedResult.isCited && negatedResult.liveScore === 40 && negatedResult.tier === 'NOT_FOUND',
+);
+
+// Bug 2: Gemini wraps JSON in a preamble / markdown fence, sometimes truncated.
+const geminiWithPreamble = extractJsonFromText(
+	'Here is the JSON requested:\n```json\n{"isCited":true,"mentionType":"recommended","rank":1,"evidenceSnippet":"1위 추천 확인","citationUrl":"https://sky-clinic.com"}\n```',
+);
+assert(
+	'extractJsonFromText parses JSON despite a leading preamble + markdown fence',
+	Boolean(geminiWithPreamble) && geminiWithPreamble?.isCited === true && geminiWithPreamble?.rank === 1,
+);
+
+const geminiTruncatedFence = extractJsonFromText(
+	'Here is the JSON requested: ```json\n{"isCited":true,"mentionType":"recommended","rank":2,"evidenceSnippet":"2위로 추천',
+);
+assert(
+	'extractJsonFromText repairs a truncated/unclosed fenced JSON object',
+	Boolean(geminiTruncatedFence) && geminiTruncatedFence?.isCited === true && geminiTruncatedFence?.rank === 2,
+);
+
+assert(
+	'extractJsonFromText returns null when there is no JSON at all',
+	extractJsonFromText('Here is the JSON requested: ```') === null,
+);
+
+let threwParseError = false;
+try {
+	parseLLMResponse('나인원의원이 언급되지 않았습니다.');
+} catch (err) {
+	threwParseError = err instanceof LiveCheckParseError;
+}
+assert('pure prose with zero JSON throws LiveCheckParseError (treated as a real failure)', threwParseError);
+
+// Bug 3: mentionType guards — isMentioned:false (or "none") can never earn a
+// passing score, and a bare mention can never reach the 90-point tier.
+assert(
+	'mentionType none keeps technical score and never becomes a live recommendation',
+	computeLiveScore({ isCited: true, rank: 1, hasCitationUrl: true, ruleScore: 90, mentionType: 'none' }).liveScore === 90,
+);
+assert(
+	'mentionType simple_mention is capped in the 75-85 TIER 2 band',
+	computeLiveScore({ isCited: true, rank: null, hasCitationUrl: false, ruleScore: 90, mentionType: 'simple_mention' }).liveScore === 75,
+);
+
+// Bug 4: normal Perplexity/Claude citation case (fenced JSON, rank 1, matching
+// URL) must still yield the 98-point pass and extract the citation URL.
+const normalCitation = parseLiveCheckPayload(
+	'```json\n{"isCited":true,"mentionType":"recommended","rank":1,"evidenceSnippet":"공식 사이트가 1위로 인용됨","citationUrl":"https://sky-clinic.com/about"}\n```',
+	'스카이피부과의원',
+	'https://sky-clinic.com',
+	['https://sky-clinic.com/about'],
+);
+const normalCitationResult = buildLiveEngineResult('perplexity', normalCitation, 40);
+assert(
+	'Perplexity/Claude normal citation keeps 98점 + citation URL',
+	normalCitationResult.isCited && normalCitationResult.liveScore === 98 && normalCitationResult.citationUrl === 'https://sky-clinic.com/about',
+);
 
 if (failed) {
 	console.error(`\n${failed} assertion(s) failed`);

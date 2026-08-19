@@ -145,7 +145,10 @@ function nationwidePhrases(hay: string, fallback: string, lang: HonestyLang): st
 	if (CANCER_HAY_RE.test(hay)) return ['암치료 추천', '암치료 상담'];
 	const cat = fallback.replace(/\s+/g, ' ').trim() || '서비스';
 	const consult = /상담|컨설팅|연구소|agency|consult/i.test(hay);
-	return consult ? [`${cat} 상담`, `${cat} 추천`] : [`${cat} 추천`, `${cat} 잘하는 곳`];
+	const medicalLike = WALK_IN_CLINIC_RE.test(hay) || /피부과|성형|치과|한의|재활|도수|통증|정형/.test(hay);
+	return consult
+		? [`${cat} 상담`, `${cat} 안내`]
+		: [`${cat} 안내`, medicalLike ? `${cat} 진료 안내` : `${cat} 정보 안내`];
 }
 
 /**
@@ -184,20 +187,28 @@ function regionSpecialtyCluster(
 		return { local, metro, nationwide, all: flattenToBeKeywordPack({ local, metro, nationwide, all: [] }) };
 	}
 
+	const medicalLike =
+		WALK_IN_CLINIC_RE.test(`${input.brandName || ''} ${input.category || ''} ${main} ${sub} ${third}`) ||
+		/피부과|성형|치과|한의|재활|도수|통증|정형/.test(`${main} ${sub} ${third} ${input.category || ''}`);
 	const local = uniqQueryPhrases(
-		[`${region} ${main} 추천`, sub ? `${region} ${sub}` : `${region} ${main} 클리닉`],
+		[medicalLike ? `${region} ${main} 안내` : `${region} ${main} 추천`, sub ? `${region} ${sub}` : `${region} ${main} 클리닉`],
 		4,
 	);
 	const metro = uniqQueryPhrases(
 		[`${region} ${main}`, third ? `${region} ${third}` : `${region} ${main} 재활`],
 		3,
 	);
+	const nationwideLead = /성형외과/.test(main)
+		? `${region} ${main} 위치 및 진료시간 안내`
+		: medicalLike
+			? `${region} ${main} 진료 안내`
+			: `${region} ${main} 안내`;
 	const nationwide = uniqQueryPhrases(
 		[
-			`${region} ${main} 잘하는 곳`,
+			nationwideLead,
 			evening ? `${region} ${main} 야간진료` : /재활|정형|도수|통증/.test(`${main} ${sub} ${third}`)
 				? `${region} ${main} 재활`
-				: `${region} ${main} 후기`,
+				: `${region} ${main} 정보 안내`,
 		],
 		4,
 	);

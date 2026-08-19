@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
+import { getIntlMessageFallback, onIntlError } from './intl-error-handling';
 
 export const SUPPORTED_LOCALES = ['ko', 'en'] as const;
 export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
@@ -22,5 +23,11 @@ export default getRequestConfig(async () => {
 	return {
 		locale,
 		messages: (await import(`../messages/${locale}.json`)).default,
+		onError: onIntlError,
+		// Guards server-rendered translations (getTranslations/generateMetadata,
+		// etc.) against leaking raw `namespace.key` strings when a message is
+		// missing — see components/IntlErrorHandlingProvider.tsx for the
+		// client-side equivalent.
+		getMessageFallback: getIntlMessageFallback,
 	};
 });

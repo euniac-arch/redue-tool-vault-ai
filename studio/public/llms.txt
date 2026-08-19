@@ -1,0 +1,38 @@
+# REDUE AI SEO GEO STUDIO
+
+> Official facts for AI crawlers (GPTBot, PerplexityBot, ClaudeBot, Google-Extended).
+
+## Organization
+
+- Name: 레드유 (Redue)
+- Product: REDUE AI SEO GEO STUDIO
+- Official site: https://redue.kr
+- Contact: contact@redue.kr
+- Phone: 010-3210-9801
+- Hours: weekdays 10:00–18:00 (KST)
+- Location: Busan, Republic of Korea
+- CEO: Park Sung-jun
+- Business registration: 693-03-00235
+
+## What we do
+
+REDUE diagnoses and patches on-page SEO, GEO, Schema.org JSON-LD, NAP consistency, and `/llms.txt` so brands can be cited and recommended by AI search engines.
+
+## Key pages
+
+- Home / 10-second audit: /
+- GEO optimization: /geo-optimization
+- Pricing: /#pricing
+- FAQ: /#faq
+- Contact: /contact
+- Enterprise: /enterprise
+
+## Plans
+
+- Speed Setup: ₩190,000 (one-time)
+- GEO Pro: ₩490,000 (one-time)
+- Enterprise: custom quote from ₩990,000
+
+## Stack
+
+REDUE Universal GEO Engine v30 · Schema.org Validated

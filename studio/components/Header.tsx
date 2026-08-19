@@ -38,12 +38,12 @@ function isNavActive(pathname: string, href: string): boolean {
 function navLinkClass(active: boolean, variant: 'desktop' | 'mobile'): string {
 	if (variant === 'desktop') {
 		return active
-			? 'text-accent border-b-2 border-accent pb-0.5 transition-colors hover:text-accent dark:text-accent-light dark:hover:text-accent-light'
-			: 'border-b-2 border-transparent pb-0.5 text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white';
+			? 'text-cyan-700 transition-colors hover:text-cyan-600 dark:text-cyan-400 dark:hover:text-cyan-300'
+			: 'text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white';
 	}
 	return active
-		? 'rounded-lg bg-accent/15 px-3 py-3 text-base font-semibold text-accent transition-colors duration-300 dark:text-accent-light'
-		: 'rounded-lg px-3 py-3 text-base font-semibold text-slate-600 transition-colors duration-300 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white';
+		? 'rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-3 text-base font-semibold text-cyan-700 transition-colors duration-300 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400'
+		: 'rounded-lg px-3 py-3 text-base font-semibold text-slate-600 transition-colors duration-300 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-[#0E162B] dark:hover:text-white';
 }
 
 function AdminEntryLink({
@@ -61,7 +61,7 @@ function AdminEntryLink({
 			onClick={onNavigate}
 			className={
 				className ??
-				'inline-flex items-center gap-1.5 rounded-lg border border-accent/40 bg-accent/10 px-2.5 py-1.5 text-xs font-semibold text-accent transition-colors hover:bg-accent/20 dark:text-accent-light'
+				'inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-cyan-500 hover:bg-cyan-500 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
 			}
 			title={t('admin')}
 		>
@@ -110,7 +110,7 @@ export function Header() {
 
 	return (
 		<header
-			className={`print:hidden sticky top-0 w-full shrink-0 border-b border-slate-200 bg-white/95 backdrop-blur-md transition-colors duration-300 dark:border-white/[0.08] dark:bg-[#0C0D0E]/95 ${
+			className={`print:hidden sticky top-0 w-full shrink-0 bg-transparent ${
 				isMenuOpen ? 'z-[9999]' : 'z-30'
 			}`}
 		>
@@ -121,14 +121,14 @@ export function Header() {
 					className="relative z-10 col-start-1 flex min-w-0 justify-self-start items-center gap-2"
 					onClick={closeMenu}
 				>
-					<span className="rounded-lg bg-accent px-2 py-1 text-sm font-bold text-white">REDUE</span>
+					<span className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-2 py-1 text-sm font-bold text-white">REDUE</span>
 					<span className="hidden truncate text-sm font-semibold text-slate-600 min-[320px]:inline dark:text-slate-300">
 						{t('tagline')}
 					</span>
 				</Link>
 
 				<nav
-					className="col-start-2 hidden justify-self-center items-center gap-5 text-sm font-semibold text-slate-600 min-[1100px]:flex dark:text-slate-400"
+					className="col-start-2 hidden items-center justify-self-center gap-5 text-sm font-semibold text-slate-600 min-[1100px]:flex dark:text-slate-400"
 					aria-label="Primary"
 				>
 					{NAV_ITEMS.map((item) => {
@@ -156,7 +156,7 @@ export function Header() {
 
 					<button
 						type="button"
-						className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition-colors duration-300 hover:bg-slate-100 hover:text-slate-900 min-[1100px]:hidden dark:border-white/[0.08] dark:text-slate-300 dark:hover:bg-white/5 dark:hover:text-white"
+						className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors duration-300 hover:border-cyan-500/40 hover:bg-slate-50 hover:text-slate-900 min-[1100px]:hidden dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-[#0E162B] dark:hover:text-white"
 						aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
 						aria-expanded={isMenuOpen}
 						aria-controls="mobile-nav"

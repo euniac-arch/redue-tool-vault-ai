@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { mentionsBrandOrSite } from '@/lib/audit/live-check-score';
 import type { LiveProbeEngineResult } from '@/types/live-probe';
 
 export const runtime = 'nodejs';
@@ -23,10 +24,16 @@ function asString(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : '';
 }
 
+/**
+ * Negation-aware mention check (delegates to the same detector used by the
+ * 4-engine live-check pipeline) so a sentence like "브랜드가 언급되지 않았습니다."
+ * is never counted as a positive mention just because the brand name appears
+ * in it.
+ */
 function mentionsBrand(text: string, brandName: string): boolean {
 	const brand = brandName.trim();
 	if (!brand) return false;
-	return text.toLowerCase().includes(brand.toLowerCase());
+	return mentionsBrandOrSite(text, brand, '');
 }
 
 function missingKeyResult(

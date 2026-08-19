@@ -1,42 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { AUDIT_HERO_ID, AUDIT_URL_INPUT_ID } from '@/components/landing/scroll-to-audit';
-import { sanitizeUrlInput, toPunycodeHref } from '@/lib/audit/normalize-url';
+import { AUDIT_HERO_ID, AUDIT_START_AREA_ID } from '@/components/landing/scroll-to-audit';
+import { UrlAuditForm } from '@/components/landing/UrlAuditForm';
 
-function normalizeAuditUrl(raw: string): string {
-	const trimmed = sanitizeUrlInput(raw);
-	if (!trimmed) return '';
-	try {
-		return toPunycodeHref(trimmed);
-	} catch {
-		if (/^https?:\/\//i.test(trimmed)) return trimmed;
-		return `https://${trimmed.replace(/^\/+/, '')}`;
-	}
-}
+const HERO_POINTS = [
+	{ key: 'speed', emoji: '⚡', tone: 'cyan' },
+	{ key: 'unified', emoji: '📊', tone: 'slate' },
+	{ key: 'actionable', emoji: '💡', tone: 'emerald' },
+] as const;
 
-function buildResultHref(url: string, extraQuery?: Record<string, string>): string {
-	const params = new URLSearchParams();
-	params.set('url', url);
-	params.set('forceRefresh', 'true');
-	params.set('t', String(Date.now()));
-	if (extraQuery) {
-		for (const [key, value] of Object.entries(extraQuery)) {
-			if (value) params.set(key, value);
-		}
-	}
-	return `/audit/result?${params.toString()}`;
-}
-
-function isOnAuditResult(): boolean {
-	return typeof window !== 'undefined' && window.location.pathname.startsWith('/audit/result');
-}
+const POINT_TONE_CLASS = {
+	cyan: 'border-cyan-500/20 font-semibold text-cyan-300 shadow-sm',
+	slate: 'border-slate-800 font-medium text-slate-300',
+	emerald: 'border-emerald-500/20 font-semibold text-emerald-300 shadow-sm',
+} as const;
 
 /**
- * Persuasive B2B hero: outcome-led headline → URL scan CTA.
- * Value cards sit outside this box on the landing page.
+ * Landing hero: glassmorphism box → H1 → subcopy → 3 proof chips → URL scan CTA.
  *
  * `initialUrl` + `autoSubmit` power `/diagnose?domain=&target_id=` from the admin list.
  */
@@ -50,156 +31,84 @@ export function FreeAuditHero({
 	autoSubmit?: boolean;
 } = {}) {
 	const t = useTranslations('hero');
-	const router = useRouter();
-	const [url, setUrl] = useState(() => normalizeAuditUrl(initialUrl));
-	const [submitting, setSubmitting] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-	const extraQueryRef = useRef(extraQuery);
-	extraQueryRef.current = extraQuery;
-	const watchdogRef = useRef<number | null>(null);
-	const inFlightRef = useRef(false);
-
-	useEffect(() => {
-		const normalized = normalizeAuditUrl(initialUrl);
-		if (normalized) setUrl(normalized);
-	}, [initialUrl]);
-
-	useEffect(() => {
-		return () => {
-			if (watchdogRef.current != null) {
-				window.clearTimeout(watchdogRef.current);
-				watchdogRef.current = null;
-			}
-		};
-	}, []);
-
-	const handleDiagnose = useCallback(
-		(raw: string) => {
-			const normalized = normalizeAuditUrl(raw);
-			if (!normalized) {
-				inFlightRef.current = false;
-				setError(t('invalidUrl'));
-				setSubmitting(false);
-				return;
-			}
-			if (inFlightRef.current) return;
-			inFlightRef.current = true;
-
-			setUrl(normalized);
-			setError(null);
-			setSubmitting(true);
-
-			const href = buildResultHref(normalized, extraQueryRef.current);
-			let navigated = false;
-
-			try {
-				router.replace(href);
-				navigated = true;
-			} catch (err) {
-				setError(err instanceof Error && err.message ? err.message : t('launchError'));
-			} finally {
-				if (!navigated) {
-					inFlightRef.current = false;
-					setSubmitting(false);
-				}
-			}
-
-			if (!navigated) return;
-
-			if (watchdogRef.current != null) window.clearTimeout(watchdogRef.current);
-			watchdogRef.current = window.setTimeout(() => {
-				watchdogRef.current = null;
-				if (isOnAuditResult()) return;
-				try {
-					window.location.assign(href);
-				} catch {
-					inFlightRef.current = false;
-					setError(t('launchError'));
-					setSubmitting(false);
-				}
-			}, 1200);
-		},
-		[router, t],
-	);
-
-	useEffect(() => {
-		if (!autoSubmit) return;
-		const normalized = normalizeAuditUrl(initialUrl);
-		if (!normalized) return;
-
-		let cancelled = false;
-		const timer = window.setTimeout(() => {
-			if (cancelled) return;
-			handleDiagnose(normalized);
-		}, 0);
-
-		return () => {
-			cancelled = true;
-			window.clearTimeout(timer);
-		};
-	}, [autoSubmit, initialUrl, handleDiagnose]);
-
-	function handleSubmit(event: React.FormEvent) {
-		event.preventDefault();
-		handleDiagnose(url);
-	}
 
 	return (
 		<section
 			id={AUDIT_HERO_ID}
-			className="scroll-mt-24 flex flex-col items-center rounded-3xl border border-slate-200 dark:border-white/[0.08] bg-gradient-to-br from-accent/10 via-white to-indigo-50 dark:from-accent/20 dark:via-[#0B1220] dark:to-indigo-950/40 px-5 py-12 text-center sm:px-8 sm:py-14"
+			className="relative isolate flex min-h-[640px] w-full scroll-mt-24 items-center justify-center overflow-hidden bg-[#050714] py-16 font-['Pretendard',sans-serif] tracking-tight sm:py-24"
 		>
-			<span className="rounded-full border border-accent/40 bg-accent/15 px-3 py-1 text-xs font-bold text-indigo-700 dark:text-accent-light">
-				{t('badge')}
-			</span>
-
-			<h1 className="mt-5 max-w-4xl text-2xl font-extrabold leading-snug tracking-tight text-slate-900 dark:text-white sm:text-3xl md:text-4xl md:leading-tight">
-				<span className="block">{t('titleLine1')}</span>
-				<span className="mt-1 block font-black text-slate-900 dark:text-white">{t('titleLine2')}</span>
-			</h1>
-
-			<p className="mt-4 max-w-2xl break-keep text-sm leading-relaxed text-slate-700 dark:text-slate-300 sm:text-base">
-				<span className="block">{t('descriptionLine1')}</span>
-				<span className="mt-2 block">{t('descriptionLine2')}</span>
-			</p>
-
-			<form
-				onSubmit={handleSubmit}
-				className="mt-8 mx-auto grid w-full max-w-2xl grid-cols-1 gap-2.5 sm:grid-cols-[1fr_auto]"
-			>
-				<input
-					id={AUDIT_URL_INPUT_ID}
-					type="text"
-					required
-					value={url}
-					aria-label={t('placeholder')}
-					onChange={(event) => {
-						setUrl(event.target.value);
-						if (error) setError(null);
-					}}
-					placeholder={t('placeholder')}
-					readOnly={autoSubmit && submitting}
-					className="w-full rounded-xl border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-black/50 px-4 py-3.5 text-sm text-slate-900 dark:text-slate-100 outline-none ring-accent/0 transition focus:border-accent focus:ring-2 focus:ring-accent/30"
+			<div className="pointer-events-none absolute inset-0 select-none overflow-hidden" aria-hidden>
+				<img
+					src="/images/hero-bg.png"
+					alt=""
+					className="absolute inset-0 h-full w-full object-cover object-center opacity-85"
 				/>
-				<button
-					type="submit"
-					disabled={submitting}
-					className="w-full whitespace-nowrap rounded-xl bg-accent px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-accent/35 transition hover:bg-accent-light disabled:opacity-50 sm:w-auto"
-				>
-					{submitting ? t('buttonLoading') : t('button')}
-				</button>
-			</form>
+				<div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-[#050714] via-[#050714]/40 to-transparent" />
+				<div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-[#050714] via-[#050714]/40 to-transparent" />
+				<div className="absolute inset-0 bg-[#050714]/30" />
+			</div>
 
-			{error ? (
-				<p
-					role="alert"
-					className="mt-3 max-w-3xl rounded-lg border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-3 py-2 text-sm text-rose-700 dark:text-rose-200"
-				>
-					{error}
-				</p>
-			) : (
-				<p className="mt-3 text-[11px] text-slate-500">{t('formHint')}</p>
-			)}
+			<div className="relative z-10 mx-auto w-full max-w-[960px] px-4 sm:px-6">
+				<div className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-gradient-to-b from-slate-900/90 via-slate-900/60 to-[#0B1120]/95 p-6 text-center shadow-[0_0_60px_rgba(6,182,212,0.12)] backdrop-blur-xl sm:p-12">
+					<div
+						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-500/15 via-transparent to-transparent"
+						aria-hidden
+					/>
+					<div
+						className="pointer-events-none absolute -top-24 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-cyan-500/20 blur-[80px]"
+						aria-hidden
+					/>
+
+					<div className="relative z-10 mb-6 inline-flex max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-2xl border border-slate-800 bg-slate-950/80 px-3 py-1.5 text-[11px] text-slate-300 sm:rounded-full sm:text-xs">
+						<span className="relative flex h-2 w-2 shrink-0">
+							<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-cyan-400 opacity-75" />
+							<span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-500" />
+						</span>
+						<span className="font-medium text-cyan-300">{t('enginesLive')}</span>
+						<span className="text-slate-600" aria-hidden>
+							|
+						</span>
+						<span className="text-slate-400">{t('enginesProxy')}</span>
+					</div>
+
+					<div className="relative z-10 mx-auto max-w-[760px] space-y-2">
+						<h1 className="text-3xl font-black leading-tight tracking-tight text-white sm:text-5xl sm:leading-tight">
+							<span className="block break-keep">{t('titleLine1')}</span>
+							<span className="block break-keep bg-gradient-to-r from-cyan-300 via-teal-200 to-emerald-400 bg-clip-text text-transparent">
+								{t('titleLine2')}
+							</span>
+						</h1>
+						<p className="mx-auto max-w-[620px] break-keep pt-2 text-sm font-normal leading-relaxed text-slate-400 sm:text-lg">
+							{t('descriptionLine1')} {t('descriptionLine2')}
+						</p>
+					</div>
+
+					<div className="relative z-10 my-8 flex flex-wrap items-center justify-center gap-2.5">
+						{HERO_POINTS.map(({ key, emoji, tone }) => (
+							<span
+								key={key}
+								className={`inline-flex items-center gap-1.5 rounded-xl border bg-slate-950/70 px-3.5 py-1.5 text-xs sm:text-sm ${POINT_TONE_CLASS[tone]}`}
+							>
+								<span aria-hidden>{emoji}</span>
+								{t(`points.${key}`)}
+							</span>
+						))}
+					</div>
+
+					<div id={AUDIT_START_AREA_ID} className="relative z-10">
+						<UrlAuditForm
+							initialUrl={initialUrl}
+							extraQuery={extraQuery}
+							autoSubmit={autoSubmit}
+							variant="hero"
+						/>
+						<p className="mt-3.5 break-keep text-[11px] text-slate-500 sm:text-xs">{t('formHint')}</p>
+						<p className="mx-auto mt-2 max-w-[620px] break-keep text-[10px] leading-relaxed text-slate-600 sm:text-[11px]">
+							{t('formDisclaimer')}
+						</p>
+					</div>
+				</div>
+			</div>
 		</section>
 	);
 }

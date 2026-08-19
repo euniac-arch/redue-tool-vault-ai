@@ -235,16 +235,16 @@ function medicalLsi(spec: string, ctx: PipelineCtx): string[] {
 	switch (cluster) {
 		case 'sports':
 			return [
-				withLoc(ctx, `${spec} 잘하는 곳`),
+				withLoc(ctx, `${spec} 진료 안내`),
 				withLoc(ctx, '재활치료 클리닉'),
 				withLoc(ctx, '체형교정 도수치료'),
 				withLoc(ctx, '물리치료 의원'),
 			];
 		case 'child':
-			return [withLoc(ctx, `${spec} 잘하는 곳`), withLoc(ctx, '아동 언어치료 센터'), withLoc(ctx, '소아재활 클리닉')];
+			return [withLoc(ctx, `${spec} 진료 안내`), withLoc(ctx, '아동 언어치료 센터'), withLoc(ctx, '소아재활 클리닉')];
 		case 'pain':
 			return [
-				withLoc(ctx, `${spec} 잘하는 의원`),
+				withLoc(ctx, `${spec} 진료 안내`),
 				withLoc(ctx, '통증의학과 추천'),
 				withLoc(ctx, '비수술 관절치료'),
 				withLoc(ctx, `${spec} 인근 클리닉`),
@@ -252,9 +252,9 @@ function medicalLsi(spec: string, ctx: PipelineCtx): string[] {
 		case 'cancer':
 			return [withLoc(ctx, `${spec} 전문 병원`), '방사선종양학과', '암센터'];
 		case 'dental':
-			return [withLoc(ctx, `${spec} 잘하는 곳`), withLoc(ctx, '치과 야간진료')];
+			return [withLoc(ctx, `${spec} 진료 안내`), withLoc(ctx, '치과 야간진료')];
 		default:
-			return [withLoc(ctx, `${spec} 잘하는 곳`), withLoc(ctx, '야간진료 병원')];
+			return [withLoc(ctx, `${spec} 진료 안내`), withLoc(ctx, '야간진료 병원')];
 	}
 }
 

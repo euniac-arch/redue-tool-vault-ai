@@ -195,9 +195,9 @@ export function TimelineRankForecastDashboard({ embedded = false }: { embedded?:
 						const tone = STEP_TONE[step.tone];
 						const isActive = activeChartKey === step.id;
 						return (
-							<li
+								<li
 								key={step.id}
-								className="relative flex gap-3 md:w-[176px] md:shrink-0 md:flex-col md:items-center md:gap-0 md:px-1 md:snap-start lg:w-auto lg:min-w-0 lg:px-0"
+								className="relative flex gap-3 md:w-[200px] md:shrink-0 md:flex-col md:items-center md:gap-0 md:px-1 md:snap-start lg:w-auto lg:min-w-0 lg:px-0"
 								onMouseEnter={() => setHoveredKey(step.id)}
 								onMouseLeave={() => setHoveredKey(null)}
 								onFocus={() => setHoveredKey(step.id)}
@@ -220,17 +220,19 @@ export function TimelineRankForecastDashboard({ embedded = false }: { embedded?:
 									onClick={() => setPinnedKey(step.id)}
 								>
 									<span
-										className={`inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${tone.badge}`}
+										className={`inline-flex flex-wrap items-center gap-x-1 gap-y-0.5 rounded-full border px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${tone.badge}`}
 									>
 										{t(`steps.${step.id}.when`)}
-										<span className="font-semibold normal-case tracking-normal opacity-80">
-											· {t(`steps.${step.id}.phase`)}
-										</span>
+										{t(`steps.${step.id}.phase`) ? (
+											<span className="font-semibold normal-case tracking-normal opacity-80">
+												· {t(`steps.${step.id}.phase`)}
+											</span>
+										) : null}
 									</span>
-									<p className={`mt-1.5 text-xs font-bold leading-snug lg:text-xs xl:text-sm ${tone.title}`}>
+									<p className={`mt-1.5 break-keep text-xs font-bold leading-snug lg:text-xs xl:text-sm ${tone.title}`}>
 										{t(`steps.${step.id}.title`)}
 									</p>
-									<p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+									<p className="mt-1 break-keep text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
 										{t(`steps.${step.id}.desc`)}
 									</p>
 								</button>
@@ -412,6 +414,10 @@ export function TimelineRankForecastDashboard({ embedded = false }: { embedded?:
 					) : null}
 				</div>
 			</div>
+
+			<p className="mt-4 break-keep text-[11px] leading-relaxed text-slate-500 dark:text-slate-500">
+				{t('footnote')}
+			</p>
 		</>
 	);
 

@@ -1,5 +1,6 @@
 import type { IndustryType } from '@/lib/audit/site-metadata';
 import type { AuditReport } from '@/lib/site-auditor';
+import { extractNapFromCorpus } from '@/lib/audit/extractors/nap';
 import { buildToBeKeywordPack } from '@/lib/geo/as-is-honesty';
 import { cleanMedicalEntities } from '@/lib/geo/clean-medical-entities';
 import { buildEngineAnalysisTags } from '@/lib/geo/precision-diagnostics';
@@ -815,7 +816,7 @@ function collectJsonLdNodes(raw: unknown, out: Record<string, unknown>[]): void 
 	if (node.mainEntity) collectJsonLdNodes(node.mainEntity, out);
 }
 
-/** NAP from the same crawled AuditReport used by Tab 1 / Tab 2 (JSON-LD snippets + siteMeta). */
+/** NAP from the same crawled AuditReport used by Tab 1 / Tab 2 (JSON-LD snippets + siteMeta + footer). */
 export function napFromAuditReport(report: AuditReport): GeoNapInfo {
 	const nap: GeoNapInfo = { name: report.siteMeta?.brandName || report.metrics?.pageTitle };
 	for (const snippet of report.metrics?.jsonLdSnippets ?? []) {
@@ -830,6 +831,20 @@ export function napFromAuditReport(report: AuditReport): GeoNapInfo {
 		} catch {
 			/* truncated or invalid snippet */
 		}
+	}
+	const footerNap = extractNapFromCorpus(
+		[report.footerText, report.siteMeta?.address, report.siteMeta?.telephone].filter(Boolean).join('\n'),
+	);
+	if (!nap.telephone) nap.telephone = report.siteMeta?.telephone || footerNap.telephone || undefined;
+	if (!nap.streetAddress) nap.streetAddress = footerNap.streetAddress || undefined;
+	if (!nap.addressLocality) nap.addressLocality = footerNap.addressLocality || report.siteMeta?.location;
+	if (!nap.addressRegion) nap.addressRegion = footerNap.addressRegion || undefined;
+	if (!nap.address) {
+		nap.address =
+			report.siteMeta?.address ||
+			footerNap.address ||
+			[nap.addressRegion, nap.addressLocality, nap.streetAddress].filter(Boolean).join(' ') ||
+			undefined;
 	}
 	if (!nap.addressLocality && report.siteMeta?.location) {
 		nap.addressLocality = report.siteMeta.location;
@@ -878,6 +893,8 @@ export function contextFromDiagnostic(
 			| 'title'
 			| 'metaKeywords'
 			| 'navMenuTexts'
+			| 'representativeName'
+			| 'representativeTitle'
 		>
 	>,
 ): GeoSiteContext {
@@ -921,6 +938,8 @@ export function contextFromDiagnostic(
 		title: extra?.title,
 		metaKeywords: extra?.metaKeywords,
 		navMenuTexts: extra?.navMenuTexts,
+		representativeName: extra?.representativeName,
+		representativeTitle: extra?.representativeTitle,
 	};
 	draft.specialties = extractSpecialties(draft);
 	draft.brandOnlyAsIs = extra && 'brandOnlyAsIs' in extra ? extra.brandOnlyAsIs : undefined;

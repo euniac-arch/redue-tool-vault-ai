@@ -411,6 +411,11 @@ export function EnterpriseBlueprintModal({ open, onClose }: EnterpriseBlueprintM
 					</div>
 
 					<BlueprintEngineeringGuides />
+
+					<div className="mt-8 space-y-1 rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-[11px] leading-relaxed text-slate-500">
+						<p>{t('disclaimer1')}</p>
+						<p>{t('disclaimer2')}</p>
+					</div>
 				</div>
 
 				<footer className="shrink-0 border-t border-zinc-800/80 px-6 py-4 md:px-8">

@@ -150,8 +150,8 @@ const liveGeo = computeAdvancedGeoFromReport({
 	},
 });
 assert(
-	'live snapshot binds real names',
-	liveGeo.shareOfVoice.shares.some((row) => row.name === '센텀튼튼내과'),
+	'live snapshot binds anonymized names',
+	liveGeo.shareOfVoice.shares.some((row) => row.name.startsWith('경쟁 A사')),
 );
 assert('live snapshot marks real data', liveGeo.shareOfVoice.hasRealCompetitorData === true);
 assert('live snapshot leader is 27', liveGeo.shareOfVoice.leaderSharePct === RANK_1_SHARE, String(liveGeo.shareOfVoice.leaderSharePct));

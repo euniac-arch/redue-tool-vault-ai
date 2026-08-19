@@ -37,7 +37,7 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 			className={`flex items-center rounded-full p-0.5 text-xs font-bold ${
 				forceLight
 					? 'border border-zinc-200 bg-zinc-50'
-					: 'border border-slate-200 bg-slate-50 dark:border-white/[0.08] dark:bg-white/5'
+					: 'border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900'
 			}`}
 		>
 			{OPTIONS.map((option) => (
@@ -49,7 +49,7 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 						locale === option.code
 							? forceLight
 								? 'bg-zinc-900 text-white'
-								: 'bg-slate-900 text-white dark:bg-accent'
+								: 'bg-cyan-500 text-slate-950'
 							: forceLight
 								? 'text-zinc-500 hover:text-zinc-900'
 								: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'

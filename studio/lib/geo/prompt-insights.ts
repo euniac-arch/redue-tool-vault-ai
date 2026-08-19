@@ -250,14 +250,14 @@ export function buildRecommendationReasons(
 	const longtail: RecommendationReason = {
 		id: 'longtail_intent',
 		index: 3,
-		title: en ? 'Long-tail intent dominance' : '세부 의도 독점',
-		subtitle: 'Long-tail Intent Dominance',
+		title: en ? 'Long-tail intent optimization' : '세부 질의 점유율 확대',
+		subtitle: 'Long-tail Intent Optimization',
 		example,
 		contrastQuery: contrast,
 		schemaHints: hints.slice(0, 1),
 		mechanism: en
-			? `A simple query like “${contrast}” is crowded. Conversational combos such as “${example}” in ${loc} are far more likely to monopolize the AI recommendation list versus competing sites.`
-			: `단순 단어(“${contrast}”) 대비, “${example}” 같은 대화형 세부 조합 질문은 경쟁 사이트 대비 AI 추천 목록을 독점할 확률이 대폭 증가합니다.`,
+			? `A simple query like “${contrast}” is crowded. Conversational combos such as “${example}” in ${loc} are far more likely to enter and be cited in the AI recommendation list versus competing sites.`
+			: `단순 단어(“${contrast}”) 대비, “${example}” 같은 대화형 세부 조합 질문은 경쟁 사이트 대비 AI 추천 목록 진입 및 인용 채택 확률이 대폭 향상됩니다.`,
 	};
 
 	return [entity, rag, longtail];

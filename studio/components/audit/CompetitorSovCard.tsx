@@ -12,6 +12,7 @@ import {
 	type DynamicSovResult,
 	type LeaderboardItem,
 } from '@/lib/audit/advancedGeoMetrics';
+import { anonymizedCompetitorLabel, softenComparativeQuery } from '@/lib/audit/anonymize-competitor';
 import { generateQueryMatrix } from '@/lib/geo/query-matrix';
 import { type IndustryConfig } from '@/lib/registry/universalIndustryRegistry';
 
@@ -78,13 +79,37 @@ export function CompetitorSovCard({
 	const [isLoading, setIsLoading] = useState(false);
 	const requestQueryRef = useRef(activeQuery);
 
+	// Single source of truth for "which site/report is being diagnosed" —
+	// used to hard-reset local state (and drop any stale cached SoV/keyword)
+	// whenever a brand-new site is audited, even if its default query differs
+	// from whatever keyword was previously selected on the old site.
+	const targetSiteName = (clientName || localSov.brandName || '').trim();
+	const siteIdentity = `${(siteUrl || '').trim()}::${(clientName || '').trim()}`;
+	const siteIdentityRef = useRef(siteIdentity);
+
 	useEffect(() => {
+		const siteChanged = siteIdentityRef.current !== siteIdentity;
+		siteIdentityRef.current = siteIdentity;
+
+		if (siteChanged) {
+			// New target site/URL diagnosed — discard the previous site's
+			// cached leaderboard and keyword instead of letting them linger.
+			const nextQuery = sovData.targetQuery || presets[0] || '';
+			requestQueryRef.current = nextQuery;
+			setIsLoading(false);
+			setCustomInput('');
+			setLocalSov(sovData);
+			setActiveQuery(nextQuery);
+			return;
+		}
+
 		const incomingQuery = normalizeSovKeyword(sovData.targetQuery);
 		const selectedQuery = normalizeSovKeyword(activeQuery);
 		if (incomingQuery && selectedQuery && incomingQuery !== selectedQuery) return;
 		setLocalSov(sovData);
 		if (sovData.targetQuery) setActiveQuery(sovData.targetQuery);
-	}, [sovData, activeQuery]);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [sovData, siteIdentity]);
 
 	const displaySov = useMemo(
 		() =>
@@ -93,8 +118,9 @@ export function CompetitorSovCard({
 				industryConfig,
 				region,
 				mainService: resolvedMain,
+				targetSiteName,
 			}),
-		[localSov, activeQuery, lang, industryConfig, region, resolvedMain],
+		[localSov, activeQuery, lang, industryConfig, region, resolvedMain, targetSiteName],
 	);
 
 	const leaderboard =
@@ -117,14 +143,15 @@ export function CompetitorSovCard({
 	const potentialGain = reclaimGain;
 	const currentSovWidth = Math.min(100, Math.max(0, currentSov));
 	const targetSovWidth = Math.min(100, Math.max(0, targetSov));
-	const leaderFallback = industryConfig.defaultCategory || t('leaderFallback');
+	const targetSiteNameLabel = targetSiteName || t('selfFallback');
 	const vulnerability =
 		displaySov.vulnerabilityInsight ||
 		t('vulnerabilityBody', {
-			comp1Name: leader?.name || leaderFallback,
+			comp1Name: anonymizedCompetitorLabel(leader?.rank || 1, lang),
 			comp1Share: leader?.share ?? 0,
 			toBeShare: displaySov.toBeShare,
 			reclaimPotential: reclaimGain,
+			targetSiteName: targetSiteNameLabel,
 		});
 
 	const fetchSovByQuery = async (query: string): Promise<DynamicSovResult | null> => {
@@ -152,7 +179,7 @@ export function CompetitorSovCard({
 				lang,
 				industryConfig,
 			}),
-			{ lang, industryConfig },
+			{ lang, industryConfig, targetSiteName },
 		);
 	};
 
@@ -266,7 +293,7 @@ export function CompetitorSovCard({
 								</span>
 								<span className="inline-flex items-center gap-0.5 rounded-md border border-blue-100 bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/40 dark:text-blue-300">
 									<span className="font-medium text-blue-400">#</span>
-									{activeQuery}
+									<span className="break-keep">{softenComparativeQuery(activeQuery)}</span>
 								</span>
 							</div>
 						) : (
@@ -317,7 +344,7 @@ export function CompetitorSovCard({
 										}`}
 									>
 										<span className="font-normal text-slate-400">#</span>
-										<span>{query}</span>
+										<span className="break-keep">{softenComparativeQuery(query)}</span>
 										{isSelected ? (
 											<span className="inline-flex h-3 w-3 shrink-0 items-center justify-center" aria-hidden>
 												{isCurrentLoading ? (

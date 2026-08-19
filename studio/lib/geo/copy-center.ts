@@ -4,6 +4,7 @@
  */
 
 import { buildLlmsTxtContent } from '@/lib/audit/advancedGeoMetrics';
+import { auditDataFromSite, buildCompliantFaqs } from '@/lib/audit/universal-compliant-engine';
 import { cleanMedicalEntities, extractValidSpecialties } from '@/lib/geo/clean-medical-entities';
 import { contextFromDiagnostic, resolveGeneratedSchemaType, wrapJsonLdScript } from '@/lib/geo/prescription-patches';
 import { buildKeywordWeights } from '@/lib/geo/prompt-insights';
@@ -403,16 +404,33 @@ export function buildCitationFaqs(
 ): Array<{ question: string; answer: string }> {
 	const config = industryConfigFromContext(ctx, menus);
 	const services = extractValidSpecialties(menus.map((m) => m.name));
-	const faqs = config.profile.faqGenerator({
-		brandName: ctx.brandName,
-		location: ctx.location,
-		primaryKeyword: services[0] || config.primaryKeyword,
-		services,
-		domain: ctx.domain,
-		url: ctx.url,
-		lang: ctx.lang,
-	});
-	return citeMissingServices(faqs, services, ctx.lang);
+	const universal = buildCompliantFaqs(
+		auditDataFromSite({
+			domain: ctx.domain,
+			url: ctx.url,
+			brandName: ctx.brandName,
+			location: ctx.location,
+			category: ctx.category,
+			primaryKeyword: services[0] || config.primaryKeyword,
+			targetKeywords: services,
+			schemaType: ctx.schemaType,
+			industryType: ctx.industryType,
+			lang: ctx.lang,
+			detectedCategory: config.profile.label[ctx.lang === 'en' ? 'en' : 'ko'],
+		}),
+	);
+	const extras = config.profile
+		.faqGenerator({
+			brandName: ctx.brandName,
+			location: ctx.location,
+			primaryKeyword: services[0] || config.primaryKeyword,
+			services,
+			domain: ctx.domain,
+			url: ctx.url,
+			lang: ctx.lang,
+		})
+		.slice(2);
+	return citeMissingServices([...universal, ...extras].slice(0, 5), services, ctx.lang);
 }
 
 export function buildFaqPageJsonLd(
@@ -511,6 +529,8 @@ function siteContext(
 		entityPhrases: opts?.entityPhrases,
 		needSignals: opts?.needSignals,
 		nap: opts?.nap,
+		representativeName: opts?.representativeName,
+		representativeTitle: opts?.representativeTitle,
 	});
 }
 
@@ -566,6 +586,8 @@ function assemblePayload(ctx: GeoSiteContext, menus: CopyCenterMenu[]): CopyCent
 			title: ctx.title,
 			description: ctx.description || ctx.ogDescription,
 			legacyIndustry: ctx.industryType,
+			representativeName: ctx.representativeName,
+			representativeTitle: ctx.representativeTitle,
 			lang: ctx.lang,
 		}),
 	};

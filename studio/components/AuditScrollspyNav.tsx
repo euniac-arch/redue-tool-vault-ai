@@ -220,7 +220,7 @@ export function AuditScrollspyNav({
 									<span
 										className={`h-2 w-2 shrink-0 rounded-full bg-slate-600/70 transition-all duration-300 ${
 											isActive
-												? 'scale-150 bg-indigo-500 ring-4 ring-indigo-500/20'
+												? 'scale-150 bg-cyan-500 ring-4 ring-cyan-500/20'
 												: 'group-hover:bg-slate-400'
 										}`}
 										aria-hidden
@@ -234,7 +234,7 @@ export function AuditScrollspyNav({
 					type="button"
 					onClick={scrollToTop}
 					aria-label={t('scrollToTopAria')}
-					className="group relative mx-auto mt-2 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-500 shadow-lg backdrop-blur-md transition-all duration-200 hover:scale-110 hover:bg-indigo-50 hover:text-indigo-600 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-400 dark:hover:bg-indigo-950/60 dark:hover:text-indigo-400"
+					className="group relative mx-auto mt-2 flex h-7 w-7 items-center justify-center rounded-full border border-slate-200/80 bg-white/90 text-slate-500 shadow-lg backdrop-blur-md transition-all duration-200 hover:scale-110 hover:border-cyan-500 hover:bg-cyan-500 hover:text-slate-950 dark:border-slate-800 dark:bg-[#0B1120]/90 dark:text-slate-400 dark:hover:border-cyan-500 dark:hover:bg-cyan-500 dark:hover:text-slate-950"
 				>
 					<ArrowUp className="h-4 w-4 transition-transform duration-200 group-hover:-translate-y-0.5" aria-hidden />
 					<span className="pointer-events-none absolute left-full top-1/2 z-50 ml-3 -translate-y-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white/95 px-3 py-1.5 text-xs text-slate-900 opacity-0 shadow-xl transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 translate-x-[-8px] dark:border-white/10 dark:bg-slate-900/95 dark:text-slate-100">

@@ -10,6 +10,7 @@ import {
 	buildCanonicalLinkHtmlTag,
 	buildJsDeferAutoFixerScriptTag,
 	stripHardcodedCanonicalTags,
+	stripRedueSchemaBlocks,
 } from '@/lib/solve/dynamic-php-schema';
 
 export type InjectionGroup = 'global' | 'page' | 'other';
@@ -1097,17 +1098,7 @@ export function checkInjectionSafety(source: string): InjectionSafety {
 
 /** Strip prior REDUE inject blocks so re-patch stays idempotent (1회 통합 주입). */
 export function stripPriorRedueInject(source: string): string {
-	let out = source;
-	out = out.replace(
-		/<\?php\s*\/\*\s*REDUE_AI_STUDIO:START[\s\S]*?REDUE_AI_STUDIO:END\s*\*\/\s*\?>\s*/gi,
-		'',
-	);
-	out = out.replace(/\/\*\s*REDUE_AI_STUDIO:START[\s\S]*?REDUE_AI_STUDIO:END\s*\*\//gi, '');
-	out = out.replace(
-		/<!--\s*REDUE SEO\/GEO Auto-Inject[\s\S]*?<!--\s*\/REDUE SEO\/GEO Auto-Inject\s*-->\s*/gi,
-		'',
-	);
-	return out;
+	return stripRedueSchemaBlocks(source);
 }
 
 const PHP_OPEN_RE = /<\?php\b/i;

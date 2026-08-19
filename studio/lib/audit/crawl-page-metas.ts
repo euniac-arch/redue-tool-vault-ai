@@ -7,6 +7,7 @@ import {
 	splitPageTitle,
 	type NavLinkItem,
 } from '@/lib/audit/parser';
+import { collectGreetingCandidateUrls, isGreetingPagePath } from '@/lib/audit/extractors/representative-pages';
 
 export type CrawledPageMeta = {
 	urlPath: string;
@@ -151,7 +152,8 @@ async function fetchHtml(
 		if (!res.ok) return { ok: false, text: '' };
 		const text = (await res.text()).slice(0, MAX_HTML_CHARS);
 		return { ok: true, text };
-	} catch {
+	} catch (error) {
+		console.error('[crawl-page-metas] fetch failed:', url, error instanceof Error ? error.message : error);
 		return { ok: false, text: '' };
 	}
 }
@@ -203,6 +205,7 @@ export async function crawlCollectedPageMetas(opts: {
 
 	const candidates = [...new Set(opts.collectedUrls)]
 		.filter((href) => shouldCrawlHref(href, mainPath))
+		.sort((a, b) => Number(isGreetingPagePath(b)) - Number(isGreetingPagePath(a)))
 		.slice(0, limit);
 
 	const out: CrawledPageMeta[] = [];
@@ -212,48 +215,53 @@ export async function crawlCollectedPageMetas(opts: {
 		const batch = candidates.slice(i, i + concurrency);
 		const rows = await Promise.all(
 			batch.map(async (hrefPath) => {
-				const abs = new URL(hrefPath, opts.origin).toString();
-				const fetched = await fetchHtml(abs, { forceRefresh });
-				if (!fetched.ok || !fetched.text) {
+				try {
+					const abs = new URL(hrefPath, opts.origin).toString();
+					const fetched = await fetchHtml(abs, { forceRefresh });
+					if (!fetched.ok || !fetched.text) {
+						const navLabel = navByHref.get(hrefPath.toLowerCase());
+						if (!navLabel) return null;
+						return {
+							urlPath: hrefPath,
+							title: navLabel,
+							h1: navLabel,
+							description: '',
+						} satisfies CrawledPageMeta;
+					}
+					const $ = cheerio.load(fetched.text);
+					const meta = parseMeta($, opts.siteName);
+					const h1Texts = extractContentScopedHeadings($);
+					const images = parseImages($);
+					const headings = parseHeadings($);
 					const navLabel = navByHref.get(hrefPath.toLowerCase());
-					if (!navLabel) return null;
+					const picked = pickPageTitleH1({
+						fullTitle: meta.title,
+						pageTitle: meta.pageTitle,
+						h1Texts,
+						siteName: opts.siteName,
+						navLabel,
+						mainTitle: opts.mainTitle,
+					});
+					const description = pickPageDescription({
+						metaDescription: meta.metaDescription,
+						ogDescription: meta.ogDescription,
+						mainDescription: opts.mainDescription,
+						siteName: opts.siteName,
+					});
 					return {
 						urlPath: hrefPath,
-						title: navLabel,
-						h1: navLabel,
-						description: '',
+						title: picked.title,
+						h1: picked.h1,
+						description,
+						missingAlt: images.missingAlt,
+						imagesTotal: images.total,
+						headingSkipDetected: headings.hasSkip,
+						headingSkipExamples: headings.skipExamples,
 					} satisfies CrawledPageMeta;
+				} catch (error) {
+					console.error('[crawl-page-metas] subpage parse failed:', hrefPath, error);
+					return null;
 				}
-				const $ = cheerio.load(fetched.text);
-				const meta = parseMeta($, opts.siteName);
-				const h1Texts = extractContentScopedHeadings($);
-				const images = parseImages($);
-				const headings = parseHeadings($);
-				const navLabel = navByHref.get(hrefPath.toLowerCase());
-				const picked = pickPageTitleH1({
-					fullTitle: meta.title,
-					pageTitle: meta.pageTitle,
-					h1Texts,
-					siteName: opts.siteName,
-					navLabel,
-					mainTitle: opts.mainTitle,
-				});
-				const description = pickPageDescription({
-					metaDescription: meta.metaDescription,
-					ogDescription: meta.ogDescription,
-					mainDescription: opts.mainDescription,
-					siteName: opts.siteName,
-				});
-				return {
-					urlPath: hrefPath,
-					title: picked.title,
-					h1: picked.h1,
-					description,
-					missingAlt: images.missingAlt,
-					imagesTotal: images.total,
-					headingSkipDetected: headings.hasSkip,
-					headingSkipExamples: headings.skipExamples,
-				} satisfies CrawledPageMeta;
 			}),
 		);
 		for (const row of rows) {
@@ -262,4 +270,42 @@ export async function crawlCollectedPageMetas(opts: {
 	}
 
 	return out;
+}
+
+/**
+ * Fetch greeting / about HTML (102.php, about, 인사말 nav) so representative
+ * extraction can see footer-equivalent copy that is missing from the homepage.
+ */
+export async function crawlGreetingPagesHtml(opts: {
+	origin: string;
+	collectedUrls?: string[];
+	navItems?: NavLinkItem[];
+	forceRefresh?: boolean;
+	limit?: number;
+}): Promise<{ html: string; urls: string[] }> {
+	const urls = collectGreetingCandidateUrls({
+		origin: opts.origin,
+		collectedUrls: opts.collectedUrls,
+		navItems: opts.navItems,
+		limit: opts.limit ?? 4,
+	});
+	const chunks: string[] = [];
+	const fetched: string[] = [];
+	const concurrency = 4;
+	for (let i = 0; i < urls.length; i += concurrency) {
+		const batch = urls.slice(i, i + concurrency);
+		const rows = await Promise.all(
+			batch.map(async (abs) => {
+				const result = await fetchHtml(abs, { forceRefresh: opts.forceRefresh });
+				if (!result.ok || !result.text) return null;
+				return { url: abs, text: result.text };
+			}),
+		);
+		for (const row of rows) {
+			if (!row) continue;
+			fetched.push(row.url);
+			chunks.push(row.text);
+		}
+	}
+	return { html: chunks.join('\n'), urls: fetched };
 }

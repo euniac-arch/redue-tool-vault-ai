@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { authOptions } from '@/lib/auth';
 import { ConditionalAppShell } from '@/components/ConditionalAppShell';
+import { IntlErrorHandlingProvider } from '@/components/IntlErrorHandlingProvider';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { Providers } from './providers';
 import './globals.css';
@@ -71,7 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 	]);
 
 	return (
-		<html lang={locale} className="dark font-sans antialiased" suppressHydrationWarning>
+		<html lang={locale} className="font-sans antialiased" suppressHydrationWarning>
 			<body className="bg-slate-50 text-slate-900 antialiased transition-colors duration-300 dark:bg-[#0a0d12] dark:text-slate-100">
 				<Script
 					id="redue-theme-init"
@@ -85,9 +86,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       />
 				
 				<NextIntlClientProvider locale={locale} messages={messages}>
-					<Providers session={session}>
-						<ConditionalAppShell>{children}</ConditionalAppShell>
-					</Providers>
+					<IntlErrorHandlingProvider>
+						<Providers session={session}>
+							<ConditionalAppShell>{children}</ConditionalAppShell>
+						</Providers>
+					</IntlErrorHandlingProvider>
 				</NextIntlClientProvider>
 			</body>
 		</html>

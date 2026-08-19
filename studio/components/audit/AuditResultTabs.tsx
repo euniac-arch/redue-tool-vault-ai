@@ -140,7 +140,7 @@ export function AuditResultTabs({
 						aria-pressed={tab === item.id}
 						className={`flex w-full items-center justify-center gap-2.5 rounded-xl border-2 px-5 py-4 text-center text-base font-extrabold transition sm:text-lg ${
 							tab === item.id
-								? 'border-cyan-400 bg-gradient-to-r from-cyan-500/25 via-indigo-500/25 to-fuchsia-500/25 text-slate-900 dark:text-white shadow-[0_0_0_1px_rgba(34,211,238,0.5),0_10px_30px_-8px_rgba(99,102,241,0.55)]'
+								? 'border-cyan-400 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-slate-900 dark:text-white shadow-[0_0_0_1px_rgba(34,211,238,0.45),0_10px_30px_-8px_rgba(6,182,212,0.45)]'
 								: 'border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.03] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-white/20 hover:bg-slate-50 dark:hover:bg-white/[0.07] hover:text-slate-800 dark:hover:text-slate-200'
 						}`}
 					>

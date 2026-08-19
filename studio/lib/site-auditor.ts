@@ -1,8 +1,9 @@
 import * as cheerio from 'cheerio';
 import type { CheerioAPI } from 'cheerio';
-import { crawlCollectedPageMetas, type CrawledPageMeta } from '@/lib/audit/crawl-page-metas';
+import { crawlCollectedPageMetas, crawlGreetingPagesHtml, type CrawledPageMeta } from '@/lib/audit/crawl-page-metas';
 import {
 	computeSchemaCoverage,
+	emptyPageParseResult,
 	extractFooterLegalText,
 	extractNavItems,
 	hasAriaLandmarks,
@@ -22,8 +23,11 @@ import {
 	hasPageSchemaAlternative,
 	isNewsMediaVertical,
 } from '@/lib/audit/recommended-schemas';
+import { extractRepresentative } from '@/lib/audit/extractors/entity';
+import { extractGeoAeoSiteData, mergeGeoAeoSiteData } from '@/lib/audit/extractors/geo-aeo-site-data';
 import {
 	extractSiteMetadata,
+	fallbackSiteMetadata,
 	type SiteMetadata,
 } from '@/lib/audit/site-metadata';
 import { canonicalMatches, evaluateCanonicalAccuracy } from '@/lib/audit/canonical-url';
@@ -150,6 +154,8 @@ export interface AuditMetrics {
 	/** Basic ARIA / landmark presence. */
 	hasAriaLandmarks?: boolean;
 	httpStatus?: number | null;
+	/** Estimated monthly prospect-search sessions dispersing off-site (simulation). */
+	lostLeads?: number;
 }
 
 /** Server geo hint for the target-entity meta card (optional on legacy reports). */
@@ -320,7 +326,7 @@ const STRINGS = {
 			canonical: '중복 URL이 색인되면 랭킹 신호가 분산됩니다.',
 			singleH1: '다중/누락 H1은 주제 초점을 흐려 검색·AI 이해도를 떨어뜨립니다.',
 			headingSkip: '헤딩 비약은 문서 아웃라인을 깨뜨려 접근성·시맨틱 SEO에 불리합니다.',
-			https: 'http:// 비보안 프로토콜은 브라우저 경고·AI 엔진 인용 신뢰도를 동시에 무너뜨립니다. 무료 Let\'s Encrypt SSL을 즉시 적용하세요.',
+			https: 'http:// 비보안 프로토콜은 브라우저 경고를 유발하고 AI 엔진의 인용 신뢰도를 차단합니다. 카페24/가비아 등 호스팅사 콘솔 또는 Let\'s Encrypt를 통해 SSL 보안 인증서를 즉시 설치하세요.',
 			responseTime: '느린 TTFB는 이탈과 Core Web Vitals 악화로 이어집니다.',
 			pageWeight: '과대 HTML은 파싱·렌더 비용을 키워 모바일 성능에 치명적입니다.',
 			renderBlocking: '동기 스크립트는 First Paint를 지연시킵니다.',
@@ -347,7 +353,7 @@ const STRINGS = {
 			canonical: '올바른 URL로 랭킹 권한을 집중시킬 수 있습니다.',
 			singleH1: '주제 명확화로 상위 노출·AI 요약 일치율이 올라갑니다.',
 			headingSkip: '시맨틱 아웃라인이 정리되면 섹션 단위 인용 확률이 높아집니다.',
-			https: 'SSL 적용 시 보안 감점·등급 상한(Hard Cap)이 해제되고 AI 인용 신뢰도가 회복됩니다.',
+			https: 'HTTPS 적용 시 보안 감점 및 등급 상한이 해제되며, 주요 AI 검색엔진의 공식 출처 인용 신뢰도가 정상화됩니다.',
 			responseTime: '응답 개선은 이탈 감소와 순위 안정화로 이어집니다.',
 			pageWeight: '문서 경량화는 LCP·모바일 SEO에 직접 기여합니다.',
 			renderBlocking: '초기 렌더 가속은 체감 속도와 전환율을 높입니다.',
@@ -475,7 +481,7 @@ const STRINGS = {
 			canonical: 'Duplicate URLs split ranking authority.',
 			singleH1: 'Missing/multiple H1s blur topical focus for search and AI.',
 			headingSkip: 'Heading skips break the outline used by a11y tools and semantic SEO.',
-			https: 'Plain HTTP triggers browser warnings and collapses AI-engine citation trust. Apply free Let\'s Encrypt SSL immediately.',
+			https: 'Plain HTTP triggers browser warnings and blocks AI-engine citation trust. Install an SSL certificate immediately via your host console (Cafe24, Gabia, etc.) or Let\'s Encrypt.',
 			responseTime: 'Slow TTFB drives bounce and hurts Core Web Vitals.',
 			pageWeight: 'Heavy HTML raises parse/render cost on mobile.',
 			renderBlocking: 'Sync scripts delay First Paint.',
@@ -502,7 +508,7 @@ const STRINGS = {
 			canonical: 'Concentrate ranking equity on the preferred URL.',
 			singleH1: 'Clear topical focus improves rankings and AI summary fidelity.',
 			headingSkip: 'A clean outline raises section-level citation odds.',
-			https: 'Enabling SSL lifts the security penalty and the S/A grade hard cap, restoring AI citation trust.',
+			https: 'Enabling HTTPS lifts the security penalty and grade cap, and restores official-source citation trust in major AI search engines.',
 			responseTime: 'Faster responses reduce bounce and stabilize rankings.',
 			pageWeight: 'Lighter documents improve LCP and mobile SEO.',
 			renderBlocking: 'Faster first paint boosts perceived speed and conversion.',
@@ -1098,9 +1104,27 @@ export async function auditSite(
 		: `GET /llms.txt — ${llms.status ?? 'unreachable'}`;
 
 	const html = page.text || '<html></html>';
-	const $ = cheerio.load(html);
-	const parsed = parsePageHtml($, finalUrl.toString(), undefined, html);
-	const siteMeta = extractSiteMetadata($, finalUrl.toString(), lang, html);
+	let $: CheerioAPI;
+	try {
+		$ = cheerio.load(html);
+	} catch (error) {
+		console.error('[auditSite] cheerio.load failed:', error);
+		$ = cheerio.load('<html></html>');
+	}
+	let parsed: PageParseResult;
+	try {
+		parsed = parsePageHtml($, finalUrl.toString(), undefined, html);
+	} catch (error) {
+		console.error('[auditSite] HTML/DOM parse failed:', error);
+		parsed = emptyPageParseResult();
+	}
+	let siteMeta;
+	try {
+		siteMeta = extractSiteMetadata($, finalUrl.toString(), lang, html);
+	} catch (error) {
+		console.error('[auditSite] site metadata extract failed:', error);
+		siteMeta = fallbackSiteMetadata(finalUrl.toString(), lang);
+	}
 	const logoTask = resolveSiteLogo(html, finalUrl.toString(), siteMeta.domain, {
 		$,
 		ogImage: siteMeta.ogImage,
@@ -1119,7 +1143,7 @@ export async function auditSite(
 		siteMeta.brandName || pageSpecificTitle,
 	);
 	const navItems = extractNavItems($, finalUrl.toString());
-	const footerText = extractFooterLegalText($);
+	const footerText = extractFooterLegalText($, 2500);
 	const competitorRegion = siteMeta.location || siteMeta.broadLocation;
 	const competitorIndustry = resolveIndustryConfigFromSite({
 		lang,
@@ -1142,20 +1166,25 @@ export async function auditSite(
 		siteMeta.primaryKeyword ||
 		siteMeta.category ||
 		competitorIndustry.mainService;
-	const competitorPresets = generateQueryMatrix({
-		lang,
-		siteMeta,
-		brandName: siteMeta.brandName,
-		category: siteMeta.category,
-		primaryKeyword: competitorMainService,
-		location: competitorRegion,
-		coreSpecialties: siteMeta.coreSpecialties,
-		schemaTypes: siteMeta.schemaEntityTypes,
-		ogTitle: siteMeta.ogTitle,
-		title: siteMeta.title,
-		detectedKeywords: siteMeta.detectedKeywords,
-		jsonLdSnippets: parsed.schema.snippets,
-	}).sovPresets;
+	let competitorPresets: string[] = [];
+	try {
+		competitorPresets = generateQueryMatrix({
+			lang,
+			siteMeta,
+			brandName: siteMeta.brandName,
+			category: siteMeta.category,
+			primaryKeyword: competitorMainService,
+			location: competitorRegion,
+			coreSpecialties: siteMeta.coreSpecialties,
+			schemaTypes: siteMeta.schemaEntityTypes,
+			ogTitle: siteMeta.ogTitle,
+			title: siteMeta.title,
+			detectedKeywords: siteMeta.detectedKeywords,
+			jsonLdSnippets: parsed.schema.snippets,
+		}).sovPresets;
+	} catch (error) {
+		console.error('[auditSite] query matrix failed:', error);
+	}
 	const competitorTask = fetchRealCompetitorSnapshot({
 		clientName: siteMeta.brandName,
 		region: competitorRegion,
@@ -1167,7 +1196,7 @@ export async function auditSite(
 		console.error('[auditSite] live competitor fetch failed:', error);
 		return undefined;
 	});
-	const pageMetas = await crawlCollectedPageMetas({
+	const pageMetasTask = crawlCollectedPageMetas({
 		origin: finalUrl.origin,
 		mainUrl: finalUrl.toString(),
 		collectedUrls: parsed.internalLinks,
@@ -1176,7 +1205,80 @@ export async function auditSite(
 		mainDescription: parsed.meta.metaDescription,
 		navItems,
 		forceRefresh,
+	}).catch((error) => {
+		console.error('[auditSite] subpage crawl failed:', error);
+		return [] as CrawledPageMeta[];
 	});
+	const greetingTask = crawlGreetingPagesHtml({
+		origin: finalUrl.origin,
+		collectedUrls: parsed.internalLinks,
+		navItems,
+		forceRefresh,
+	}).catch((error) => {
+		console.error('[auditSite] greeting crawl failed:', error);
+		return { html: '', urls: [] };
+	});
+	const [pageMetas, greetingPages] = await Promise.all([pageMetasTask, greetingTask]);
+
+	if (!siteMeta.representativeName && greetingPages.html) {
+		try {
+			const greetingRep = extractRepresentative(
+				[footerText, html, greetingPages.html].filter(Boolean).join('\n'),
+				lang === 'en' ? 'en' : 'ko',
+			);
+			if (greetingRep.isExtracted) {
+				siteMeta.representativeName = greetingRep.name;
+				siteMeta.representativeJobTitle = greetingRep.jobTitle || siteMeta.representativeJobTitle;
+			}
+		} catch (error) {
+			console.error('[auditSite] greeting representative extract failed:', error);
+		}
+	} else if (siteMeta.representativeName && !siteMeta.representativeJobTitle && greetingPages.html) {
+		try {
+			const greetingRep = extractRepresentative(greetingPages.html, lang === 'en' ? 'en' : 'ko');
+			if (greetingRep.jobTitle) siteMeta.representativeJobTitle = greetingRep.jobTitle;
+		} catch (error) {
+			console.error('[auditSite] greeting jobTitle extract failed:', error);
+		}
+	}
+
+	if (greetingPages.html) {
+		try {
+			const greetingGeo = extractGeoAeoSiteData({
+				html: greetingPages.html,
+				industryType: siteMeta.industryType,
+				keywords: [
+					...(siteMeta.coreSpecialties || []),
+					siteMeta.primaryKeyword,
+					siteMeta.title || '',
+					siteMeta.metaDescription || '',
+				],
+				addressText: siteMeta.address,
+				location: siteMeta.location || siteMeta.broadLocation,
+			});
+			const merged = mergeGeoAeoSiteData(
+				{
+					openingHours: siteMeta.openingHours || greetingGeo.openingHours,
+					geo: siteMeta.geo || greetingGeo.geo,
+					sameAs: siteMeta.sameAs || [],
+					medicalSpecialty: siteMeta.medicalSpecialty || [],
+					isAcceptingNewPatients: siteMeta.isAcceptingNewPatients ?? true,
+					postalCode: siteMeta.postalCode,
+					streetAddress: siteMeta.streetAddress,
+					addressLocality: siteMeta.addressLocality,
+					addressRegion: siteMeta.addressRegion,
+				},
+				greetingGeo,
+			);
+			siteMeta.openingHours = merged.openingHours;
+			siteMeta.geo = merged.geo;
+			siteMeta.sameAs = merged.sameAs.length ? merged.sameAs : siteMeta.sameAs;
+			siteMeta.medicalSpecialty = merged.medicalSpecialty.length ? merged.medicalSpecialty : siteMeta.medicalSpecialty;
+			siteMeta.postalCode = merged.postalCode || siteMeta.postalCode;
+		} catch (error) {
+			console.error('[auditSite] greeting GEO/AEO merge failed:', error);
+		}
+	}
 
 	const aiBotAccess = parseAiBotAccessFromRobots(robots.text);
 	const aiBotsBlocked = !resolveAiBotsAllowed(aiBotAccess);
@@ -1546,26 +1648,33 @@ export async function auditSite(
 		navItems,
 		footerText: footerText || undefined,
 		pageMetas,
-		executiveSummary: generateExecutiveSummary(
-			{
-				score,
-				maxScore,
-				categories: categories.map((c) => ({
-					id: c.id,
-					label: c.label,
-					score: c.score,
-					maxScore: c.maxScore,
-				})),
-			},
-			{
-				location: siteMeta?.location,
-				broadLocation: siteMeta?.broadLocation,
-				category: siteMeta?.category,
-				primaryKeyword: siteMeta?.primaryKeyword,
-				brandName: siteMeta?.brandName,
-			},
-			lang,
-		),
+		executiveSummary: (() => {
+			try {
+				return generateExecutiveSummary(
+					{
+						score,
+						maxScore,
+						categories: categories.map((c) => ({
+							id: c.id,
+							label: c.label,
+							score: c.score,
+							maxScore: c.maxScore,
+						})),
+					},
+					{
+						location: siteMeta?.location,
+						broadLocation: siteMeta?.broadLocation,
+						category: siteMeta?.category,
+						primaryKeyword: siteMeta?.primaryKeyword,
+						brandName: siteMeta?.brandName,
+					},
+					lang,
+				);
+			} catch (error) {
+				console.error('[auditSite] executive summary failed:', error);
+				return undefined;
+			}
+		})(),
 		realCompetitors,
 	};
 }

@@ -31,7 +31,7 @@ assert('medical audience 환자', medical.industry.audienceName === '환자');
 assert('medical action 내원/예약', medical.industry.actionName === '내원/예약');
 assert('medical title 대표원장', medical.industry.personJobTitle === '대표원장');
 assert('medical CPC 6500', medical.industry.cpc === 6_500, String(medical.industry.cpc));
-assert('medical llms 도수치료 전문 의료기관', medical.llmsTxt.includes('도수치료 전문 의료기관'), medical.llmsTxt);
+assert('medical llms 도수치료 진료 의료기관', medical.llmsTxt.includes('도수치료 진료 의료기관'), medical.llmsTxt);
 
 const legal = computeAdvancedGeoMetrics({
 	brandName: '법무법인 한결',

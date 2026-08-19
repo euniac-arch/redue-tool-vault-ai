@@ -7,6 +7,11 @@
  */
 
 import {
+	auditDataFromSite,
+	buildCompliantQuerySpectrum,
+	resolveIndustryVoice,
+} from '@/lib/audit/universal-compliant-engine';
+import {
 	buildToBeCategoryKeywords,
 	shouldCapAsIsToBrandOnly,
 } from '@/lib/geo/as-is-honesty';
@@ -209,41 +214,47 @@ export function entityNoun(schema: SchemaOrgPrimaryType, lang: PrescriptionLang)
 
 function needTermsFor(ctx: GeoSiteContext): string[] {
 	const en = ctx.lang === 'en';
+	const voice = resolveIndustryVoice({
+		industryType: ctx.industryType,
+		schemaType: ctx.schemaType,
+		category: ctx.category || ctx.primaryKeyword,
+		keywords: ctx.targetKeywords,
+	});
 	const onPage = (ctx.needSignals ?? []).filter(Boolean);
 	if (onPage.length) {
-		const extras = en ? ['recommend', 'highly rated'] : ['추천', '잘하는 곳'];
+		const extras = en ? ['information', 'hours'] : [`${voice.queryNeedKo} 안내`, '위치 안내'];
 		return Array.from(new Set([...onPage, ...extras])).slice(0, 4);
 	}
 	if (ctx.schemaType === 'ProfessionalService' || /상담|에이전시|agency|consult/i.test(`${ctx.category} ${ctx.primaryKeyword}`)) {
-		return en ? ['consultation', 'recommend', 'trusted'] : ['상담', '추천', '믿을 수 있는 곳'];
+		return en ? ['consultation', 'information', 'hours'] : ['상담', '안내', '위치 안내'];
 	}
-	if (isMedicalSchema(ctx.schemaType) || ctx.industryType === 'MEDICAL') {
+	if (voice.key === 'medical' || voice.key === 'veterinary') {
 		return en
-			? ['recommend', 'highly rated', 'opening hours']
-			: ['추천', '잘하는 곳', '후기'];
+			? ['clinic information', 'hours', 'location']
+			: [`${voice.queryNeedKo} 안내`, '위치 안내', '운영 안내'];
 	}
-	if (ctx.schemaType === 'Restaurant') {
-		return en ? ['reservation', 'highly rated', 'atmosphere'] : ['맛집', '예약', '분위기 좋은'];
+	if (ctx.schemaType === 'Restaurant' || voice.key === 'restaurant') {
+		return en ? ['reservation', 'menu', 'hours'] : ['예약 안내', '대표 메뉴', '운영 안내'];
 	}
 	if (ctx.schemaType === 'HealthClub') {
-		return en ? ['trial class', 'membership', 'recommend'] : ['체험 수업', '회원권', '추천'];
+		return en ? ['trial class', 'membership', 'hours'] : ['체험 수업', '회원권', '이용 안내'];
 	}
 	if (ctx.schemaType === 'EducationalOrganization') {
-		return en ? ['enrollment', 'tuition', 'recommend'] : ['등록 상담', '수강료', '추천'];
+		return en ? ['enrollment', 'tuition', 'information'] : ['등록 상담', '수강료', '안내'];
 	}
 	if (ctx.schemaType === 'RealEstateAgent') {
-		return en ? ['listing', 'viewing', 'recommend'] : ['매물 상담', '전월세', '추천'];
+		return en ? ['listing', 'viewing', 'information'] : ['매물 상담', '전월세', '안내'];
 	}
 	if (ctx.schemaType === 'BeautySalon') {
-		return en ? ['booking', 'reviews', 'best rated'] : ['예약', '후기 좋은', '잘하는 곳'];
+		return en ? ['booking', 'hours', 'information'] : ['예약', '안내', '위치 안내'];
 	}
 	if (ctx.schemaType === 'OnlineStore' || ctx.schemaType === 'Store') {
-		return en ? ['highly rated', 'recommend', 'open today'] : ['후기 좋은', '추천', '오늘 방문'];
+		return en ? ['product information', 'hours', 'open today'] : ['상품 안내', '안내', '오늘 방문'];
 	}
 	if (ctx.schemaType === 'SoftwareApplication' || ctx.schemaType === 'Manufacturer' || ctx.industryType === 'B2B_MFG') {
-		return en ? ['case study', 'quote', 'recommend'] : ['도입 사례', '견적', '추천'];
+		return en ? ['case study', 'quote', 'information'] : ['도입 사례', '견적', '안내'];
 	}
-	return en ? ['recommend', 'best rated', 'reviews'] : ['추천', '잘하는 곳', '후기'];
+	return en ? ['information', 'hours', 'location'] : ['안내', '위치 안내', '정보 안내'];
 }
 
 function specialtyPhrase(raw: string, ctx: GeoSiteContext): string {
@@ -368,10 +379,10 @@ function conversationalQuery(tokens: string[], loc: string, lang: PrescriptionLa
 	const body = tokens.filter((t) => t && t !== loc).join(' ');
 	if (lang === 'en') {
 		return loc
-			? `Can you recommend a place in ${loc} for ${body}?`
-			: `Can you recommend a place for ${body}?`;
+			? `Can you share information on ${body} in ${loc}?`
+			: `Can you share information on ${body}?`;
 	}
-	return loc ? `${loc} ${body} 추천해줘` : `${body} 추천해줘`;
+	return loc ? `${loc} ${body} 안내해줘` : `${body} 안내해줘`;
 }
 
 function combo(
@@ -395,9 +406,9 @@ function combo(
 function insightFor(attributes: string[], lang: PrescriptionLang): string {
 	const listed = attributes.slice(0, 3).map((a) => `'${a}'`).join(', ');
 	if (lang === 'en') {
-		return `Schema and FAQ patches now let AI cite ${listed || 'new service attributes'} with confidence as a top-ranked recommendation.`;
+		return `Schema and FAQ patches now let AI cite ${listed || 'new service attributes'} with confidence as a top-ranked answer card.`;
 	}
-	return `스키마 및 FAQ 패치로 AI가 ${listed || '세부 서비스'} 속성까지 확신을 갖고 1순위 추천 답변으로 인용하기 시작했습니다.`;
+	return `스키마 및 FAQ 패치로 AI가 ${listed || '세부 서비스'} 속성까지 확신을 갖고 1순위 추천 정답 카드로 인용 채택을 지원합니다.`;
 }
 
 function beforeSummary(brand: string, examples: string[], lang: PrescriptionLang, brandOnly: boolean): string {
@@ -426,23 +437,29 @@ export function buildExpandedQueryCoverage(ctx: GeoSiteContext): ExpandedQueryCo
 		: rawCategory;
 	const specialties = extractSpecialties({ ...ctx, location: loc });
 	const needs = needTermsFor(ctx);
-
-	const level1 = brand;
-	const level2 = loc ? `${loc} ${category}`.trim() : category;
-	const specLabel = specialtyPhrase(category, ctx);
-	const extraNeed = needs[0] && !/추천|recommend/i.test(needs[0]) && !specLabel.includes(needs[0]) ? needs[0] : '';
-	const level3 = loc
-		? lang === 'en'
-			? `Can you recommend a place in ${loc} for ${specLabel}${extraNeed ? ` (${extraNeed})` : ''}?`
-			: `${loc}에서 ${specLabel}${extraNeed ? ` ${extraNeed}` : ''} 잘하는 곳 추천해줘`
-		: lang === 'en'
-			? `Can you recommend a place for ${specLabel}${extraNeed ? ` (${extraNeed})` : ''}?`
-			: `${specLabel}${extraNeed ? ` ${extraNeed}` : ''} 잘하는 곳 추천해줘`;
+	const audit = auditDataFromSite({
+		domain: ctx.domain,
+		url: ctx.url,
+		brandName: brand,
+		location: loc,
+		category,
+		primaryKeyword: ctx.primaryKeyword,
+		targetKeywords: ctx.targetKeywords,
+		specialties,
+		schemaType: ctx.schemaType,
+		industryType: ctx.industryType,
+		lang,
+	});
+	const spectrum = buildCompliantQuerySpectrum(audit);
+	const voice = resolveIndustryVoice(audit);
+	const level1 = spectrum.level1;
+	const level2 = spectrum.level2;
+	const level3 = spectrum.level3;
 
 	const specA = specialties.find((s) => s !== category) || specialties[0] || category;
 	const specB = pickDistinctSpecialty(specialties, [category, specA]) ||
 		needs[needs.length - 1] ||
-		(lang === 'en' ? 'highly rated' : '후기 좋은 곳');
+		(lang === 'en' ? `${voice.queryNeedKo} information` : `${voice.systemNounKo} 안내`);
 
 	const afterCombos: ExpandedQueryCombo[] = [
 		combo(
@@ -457,13 +474,11 @@ export function buildExpandedQueryCoverage(ctx: GeoSiteContext): ExpandedQueryCo
 			[
 				loc,
 				specialtyPhrase(specA, ctx),
-				/재활|정형|도수|통증|sport|ortho|pain|rehab/i.test(`${category} ${specA}`)
-					? lang === 'en'
-						? 'pain treatment specialist'
-						: '통증 치료 잘하는 곳'
-					: lang === 'en'
-						? 'highly rated'
-						: '잘하는 곳',
+				lang === 'en'
+					? `${voice.queryNeedKo} information`
+					: /안내$/.test(voice.queryNeedKo)
+						? voice.queryNeedKo
+						: `${voice.queryNeedKo} 안내`,
 			].filter(Boolean),
 			1,
 			loc,
@@ -471,7 +486,7 @@ export function buildExpandedQueryCoverage(ctx: GeoSiteContext): ExpandedQueryCo
 		),
 		combo(
 			'l3-need',
-			[loc, specialtyPhrase(specB, ctx), needs[needs.length - 1] || (lang === 'en' ? 'opening hours' : '진료 시간')].filter(
+			[loc, specialtyPhrase(specB, ctx), needs[needs.length - 1] || (lang === 'en' ? 'hours' : '운영 안내')].filter(
 				Boolean,
 			),
 			2,

@@ -182,12 +182,12 @@ function riskText(
 	location: string,
 	industry: string,
 ): string {
-	const query = lang === 'en' ? `${location} + ${industry} recommendations` : `${location} + ${industry} 추천`;
+	const query = location && industry && !industry.includes(location) ? `${location} ${industry}` : industry || location;
 	if (below) {
 		if (lang === 'en') {
-			return `Brand-name search may still surface the business, but conversational non-brand queries such as “${query}” risk dropping the site from AI recommendations.`;
+			return `Brand-name search may still surface the business, but official AI citation signals are thin on conversational queries such as “${query}”.`;
 		}
-		return `상호명 검색은 가능하나, '${query}' 대화형 비브랜드 검색에서 AI 추천 탈락 위험이 있습니다.`;
+		return `상호명 직접 검색은 가능하나, '${query}' 등 잠재 고객 질의에서 AI 공식 인용 신호가 부족한 상태입니다.`;
 	}
 	if (lang === 'en') {
 		return `At ${overall} points the site is inside the AI recommendation range (85, grade A). Brand-name search and “${query}” non-brand queries can both sustain citation competitiveness.`;

@@ -22,23 +22,24 @@ import {
 } from '@/lib/audit/exec-brief';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import type { AuditReport } from '@/lib/site-auditor';
-import type { AIEngineId, AIEngineStatusBadge } from '@/types/geo-diagnostic';
+import type { AIEngineId } from '@/types/geo-diagnostic';
 
 const RING_R = 44;
 const RING_C = 2 * Math.PI * RING_R;
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const STATUS_CHIP: Record<AIEngineStatusBadge, string> = {
-	optimal: 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-400/40 dark:bg-emerald-500/15 dark:text-emerald-300',
-	moderate: 'bg-amber-50 text-amber-800 ring-1 ring-amber-400/40 dark:bg-amber-500/15 dark:text-amber-300',
-	exact_only: 'bg-rose-50 text-rose-800 ring-1 ring-rose-400/40 dark:bg-rose-500/15 dark:text-rose-300',
-	not_indexed: 'bg-slate-100 text-slate-600 ring-1 ring-slate-300/50 dark:bg-white/10 dark:text-slate-300 dark:ring-white/15',
+const LEVEL_CHIP: Record<'1' | '2' | '3' | 'none', string> = {
+	'3': 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-400/40 dark:bg-emerald-500/15 dark:text-emerald-300',
+	'2': 'bg-amber-50 text-amber-800 ring-1 ring-amber-400/40 dark:bg-amber-500/15 dark:text-amber-300',
+	'1': 'bg-rose-50 text-rose-800 ring-1 ring-rose-400/40 dark:bg-rose-500/15 dark:text-rose-300',
+	none: 'bg-slate-100 text-slate-600 ring-1 ring-slate-300/50 dark:bg-white/10 dark:text-slate-300 dark:ring-white/15',
 };
 
-const SEVERITY_CHIP: Record<ExecBriefImprovement['severity'], string> = {
-	critical: 'bg-rose-50 text-rose-700 ring-1 ring-rose-400/40 dark:bg-rose-500/15 dark:text-rose-300',
-	warning: 'bg-amber-50 text-amber-800 ring-1 ring-amber-400/40 dark:bg-amber-500/15 dark:text-amber-300',
-	info: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-400/40 dark:bg-indigo-500/15 dark:text-indigo-300',
+const PTAG_CHIP: Record<ExecBriefImprovement['pTag'], string> = {
+	p0Priority: 'bg-rose-50 text-rose-700 ring-1 ring-rose-400/40 dark:bg-rose-500/15 dark:text-rose-300',
+	p0Urgent: 'bg-rose-50 text-rose-700 ring-1 ring-rose-400/40 dark:bg-rose-500/15 dark:text-rose-300',
+	p1: 'bg-amber-50 text-amber-800 ring-1 ring-amber-400/40 dark:bg-amber-500/15 dark:text-amber-300',
+	p2: 'bg-indigo-50 text-indigo-700 ring-1 ring-indigo-400/40 dark:bg-indigo-500/15 dark:text-indigo-300',
 };
 
 function indexTone(score: number): { text: string; stroke: string; bar: string } {
@@ -46,6 +47,11 @@ function indexTone(score: number): { text: string; stroke: string; bar: string }
 	if (score >= 52) return { text: 'text-amber-700 dark:text-amber-300', stroke: '#fbbf24', bar: 'bg-amber-400' };
 	if (score >= 28) return { text: 'text-rose-700 dark:text-rose-300', stroke: '#fb7185', bar: 'bg-rose-400' };
 	return { text: 'text-slate-600 dark:text-slate-300', stroke: '#94a3b8', bar: 'bg-slate-400' };
+}
+
+function levelChipKey(depth: 1 | 2 | 3 | null): keyof typeof LEVEL_CHIP {
+	if (depth === 1 || depth === 2 || depth === 3) return String(depth) as '1' | '2' | '3';
+	return 'none';
 }
 
 function IndexRing({ score }: { score: number }) {
@@ -80,11 +86,26 @@ function IndexRing({ score }: { score: number }) {
 	);
 }
 
+const EXEC_BRIEF_BG_DARK = '#0B1028';
+const EXEC_BRIEF_BG_LIGHT = '#ffffff';
+const ROI_EFFECTS_BG_DARK = '#0f172a';
+const ROI_EFFECTS_BG_LIGHT = '#f8fafc';
+
+function flattenCloneBackground(node: HTMLElement, color: string) {
+	node.style.backgroundImage = 'none';
+	node.style.backgroundColor = color;
+	node.style.boxShadow = 'none';
+	node.style.backdropFilter = 'none';
+	node.style.webkitBackdropFilter = 'none';
+	node.style.maskImage = 'none';
+	node.style.webkitMaskImage = 'none';
+}
+
 async function saveExecBriefCard(el: HTMLElement, kind: 'png' | 'pdf', filenameBase: string) {
 	const html2canvas = (await import('html2canvas')).default;
 	const isDark = document.documentElement.classList.contains('dark');
 	const canvas = await html2canvas(el, {
-		backgroundColor: isDark ? '#0B1028' : '#ffffff',
+		backgroundColor: isDark ? EXEC_BRIEF_BG_DARK : EXEC_BRIEF_BG_LIGHT,
 		scale: 2,
 		useCORS: true,
 		logging: false,
@@ -94,11 +115,16 @@ async function saveExecBriefCard(el: HTMLElement, kind: 'png' | 'pdf', filenameB
 				card.style.maxHeight = 'none';
 				card.style.height = 'auto';
 				card.style.overflow = 'visible';
+				flattenCloneBackground(card, isDark ? EXEC_BRIEF_BG_DARK : EXEC_BRIEF_BG_LIGHT);
 			}
 			doc.querySelectorAll<HTMLElement>('[data-exec-brief-scroll]').forEach((node) => {
 				node.style.maxHeight = 'none';
 				node.style.overflow = 'visible';
 				node.style.flex = 'none';
+				node.style.backgroundColor = isDark ? EXEC_BRIEF_BG_DARK : EXEC_BRIEF_BG_LIGHT;
+			});
+			doc.querySelectorAll<HTMLElement>('[data-exec-brief-roi-effects]').forEach((node) => {
+				flattenCloneBackground(node, isDark ? ROI_EFFECTS_BG_DARK : ROI_EFFECTS_BG_LIGHT);
 			});
 			doc.querySelectorAll('[data-exec-brief-chrome]').forEach((node) => {
 				(node as HTMLElement).style.display = 'none';
@@ -146,7 +172,6 @@ export function ExecBriefModal({
 	onGoToAnswerCenter,
 }: ExecBriefModalProps) {
 	const t = useTranslations('audit.execBrief');
-	const tChip = useTranslations('audit.aiEngineSummary.chip');
 	const tUrgency = useTranslations('audit.b2b.execUrgency');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
@@ -229,7 +254,6 @@ export function ExecBriefModal({
 							onGoToAnswerCenter={onGoToAnswerCenter}
 							onSave={handleSave}
 							t={t}
-							tChip={tChip}
 							tUrgency={tUrgency}
 						/>
 					</motion.div>
@@ -248,7 +272,6 @@ function ExecBriefCard({
 	onGoToAnswerCenter,
 	onSave,
 	t,
-	tChip,
 	tUrgency,
 }: {
 	brief: ExecBriefModel;
@@ -258,7 +281,6 @@ function ExecBriefCard({
 	onGoToAnswerCenter: () => void;
 	onSave: (kind: 'png' | 'pdf') => void;
 	t: ReturnType<typeof useTranslations>;
-	tChip: ReturnType<typeof useTranslations>;
 	tUrgency: ReturnType<typeof useTranslations>;
 }) {
 	const tone = indexTone(brief.aiIndex);
@@ -306,10 +328,15 @@ function ExecBriefCard({
 									{t('aiIndexLabel')}
 								</p>
 								<p className={`text-sm font-extrabold ${tone.text}`}>
-									{t('indexedRatio', { indexed: brief.indexedCount, total: brief.totalEngines })}
+									{t(`indexedRatio.${brief.indexedKind}`, {
+										indexed: brief.indexedCount,
+										total: brief.totalEngines,
+									})}
 								</p>
 								<span className="mt-1.5 inline-flex rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-[10px] font-extrabold text-[#C9A227]">
-									{tUrgency(brief.urgencyLevel)}
+									{brief.statusTone === 'brandOnly' && brief.urgencyLevel === 'urgent'
+										? t('unbrandedUrgent')
+										: tUrgency(brief.urgencyLevel)}
 								</span>
 							</div>
 						</div>
@@ -318,7 +345,7 @@ function ExecBriefCard({
 								{t('statusLineLabel')}
 							</p>
 							<p className="mt-1.5 break-keep text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
-								{t(`statusLine.${brief.statusTone}`)}
+								“{brief.statusHeadline}”
 							</p>
 							{brief.judgmentText ? (
 								<p className="mt-2 break-keep text-xs leading-relaxed text-slate-600 dark:text-slate-400">
@@ -335,16 +362,16 @@ function ExecBriefCard({
 							return (
 								<li
 									key={engine.id}
-									className="flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.03]"
+									className="flex items-start gap-2.5 overflow-visible rounded-xl border border-slate-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-[#0a101f]"
 								>
 									<span
-										className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white ${theme?.logoWrap ?? 'bg-slate-700'}`}
+										className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white ${theme?.logoWrap ?? 'bg-slate-700'}`}
 									>
 										{Glyph ? <Glyph className="h-4 w-4" /> : null}
 									</span>
-									<div className="min-w-0 flex-1">
-										<div className="flex items-center justify-between gap-2">
-											<p className="truncate text-xs font-extrabold text-slate-900 dark:text-white">
+									<div className="min-w-0 flex-1 overflow-visible">
+										<div className="flex items-center justify-between gap-2 overflow-visible">
+											<p className="truncate py-1 text-xs font-extrabold leading-normal text-slate-900 dark:text-white">
 												{engine.name}
 											</p>
 											<span className="tabular-nums text-xs font-bold text-slate-600 dark:text-slate-300">
@@ -357,12 +384,14 @@ function ExecBriefCard({
 												style={{ width: `${Math.min(100, Math.max(engine.score, 4))}%` }}
 											/>
 										</div>
+										<span
+											className={`mt-1.5 inline-flex rounded-full px-1.5 py-0.5 text-[9px] font-extrabold leading-tight ${LEVEL_CHIP[levelChipKey(engine.depthLevel)]}`}
+										>
+											{engine.depthLevel
+												? `${engine.levelLabel} (${engine.reason})`
+												: engine.reason}
+										</span>
 									</div>
-									<span
-										className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-extrabold ${STATUS_CHIP[engine.statusBadge]}`}
-									>
-										{tChip(engine.statusBadge)}
-									</span>
 								</li>
 							);
 						})}
@@ -385,21 +414,29 @@ function ExecBriefCard({
 									</span>
 									<div className="min-w-0">
 										<div className="flex flex-wrap items-center gap-2">
-											<p className="break-keep text-sm font-extrabold text-slate-900 dark:text-white">
-												{t(`improveTheme.${item.theme}`)}
-											</p>
 											<span
-												className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${SEVERITY_CHIP[item.severity]}`}
+												className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${PTAG_CHIP[item.pTag]}`}
 											>
-												{t(`severity.${item.severity}`)}
+												{t(`pTag.${item.pTag}`)}
 											</span>
+											<p className="break-keep text-sm font-extrabold text-slate-900 dark:text-white">
+												{item.title}
+											</p>
 										</div>
-										<p className="mt-1 break-keep text-xs font-semibold text-slate-700 dark:text-slate-200">
-											{item.title}
-										</p>
-										<p className="mt-1 break-keep text-xs leading-relaxed text-slate-600 dark:text-slate-400">
-											{item.detail}
-										</p>
+										{item.statusLine ? (
+											<p className="mt-1 break-keep text-xs font-semibold text-slate-700 dark:text-slate-200">
+												{t('statusPrefix')}: {item.statusLine}
+											</p>
+										) : null}
+										{item.causeLine ? (
+											<p className="mt-1 break-keep text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+												{t('causePrefix')}: {item.causeLine}
+											</p>
+										) : (
+											<p className="mt-1 break-keep text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+												{item.detail}
+											</p>
+										)}
 									</div>
 								</li>
 							))
@@ -424,6 +461,9 @@ function ExecBriefCard({
 								</span>
 								<span className="text-sm font-semibold text-slate-500">%</span>
 							</div>
+							<p className="mt-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+								{t('roiTechnical', { score: brief.seoScore })}
+							</p>
 						</div>
 						<div className="flex items-center justify-center">
 							<div className="rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-2.5 text-center">
@@ -445,7 +485,7 @@ function ExecBriefCard({
 							<p className="mt-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
 								{brief.reachesAGrade || brief.alreadyInRange
 									? t('roiStable', { threshold: brief.threshold })
-									: t('roiApproaching', { threshold: brief.threshold })}
+									: t('roiFoundation', { threshold: brief.threshold })}
 							</p>
 						</div>
 					</div>
@@ -462,79 +502,98 @@ function ExecBriefCard({
 						/>
 					</div>
 
-					<div className="relative mt-4 overflow-hidden rounded-2xl border border-emerald-400/45 bg-gradient-to-br from-emerald-50 via-cyan-50 to-sky-50 px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)] dark:border-emerald-400/35 dark:from-emerald-500/15 dark:via-cyan-500/10 dark:to-sky-500/10">
+					<div
+						data-exec-brief-roi-effects
+						className="relative mt-4 overflow-hidden rounded-xl border border-slate-200 bg-[#f8fafc] p-5 shadow-inner dark:border-slate-700 dark:bg-[#0f172a]"
+					>
 						<div
-							className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 via-cyan-400 to-sky-500"
+							className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-cyan-500"
 							aria-hidden
 						/>
-						<div className="flex items-start gap-3 pl-1.5">
-							<span className="mt-0.5 shrink-0 text-2xl leading-none" aria-hidden>
-								{brief.inflowLiftPct > 0 ? '📈' : '🎯'}
-							</span>
-							<p className="min-w-0 break-keep text-sm font-medium leading-relaxed text-slate-800 dark:text-slate-100">
-								{brief.inflowLiftPct > 0
-									? t.rich('roiInflow', {
-											from: brief.currentScore,
-											to: brief.projectedScore,
-											lift: brief.inflowLiftPct,
-											score: (chunks) => (
-												<strong className="font-bold text-emerald-600 dark:text-emerald-300">
-													{chunks}
-												</strong>
-											),
-											gain: (chunks) => (
-												<strong className="font-bold text-cyan-600 dark:text-cyan-300">
-													{chunks}
-												</strong>
-											),
-										})
-									: t('roiInflowHold')}
-							</p>
+						<div className="flex items-start gap-3.5 pl-2">
+							<div
+								className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-[#ecfdf5] text-lg text-emerald-600 dark:border-[#34d399]/30 dark:bg-[#064e3b] dark:text-emerald-400"
+								aria-hidden
+							>
+								{brief.roiEffects.length > 0 ? '📈' : '🎯'}
+							</div>
+							{brief.roiEffects.length > 0 ? (
+								<div className="min-w-0 flex-1 space-y-2">
+									<h4 className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+										{t('roiEffectsTitle')}
+									</h4>
+									<ul className="space-y-3 text-xs leading-relaxed text-slate-600 sm:text-sm dark:text-slate-300">
+										{brief.roiEffects.map((effect, index) => (
+											<li key={effect.id} className="flex items-start gap-2">
+												<span className="font-bold text-cyan-600 dark:text-cyan-400">
+													{index + 1}.
+												</span>
+												<p className="break-keep">
+													{effect.lead ?? ''}
+													{effect.highlight ? (
+														<strong className="font-semibold text-slate-900 dark:text-white">
+															{effect.highlight}
+														</strong>
+													) : (
+														effect.text
+													)}
+												</p>
+											</li>
+										))}
+									</ul>
+								</div>
+							) : (
+								<p className="min-w-0 flex-1 break-keep py-1 text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-200">
+									{t('roiInflowHold')}
+								</p>
+							)}
 						</div>
 					</div>
 				</section>
 			</div>
 
-			<footer
-				data-exec-brief-chrome
-				className="shrink-0 border-t border-slate-200 px-4 py-4 dark:border-white/10 sm:px-6"
-			>
-				<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-					<button
-						type="button"
-						onClick={onGoToAnswerCenter}
-						className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 transition hover:from-indigo-500 hover:to-blue-500"
-					>
-						<Sparkles className="h-4 w-4" aria-hidden />
-						{brief.isPrescriptionApplied ? t('ctaAnswerCenter') : t('ctaApplyFirst')}
-					</button>
-					<button
-						type="button"
-						onClick={() => onSave('png')}
-						disabled={Boolean(saving)}
-						className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
-					>
-						{saving === 'png' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />}
-						{t('saveImage')}
-					</button>
-					<button
-						type="button"
-						onClick={() => onSave('pdf')}
-						disabled={Boolean(saving)}
-						className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3.5 py-3 text-sm font-bold text-[#C9A227] transition hover:bg-[#D4AF37]/20 disabled:opacity-60"
-					>
-						{saving === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-						{t('savePdf')}
-					</button>
+			<footer className="shrink-0 border-t border-slate-200 px-4 py-4 dark:border-white/10 sm:px-6">
+				<div className="mb-4 border-t border-slate-200 pt-3 text-[10.5px] leading-relaxed text-slate-500 dark:border-slate-800">
+					{t('disclaimer')}
 				</div>
-				{saveError ? (
-					<p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">{saveError}</p>
-				) : (
-					<p className="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:flex">
-						<Download className="h-3 w-3" aria-hidden />
-						{t('saveHint')}
-					</p>
-				)}
+				<div data-exec-brief-chrome>
+					<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+						<button
+							type="button"
+							onClick={onGoToAnswerCenter}
+							className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-3 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/25 transition hover:from-indigo-500 hover:to-blue-500"
+						>
+							<Sparkles className="h-4 w-4" aria-hidden />
+							{brief.isPrescriptionApplied ? t('ctaAnswerCenter') : t('ctaApplyFirst')}
+						</button>
+						<button
+							type="button"
+							onClick={() => onSave('png')}
+							disabled={Boolean(saving)}
+							className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
+						>
+							{saving === 'png' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />}
+							{t('saveImage')}
+						</button>
+						<button
+							type="button"
+							onClick={() => onSave('pdf')}
+							disabled={Boolean(saving)}
+							className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3.5 py-3 text-sm font-bold text-[#C9A227] transition hover:bg-[#D4AF37]/20 disabled:opacity-60"
+						>
+							{saving === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+							{t('savePdf')}
+						</button>
+					</div>
+					{saveError ? (
+						<p className="mt-2 text-xs font-semibold text-rose-600 dark:text-rose-300">{saveError}</p>
+					) : (
+						<p className="mt-2 hidden items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 sm:flex">
+							<Download className="h-3 w-3" aria-hidden />
+							{t('saveHint')}
+						</p>
+					)}
+				</div>
 			</footer>
 		</>
 	);

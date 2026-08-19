@@ -43,6 +43,7 @@ import {
 	SOV_LEADER_RESIDUAL_RATIO,
 	statisticalFallbackNames,
 } from '../lib/audit/realCompetitors';
+import { softenComparativeQuery, softenQueryToken } from '../lib/audit/anonymize-competitor';
 
 let failed = 0;
 
@@ -75,7 +76,7 @@ const emptyDirectory = dynamicEmpty.competitors.find((row) => row.isDirectory);
 const emptyClient = dynamicEmpty.leaderboard.find((row) => row.isClient);
 assert('dynamic empty as-is is 5', dynamicEmpty.asIsShare === RANK_3_SHARE);
 assert('dynamic empty clientRank is 4', dynamicEmpty.clientRank === CLIENT_UNRANKED_RANK);
-assert('dynamic empty keeps top 2 live names', dynamicEmpty.leaderboard[0]?.name === '안성본정형외과' && dynamicEmpty.leaderboard[1]?.name === '안성튼튼재활의학과');
+assert('dynamic empty keeps top 2 anonymized names', dynamicEmpty.leaderboard[0]?.name.startsWith('경쟁 A사') && dynamicEmpty.leaderboard[1]?.name?.startsWith('경쟁 B사'));
 assert('dynamic empty maps client into #3 slot', emptyClient?.rank === 3 && emptyClient.name.includes('순위 밖'));
 assert('dynamic empty leader is 27', dynamicEmpty.competitors[0]?.share === RANK_1_SHARE);
 assert('dynamic empty runner is 16', dynamicEmpty.competitors[1]?.share === RANK_2_SHARE);
@@ -102,7 +103,7 @@ const dynamicFull = calculateDynamicSov('안성햇살의원', '안성', '도수�
 });
 assert('dynamic full as-is is unranked 5', dynamicFull.asIsShare === RANK_3_SHARE);
 assert('dynamic full to-be caps at 55', dynamicFull.toBeShare <= TO_BE_SHARE_MAX);
-assert('dynamic full uses real name', dynamicFull.competitors[0]?.name === '안성본정형외과' && dynamicFull.competitors[0]?.isRealData === true);
+assert('dynamic full uses anonymized name', dynamicFull.competitors[0]?.name.startsWith('경쟁 A사') && dynamicFull.competitors[0]?.isRealData === true);
 assert('dynamic full fallback 2nd name', Boolean(dynamicFull.competitors[1]?.name) && dynamicFull.competitors[1]?.isRealData !== true);
 
 const stripped = calculateDynamicSov(
@@ -112,7 +113,7 @@ const stripped = calculateDynamicSov(
 	['<b>안성</b>햇살의원', '<b>안성</b>본정형외과', '안성튼튼재활의학과'],
 	{ entityScore: 0, ragScore: 0, hasSchema: false },
 );
-assert('dynamic strips Naver <b> tags', stripped.leaderboard[0]?.name === '안성햇살의원' && stripped.leaderboard[1]?.name === '안성본정형외과');
+assert('dynamic strips Naver <b> tags', stripped.leaderboard[0]?.name === '안성햇살의원' && stripped.leaderboard[1]?.name?.startsWith('경쟁 B사'));
 assert('dynamic keeps client in live #1 slot', stripped.leaderboard[0]?.isClient === true && stripped.asIsShare === RANK_1_SHARE);
 
 const legalGap = calculateDynamicSov(
@@ -140,7 +141,7 @@ const interiorGap = calculateDynamicSov(
 	{ categoryName: '시공 업체' },
 );
 assert('interior target query includes 추천', interiorGap.targetQuery === '마포 아파트인테리어 추천');
-assert('interior fallback uses rank listing label', interiorGap.competitors[0]?.name.includes('1위 노출 기관'));
+assert('interior fallback uses anonymized competitor label', interiorGap.competitors[0]?.name.startsWith('경쟁 A사'));
 
 const sov = computeShareOfVoice({
 	brandName: '센텀우리내과',
@@ -170,8 +171,8 @@ assert(
 const gangnam = computeShareOfVoice({ location: '강남', industryType: 'beauty', lang: 'ko' });
 assert('SoV always uses 2 ranking competitors', gangnam.competitorCount === 2, String(gangnam.competitorCount));
 assert(
-	'fallback names use unified rank listings',
-	gangnam.shares.some((row) => !row.isOwn && row.name.includes('1위 노출 기관')),
+	'fallback names use anonymized competitor labels',
+	gangnam.shares.some((row) => !row.isOwn && row.name.startsWith('경쟁 A사')),
 	gangnam.shares.map((row) => row.name).join(', '),
 );
 
@@ -310,7 +311,7 @@ assert(
 );
 assert('live SoV brand share is 0 without GEO', liveSov.brandShare === 0);
 assert('live SoV marks real names', liveSov.competitors[0]?.isRealData === true && liveSov.competitors[1]?.isRealData === true);
-assert('live SoV uses parsed names', liveSov.competitors[0]?.name === '안성본정형외과');
+assert('live SoV uses anonymized names', liveSov.competitors[0]?.name.startsWith('경쟁 A사'));
 
 const bound = computeShareOfVoice({
 	brandName: '안성햇살의원',
@@ -330,7 +331,7 @@ const boundShares = resolveKeywordSovShares(liveSov.targetQuery);
 assert('bound SoV uses 2 live competitors', bound.competitorCount === 2 && bound.hasRealCompetitorData);
 assert('bound leader follows keyword table', bound.leaderSharePct === boundShares.rank1, String(bound.leaderSharePct));
 assert('bound own share follows keyword table', bound.ownSharePct === boundShares.own, String(bound.ownSharePct));
-assert('bound first ranking name is live', bound.shares.find((row) => !row.isOwn && !row.isDirectory)?.name === '안성본정형외과');
+assert('bound first ranking name is anonymized', bound.shares.find((row) => !row.isOwn && !row.isDirectory)?.name.startsWith('경쟁 A사'));
 assert('bound to-be follows keyword table', bound.toBeShare === boundShares.targetSov, String(bound.toBeShare));
 assert(
 	'bound vulnerability names leader share',
@@ -343,7 +344,7 @@ const insight = buildVulnerabilityInsight({
 	toBeShare: 45,
 	reclaimPotential: 42,
 });
-assert('vulnerability template includes schema and llms.txt', insight.includes('스키마') && insight.includes('/llms.txt'));
+assert('vulnerability template includes structured-data goal', insight.includes('구조화 데이터') && insight.includes('목표로 최적화'));
 assert('vulnerability template includes recapture target', insight.includes('45%'));
 assert('vulnerability template includes leader share', insight.includes('70%'));
 
@@ -372,8 +373,8 @@ assert('symmetric #1 as-is is 27', firstPlace.asIsShare === RANK_1_SHARE && firs
 assert('symmetric #2 as-is is 16', secondPlace.asIsShare === RANK_2_SHARE && secondPlace.clientRank === 2);
 assert('symmetric #3 as-is is 5', thirdPlace.asIsShare === RANK_3_SHARE && thirdPlace.clientRank === 3);
 assert('symmetric #1 keeps client in slot 1', firstPlace.leaderboard[0]?.isClient === true && firstPlace.leaderboard[0]?.share === RANK_1_SHARE);
-assert('symmetric #1 assigns #2 the runner share', firstPlace.competitors[0]?.name === '안성본정형외과' && firstPlace.competitors[0]?.share === RANK_2_SHARE);
-assert('symmetric #2 assigns #1 the leader share', secondPlace.competitors[0]?.name === '안성햇살의원' && secondPlace.competitors[0]?.share === RANK_1_SHARE);
+assert('symmetric #1 assigns #2 the runner share', firstPlace.competitors[0]?.name?.startsWith('경쟁 B사') && firstPlace.competitors[0]?.share === RANK_2_SHARE);
+assert('symmetric #2 assigns #1 the leader share', secondPlace.competitors[0]?.name.startsWith('경쟁 A사') && secondPlace.competitors[0]?.share === RANK_1_SHARE);
 assert(
 	'symmetric pies match whoever is audited',
 	firstPlace.asIsShare === secondPlace.competitors[0]?.share &&
@@ -412,7 +413,7 @@ assert('unified outside clientRank is 4', unifiedOutside.clientRank === CLIENT_U
 assert('unified outside as-is is 5', unifiedOutside.asIsShare === RANK_3_SHARE);
 assert('unified outside to-be is 48', unifiedOutside.toBeShare === TO_BE_SHARE_MIN);
 assert('unified outside reclaim is 43', unifiedOutside.reclaimGain === TO_BE_SHARE_MIN - RANK_3_SHARE);
-assert('unified outside keeps top 2', unifiedOutside.leaderboard[0]?.name === '안성본정형외과' && unifiedOutside.leaderboard[1]?.name === '안성튼튼재활의학과');
+assert('unified outside keeps top 2', unifiedOutside.leaderboard[0]?.name.startsWith('경쟁 A사') && unifiedOutside.leaderboard[1]?.name?.startsWith('경쟁 B사'));
 assert('unified outside replaces #3 with client', unifiedOutside.leaderboard[2]?.isClient === true && unifiedOutside.leaderboard[2]?.name.includes('순위 밖'));
 
 const unifiedFirst = calculateUnifiedMarketSov('안성햇살의원', '안성', '도수치료', ['안성햇살의원', '안성본정형외과', '안성튼튼재활의학과']);
@@ -428,7 +429,7 @@ const unifiedFourth = calculateUnifiedMarketSov(
 	['안성본정형외과', '안성튼튼재활의학과', '안성바른의원', '안성햇살의원', '안성열린의원'],
 );
 assert('unified #4 clientRank is 4', unifiedFourth.clientRank === 4 && unifiedFourth.asIsShare === RANK_3_SHARE);
-assert('unified #4 keeps live #1 and #2', unifiedFourth.leaderboard[0]?.name === '안성본정형외과' && unifiedFourth.leaderboard[1]?.name === '안성튼튼재활의학과');
+assert('unified #4 keeps live #1 and #2', unifiedFourth.leaderboard[0]?.name.startsWith('경쟁 A사') && unifiedFourth.leaderboard[1]?.name?.startsWith('경쟁 B사'));
 assert('unified #4 labels actual rank', unifiedFourth.leaderboard[2]?.isClient === true && unifiedFourth.leaderboard[2]?.name.includes('4위'));
 
 const presets = buildSovQueryPresets('안성', '도수치료', '추나치료');
@@ -502,8 +503,47 @@ const rebound = applyKeywordSovToDynamic(
 	{ region: '부산 동래', mainService: '피부과', lang: 'ko' },
 );
 assert('applyKeywordSovToDynamic rebinds percents instantly', rebound.asIsShare === 4 && rebound.toBeShare === 45 && rebound.directoryShare === 46 && rebound.reclaimGain === 41);
-assert('applyKeywordSovToDynamic keeps live names', rebound.leaderboard[0]?.name === '동래준피부과의원');
+assert('applyKeywordSovToDynamic keeps anonymized competitor names', rebound.leaderboard[0]?.name.startsWith('경쟁 A사'));
 assert('applyKeywordSovToDynamic updates insight percents', rebound.lossInsight.includes('4%') && rebound.lossInsight.includes('46%'));
+assert(
+	'applyKeywordSovToDynamic binds lossInsight to the selected keyword, not mainService',
+	rebound.lossInsight.includes('"부산 동래 피부과"') && !rebound.lossInsight.includes('"피부과"'),
+);
+
+const otherKeywordBound = applyKeywordSovToDynamic(
+	unifiedToDynamicSov(recommendKeywordSov, { lang: 'ko' }),
+	'부산 동래 피부시술 잘하는곳',
+	{ region: '부산 동래', mainService: '피부과', lang: 'ko' },
+);
+assert(
+	'switching keyword chips re-syncs the summary text to the new keyword',
+	otherKeywordBound.lossInsight.includes('"부산 동래 피부시술 잘하는곳"') &&
+		!otherKeywordBound.lossInsight.includes(rebound.lossInsight),
+);
+
+assert(
+	'soften 울트라클리어엘리트 잘하는 곳',
+	softenComparativeQuery('대구 울트라클리어엘리트 잘하는 곳') === '대구 울트라클리어엘리트 도입 안내',
+);
+assert(
+	'soften 울트라클리어엘리트 후기',
+	softenComparativeQuery('대구 울트라클리어엘리트 후기') === '대구 울트라클리어엘리트 시스템 안내',
+);
+assert(
+	'soften 성형외과 잘하는 곳',
+	softenComparativeQuery('대구 성형외과 잘하는 곳') === '대구 성형외과 위치 및 진료시간 안내',
+);
+assert(
+	'soften 치료 솔루션 추천',
+	softenComparativeQuery('대구에서 치료 솔루션 의원 잘하는 곳 추천해줘') ===
+		'대구에서 정밀 진료 시스템 갖춘 곳 안내해줘',
+);
+assert('soften token 잘하는 곳', softenQueryToken('잘하는 곳') === '안내');
+assert('soften token 후기', softenQueryToken('후기') === '정보 안내');
+assert(
+	'soften combo + 후기',
+	softenComparativeQuery('대구 + 성형외과 + 후기') === '대구 + 성형외과 + 정보 안내',
+);
 
 if (failed) {
 	console.error(`\n${failed} assertion(s) failed`);

@@ -172,6 +172,8 @@ function siteContextFromReport(report: AuditReport, lang: AuditLang): GeoSiteCon
 		businessEntity: report.siteMeta?.businessEntity,
 		entityPhrases: report.siteMeta?.entityPhrases,
 		needSignals: report.siteMeta?.needSignals,
+		representativeName: report.siteMeta?.representativeName,
+		representativeTitle: report.siteMeta?.representativeJobTitle,
 	};
 }
 

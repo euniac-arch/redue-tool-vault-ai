@@ -9,6 +9,7 @@ import {
 	type SiteMetadata,
 } from '@/lib/audit/site-metadata';
 import { parseMeta } from '@/lib/audit/parser';
+import { extractOnpageNap } from '@/lib/audit/extractors/nap';
 import { scoreFromDepthLevel } from '@/lib/geo/rating-meta';
 import { buildKeywordWeights, buildRecommendationReasons } from '@/lib/geo/prompt-insights';
 import { shouldCapAsIsToBrandOnly } from '@/lib/geo/as-is-honesty';
@@ -45,7 +46,6 @@ import {
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_HTML_CHARS = 1_500_000;
 const USER_AGENT = 'Mozilla/5.0 (compatible; ReduGeoBot/1.0; +https://redue.ai/geo)';
-const PHONE_RE = /(?:\+82[-\s]?)?0?\d{1,2}[-\s]?\d{3,4}[-\s]?\d{4}/;
 
 export interface ScrapedSiteEntities {
 	ok: boolean;
@@ -159,13 +159,6 @@ function parseJsonLdBlocks(html: string, $: CheerioAPI): { nodes: Record<string,
 	return { nodes, raw };
 }
 
-function phoneFromHtml($: CheerioAPI, html: string): string | undefined {
-	const telHref = $('a[href^="tel:"]').first().attr('href')?.replace(/^tel:/i, '').trim();
-	if (telHref) return telHref;
-	const hit = html.match(PHONE_RE);
-	return hit?.[0]?.replace(/\s+/g, '-');
-}
-
 function withNocacheParam(url: string, forceRefresh: boolean): string {
 	if (!forceRefresh) return url;
 	try {
@@ -244,7 +237,12 @@ export async function scrapeSiteEntities(
 	const parsedMeta = parseMeta($, meta.brandName);
 	const { nodes, raw } = parseJsonLdBlocks(page.text, $);
 	const nap = napFromNodes(nodes);
-	if (!nap.telephone) nap.telephone = phoneFromHtml($, page.text);
+	const onpage = extractOnpageNap($, page.text, url);
+	if (!nap.telephone) nap.telephone = onpage.telephone || meta.telephone || undefined;
+	if (!nap.address) nap.address = onpage.address || meta.address || undefined;
+	if (!nap.streetAddress) nap.streetAddress = onpage.streetAddress || undefined;
+	if (!nap.addressLocality) nap.addressLocality = onpage.addressLocality || undefined;
+	if (!nap.addressRegion) nap.addressRegion = onpage.addressRegion || undefined;
 	if (!nap.name) nap.name = meta.brandName;
 	const existingSchemaTypes = Array.from(new Set(nodes.flatMap(typeList)));
 
@@ -345,6 +343,8 @@ function buildSiteContext(
 		title: meta.title,
 		metaKeywords: meta.metaKeywords,
 		navMenuTexts: meta.navMenuTexts,
+		representativeName: meta.representativeName,
+		representativeTitle: meta.representativeJobTitle,
 	};
 	draft.specialties = extractSpecialties(draft);
 	draft.brandOnlyAsIs = shouldCapAsIsToBrandOnly({

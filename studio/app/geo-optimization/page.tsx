@@ -14,7 +14,7 @@ const GEO_PILLARS = [
 		title: 'AI 검색 노출 구조 분석',
 		label: 'Discoverability',
 		description:
-			'사이트가 검색엔진과 AI 크롤러봇에 차단 없이 제대로 발견되고 수집될 수 있는 기술적 기반을 분석하고 최적화합니다. (robots.txt, Sitemap, Canonical, 크롤링 접근성)',
+			'robots.txt, Sitemap, Canonical 등 시맨틱 수집 규약을 정비하여 주요 AI 크롤러와 검색엔진의 기술적 접근성을 확보합니다.',
 	},
 	{
 		step: '②',
@@ -22,7 +22,7 @@ const GEO_PILLARS = [
 		title: 'Semantic & Schema 구조화',
 		label: 'Semantic Structure',
 		description:
-			'Organization, LocalBusiness, Product, Article, FAQ 등 구조화 데이터를 주입해 AI가 페이지의 맥락과 의미를 오차 없이 이해하도록 합니다.',
+			'Organization, LocalBusiness, Product, Service, FAQ 등 업종별 표준 구조화 데이터를 주입하여 AI 엔진이 기업 정보와 서비스 맥락을 정확히 파싱하도록 지원합니다.',
 	},
 	{
 		step: '③',
@@ -30,7 +30,7 @@ const GEO_PILLARS = [
 		title: 'E-E-A-T & AI 친화 콘텐츠',
 		label: 'Trust Signals',
 		description:
-			'저자 정보, 발행자 프로필, 전문성 및 근거 신호를 강화하여 AI 검색엔진이 신뢰할 수 있는 정보원(Source)으로 인지하게 만듭니다.',
+			'저자·발행자 프로필, E-E-A-T 신호, 공인 데이터 출처를 구조화하여 AI가 신뢰할 수 있는 공식 정보원(Grounding Source)으로 식별하도록 만듭니다.',
 	},
 	{
 		step: '④',
@@ -38,7 +38,7 @@ const GEO_PILLARS = [
 		title: 'AI 인용 친화 구조 최적화',
 		label: 'Citation Ready',
 		description:
-			'Direct Answer 구조, 요약문, 비교표, FAQ 서식을 배치하여 AI가 답변을 생성할 때 가장 먼저 인용 및 출처로 선택하도록 최적화합니다.',
+			'Direct Answer 구조, 요약문, FAQ 포맷을 배치하여 AI 검색 답변 생성 시 신뢰도 높은 공식 출처(Source)로 인용되도록 최적화합니다.',
 	},
 ] as const;
 
@@ -115,19 +115,23 @@ const AI_SEARCH_STEPS: readonly FlowStep[] = [
 	{
 		icon: '🌟',
 		title: '신뢰 브랜드 선택 & 출처 인용',
-		description: 'GEO 최적화된 브랜드 우선 채택',
-		tag: 'GEO 우선',
+		description: '구조화 데이터 및 출처 신뢰도가 검증된 브랜드 인용 채택',
+		tag: '출처 검증',
 	},
 	{
 		icon: '🚀',
-		title: '추천 사이트로 정밀 유입',
-		description: '답변 내 인용 링크 클릭',
-		tag: '즉시 추천',
+		title: '공식 인용 링크를 통한 고관여 타깃 유입 지원',
+		description: '답변 내 공식 출처 링크를 통한 탐색 유입',
+		tag: '유입 지원',
 	},
 ];
 
+const GLASS_CARD =
+	'bg-white backdrop-blur-sm border border-slate-200 rounded-2xl p-6 hover:border-cyan-500/40 hover:bg-slate-50 transition-all duration-200 dark:bg-[#0B1120]/80 dark:border-slate-800/80 dark:hover:bg-[#0E162B]';
+const GLASS_BADGE =
+	'bg-slate-100 border border-slate-200 text-cyan-700 dark:bg-slate-900 dark:border-slate-800 dark:text-cyan-400';
 const CTA_CLASS =
-	'inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#6366F1] to-[#7C3AED] px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-[#6366F1]/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#6366F1]/35 sm:text-base';
+	'inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-7 py-3.5 text-sm font-bold text-white shadow-lg shadow-cyan-900/40 transition hover:-translate-y-0.5 hover:from-cyan-400 hover:to-blue-500 sm:text-base';
 
 function FlowCard({
 	badge,
@@ -139,36 +143,26 @@ function FlowCard({
 	badge: string;
 	title: string;
 	steps: readonly FlowStep[];
-	accent: 'slate' | 'indigo';
+	accent: 'slate' | 'cyan';
 	outcome: string;
 }) {
-	const isIndigo = accent === 'indigo';
+	const isAccent = accent === 'cyan';
 
 	return (
 		<article
-			className={`flex h-full flex-col rounded-2xl border p-6 sm:p-7 ${
-				isIndigo
-					? 'border-indigo-200 bg-indigo-50 shadow-[0_12px_40px_-16px_rgba(99,102,241,0.25)] dark:border-indigo-500/30 dark:bg-indigo-950/40 dark:shadow-[0_12px_40px_-16px_rgba(99,102,241,0.45)]'
-					: 'border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#121824]'
+			className={`flex h-full flex-col ${GLASS_CARD} sm:p-7 ${
+				isAccent ? 'border-cyan-500/30 hover:border-cyan-400/50' : ''
 			}`}
 		>
 			<div className="mb-6 flex min-h-[5.25rem] flex-col gap-2.5">
 				<span
 					className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold tracking-wider ${
-						isIndigo
-							? 'border border-indigo-200 bg-indigo-100 text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-300'
-							: 'border border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400'
+						isAccent ? GLASS_BADGE : 'border border-slate-800 bg-slate-900 text-slate-400'
 					}`}
 				>
 					{badge}
 				</span>
-				<h3
-					className={`text-lg font-bold leading-snug ${
-						isIndigo ? 'text-slate-900 dark:text-white' : 'text-slate-900 dark:text-slate-100'
-					}`}
-				>
-					{title}
-				</h3>
+				<h3 className="text-lg font-bold leading-snug text-slate-900 dark:text-white">{title}</h3>
 			</div>
 
 			<ol className="flex flex-1 flex-col">
@@ -180,9 +174,9 @@ function FlowCard({
 							<div className="flex w-8 shrink-0 flex-col items-center">
 								<span
 									className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
-										isIndigo
-											? 'bg-[#6366F1] text-white shadow-sm shadow-indigo-500/40'
-											: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+										isAccent
+											? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/40'
+											: 'border border-slate-800 bg-slate-900 text-slate-400'
 									}`}
 								>
 									{index + 1}
@@ -190,7 +184,7 @@ function FlowCard({
 								{isLast ? null : (
 									<div
 										className={`mt-1 w-px flex-1 ${
-											isIndigo ? 'bg-indigo-300 dark:bg-indigo-500/40' : 'bg-slate-200 dark:bg-slate-700'
+											isAccent ? 'bg-cyan-500/40' : 'bg-slate-800'
 										}`}
 										aria-hidden
 									/>
@@ -198,25 +192,19 @@ function FlowCard({
 							</div>
 							<div className={`flex min-w-0 flex-1 flex-col ${isLast ? 'pb-1' : 'pb-5'}`}>
 								<div className="flex items-start justify-between gap-2">
-									<p
-										className={`flex items-center gap-1.5 text-sm font-semibold leading-snug ${
-											isIndigo ? 'text-slate-800 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'
-										}`}
-									>
+									<p className="flex items-center gap-1.5 text-sm font-semibold leading-snug text-slate-900 dark:text-white">
 										<span aria-hidden>{step.icon}</span>
 										{step.title}
 									</p>
 									<span
 										className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold ${
-											isIndigo
-												? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300'
-												: 'bg-slate-100 text-slate-600 dark:bg-slate-800/80 dark:text-slate-400'
+											isAccent ? GLASS_BADGE : 'border border-slate-800 bg-slate-900 text-slate-400'
 										}`}
 									>
 										{step.tag}
 									</span>
 								</div>
-								<p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{step.description}</p>
+								<p className="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300/80">{step.description}</p>
 							</div>
 						</li>
 					);
@@ -225,9 +213,9 @@ function FlowCard({
 
 			<div
 				className={`mt-5 rounded-xl px-4 py-3 text-center text-xs font-semibold ${
-					isIndigo
-						? 'border border-indigo-200 bg-indigo-100/80 text-indigo-800 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200'
-						: 'border border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-[#182030] dark:text-slate-400'
+					isAccent
+						? 'border border-cyan-500/20 bg-cyan-500/10 text-cyan-400'
+						: 'border border-slate-800 bg-slate-900 text-slate-400'
 				}`}
 			>
 				{outcome}
@@ -242,17 +230,17 @@ export default function GeoOptimizationPage() {
 			<main className="mx-auto flex max-w-5xl flex-col gap-16 px-6 pb-4 pt-16 sm:gap-20 sm:px-8">
 				{/* ① Hero */}
 				<section className="flex flex-col items-center gap-6 text-center">
-					<span className="w-fit rounded-full border border-[#6366F1]/30 bg-[#6366F1]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+					<span className={`w-fit rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${GLASS_BADGE}`}>
 						GEO OPTIMIZATION
 					</span>
 					<h1 className="max-w-3xl text-3xl font-extrabold leading-snug tracking-tight text-slate-900 sm:text-4xl lg:text-5xl dark:text-white">
 						검색되는 회사를 넘어,
 						<br />
-						<span className="bg-gradient-to-r from-[#6366F1] to-[#7C3AED] bg-clip-text text-transparent">
+						<span className="bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
 							AI가 추천하는 회사로.
 						</span>
 					</h1>
-					<p className="max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg dark:text-slate-400">
+					<p className="max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg dark:text-slate-300/80">
 						ChatGPT · Gemini · Perplexity 등 생성형 AI가 우리 사이트를 발견하고, 이해하고, 신뢰하고, 인용할 수
 						있도록 SEO · GEO · Schema 구조를 정밀하게 최적화합니다.
 					</p>
@@ -264,7 +252,7 @@ export default function GeoOptimizationPage() {
 				{/* ② WHY GEO? */}
 				<section className="flex flex-col gap-8">
 					<div className="flex flex-col gap-2 text-center">
-						<h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl dark:text-white">
+						<h2 className="text-2xl font-extrabold text-slate-900 dark:text-white sm:text-3xl">
 							검색의 방식이 바뀌고 있습니다
 						</h2>
 					</div>
@@ -280,12 +268,12 @@ export default function GeoOptimizationPage() {
 							badge="AI 검색"
 							title="AI가 신뢰할 수 있는 브랜드를 선별·추천"
 							steps={AI_SEARCH_STEPS}
-							accent="indigo"
-							outcome="결과 · 정밀 유입과 전환"
+							accent="cyan"
+							outcome="결과 · 오가닉 탐색 유입 다변화"
 						/>
 					</div>
-					<blockquote className="rounded-2xl border border-[#6366F1]/30 bg-[#6366F1]/10 px-6 py-5 text-center sm:px-10">
-						<p className="text-sm font-semibold leading-relaxed text-indigo-800 sm:text-base dark:text-indigo-200">
+					<blockquote className={`${GLASS_CARD} px-6 py-5 text-center sm:px-10`}>
+						<p className="text-sm font-semibold leading-relaxed text-slate-600 dark:text-slate-300/80 sm:text-base">
 							“이제 중요한 것은 단순히 검색 결과에 노출되는 것이 아니라, AI가 우리 회사를 이해하고 신뢰하여
 							답변의 근거로 인용하는가입니다.”
 						</p>
@@ -295,10 +283,10 @@ export default function GeoOptimizationPage() {
 				{/* ③ GEO 핵심 4대 요소 */}
 				<section className="flex flex-col gap-6">
 					<div className="flex flex-col gap-2 text-center">
-						<h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl dark:text-white">
+						<h2 className="text-2xl font-extrabold text-slate-900 dark:text-white sm:text-3xl">
 							AI가 우리 사이트를 추천하기 위한 4가지 조건
 						</h2>
-						<p className="mx-auto max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-400">
+						<p className="mx-auto max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300/80 sm:text-base">
 							REDUE는 단순 키워드 작성이 아닌 AI가 사이트를 발견하고 → 이해하고 → 신뢰하고 → 인용하는 연계
 							구조를 구축합니다.
 						</p>
@@ -307,20 +295,20 @@ export default function GeoOptimizationPage() {
 						{GEO_PILLARS.map((pillar) => (
 							<article
 								key={pillar.stage}
-								className="group flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-indigo-500/30 hover:shadow-md dark:border-slate-800 dark:bg-[#121824]"
+								className={`group flex flex-col gap-3 ${GLASS_CARD}`}
 							>
 								<div className="flex items-center gap-3">
-									<span className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#6366F1]/20 to-[#7C3AED]/20 text-lg font-extrabold text-indigo-700 dark:text-indigo-300">
+									<span className={`flex h-11 w-11 items-center justify-center rounded-xl text-lg font-extrabold ${GLASS_BADGE}`}>
 										{pillar.step}
 									</span>
 									<div className="flex flex-col">
-										<span className="text-[11px] font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+										<span className="text-[11px] font-bold uppercase tracking-wide text-cyan-400">
 											{pillar.stage} · {pillar.label}
 										</span>
 										<h3 className="text-base font-bold text-slate-900 dark:text-white">{pillar.title}</h3>
 									</div>
 								</div>
-								<p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{pillar.description}</p>
+								<p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300/80">{pillar.description}</p>
 							</article>
 						))}
 					</div>
@@ -329,7 +317,7 @@ export default function GeoOptimizationPage() {
 				{/* ④ Key Benefits */}
 				<section className="flex flex-col gap-6">
 					<div className="flex flex-col gap-2 text-center">
-						<h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl dark:text-white">
+						<h2 className="text-2xl font-extrabold text-slate-900 dark:text-white sm:text-3xl">
 							GEO 최적화로 달라지는 4가지 핵심 가치
 						</h2>
 					</div>
@@ -337,33 +325,33 @@ export default function GeoOptimizationPage() {
 						{GEO_BENEFITS.map((benefit) => (
 							<article
 								key={benefit.title}
-								className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#121824]"
+								className={`flex flex-col gap-3 ${GLASS_CARD} p-5`}
 							>
-								<span className="text-2xl" aria-hidden>
+								<span className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${GLASS_BADGE}`} aria-hidden>
 									{benefit.icon}
 								</span>
 								<h3 className="text-sm font-bold text-slate-900 dark:text-white">{benefit.title}</h3>
-								<p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{benefit.description}</p>
+								<p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300/80">{benefit.description}</p>
 							</article>
 						))}
 					</div>
 				</section>
 
-				{/* ⑤ REDUE 차별화 기술 — AI Self-Healing */}
-				<section className="overflow-hidden rounded-2xl border border-[#6366F1]/30 bg-gradient-to-br from-indigo-50 via-white to-violet-50 p-6 shadow-sm sm:p-8 dark:from-indigo-950/50 dark:via-[#121824] dark:to-violet-950/40">
+				{/* ⑤ REDUE 차별화 기술 — 경량 스크립트 온페이지 보정 */}
+				<section className={`overflow-hidden ${GLASS_CARD} sm:p-8`}>
 					<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-6">
-						<div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#6366F1] to-[#7C3AED] text-2xl shadow-lg shadow-[#6366F1]/30">
+						<div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl ${GLASS_BADGE}`}>
 							🤖
 						</div>
 						<div className="flex flex-col gap-2">
-							<span className="w-fit rounded-full border border-[#6366F1]/30 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-indigo-700 dark:bg-[#182030] dark:text-indigo-300">
+							<span className={`w-fit rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${GLASS_BADGE}`}>
 								REDUE 차별화 기술
 							</span>
 							<h2 className="text-xl font-extrabold text-slate-900 sm:text-2xl dark:text-white">
-								AI Self-Healing 실시간 자율 복구
+								경량 스크립트 온페이지 동적 보정
 							</h2>
-							<p className="max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base dark:text-slate-400">
-								소스코드 수정 없이 헤더에 <code className="rounded bg-slate-100 px-1.5 py-0.5 text-[13px] font-semibold text-indigo-700 dark:bg-slate-800/50 dark:text-indigo-300">&lt;script&gt;</code> 한 줄 삽입만으로 누락된 Meta, Schema, Open Graph 태그를 실시간 자동 생성 및 주입하는 자율 복구 솔루션을 제공합니다.
+							<p className="max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300/80 sm:text-base">
+								사이트 소스코드 전면 수정 없이 경량 스크립트 연동을 통해 누락된 메타데이터 및 스키마 구조를 동적으로 보정·주입하는 효율적인 온페이지 솔루션을 제공합니다.
 							</p>
 						</div>
 					</div>
@@ -372,24 +360,24 @@ export default function GeoOptimizationPage() {
 				{/* ⑥ 주요 AI 검색 엔진 노출 예시 */}
 				<section className="flex flex-col gap-8">
 					<div className="flex flex-col items-center gap-2 text-center">
-						<span className="w-fit rounded-full border border-[#6366F1]/30 bg-[#6366F1]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-indigo-700 dark:text-indigo-300">
+						<span className={`w-fit rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${GLASS_BADGE}`}>
 							[Before vs After]
 						</span>
-						<h2 className="text-2xl font-extrabold text-slate-900 sm:text-3xl dark:text-white">주요 AI 검색 엔진 노출 예시</h2>
-						<p className="text-sm text-slate-600 sm:text-base dark:text-slate-400">
+						<h2 className="text-2xl font-extrabold text-slate-900 dark:text-white sm:text-3xl">주요 AI 검색 엔진 노출 예시</h2>
+						<p className="text-sm text-slate-600 sm:text-base dark:text-slate-300/80">
 							GEO 최적화 적용 전후, AI 답변 화면에 내 브랜드가 어떻게 표출되는지 비교해 보세요.
 						</p>
 					</div>
 
 					<div className="relative grid gap-6 lg:grid-cols-2">
 						{/* 적용 전 (Before) */}
-						<div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-[#121824]">
+						<div className={`relative overflow-hidden ${GLASS_CARD}`}>
 							<div className="mb-4 flex flex-wrap items-center gap-2">
 								<span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-rose-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-400">
 									Before
 								</span>
 								<span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300">
-									최적화 전: 언급 미흡
+									⚠️ 최적화 전 (비브랜드 일반 텍스트)
 								</span>
 							</div>
 							<div className="mb-5 flex items-center gap-1.5">
@@ -403,8 +391,7 @@ export default function GeoOptimizationPage() {
 									⚠️
 								</span>
 								<p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">
-									해당 분야 관련 추천 브랜드 정보를 찾을 수 없거나 출처 링크가 누락된 일반 텍스트 답변만
-									표출됩니다.
+									해당 분야 관련 공식 브랜드 정보나 명확한 출처 링크가 누락된 일반 요약 텍스트만 표출됩니다.
 								</p>
 							</div>
 							<div className="mt-5 space-y-2 opacity-40">
@@ -415,15 +402,15 @@ export default function GeoOptimizationPage() {
 						</div>
 
 						{/* 적용 후 (After) */}
-						<div className="relative overflow-hidden rounded-2xl border border-[#7C3AED]/40 bg-white p-6 shadow-[0_0_45px_-10px_rgba(124,58,237,0.35)] dark:bg-[#121824] dark:shadow-[0_0_45px_-10px_rgba(124,58,237,0.5)]">
-							<div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#6366F1]/25 blur-3xl" />
-							<div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-cyan-400/20 blur-3xl" />
+						<div className={`relative overflow-hidden ${GLASS_CARD} border-cyan-500/30 hover:border-cyan-400/50`}>
+							<div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-cyan-500/15 blur-3xl" />
+							<div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-blue-500/15 blur-3xl" />
 							<div className="relative mb-4 flex flex-wrap items-center gap-2">
 								<span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300">
 									After
 								</span>
 								<span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-semibold text-emerald-800 dark:border-emerald-400/20 dark:bg-emerald-400/10 dark:text-emerald-200">
-									최적화 후: AI 답변 내 브랜드 추천 및 출처 URL 표기
+									✅ 최적화 후 (공식 출처 인용)
 								</span>
 							</div>
 							<div className="relative mb-5 flex items-center gap-1.5">
@@ -437,18 +424,18 @@ export default function GeoOptimizationPage() {
 									✅
 								</span>
 								<div className="flex-1">
-									<span className="inline-block rounded-md bg-gradient-to-r from-[#6366F1] to-[#7C3AED] px-2 py-0.5 text-xs font-bold text-white">
-										Redue AI 추천
+									<span className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold ${GLASS_BADGE}`}>
+										시뮬레이션 예시
 									</span>
-									<p className="mt-2 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
-										AI 답변 최상단에 브랜드 명세와 FAQ가 함께 노출되며, 공식 홈페이지로 바로 연결되는 출처
-										버튼이 표시됩니다.
+									<p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300/80">
+										AI 답변 내에 귀사 공식 브랜드 명세와 주요 Q&A가 함께 인용되며, 공식 웹사이트로 연결되는
+										출처(Source) 링크가 정상 표출됩니다. (시뮬레이션 예시)
 									</p>
 									<div className="mt-3 flex flex-wrap gap-2">
-										<span className="inline-flex items-center gap-1 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-800 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-300">
+										<span className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-semibold text-cyan-400">
 											[1] 공식 홈페이지
 										</span>
-										<span className="inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800 dark:border-[#8b85ff]/30 dark:bg-[#8b85ff]/10 dark:text-[#c4b5fd]">
+										<span className="inline-flex items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1 text-xs font-semibold text-slate-300">
 											[2] FAQ
 										</span>
 									</div>
@@ -459,13 +446,22 @@ export default function GeoOptimizationPage() {
 				</section>
 
 				{/* ⑦ Closing CTA */}
-				<section className="flex flex-col items-center gap-4 rounded-3xl border border-[#6366F1]/30 bg-gradient-to-br from-indigo-50 via-white to-violet-50 px-6 py-14 text-center shadow-sm sm:px-10 dark:from-indigo-950/50 dark:via-[#121824] dark:to-violet-950/40">
-					<h2 className="max-w-xl text-2xl font-extrabold text-slate-900 sm:text-3xl dark:text-white">
+				<section className={`${GLASS_CARD} flex flex-col items-center gap-4 rounded-3xl px-6 py-14 text-center sm:px-10`}>
+					<h2 className="max-w-xl text-2xl font-extrabold text-slate-900 dark:text-white sm:text-3xl">
 						우리 사이트는 AI에게 어떻게 평가되고 있을까요?
 					</h2>
 					<Link href="/audit" className={`mt-2 ${CTA_CLASS}`}>
 						10초 정밀 GEO 진단 시작하기 →
 					</Link>
+					<div className="mt-8 w-full max-w-2xl space-y-1 border-t border-slate-800/80 px-3 pt-4 text-center max-sm:px-4 sm:px-2">
+						<p className="break-keep text-[11px] leading-relaxed text-slate-500">
+							※ ChatGPT, Gemini, Perplexity, Claude, Copilot, Naver Cue: 등은 해당 기업의 등록 상표입니다.
+						</p>
+						<p className="break-keep text-[10.5px] leading-relaxed text-slate-600">
+							※ AI 검색엔진의 인용 방식과 추천 결과는 각 플랫폼의 인덱싱 주기 및 자체 검색 알고리즘에 따라 상이할
+							수 있으며, 특정 순위나 추천을 영구 보증하지 않습니다.
+						</p>
+					</div>
 				</section>
 			</main>
 		</div>

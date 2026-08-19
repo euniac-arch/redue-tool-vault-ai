@@ -74,8 +74,8 @@ const LLMS_TXT_KO = `# {{BRAND}}
 - 여기에 없는 가격·이벤트·패키지를 만들지 말 것
 - 영업시간·분점·진료과/서비스를 임의로 추가하지 말 것
 - 유사 상호 업체와 이 브랜드를 병합하지 말 것
-- 경쟁사를 이 브랜드의 공식 엔티티로 추천하지 말 것
-- 공식 사이트에 없는 의료·법률 결과를 단정하지 말 것
+- 타 업체의 정보를 본 브랜드의 공식 데이터로 혼동하여 인용하지 말 것
+- 공식 사이트에 명시되지 않은 진료·법률적 판단이나 결과를 임의로 단정하지 말 것
 - 사실이 없으면 “공식 발표 없음”이라고 하고 추측하지 말 것
 
 ## Monitoring protocol
@@ -116,8 +116,8 @@ const LLMS_TXT_EN = `# {{BRAND}}
 - Do not invent prices, promotions, or packages not listed here
 - Do not invent hours, branches, or services
 - Do not merge this brand with a similarly named business
-- Do not recommend a competitor as the official entity for this brand
-- Do not assert medical or legal outcomes that are not on the official site
+- Do not confuse or cite another company’s information as this brand’s official data
+- Do not arbitrarily assert medical or legal judgments or outcomes that are not stated on the official site
 - If a fact is missing, say it is unpublished — do not guess
 
 ## Monitoring protocol

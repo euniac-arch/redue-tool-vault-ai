@@ -77,6 +77,10 @@ export interface GeoSiteContext {
 	entityPhrases?: string[];
 	/** Need words actually present on the page — never invented. */
 	needSignals?: string[];
+	/** Footer / Person-schema representative legal name. */
+	representativeName?: string;
+	/** Footer / Person-schema jobTitle (대표원장 / 대표자). */
+	representativeTitle?: string;
 	/** When true, As-Is may only claim brand (Level 1) queries. */
 	brandOnlyAsIs?: boolean;
 }
