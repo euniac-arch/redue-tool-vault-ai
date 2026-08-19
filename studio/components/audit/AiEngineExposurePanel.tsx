@@ -454,7 +454,9 @@ function EngineCard({
 			? getEngineInsight(
 					engine.engine,
 					Boolean(live.isCited),
-					[live.citationUrl, ...(live.citedSources ?? [])],
+					[live.citationUrl, ...(live.citedSources ?? [])].filter(
+						(src): src is string => typeof src === 'string' && src.length > 0,
+					),
 					insightSignals,
 					{ liveScore: live.liveScore, lang },
 				)

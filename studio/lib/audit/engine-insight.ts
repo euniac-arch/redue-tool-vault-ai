@@ -455,7 +455,7 @@ function uncitedClaude(signals: EngineInsightSignals, en: boolean) {
 export function getEngineInsight(
 	engine: string,
 	isCited: boolean,
-	sources: readonly string[] | undefined,
+	sources: readonly (string | undefined | null)[] | undefined,
 	signals: EngineInsightSignals,
 	opts?: { liveScore?: number; lang?: AuditLang },
 ): EngineAnalysis {
