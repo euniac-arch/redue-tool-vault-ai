@@ -7,6 +7,7 @@ import {
 	toSupportedAiEngine,
 	type AiEvaluationDetail,
 } from '@/lib/audit/ai-grounding-evaluator';
+import { uniqueHttpUrls } from '@/lib/audit/engine-insight';
 import {
 	brandAliases,
 	detectCitedRank,
@@ -364,6 +365,14 @@ function composeGroundingText(parsed: LiveCheckParse, context?: LiveResultContex
 		.join('\n');
 }
 
+function collectCitedSources(
+	citationUrl: string | undefined,
+	context?: LiveResultContext,
+): string[] | undefined {
+	const urls = uniqueHttpUrls([citationUrl, ...(context?.citationCandidates ?? [])]);
+	return urls.length > 0 ? urls : undefined;
+}
+
 function reachLevelForTier(tier: GroundingTier, citationUrl?: string): LiveReachLevel {
 	if (tier === 'NOT_FOUND') return 'Level 1';
 	if (tier === 'WEAK') return citationUrl ? 'Level 2' : 'Level 1';
@@ -509,6 +518,7 @@ export function buildLiveEngineResult(
 				isCited ? DEFAULT_CITED_SNIPPET : DEFAULT_UNCITED_SNIPPET,
 			),
 			citationUrl,
+			citedSources: collectCitedSources(citationUrl, context),
 			fallbackToRuleScore: false,
 			citedRank: evaluation.tier === 'STRONG' ? parsed.rank || detectCitedRank(composedText, targetBrand, targetDomain) : null,
 			tier: evaluation.tier,
@@ -552,6 +562,7 @@ export function buildLiveEngineResult(
 			isCited ? DEFAULT_CITED_SNIPPET : DEFAULT_UNCITED_SNIPPET,
 		),
 		citationUrl,
+		citedSources: collectCitedSources(citationUrl, context),
 		fallbackToRuleScore,
 		citedRank: inferredTier === 'STRONG' ? parsed.rank : null,
 		tier: inferredTier,

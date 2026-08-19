@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
 const INQUIRY_TYPES = [
+	{ value: 'all', label: '전체 선택' },
 	{ value: 'geo', label: 'GEO 최적화 작업' },
 	{ value: 'seo', label: 'SEO 개선 작업' },
 	{ value: 'schema', label: '스키마 / 구조화 데이터' },
@@ -40,7 +41,7 @@ const EMPTY: FormState = {
 };
 
 const inputClass =
-	'w-full rounded-xl border border-slate-800 bg-slate-950/90 px-4 py-3 text-sm text-white placeholder-slate-500 transition-all focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500';
+	'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition-all focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 dark:border-slate-800 dark:bg-slate-950/90 dark:text-white dark:placeholder-slate-500';
 
 export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: ContactInquiryFormProps = {}) {
 	const [form, setForm] = useState<FormState>({ ...EMPTY, ...defaults });
@@ -76,13 +77,13 @@ export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: 
 
 	if (done) {
 		return (
-			<div className="mx-auto max-w-[760px] rounded-3xl border border-slate-800/80 bg-[#0B1120]/80 p-6 text-center shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-10">
-				<p className="text-sm font-bold text-cyan-400">작업 문의가 접수되었습니다.</p>
-				<p className="mt-2 text-xs text-slate-300/80">담당자가 1영업일 이내에 연락드립니다.</p>
+			<div className="w-full rounded-3xl border border-slate-200 bg-white p-6 text-center shadow-sm backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] sm:p-10">
+				<p className="text-sm font-bold text-cyan-700 dark:text-cyan-400">작업 문의가 접수되었습니다.</p>
+				<p className="mt-2 text-xs text-slate-600 dark:text-slate-300/80">담당자가 1영업일 이내에 연락드립니다.</p>
 				<button
 					type="button"
 					onClick={() => setDone(false)}
-					className="mt-4 text-xs font-semibold text-slate-400 hover:text-white"
+					className="mt-4 text-xs font-semibold text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
 				>
 					추가 문의하기
 				</button>
@@ -97,18 +98,18 @@ export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: 
 			className={
 				variant === 'embedded'
 					? 'flex flex-col gap-4'
-					: 'mx-auto flex max-w-[760px] flex-col gap-4 rounded-3xl border border-slate-800/80 bg-[#0B1120]/80 p-6 shadow-[0_0_50px_rgba(0,0,0,0.5)] backdrop-blur-xl sm:p-10'
+					: 'flex w-full flex-col gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm backdrop-blur-xl dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:shadow-[0_0_50px_rgba(0,0,0,0.5)] sm:p-10'
 			}
 		>
 			{variant === 'page' ? (
 				<>
 					<div className="flex items-center gap-2">
-						<span className="rounded-md border border-slate-800 bg-slate-900 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+						<span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:border-slate-800 dark:bg-slate-900 dark:text-cyan-400">
 							Work Inquiry
 						</span>
 					</div>
-					<h2 className="text-lg font-bold text-white">작업 문의 접수</h2>
-					<p className="text-xs text-slate-300/80">
+					<h2 className="text-lg font-bold text-slate-900 dark:text-white">작업 문의 접수</h2>
+					<p className="text-xs text-slate-600 dark:text-slate-300/80">
 						GEO·SEO·스키마 개선 등 실제 작업이 필요하시면 아래 양식으로 접수해 주세요.
 					</p>
 				</>
@@ -156,7 +157,7 @@ export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: 
 						required
 						value={form.inquiryType}
 						onChange={(e) => update('inquiryType', e.target.value as InquiryType | '')}
-						className="h-[2.75rem] border-slate-800 !bg-slate-950/90 text-sm text-white"
+						className="h-[2.75rem] border-slate-200 !bg-white text-sm text-slate-900 dark:border-slate-800 dark:!bg-slate-950/90 dark:text-white"
 						aria-label="문의 유형"
 					>
 						<option value="" disabled>
@@ -215,7 +216,7 @@ function Field({
 	htmlFor?: string;
 	children: React.ReactNode;
 }) {
-	const labelClass = 'mb-2 block text-xs font-semibold text-slate-300 sm:text-sm';
+	const labelClass = 'mb-2 block text-xs font-semibold text-slate-600 sm:text-sm dark:text-slate-300';
 	const title = (
 		<>
 			{label}

@@ -1,4 +1,5 @@
 import { FreeAuditHero } from '@/components/FreeAuditHero';
+import { HomeAuditHistorySection } from '@/components/audit/HomeAuditHistorySection';
 import { ClosingCta } from '@/components/landing/ClosingCta';
 import { ContrastSimulator } from '@/components/landing/ContrastSimulator';
 import { DiagnosisProofSection } from '@/components/landing/DiagnosisProofSection';
@@ -18,6 +19,7 @@ export default function LandingPage() {
 	return (
 		<main className="landing-page pb-24">
 			<FreeAuditHero />
+			<HomeAuditHistorySection />
 			<div className="landing-container pb-4">
 				<ProblemSection />
 				<DiagnosisProofSection />

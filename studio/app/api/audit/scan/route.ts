@@ -10,6 +10,8 @@ import {
 	updateAuditProject,
 } from '@/lib/firebase/audit-projects';
 import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
+import { persistSignedInAuditReport } from '@/lib/audit/persist-audit-report';
+import { MASTER_ADMIN_ID } from '@/lib/master-admin';
 import { prisma } from '@/lib/prisma';
 import { syncProjectFromAuditLead } from '@/lib/projects-sync';
 import { auditSite, type AuditLang } from '@/lib/site-auditor';
@@ -162,6 +164,8 @@ export async function POST(request: Request) {
 		} catch (err) {
 			console.error('[audit/scan] session lookup failed:', errorMessage(err), errorStack(err));
 		}
+		const sessionUserId =
+			(session as { user?: { id?: string } } | null)?.user?.id?.trim() || null;
 
 		let auditId: string | null = null;
 		let createInput;
@@ -221,7 +225,7 @@ export async function POST(request: Request) {
 				maxScore: report.maxScore,
 				statusLabel: report.statusLabel,
 				reportJson,
-				userId: (session as { user?: { id?: string } } | null)?.user?.id ?? null,
+				userId: sessionUserId,
 			};
 
 			if (forceRefresh) {
@@ -287,6 +291,26 @@ export async function POST(request: Request) {
 				stack: errorStack(err),
 			});
 			// Lead logging is best-effort — never fail the visitor-facing report over it.
+		}
+
+		// Signed-in admin/user: persist a durable Prisma AuditReport so history
+		// survives browser close and is visible after logging in elsewhere.
+		if (sessionUserId) {
+			try {
+				const savedReport = await persistSignedInAuditReport({
+					report,
+					userId: sessionUserId || MASTER_ADMIN_ID,
+					preferredId: auditId,
+					replaceId,
+				});
+				if (savedReport && !auditId) auditId = savedReport.id;
+			} catch (err) {
+				console.error('[audit/scan] Prisma AuditReport save failed:', {
+					url: report.url,
+					message: errorMessage(err),
+					stack: errorStack(err),
+				});
+			}
 		}
 
 		return noStoreJson({ ...report, id: auditId, forceRefresh });

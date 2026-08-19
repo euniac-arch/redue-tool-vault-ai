@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { signOut, useSession } from 'next-auth/react';
 import { PricingModal } from './PricingModal';
@@ -65,7 +66,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 	if (status !== 'authenticated' || !me?.authenticated) {
 		return (
 			<div className={`flex items-center gap-2 ${stacked ? 'w-full flex-col' : ''}`}>
-				<a
+				<Link
 					href="/login"
 					onClick={onNavigate}
 					className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 ${
@@ -77,20 +78,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 					}`}
 				>
 					{t('signIn')}
-				</a>
-				<a
-					href="/login?mode=signup"
-					onClick={onNavigate}
-					className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-200 ${
-						stacked ? 'w-full' : ''
-					} ${
-						forceLight
-							? 'bg-zinc-900 text-white hover:bg-black'
-							: 'bg-slate-900 text-white hover:bg-black dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100'
-					}`}
-				>
-					{t('signUp')}
-				</a>
+				</Link>
 			</div>
 		);
 	}

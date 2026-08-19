@@ -328,6 +328,7 @@ export function clearGuestAudits(): void {
 export function notifyAuditHistorySync(detail?: {
 	all?: boolean;
 	ids?: string[];
+	entry?: AuditHistoryEntry;
 }): void {
 	if (!isBrowser()) return;
 	const payload = {
@@ -335,6 +336,7 @@ export function notifyAuditHistorySync(detail?: {
 		at: Date.now(),
 		all: detail?.all === true,
 		ids: detail?.ids ?? [],
+		entry: detail?.entry ?? null,
 	};
 	try {
 		window.localStorage.setItem(AUDIT_HISTORY_SYNC_KEY, JSON.stringify(payload));

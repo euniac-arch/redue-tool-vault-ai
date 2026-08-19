@@ -1283,6 +1283,11 @@
 			"citedYes": "✓ Cited in the answer",
 			"citedNo": "✗ Not cited in the answer",
 			"weaknessTitle": "Why the signal is weak",
+			"insightCitedMechanism": "💡 Citation success mechanism",
+			"insightUncitedCause": "🚨 Why it was not cited",
+			"insightCitedPath": "Detected citation path:",
+			"insightActionRequired": "Required action:",
+			"insightNextStep": "Recommended next step:",
 			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Only Gemini, ChatGPT, Perplexity, and Claude verify live web-search citations."
 		},
 		"aiRankingModal": {
@@ -2334,7 +2339,8 @@
 		"history": {
 			"title": "Recent audits",
 			"totalCount": "{count} total",
-			"guestHint": "Shows recent server-saved audits plus this browser’s local history",
+			"guestHint": "You’re signed out — showing this browser’s local history only",
+			"signedInHint": "Diagnosis records permanently saved to your admin account",
 			"searchPlaceholder": "Search by URL…",
 			"filterAll": "All",
 			"filterHealthy": "Healthy",

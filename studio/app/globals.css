@@ -33,7 +33,8 @@ html.dark .df-summary-box {
 
 @layer base {
 	html {
-		color-scheme: light;
+		color-scheme: dark;
+		background: #0a0d12;
 		font-family:
 			Pretendard,
 			-apple-system,
@@ -50,14 +51,25 @@ html.dark .df-summary-box {
 		-moz-osx-font-smoothing: grayscale;
 	}
 
+	html:not(.dark) {
+		color-scheme: light;
+		background: #f8fafc;
+	}
+
 	html.dark {
 		color-scheme: dark;
+		background: #0a0d12;
 	}
 
 	body {
+		background: #0a0d12;
+		color: #f1f5f9;
+		font-family: inherit;
+	}
+
+	html:not(.dark) body {
 		background: #f8fafc;
 		color: #0f172a;
-		font-family: inherit;
 	}
 
 	html.dark body {
@@ -82,33 +94,33 @@ html.dark .df-summary-box {
 		@apply border border-slate-200 bg-white shadow-sm dark:border-white/[0.08] dark:bg-slate-900/80 dark:shadow-none;
 	}
 
-	/* REDUE landing — Dark Modern SaaS */
+	/* REDUE landing — Dark Modern SaaS (light + dark) */
 	.landing-page {
-		@apply bg-transparent text-white;
+		@apply bg-transparent text-slate-900 dark:text-white;
 	}
 	.landing-container {
 		@apply mx-auto w-full max-w-[1100px] px-5 sm:px-6;
 	}
 	.landing-card {
-		@apply rounded-2xl border border-[#1E2640] bg-[#0F1422]/80 p-5 backdrop-blur-md;
+		@apply rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur-md dark:border-[#1E2640] dark:bg-[#0F1422]/80 dark:shadow-none;
 	}
 	.landing-h1 {
-		@apply text-[28px] font-bold leading-tight tracking-tight text-white sm:text-[38px];
+		@apply text-[28px] font-bold leading-tight tracking-tight text-slate-900 dark:text-white sm:text-[38px];
 	}
 	.landing-sub {
-		@apply text-[15px] font-medium leading-relaxed text-[#CBD5E1];
+		@apply text-[15px] font-medium leading-relaxed text-slate-600 dark:text-[#CBD5E1];
 	}
 	.landing-title {
-		@apply font-bold text-white;
+		@apply font-bold text-slate-900 dark:text-white;
 	}
 	.landing-desc {
-		@apply text-[13px] leading-normal text-[#94A3B8];
+		@apply text-[13px] leading-normal text-slate-500 dark:text-[#94A3B8];
 	}
 	.landing-micro {
-		@apply text-xs text-[#64748B];
+		@apply text-xs text-slate-500 dark:text-[#64748B];
 	}
 	.landing-input {
-		@apply w-full rounded-xl border border-[#1E2640] bg-[#0B0F19] px-4 py-3 text-sm text-white placeholder:text-[#64748B] outline-none transition focus:border-[#6366F1] focus:ring-2 focus:ring-[#6366F1]/30;
+		@apply w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 outline-none transition focus:border-[#6366F1] focus:ring-2 focus:ring-[#6366F1]/30 dark:border-[#1E2640] dark:bg-[#0B0F19] dark:text-white dark:placeholder:text-[#64748B];
 	}
 	.landing-btn-indigo {
 		@apply whitespace-nowrap rounded-xl bg-[#6366F1] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#818CF8] disabled:opacity-50;
@@ -1661,7 +1673,8 @@ html.pdf-preview-capturing .exec-briefing-card article,
 }
 
 html:not(.dark) .page-horizon {
-	display: none;
+	opacity: 0.08;
+	filter: brightness(2.2) saturate(0.4);
 }
 
 html.dark .page-horizon {

@@ -50,13 +50,13 @@ export function UrlAuditForm({
 					isFinal
 						? 'flex w-full flex-col items-stretch gap-2.5 sm:flex-row'
 						: isHero
-							? 'flex w-full flex-col items-stretch gap-2.5 rounded-2xl border border-cyan-500/40 bg-slate-950/90 p-1.5 shadow-inner sm:flex-row sm:p-2'
+							? 'flex w-full flex-col items-stretch gap-2.5 rounded-2xl border border-cyan-500/30 bg-white p-1.5 shadow-inner dark:border-cyan-500/40 dark:bg-slate-950/90 sm:flex-row sm:p-2'
 							: 'flex w-full flex-col gap-2 sm:flex-row sm:items-stretch'
 				}
 			>
 				{isHero ? (
 					<div className="relative flex flex-1 items-center">
-						<span className="pl-3.5 text-sm text-slate-500" aria-hidden>
+						<span className="pl-3.5 text-sm text-slate-400 dark:text-slate-500" aria-hidden>
 							🌐
 						</span>
 						<input
@@ -71,7 +71,7 @@ export function UrlAuditForm({
 							}}
 							placeholder={placeholder ?? t('placeholder')}
 							readOnly={autoSubmit && submitting}
-							className="w-full bg-transparent px-3 py-3 font-['Pretendard',sans-serif] text-sm tracking-tight text-white placeholder-slate-500 outline-none"
+							className="w-full bg-transparent px-3 py-3 font-['Pretendard',sans-serif] text-sm tracking-tight text-slate-900 placeholder-slate-400 outline-none dark:text-white dark:placeholder-slate-500"
 						/>
 					</div>
 				) : (
@@ -89,7 +89,7 @@ export function UrlAuditForm({
 						readOnly={autoSubmit && submitting}
 						className={
 							isFinal
-								? 'flex-1 rounded-xl border border-slate-700 bg-slate-950/90 px-4 py-3.5 text-sm text-white placeholder-slate-500 outline-none focus:border-cyan-400'
+								? 'flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3.5 text-sm text-slate-900 placeholder-slate-400 outline-none focus:border-cyan-500 dark:border-slate-700 dark:bg-slate-950/90 dark:text-white dark:placeholder-slate-500 dark:focus:border-cyan-400'
 								: isSticky
 									? 'landing-input py-2.5'
 									: 'landing-input'
@@ -116,7 +116,7 @@ export function UrlAuditForm({
 			{error ? (
 				<p
 					role="alert"
-					className="mt-3 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-2 text-sm text-rose-200"
+					className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200"
 				>
 					{error}
 				</p>

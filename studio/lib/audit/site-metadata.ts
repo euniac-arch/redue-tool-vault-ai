@@ -731,55 +731,60 @@ function industryToVertical(industry: IndustryType, medicalKind?: KeywordRule['m
 }
 
 function normalizeLegacyMeta(meta: SiteMetadata): SiteMetadata {
+	const location = cleanText(meta?.location, 80);
+	const brandName = cleanText(meta?.brandName, 80) || meta?.brandName || '';
 	const industry: IndustryType =
-		meta.industryType ||
-		(meta.vertical === 'dental' || meta.vertical === 'medical'
+		meta?.industryType ||
+		(meta?.vertical === 'dental' || meta?.vertical === 'medical'
 			? 'MEDICAL'
-			: meta.vertical === 'local'
+			: meta?.vertical === 'local'
 				? 'LOCAL_STORE'
-				: meta.vertical === 'b2b'
+				: meta?.vertical === 'b2b'
 					? 'B2B_MFG'
 					: 'GENERAL');
-	const primaryKeyword = meta.primaryKeyword || meta.category || '';
+	const primaryKeyword = meta?.primaryKeyword || meta?.category || '';
 	const broadLocation =
-		meta.broadLocation ||
-		extractBroadLocation(`${meta.location} ${meta.brandName} ${primaryKeyword}`, meta.location);
+		cleanText(meta?.broadLocation, 40) ||
+		extractBroadLocation(`${location} ${brandName} ${primaryKeyword}`, location);
 	return {
 		...meta,
+		domain: meta?.domain || '',
+		brandName,
+		location,
 		industryType: industry,
 		primaryKeyword,
-		category: meta.category || primaryKeyword,
+		category: meta?.category || primaryKeyword,
 		broadLocation,
-		vertical: meta.vertical || industryToVertical(industry),
-		businessEntity: meta.businessEntity || primaryKeyword,
-		entityPhrases: meta.entityPhrases,
-		needSignals: meta.needSignals,
-		metaKeywords: meta.metaKeywords,
-		detectedKeywords: meta.detectedKeywords?.length
+		vertical: meta?.vertical || industryToVertical(industry),
+		businessEntity: meta?.businessEntity || primaryKeyword,
+		entityPhrases: meta?.entityPhrases,
+		needSignals: meta?.needSignals,
+		metaKeywords: meta?.metaKeywords,
+		detectedKeywords: meta?.detectedKeywords?.length
 			? meta.detectedKeywords
 			: collectDetectedKeywordsFromMeta(meta),
-		title: meta.title,
-		metaDescription: meta.metaDescription,
-		ogTitle: meta.ogTitle,
-		ogDescription: meta.ogDescription,
-		schemaKnowsAbout: meta.schemaKnowsAbout,
-		schemaEntityTypes: meta.schemaEntityTypes,
-		h2Texts: meta.h2Texts,
-		navMenuTexts: meta.navMenuTexts,
-		coreSpecialties: meta.coreSpecialties?.length
+		title: meta?.title,
+		metaDescription: meta?.metaDescription,
+		ogTitle: meta?.ogTitle,
+		ogDescription: meta?.ogDescription,
+		schemaKnowsAbout: meta?.schemaKnowsAbout,
+		schemaEntityTypes: meta?.schemaEntityTypes,
+		h2Texts: meta?.h2Texts,
+		navMenuTexts: meta?.navMenuTexts,
+		coreSpecialties: meta?.coreSpecialties?.length
 			? meta.coreSpecialties
 			: extractCoreSpecialties({
-					title: meta.title,
-					metaKeywords: meta.metaKeywords,
-					navMenuTexts: meta.navMenuTexts,
-					description: meta.metaDescription,
-					ogTitle: meta.ogTitle,
-					ogDescription: meta.ogDescription,
-					schemaTerms: meta.schemaKnowsAbout,
-					targetKeywords: meta.detectedKeywords,
-					category: meta.category,
+					title: meta?.title,
+					metaKeywords: meta?.metaKeywords,
+					navMenuTexts: meta?.navMenuTexts,
+					description: meta?.metaDescription,
+					ogTitle: meta?.ogTitle,
+					ogDescription: meta?.ogDescription,
+					schemaTerms: meta?.schemaKnowsAbout,
+					targetKeywords: meta?.detectedKeywords,
+					category: meta?.category,
 					primaryKeyword,
-					h2Texts: meta.h2Texts,
+					h2Texts: meta?.h2Texts,
 				}),
 	};
 }
@@ -1151,7 +1156,7 @@ export function generateBroadQuery(data: {
 	industryType: string;
 	needSignals?: string[];
 }): string {
-	const keyword = safePrimaryKeyword(data.primaryKeyword) || data.primaryKeyword.trim();
+	const keyword = safePrimaryKeyword(data.primaryKeyword) || (data.primaryKeyword || '').trim();
 	const focus = keyword || (data.industryType === 'MEDICAL' ? '클리닉' : '서비스');
 	const region = data.location || data.broadLocation;
 	if (data.industryType === 'MEDICAL') {
@@ -1213,7 +1218,7 @@ function generateBroadQueryEn(data: {
 
 /** Builds a metro-scale AI-search user query from extracted site metadata. */
 export function generateUserQuery(meta: SiteMetadata, lang: AuditLang = 'ko'): string {
-	const m = normalizeLegacyMeta(meta);
+	const m = normalizeLegacyMeta(meta || ({} as SiteMetadata));
 	const broad = broadLocationLabel(m.broadLocation, lang);
 	const entity = m.businessEntity || m.primaryKeyword;
 	if (lang === 'en') {
@@ -1236,12 +1241,14 @@ export function generateUserQuery(meta: SiteMetadata, lang: AuditLang = 'ko'): s
 }
 
 export function locationLabel(meta: SiteMetadata, lang: AuditLang = 'ko'): string {
-	const m = normalizeLegacyMeta(meta);
-	if (m.broadLocation.trim()) return broadLocationLabel(m.broadLocation, lang);
-	if (m.location.trim()) {
-		const broad = extractBroadLocation(m.location, m.location);
-		if (broad) return broadLocationLabel(broad, lang);
-		return m.location.trim();
+	const m = normalizeLegacyMeta(meta || ({} as SiteMetadata));
+	const broad = (m.broadLocation || '').trim();
+	if (broad) return broadLocationLabel(broad, lang);
+	const location = (m.location || '').trim();
+	if (location) {
+		const fromLocation = extractBroadLocation(location, location);
+		if (fromLocation) return broadLocationLabel(fromLocation, lang);
+		return location;
 	}
 	return lang === 'ko' ? '해당' : 'this';
 }

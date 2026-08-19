@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 
-const INQUIRY_TYPES = new Set(['geo', 'seo', 'schema', 'audit', 'general']);
+const INQUIRY_TYPES = new Set(['all', 'geo', 'seo', 'schema', 'audit', 'general']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function appendContactLead(lead: Record<string, unknown>): void {

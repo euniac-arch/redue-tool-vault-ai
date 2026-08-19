@@ -6,6 +6,9 @@ import { signIn } from 'next-auth/react';
 
 type Mode = 'signin' | 'signup';
 
+const fieldClass =
+	'rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none placeholder-slate-500 focus:border-cyan-500 dark:border-white/[0.08] dark:bg-black/30';
+
 export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean }) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -60,12 +63,14 @@ export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean })
 
 			<div className="flex flex-col gap-2">
 				<button
+					type="button"
 					onClick={() => signIn('google', { callbackUrl })}
-					className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
+					className="flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-900 dark:border-white/[0.08] dark:bg-white/5 dark:hover:bg-white/10"
 				>
 					Google로 계속하기
 				</button>
 				<button
+					type="button"
 					onClick={() => signIn('kakao', { callbackUrl })}
 					className="flex items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-2.5 text-sm font-semibold text-black/85 hover:brightness-95"
 				>
@@ -78,10 +83,10 @@ export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean })
 				)}
 			</div>
 
-			<div className="flex items-center gap-3 text-xs text-slate-600">
-				<div className="h-px flex-1 bg-slate-200 dark:bg-white/[0.08]" />
+			<div className="flex items-center gap-3 text-xs text-slate-500">
+				<div className="h-px flex-1 bg-slate-800 dark:bg-white/[0.08]" />
 				또는 이메일로 계속하기
-				<div className="h-px flex-1 bg-slate-200 dark:bg-white/[0.08]" />
+				<div className="h-px flex-1 bg-slate-800 dark:bg-white/[0.08]" />
 			</div>
 
 			<form onSubmit={handleEmailSubmit} className="flex flex-col gap-3">
@@ -91,16 +96,17 @@ export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean })
 						placeholder="이름"
 						value={name}
 						onChange={(event) => setName(event.target.value)}
-						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-accent dark:border-white/[0.08] dark:bg-black/30 dark:text-slate-100"
+						className={fieldClass}
 					/>
 				)}
 				<input
-					type="email"
+					type="text"
 					required
-					placeholder="이메일"
+					autoComplete="username"
+					placeholder="아이디 또는 이메일"
 					value={email}
 					onChange={(event) => setEmail(event.target.value)}
-					className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-accent dark:border-white/[0.08] dark:bg-black/30 dark:text-slate-100"
+					className={fieldClass}
 				/>
 				<input
 					type="password"
@@ -109,7 +115,7 @@ export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean })
 					placeholder="비밀번호 (8자 이상)"
 					value={password}
 					onChange={(event) => setPassword(event.target.value)}
-					className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-accent dark:border-white/[0.08] dark:bg-black/30 dark:text-slate-100"
+					className={fieldClass}
 				/>
 
 				{error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
@@ -124,8 +130,12 @@ export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean })
 			</form>
 
 			<button
-				onClick={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
-				className="text-center text-sm text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+				type="button"
+				onClick={() => {
+					setError(null);
+					setMode(mode === 'signin' ? 'signup' : 'signin');
+				}}
+				className="text-center text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
 			>
 				{mode === 'signin' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
 			</button>

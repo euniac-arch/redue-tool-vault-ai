@@ -46,31 +46,6 @@ function navLinkClass(active: boolean, variant: 'desktop' | 'mobile'): string {
 		: 'rounded-lg px-3 py-3 text-base font-semibold text-slate-600 transition-colors duration-300 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-[#0E162B] dark:hover:text-white';
 }
 
-function AdminEntryLink({
-	onNavigate,
-	className,
-}: {
-	onNavigate?: () => void;
-	className?: string;
-}) {
-	const t = useTranslations('nav');
-
-	return (
-		<a
-			href="/admin"
-			onClick={onNavigate}
-			className={
-				className ??
-				'inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-cyan-500 hover:bg-cyan-500 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300'
-			}
-			title={t('admin')}
-		>
-			<span aria-hidden>🚀</span>
-			<span>{t('adminButton')}</span>
-		</a>
-	);
-}
-
 export function Header() {
 	const t = useTranslations('nav');
 	const pathname = usePathname() ?? '/';
@@ -110,7 +85,7 @@ export function Header() {
 
 	return (
 		<header
-			className={`print:hidden sticky top-0 w-full shrink-0 bg-transparent ${
+			className={`print:hidden sticky top-0 w-full shrink-0 border-b border-slate-200/80 bg-white/85 backdrop-blur-md dark:border-transparent dark:bg-transparent ${
 				isMenuOpen ? 'z-[9999]' : 'z-30'
 			}`}
 		>
@@ -148,7 +123,6 @@ export function Header() {
 
 				<div className="relative z-10 col-start-3 flex min-w-0 justify-self-end items-center gap-1.5 sm:gap-2">
 					<div className="hidden items-center gap-1.5 min-[1100px]:flex sm:gap-2">
-						<AdminEntryLink />
 						<ThemeToggle />
 						<LocaleSwitcher />
 						<HeaderAuth />
@@ -204,7 +178,6 @@ export function Header() {
 
 					<div className="mobile-menu-overlay__footer">
 						<div className="flex flex-wrap items-center gap-2">
-							<AdminEntryLink onNavigate={closeMenu} />
 							<ThemeToggle />
 							<LocaleSwitcher />
 						</div>

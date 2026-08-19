@@ -4,8 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, Info, Loader2, RefreshCw, Zap } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ENGINE_CHAT_THEME, ENGINE_GLYPH } from '@/components/audit/AiEngineIcons';
+import { EngineInsightBox } from '@/components/audit/EngineInsightBox';
 import { AIRankingPanel } from '@/components/geo/AIRankingPanel';
 import { useAuditData } from '@/components/audit/AuditDataContext';
+import { detectEnginePlatformSignals } from '@/lib/audit/engine-analysis';
+import { getEngineInsight, type EngineInsightSignals } from '@/lib/audit/engine-insight';
 import { resolveLiveCheckQuery, sanitizeEvidenceSnippet } from '@/lib/audit/live-check-score';
 import {
 	getRatingMeta,
@@ -425,11 +428,13 @@ function EngineCard({
 	lang,
 	live,
 	liveAttempted,
+	insightSignals,
 }: {
 	engine: EngineAnalysisResult & { engineLabel?: string };
 	lang: 'ko' | 'en';
 	live?: LiveEngineCheckResult;
 	liveAttempted: boolean;
+	insightSignals: EngineInsightSignals;
 }) {
 	const t = useTranslations('audit.aiEngines');
 	const isProxy = isProxyIndexEngine(engine.engine);
@@ -444,6 +449,16 @@ function EngineCard({
 	const factors = engine.causeFactors ?? [];
 	const visibility = engine.visibility ?? null;
 	const showDual = grounded;
+	const analysis =
+		grounded && live
+			? getEngineInsight(
+					engine.engine,
+					Boolean(live.isCited),
+					[live.citationUrl, ...(live.citedSources ?? [])],
+					insightSignals,
+					{ liveScore: live.liveScore, lang },
+				)
+			: null;
 
 	return (
 		<div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/[0.08] dark:bg-black/20">
@@ -497,6 +512,7 @@ function EngineCard({
 			</div>
 
 			{hasMeasuredVisibility(visibility) ? <VisibilityMetricsBlock metrics={visibility!} /> : null}
+			{analysis ? <EngineInsightBox analysis={analysis} /> : null}
 		</div>
 	);
 }
@@ -509,6 +525,7 @@ function EngineGroup({
 	liveByEngine,
 	liveAttempted,
 	lang,
+	insightSignals,
 }: {
 	title: string;
 	hint: string;
@@ -517,6 +534,7 @@ function EngineGroup({
 	liveByEngine: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>>;
 	liveAttempted: boolean;
 	lang: 'ko' | 'en';
+	insightSignals: EngineInsightSignals;
 }) {
 	if (engines.length === 0) return null;
 	return (
@@ -536,6 +554,7 @@ function EngineGroup({
 						lang={lang}
 						live={liveByEngine[engine.engine]}
 						liveAttempted={liveAttempted}
+						insightSignals={insightSignals}
 					/>
 				))}
 			</div>
@@ -547,10 +566,12 @@ function EngineDiagnosticGrid({
 	engineResults,
 	liveByEngine,
 	liveAttempted,
+	insightSignals,
 }: {
 	engineResults: EngineAnalysisResult[];
 	liveByEngine: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>>;
 	liveAttempted: boolean;
+	insightSignals: EngineInsightSignals;
 }) {
 	const t = useTranslations('audit.aiEngines');
 	const locale = useLocale();
@@ -570,6 +591,7 @@ function EngineDiagnosticGrid({
 				liveByEngine={liveByEngine}
 				liveAttempted={liveAttempted}
 				lang={lang}
+				insightSignals={insightSignals}
 			/>
 			<EngineGroup
 				title={t('proxyGroupTitle')}
@@ -579,6 +601,7 @@ function EngineDiagnosticGrid({
 				liveByEngine={liveByEngine}
 				liveAttempted={liveAttempted}
 				lang={lang}
+				insightSignals={insightSignals}
 			/>
 		</div>
 	);
@@ -619,6 +642,28 @@ export function AiEngineExposurePanel({
 			}),
 		[report.detectedKeywords, report.siteMeta, lang],
 	);
+
+	const insightSignals = useMemo((): EngineInsightSignals => {
+		const platform = detectEnginePlatformSignals({
+			schemaTypes: report.metrics?.schemaTypes ?? report.siteMeta?.schemaEntityTypes,
+			jsonLdCorpus: (report.metrics?.jsonLdSnippets ?? []).join('\n'),
+			extraCorpus: [...(report.collectedUrls ?? []), report.footerText ?? ''].join('\n'),
+		});
+		const schemaTypes = report.metrics?.schemaTypes ?? report.siteMeta?.schemaEntityTypes ?? [];
+		const jsonLdCount = report.metrics?.jsonLdBlockCount ?? 0;
+		return {
+			isHttps: snapshot.isHttps,
+			bingPlacesRegistered:
+				snapshot.reputation.digitalFootprint.bingPlacesRegistered || platform.bingPlacesLinked,
+			googleMapsLinked: platform.googleMapsLinked,
+			hasLlmsTxt: Boolean(report.metrics?.hasLlmsTxt),
+			hasJsonLd: jsonLdCount > 0 || schemaTypes.length > 0 || platform.hasOrganization || platform.hasLocalBusiness,
+			hasFaq: platform.hasFaq || platform.hasHowTo,
+			hasLocalBusiness: platform.hasLocalBusiness,
+			siteUrl,
+			recommendedSchemaType: snapshot.reputation.brandTrust.recommendedSchemaType,
+		};
+	}, [report, snapshot, siteUrl]);
 
 	const selectTab = useCallback((tab: ExposurePanelTab) => {
 		setSelectedTab((prev) => (prev === tab ? prev : tab));
@@ -769,6 +814,7 @@ export function AiEngineExposurePanel({
 					engineResults={engineResults}
 					liveByEngine={liveByEngine}
 					liveAttempted={liveAttempted}
+					insightSignals={insightSignals}
 				/>
 			</div>
 

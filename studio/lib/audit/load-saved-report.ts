@@ -1,5 +1,4 @@
 import { getAuditProjectById } from '@/lib/firebase/audit-projects';
-import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 import { prisma } from '@/lib/prisma';
 import { ensureExecutiveSummary } from '@/lib/audit/executive-summary';
 import type { AuditReport } from '@/lib/site-auditor';
@@ -13,9 +12,26 @@ export type SavedAuditReport = {
 	issueCount?: number;
 };
 
+function fromJson(id: string, reportJson: string, createdAt: Date, score?: number): SavedAuditReport | null {
+	try {
+		const report = JSON.parse(reportJson) as AuditReport;
+		if (!report?.url) return null;
+		return {
+			id,
+			createdAt: createdAt.toISOString(),
+			score,
+			report: ensureExecutiveSummary(report),
+			source: 'prisma',
+		};
+	} catch {
+		return null;
+	}
+}
+
 /**
  * Load a persisted diagnosis by Firestore / Prisma id.
- * Same source-of-truth order as GET /api/audit/[id].
+ * Prisma AuditReport is always consulted so signed-in admin history
+ * survives even when Firestore is configured but missing that row.
  */
 export async function loadSavedAuditReport(id: string): Promise<SavedAuditReport | null> {
 	const trimmed = id.trim();
@@ -33,7 +49,14 @@ export async function loadSavedAuditReport(id: string): Promise<SavedAuditReport
 		};
 	}
 
-	if (isFirebaseAdminConfigured()) return null;
+	const saved = await prisma.auditReport.findUnique({
+		where: { id: trimmed },
+		select: { id: true, reportJson: true, createdAt: true, score: true },
+	});
+	if (saved) {
+		const parsed = fromJson(saved.id, saved.reportJson, saved.createdAt, saved.score);
+		if (parsed) return parsed;
+	}
 
 	const lead = await prisma.auditLead.findUnique({
 		where: { id: trimmed },
@@ -46,16 +69,5 @@ export async function loadSavedAuditReport(id: string): Promise<SavedAuditReport
 	});
 	if (!lead) return null;
 
-	try {
-		const report = JSON.parse(lead.reportJson) as AuditReport;
-		return {
-			id: lead.id,
-			createdAt: lead.createdAt.toISOString(),
-			score: lead.score,
-			report: ensureExecutiveSummary(report),
-			source: 'prisma',
-		};
-	} catch {
-		return null;
-	}
+	return fromJson(lead.id, lead.reportJson, lead.createdAt, lead.score);
 }

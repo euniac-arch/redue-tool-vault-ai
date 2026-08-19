@@ -45,13 +45,13 @@ export default function PortfolioPage() {
 	return (
 		<main className="flex flex-col gap-8">
 			<section>
-				<h1 className="text-2xl font-bold text-white">REDUE AI SEO & GEO 포트폴리오</h1>
-				<p className="mt-1 text-sm text-slate-300/80">
+				<h1 className="text-2xl font-bold text-slate-900 dark:text-white">REDUE AI SEO & GEO 포트폴리오</h1>
+				<p className="mt-1 text-sm text-slate-600 dark:text-slate-300/80">
 					로컬 및 실제 호스팅 환경에서 스키마 주입 검증이 완료된 프로젝트를 정식 등록·관리합니다.
 				</p>
 			</section>
 
-			<nav className="flex flex-wrap gap-2 border-b border-slate-800/80 pb-4">
+			<nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-4 dark:border-slate-800/80">
 				{categories.map((category) => (
 					<button
 						key={category}
@@ -59,7 +59,7 @@ export default function PortfolioPage() {
 						className={`rounded-md border px-4 py-1.5 text-sm font-semibold transition-colors ${
 							activeCategory === category
 								? 'border-cyan-500 bg-cyan-500 text-slate-950'
-								: 'border-slate-800 bg-slate-900 text-slate-300 hover:border-cyan-500/40 hover:bg-[#0E162B]'
+								: 'border-slate-200 bg-white text-slate-600 hover:border-cyan-500/40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-[#0E162B]'
 						}`}
 					>
 						{category}

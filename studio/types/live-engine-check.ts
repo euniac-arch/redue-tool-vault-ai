@@ -29,6 +29,8 @@ export interface LiveEngineCheckResult {
 	liveScore: number;
 	evidenceSnippet: string;
 	citationUrl?: string;
+	/** Unique live citation URLs (Perplexity citations[], evaluator match, parsed URL). */
+	citedSources?: string[];
 	/** True when the live call failed and the UI must keep the rule-based score. */
 	fallbackToRuleScore?: boolean;
 	citedRank?: 1 | 2 | 3 | null;

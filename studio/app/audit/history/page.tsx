@@ -1,120 +1,39 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
 import { AuditHistoryList } from '@/components/AuditHistoryList';
 import { HISTORY_VIEW_ALL, HistoryPaginationBar } from '@/components/audit/HistoryPaginationBar';
 import { PageListLoader } from '@/components/ui/PageListLoader';
+import { useAuditHistory } from '@/lib/audit/use-audit-history';
 import {
-	AUDIT_HISTORY_SYNC_CHANNEL,
-	AUDIT_HISTORY_SYNC_KEY,
-	dedupeHistoryEntries,
-	filterDeletedHistoryEntries,
-	getGuestAudits,
 	isHealthyStatus,
 	notifyAuditHistorySync,
-	pruneGuestAuditsToServerIds,
 	removeGuestAudit,
-	type AuditHistoryEntry,
 } from '@/lib/audit-history-storage';
 
 type StatusFilter = 'all' | 'healthy' | 'needsImprovement';
 
 export default function AuditHistoryPage() {
 	const t = useTranslations('audit.history');
-	const { data: session, status: authStatus } = useSession();
-	const [items, setItems] = useState<AuditHistoryEntry[]>([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState<string | null>(null);
+	const {
+		session,
+		signedIn,
+		historyList,
+		setHistoryList,
+		loading,
+		error,
+		setError,
+	} = useAuditHistory();
 	const [query, setQuery] = useState('');
 	const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 	const [viewCount, setViewCount] = useState(10);
 	const [deletingId, setDeletingId] = useState<string | null>(null);
-	const [syncTick, setSyncTick] = useState(0);
-
-	const loadHistory = useCallback(
-		async (opts?: { quiet?: boolean }) => {
-			if (!opts?.quiet) {
-				setLoading(true);
-				setError(null);
-			}
-
-			try {
-				const guestItems = getGuestAudits();
-				const res = await fetch('/api/audit/history', { cache: 'no-store' });
-				const data = await res.json();
-				if (!res.ok) throw new Error(data.error ?? 'Failed to load history.');
-				const serverItems = (data.items as AuditHistoryEntry[]) ?? [];
-				const serverIds = new Set(serverItems.map((item) => item.id));
-
-				// Firestore is the shared admin/frontend store — drop guest rows admin already deleted.
-				if (data.source === 'firestore') {
-					pruneGuestAuditsToServerIds(serverIds);
-					setItems(filterDeletedHistoryEntries(dedupeHistoryEntries(serverItems)));
-					return;
-				}
-
-				const merged = filterDeletedHistoryEntries(
-					dedupeHistoryEntries([
-						...serverItems,
-						...guestItems.filter((item) => !serverIds.has(item.id)),
-					]),
-				);
-				setItems(merged);
-			} catch (err) {
-				// Fall back to guest cache if the history API fails.
-				setItems(filterDeletedHistoryEntries(getGuestAudits()));
-				setError((err as Error).message);
-			} finally {
-				if (!opts?.quiet) setLoading(false);
-			}
-		},
-		[],
-	);
-
-	useEffect(() => {
-		if (authStatus === 'loading') return;
-		// Initial load shows skeleton; sync/visibility refetches stay quiet.
-		void loadHistory({ quiet: syncTick > 0 });
-	}, [session, authStatus, syncTick, loadHistory]);
-
-	// Admin (or another tab) deleted projects — refetch without a manual reload.
-	useEffect(() => {
-		const bump = () => setSyncTick((n) => n + 1);
-
-		const onStorage = (event: StorageEvent) => {
-			if (event.key === AUDIT_HISTORY_SYNC_KEY) bump();
-		};
-		const onCustom = () => bump();
-		const onVisible = () => {
-			if (document.visibilityState === 'visible') bump();
-		};
-
-		window.addEventListener('storage', onStorage);
-		window.addEventListener(AUDIT_HISTORY_SYNC_CHANNEL, onCustom as EventListener);
-		document.addEventListener('visibilitychange', onVisible);
-
-		let channel: BroadcastChannel | null = null;
-		try {
-			channel = new BroadcastChannel(AUDIT_HISTORY_SYNC_CHANNEL);
-			channel.onmessage = () => bump();
-		} catch {
-			channel = null;
-		}
-
-		return () => {
-			window.removeEventListener('storage', onStorage);
-			window.removeEventListener(AUDIT_HISTORY_SYNC_CHANNEL, onCustom as EventListener);
-			document.removeEventListener('visibilitychange', onVisible);
-			channel?.close();
-		};
-	}, []);
 
 	const filtered = useMemo(() => {
 		const q = query.trim().toLowerCase();
-		return items.filter((item) => {
+		return historyList.filter((item) => {
 			if (q && !item.url.toLowerCase().includes(q) && !item.statusLabel.toLowerCase().includes(q)) {
 				return false;
 			}
@@ -122,7 +41,7 @@ export default function AuditHistoryPage() {
 			if (statusFilter === 'needsImprovement' && isHealthyStatus(item.status)) return false;
 			return true;
 		});
-	}, [items, query, statusFilter]);
+	}, [historyList, query, statusFilter]);
 
 	const totalItems = filtered.length;
 	const currentPagedList =
@@ -133,19 +52,20 @@ export default function AuditHistoryPage() {
 		setError(null);
 		try {
 			removeGuestAudit(id);
-			setItems((prev) => prev.filter((item) => item.id !== id));
+			setHistoryList((prev) => prev.filter((item) => item.id !== id));
 
-			const res = await fetch(`/api/audit/${encodeURIComponent(id)}`, { method: 'DELETE' });
-			const data = await res.json().catch(() => ({}));
-			// 401/403/404: keep the card hidden locally (tombstone). Only surface hard failures.
-			if (!res.ok && res.status !== 401 && res.status !== 403 && res.status !== 404) {
-				throw new Error((data as { error?: string }).error ?? t('deleteFailed'));
+			if (signedIn) {
+				const res = await fetch(`/api/audit/${encodeURIComponent(id)}`, { method: 'DELETE' });
+				const data = await res.json().catch(() => ({}));
+				if (!res.ok && res.status !== 401 && res.status !== 403 && res.status !== 404) {
+					throw new Error((data as { error?: string }).error ?? t('deleteFailed'));
+				}
 			}
 
 			notifyAuditHistorySync({ ids: [id] });
 		} catch (err) {
 			setError((err as Error).message);
-			setItems((prev) => prev.filter((item) => item.id !== id));
+			setHistoryList((prev) => prev.filter((item) => item.id !== id));
 		} finally {
 			setDeletingId(null);
 		}
@@ -163,8 +83,8 @@ export default function AuditHistoryPage() {
 				<div>
 					<h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">{t('title')}</h1>
 					<p className="mt-1 text-sm text-slate-600 dark:text-slate-300/80">
-						{t('totalCount', { count: items.length })}
-						{!session?.user ? ` · ${t('guestHint')}` : null}
+						{t('totalCount', { count: historyList.length })}
+						{!session?.user ? ` · ${t('guestHint')}` : ` · ${t('signedInHint')}`}
 					</p>
 				</div>
 				<Link
@@ -215,7 +135,7 @@ export default function AuditHistoryPage() {
 
 			{loading && <PageListLoader label={t('listLoading')} />}
 
-			{!loading && items.length === 0 && (
+			{!loading && historyList.length === 0 && (
 				<div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center backdrop-blur-sm dark:border-slate-800/80 dark:bg-[#0B1120]/80">
 					<p className="text-base font-semibold text-slate-800 dark:text-white">{t('emptyTitle')}</p>
 					<p className="max-w-md text-sm text-slate-500 dark:text-slate-300/80">{t('emptyDescription')}</p>
@@ -228,7 +148,7 @@ export default function AuditHistoryPage() {
 				</div>
 			)}
 
-			{!loading && items.length > 0 && filtered.length === 0 && (
+			{!loading && historyList.length > 0 && filtered.length === 0 && (
 				<div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center text-sm text-slate-500 backdrop-blur-sm dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:text-slate-300/80">
 					{t('noMatches')}
 				</div>

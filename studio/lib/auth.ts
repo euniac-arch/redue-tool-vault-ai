@@ -5,8 +5,19 @@ import type { Adapter, AdapterAccount } from 'next-auth/adapters';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import GoogleProvider from 'next-auth/providers/google';
 import KakaoProvider from 'next-auth/providers/kakao';
+import {
+	isAdminEmail,
+	isDbAdminRole,
+	isMasterAdminLoginId,
+	isMasterAdminPassword,
+	MASTER_ADMIN_EMAIL,
+	MASTER_ADMIN_ID,
+	MASTER_ADMIN_ROLE,
+	normalizeLoginIdentifier,
+	resolveNextAuthSecret,
+} from './master-admin';
+import { ensureMasterAdminUser } from './ensure-master-admin';
 import { prisma } from './prisma';
-import { isAdminEmail } from './admin';
 
 /**
  * Kakao's OAuth token response includes `refresh_token_expires_in`, a field
@@ -28,9 +39,17 @@ function buildAdapter(): Adapter {
 	};
 }
 
+function sessionRoleForUser(email: string | null | undefined, dbRole?: string | null): 'ADMIN' | 'USER' {
+	if (isDbAdminRole(dbRole) || (email && isAdminEmail(email))) return MASTER_ADMIN_ROLE;
+	return 'USER';
+}
+
+export { ensureMasterAdminUser } from './ensure-master-admin';
+
 export const authOptions: AuthOptions = {
 	adapter: buildAdapter(),
 	session: { strategy: 'jwt' },
+	secret: resolveNextAuthSecret() || undefined,
 	pages: {
 		signIn: '/login',
 	},
@@ -47,22 +66,59 @@ export const authOptions: AuthOptions = {
 			id: 'credentials',
 			name: '이메일',
 			credentials: {
-				email: { label: '이메일', type: 'email' },
+				email: { label: '이메일', type: 'text' },
 				password: { label: '비밀번호', type: 'password' },
 			},
 			async authorize(credentials) {
 				if (!credentials?.email || !credentials?.password) {
 					return null;
 				}
-				const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+
+				const loginId = credentials.email.trim();
+				const password = credentials.password;
+
+				if (isMasterAdminLoginId(loginId) && isMasterAdminPassword(password)) {
+					try {
+						const admin = await ensureMasterAdminUser();
+						return {
+							id: admin.id || MASTER_ADMIN_ID,
+							email: MASTER_ADMIN_EMAIL,
+							name: admin.name,
+							role: MASTER_ADMIN_ROLE,
+						};
+					} catch (err) {
+						console.error('[auth] ensureMasterAdminUser failed; issuing bootstrap JWT anyway:', err);
+						return {
+							id: MASTER_ADMIN_ID,
+							email: MASTER_ADMIN_EMAIL,
+							name: 'REDUE Admin',
+							role: MASTER_ADMIN_ROLE,
+						};
+					}
+				}
+
+				const email = normalizeLoginIdentifier(loginId);
+				const user = await prisma.user.findUnique({ where: { email } });
 				if (!user?.passwordHash) {
 					return null;
 				}
-				const valid = await bcrypt.compare(credentials.password, user.passwordHash);
+				const valid = await bcrypt.compare(password, user.passwordHash);
 				if (!valid) {
 					return null;
 				}
-				return { id: user.id, email: user.email, name: user.name, image: user.image };
+
+				const role = sessionRoleForUser(user.email, user.role);
+				if (role === MASTER_ADMIN_ROLE && user.role !== 'admin') {
+					await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } });
+				}
+
+				return {
+					id: user.id,
+					email: user.email,
+					name: user.name,
+					image: user.image,
+					role,
+				};
 			},
 		}),
 	],
@@ -70,12 +126,25 @@ export const authOptions: AuthOptions = {
 		async jwt({ token, user }) {
 			if (user) {
 				token.uid = user.id;
+				token.role = user.role || sessionRoleForUser(user.email, null);
+			}
+			if (!token.role && token.email) {
+				token.role = sessionRoleForUser(String(token.email), null);
+			}
+			if (isMasterAdminLoginId(String(token.email || '')) || token.uid === MASTER_ADMIN_ID) {
+				token.uid = (token.uid as string) || MASTER_ADMIN_ID;
+				token.role = MASTER_ADMIN_ROLE;
 			}
 			return token;
 		},
 		async session({ session, token }) {
-			if (session.user && token.uid) {
-				session.user.id = token.uid as string;
+			if (session.user) {
+				session.user.id = (token.uid as string) || MASTER_ADMIN_ID;
+				session.user.role = (token.role as string) || sessionRoleForUser(session.user.email, null);
+				if (isMasterAdminLoginId(session.user.email || '') || session.user.id === MASTER_ADMIN_ID) {
+					session.user.role = MASTER_ADMIN_ROLE;
+					session.user.email = session.user.email || MASTER_ADMIN_EMAIL;
+				}
 			}
 			return session;
 		},
@@ -85,8 +154,15 @@ export const authOptions: AuthOptions = {
 		// admin" UI exists on purpose, so listing an email in ADMIN_EMAILS is how the
 		// operator grants themselves access on first sign-in (OAuth or credentials).
 		async signIn({ user }) {
-			if (user?.email && isAdminEmail(user.email)) {
-				await prisma.user.updateMany({ where: { email: user.email, role: { not: 'admin' } }, data: { role: 'admin' } });
+			try {
+				if (user?.email && isAdminEmail(user.email)) {
+					await prisma.user.updateMany({
+						where: { email: user.email, role: { not: 'admin' } },
+						data: { role: 'admin' },
+					});
+				}
+			} catch (err) {
+				console.error('[auth] signIn admin role bootstrap failed:', err);
 			}
 		},
 	},

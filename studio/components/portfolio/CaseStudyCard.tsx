@@ -77,7 +77,7 @@ export function CaseStudyCard({ data, outcomeLabels, resultHref }: CaseStudyCard
 
 	return (
 		<article
-			className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1120]/80 p-5 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-[#0E162B] hover:shadow-[0_8px_30px_rgba(6,182,212,0.08)] sm:p-6"
+			className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-slate-50 hover:shadow-[0_8px_30px_rgba(6,182,212,0.08)] dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:shadow-none dark:hover:bg-[#0E162B] sm:p-6"
 			aria-label={`${siteInfo.name} 진단 점수 ${formatScore(normalizedScore.before.score)}점에서 ${formatScore(normalizedScore.after.score)}점으로 ${formatScore(lift)}점 상승`}
 			onMouseEnter={() => setHovered(true)}
 			onMouseLeave={() => setHovered(false)}
@@ -145,25 +145,25 @@ function IdentityColumn({
 			}}
 			transition={expandTransition}
 		>
-			<span className="w-fit rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold tracking-wide text-cyan-400">
+			<span className="w-fit rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-bold tracking-wide text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400">
 				{siteInfo.category}
 			</span>
 			<div className="min-w-0">
-				<h3 className="truncate text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+				<h3 className="truncate text-xl font-extrabold tracking-tight text-slate-900 dark:text-white sm:text-2xl">
 					{siteInfo.name}
 				</h3>
 				<p className="mt-1 font-mono text-xs text-slate-500">{siteInfo.domain}</p>
 			</div>
 			<div className="flex flex-wrap gap-1.5">
 				{siteInfo.techStack ? (
-					<span className="rounded-md border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs text-slate-300">
+					<span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-300">
 						{siteInfo.techStack}
 					</span>
 				) : null}
 				{pills.map((label) => (
 					<span
 						key={label}
-						className="rounded-md border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-400"
+						className="rounded-md border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-bold text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400"
 					>
 						{label}
 					</span>
@@ -186,7 +186,7 @@ function IdentityColumn({
 					<Link
 						href={resultHref}
 						aria-label={`${siteInfo.name} 진단 결과보기`}
-						className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:border-cyan-500 hover:bg-cyan-500 hover:text-slate-950 sm:text-sm"
+						className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:border-cyan-500 hover:bg-cyan-500 hover:text-slate-950 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 sm:text-sm"
 					>
 						진단 결과보기
 						<ArrowRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
@@ -209,7 +209,7 @@ function HeroMetric({
 	lift: number;
 }) {
 	return (
-		<div className="flex flex-col items-center justify-center gap-3 border-y border-slate-800/80 py-4 lg:border-x lg:border-y-0 lg:px-4 lg:py-0">
+		<div className="flex flex-col items-center justify-center gap-3 border-y border-slate-200 py-4 dark:border-slate-800/80 lg:border-x lg:border-y-0 lg:px-4 lg:py-0">
 			<div className="flex items-end justify-center gap-3 sm:gap-5">
 				<div className="flex flex-col items-center">
 					<span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Before</span>
@@ -266,7 +266,7 @@ function AxisMiniBreakdown({ axes }: { axes: CaseStudyAxis[] }) {
 						className={`rounded-lg px-2.5 py-1.5 transition-colors ${
 							highlight
 								? 'border border-cyan-500/20 bg-cyan-500/10'
-								: 'border border-slate-800/80 bg-slate-900/60'
+								: 'border border-slate-200 bg-slate-50 dark:border-slate-800/80 dark:bg-slate-900/60'
 						}`}
 					>
 						<div className="flex items-center justify-between gap-3">

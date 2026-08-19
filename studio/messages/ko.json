@@ -1283,6 +1283,11 @@
 			"citedYes": "✓ 답변 내 인용 확인",
 			"citedNo": "✗ 답변 내 미인용",
 			"weaknessTitle": "약세 신호 이유",
+			"insightCitedMechanism": "💡 인용 성공 메커니즘",
+			"insightUncitedCause": "🚨 미노출 핵심 원인",
+			"insightCitedPath": "인용 감지 경로:",
+			"insightActionRequired": "필수 조치:",
+			"insightNextStep": "권장 조치:",
 			"liveCheckFooterNotice": "Copilot과 Clova 카드는 실시간 API 실측이 아닌 Bing·네이버 색인 기반 시뮬레이션 추정 데이터입니다. Gemini, ChatGPT, Perplexity, Claude만 실시간 웹 검색 인용 여부를 직접 검증합니다."
 		},
 		"aiRankingModal": {
@@ -2334,7 +2339,8 @@
 		"history": {
 			"title": "최근 진단 내역",
 			"totalCount": "전체 {count}건",
-			"guestHint": "서버에 저장된 최근 진단과 이 브라우저 기록을 함께 표시합니다",
+			"guestHint": "비로그인 상태입니다. 이 브라우저의 임시 진단 기록만 표시됩니다",
+			"signedInHint": "관리자 계정에 영구 저장된 진단 기록입니다",
 			"searchPlaceholder": "URL로 검색…",
 			"filterAll": "전체",
 			"filterHealthy": "양호",

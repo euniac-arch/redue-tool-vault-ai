@@ -39,15 +39,15 @@ function EngineCard({
 }) {
 	const badgeClass =
 		tone === 'live'
-			? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300'
-			: 'border-blue-500/20 bg-blue-500/10 text-blue-300';
+			? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300'
+			: 'border-blue-200 bg-blue-50 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300';
 
 	return (
 		<li className={`${LANDING_CARD} flex flex-col items-center gap-2 px-2 py-4 text-center`}>
-			<span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/20 to-blue-600/20 text-cyan-200">
+			<span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400/20 to-blue-600/20 text-cyan-700 dark:text-cyan-200">
 				<Glyph className="h-5 w-5" />
 			</span>
-			<p className="text-[13px] font-bold text-slate-100">{name}</p>
+			<p className="text-[13px] font-bold text-slate-900 dark:text-slate-100">{name}</p>
 			<p className="text-[11px] text-slate-500">{sub}</p>
 			<span
 				className={`inline-flex max-w-full items-center justify-center rounded-full border px-2 py-0.5 text-[10px] font-semibold leading-tight ${badgeClass}`}
@@ -68,8 +68,8 @@ export function EngineCompatibility() {
 
 				<div className="mt-8">
 					<div className="mb-3 flex flex-wrap items-center gap-2">
-						<p className="text-xs font-semibold text-slate-200 sm:text-sm">{t('liveGroup')}</p>
-						<span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+						<p className="text-xs font-semibold text-slate-800 dark:text-slate-200 sm:text-sm">{t('liveGroup')}</p>
+						<span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300">
 							{t('liveBadge')}
 						</span>
 					</div>
@@ -82,8 +82,8 @@ export function EngineCompatibility() {
 
 				<div className="mt-8">
 					<div className="mb-3 flex flex-wrap items-center gap-2">
-						<p className="text-xs font-semibold text-slate-200 sm:text-sm">{t('proxyGroup')}</p>
-						<span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[10px] font-medium text-blue-300">
+						<p className="text-xs font-semibold text-slate-800 dark:text-slate-200 sm:text-sm">{t('proxyGroup')}</p>
+						<span className="rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-300">
 							{t('proxyBadge')}
 						</span>
 					</div>

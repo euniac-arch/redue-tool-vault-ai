@@ -21,6 +21,13 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 	const isAuditResult =
 		pathname === '/audit/result' || pathname.startsWith('/audit/result/');
 	const isHome = pathname === '/';
+	const is960Content =
+		pathname === '/audit/history' ||
+		pathname.startsWith('/audit/history/') ||
+		pathname === '/portfolio' ||
+		pathname.startsWith('/portfolio/') ||
+		pathname === '/contact' ||
+		pathname.startsWith('/contact/');
 
 	if (isAdmin || isPublicReport) {
 		return <>{children}</>;
@@ -28,7 +35,7 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 
 	if (isHome) {
 		return (
-			<div className="landing-shell page-horizon--faint relative flex min-h-screen min-h-dvh flex-col bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-[#080B11] dark:text-white">
+			<div className="landing-shell page-horizon--faint relative flex min-h-screen min-h-dvh flex-col bg-slate-50 text-slate-900 dark:bg-[#080B11] dark:text-white">
 				<div className="page-horizon print:hidden" aria-hidden="true" />
 				<div className="relative z-[1] flex min-h-0 flex-1 flex-col overflow-x-hidden">
 					<Header />
@@ -42,7 +49,7 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 
 	return (
 		<div
-			className="page-horizon--faint relative flex min-h-screen min-h-dvh flex-col bg-slate-50 transition-colors duration-300 dark:bg-[#0a0d12]"
+			className="page-horizon--faint relative flex min-h-screen min-h-dvh flex-col bg-slate-50 text-slate-900 dark:bg-[#0a0d12] dark:text-slate-100"
 		>
 			{/* Viewport-fixed horizon art. Lives outside overflow-x-hidden so `position:fixed` is not trapped. */}
 			<div className="page-horizon print:hidden" aria-hidden="true" />
@@ -55,7 +62,11 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 				    can be full-bleed while its inner wrapper reuses this same `max-w-5xl px-6`. */}
 				{/* No z-index here: a stacking context would trap `position:fixed` overlays
 				    (guide modal, audit share bar, scrollspy) below the Footer sibling. */}
-				<div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 pt-10">
+				<div
+					className={`relative mx-auto flex w-full flex-1 flex-col px-6 pt-10 ${
+						is960Content ? 'max-w-[960px]' : 'max-w-5xl'
+					}`}
+				>
 					<div className={`flex-1 ${isAuditResult ? 'pb-0' : 'pb-16'}`}>{children}</div>
 				</div>
 				<Footer clearFloatingBar={!isAuditResult} />

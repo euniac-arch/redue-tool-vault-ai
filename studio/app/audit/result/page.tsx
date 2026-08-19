@@ -270,9 +270,12 @@ function AuditResultContent() {
 			if (!cancelled) {
 				if (id) {
 					rememberAudit(id, nextReport);
-					upsertGuestAuditOnRescan(id, nextReport, { replaceId: opts?.replaceId });
+					const entry = upsertGuestAuditOnRescan(id, nextReport, { replaceId: opts?.replaceId });
 					persistReportTrackingSnapshot(id, nextReport);
-					notifyAuditHistorySync({ ids: [id, opts?.replaceId || ''].filter(Boolean) });
+					notifyAuditHistorySync({
+						ids: [id, opts?.replaceId || ''].filter(Boolean),
+						entry,
+					});
 				}
 				setReport(nextReport);
 				setResolvedId(id ?? null);

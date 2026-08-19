@@ -72,8 +72,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 	]);
 
 	return (
-		<html lang={locale} className="font-sans antialiased" suppressHydrationWarning>
-			<body className="bg-slate-50 text-slate-900 antialiased transition-colors duration-300 dark:bg-[#0a0d12] dark:text-slate-100">
+		<html lang={locale} className="dark font-sans antialiased" suppressHydrationWarning>
+			<body className="bg-slate-50 text-slate-900 antialiased dark:bg-[#0a0d12] dark:text-slate-100">
 				<Script
 					id="redue-theme-init"
 					strategy="beforeInteractive"

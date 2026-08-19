@@ -77,7 +77,7 @@ export function PortfolioCard({ item, onVerify }: PortfolioCardProps) {
 	const gain = normalized.after - normalized.before;
 
 	return (
-		<article className="flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-800/80 bg-[#0B1120]/80 backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-[#0E162B] hover:shadow-[0_8px_30px_rgba(6,182,212,0.08)] lg:flex-row">
+		<article className="flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-slate-50 hover:shadow-[0_8px_30px_rgba(6,182,212,0.08)] dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:shadow-none dark:hover:bg-[#0E162B] lg:flex-row">
 			{/* Left: centered logo, then screenshot fallback */}
 			<div className="relative aspect-video w-full shrink-0 overflow-hidden bg-slate-100 dark:bg-[#0C0D0E] lg:aspect-auto lg:w-72 lg:self-stretch">
 				{item.logoMark ? (
@@ -111,7 +111,7 @@ export function PortfolioCard({ item, onVerify }: PortfolioCardProps) {
 			{/* Middle: project identity, sub-scores, actions */}
 			<div className="flex flex-1 flex-col gap-3 p-5">
 				<div>
-					<h3 className="text-lg font-bold text-white">{item.projectName}</h3>
+					<h3 className="text-lg font-bold text-slate-900 dark:text-white">{item.projectName}</h3>
 					<a
 						href={item.domainUrl}
 						target="_blank"
@@ -124,7 +124,7 @@ export function PortfolioCard({ item, onVerify }: PortfolioCardProps) {
 
 				<div className="flex flex-wrap gap-2">
 					{SUB_SCORE_LABELS.map(({ key, label }) => (
-						<span key={key} className="rounded-md border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs text-slate-300">
+						<span key={key} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-300">
 							{label} <span className="font-bold text-slate-900 dark:text-slate-100">{item.subScores[key]}</span>
 						</span>
 					))}
@@ -132,7 +132,7 @@ export function PortfolioCard({ item, onVerify }: PortfolioCardProps) {
 
 				<div className="flex flex-wrap gap-1.5">
 					{item.injectionTags.map((tag) => (
-						<span key={tag} className="rounded-md border border-slate-800 bg-slate-900/90 px-2.5 py-1 font-mono text-xs text-slate-300">
+						<span key={tag} className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/90 dark:text-slate-300">
 							{tag}
 						</span>
 					))}

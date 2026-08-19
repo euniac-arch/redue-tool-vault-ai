@@ -13,7 +13,7 @@ const DELETED_OR_MISSING = '삭제되었거나 존재하지 않는 진단 내역
 
 /**
  * GET /api/audit/[id] — load a previously saved free-audit report.
- * Prefers Firestore `audit_projects`, then falls back to Prisma AuditLead.
+ * Prefers Firestore `audit_projects`, then Prisma AuditReport / AuditLead.
  */
 export async function GET(_request: Request, { params }: { params: { id: string } }) {
 	const id = params.id?.trim();
@@ -55,10 +55,16 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 		return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 	}
 
-	const lead = await prisma.auditLead.findUnique({
-		where: { id },
-		select: { id: true, userId: true },
-	});
+	const [lead, savedReport] = await Promise.all([
+		prisma.auditLead.findUnique({
+			where: { id },
+			select: { id: true, userId: true },
+		}),
+		prisma.auditReport.findUnique({
+			where: { id },
+			select: { id: true, userId: true },
+		}),
+	]);
 
 	let firestoreDeleted = 0;
 	if (isFirebaseAdminConfigured()) {
@@ -66,13 +72,24 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 		firestoreDeleted = fsResult.deleted;
 	}
 
+	if (savedReport) {
+		if (savedReport.userId !== session.user.id) {
+			return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
+		}
+		await prisma.auditReport.delete({ where: { id } }).catch(() => null);
+	}
+
 	if (!lead) {
-		if (firestoreDeleted > 0) {
+		if (firestoreDeleted > 0 || savedReport) {
 			revalidatePath('/audit/history');
 			revalidatePath('/admin/projects');
 			revalidatePath(`/report/${id}`);
 		}
-		return NextResponse.json({ ok: true, deleted: firestoreDeleted > 0, firestoreDeleted });
+		return NextResponse.json({
+			ok: true,
+			deleted: firestoreDeleted > 0 || Boolean(savedReport),
+			firestoreDeleted,
+		});
 	}
 
 	if (lead.userId && lead.userId !== session.user.id) {
