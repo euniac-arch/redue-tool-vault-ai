@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSession } from 'next-auth/react';
 import type { TossPaymentsWidgets } from '@tosspayments/tosspayments-sdk';
 import { getPurchasablePlans, PLANS, type PlanDefinition } from '@/lib/plans';
@@ -28,6 +29,13 @@ export function PricingModal({ open, onClose }: PricingModalProps) {
 	const [checkoutError, setCheckoutError] = useState<string | null>(null);
 	const [paying, setPaying] = useState(false);
 	const widgetsRef = useRef<TossPaymentsWidgets | null>(null);
+	const onCloseRef = useRef(onClose);
+	onCloseRef.current = onClose;
+	const [mounted, setMounted] = useState(false);
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
 
 	useEffect(() => {
 		if (!open) {
@@ -36,6 +44,20 @@ export function PricingModal({ open, onClose }: PricingModalProps) {
 			setCheckoutError(null);
 			widgetsRef.current = null;
 		}
+	}, [open]);
+
+	useEffect(() => {
+		if (!open) return;
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === 'Escape') onCloseRef.current();
+		};
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = 'hidden';
+		document.addEventListener('keydown', onKeyDown);
+		return () => {
+			document.body.style.overflow = previousOverflow;
+			document.removeEventListener('keydown', onKeyDown);
+		};
 	}, [open]);
 
 	useEffect(() => {
@@ -69,7 +91,7 @@ export function PricingModal({ open, onClose }: PricingModalProps) {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [selectedPlan, session?.user?.id, method]);
 
-	if (!open) {
+	if (!open || !mounted) {
 		return null;
 	}
 
@@ -112,10 +134,13 @@ export function PricingModal({ open, onClose }: PricingModalProps) {
 		}
 	}
 
-	return (
-		<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+	return createPortal(
+		<div
+			className="fixed inset-0 z-[200] flex min-h-full items-start justify-center overflow-y-auto bg-black/70 p-4 sm:items-center"
+			onClick={onClose}
+		>
 			<div
-				className="flex max-h-[90vh] w-full max-w-3xl flex-col gap-5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-white/[0.08] dark:bg-[#0C0D0E] dark:shadow-none"
+				className="my-4 flex max-h-[min(90dvh,90vh)] w-full max-w-3xl flex-col gap-5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:my-0 dark:border-white/[0.08] dark:bg-[#0C0D0E] dark:shadow-none"
 				onClick={(event) => event.stopPropagation()}
 			>
 				<div className="flex items-start justify-between gap-4">
@@ -237,7 +262,8 @@ export function PricingModal({ open, onClose }: PricingModalProps) {
 					</div>
 				)}
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 }
 

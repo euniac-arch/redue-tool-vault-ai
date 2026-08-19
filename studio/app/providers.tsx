@@ -30,7 +30,7 @@ function useClearStaleServiceWorkers() {
 export function Providers({ session, children }: { session: Session | null; children: React.ReactNode }) {
 	useClearStaleServiceWorkers();
 	return (
-		<SessionProvider session={session}>
+		<SessionProvider session={session} refetchOnWindowFocus={false}>
 			<ThemeProvider>
 				<AuditPayloadProvider>{children}</AuditPayloadProvider>
 			</ThemeProvider>

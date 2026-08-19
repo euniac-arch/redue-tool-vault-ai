@@ -11,34 +11,35 @@ interface MeResponse {
 }
 
 export function AdminProfileMenu() {
-	const { status } = useSession();
+	const { data: session, status } = useSession();
 	const [me, setMe] = useState<MeResponse | null>(null);
 	const [open, setOpen] = useState(false);
+	const sessionUser = session?.user;
+	const signedIn = status === 'authenticated' || Boolean(sessionUser) || Boolean(me?.authenticated);
 
 	useEffect(() => {
-		if (status !== 'authenticated') {
+		if (status === 'unauthenticated') {
 			setMe(null);
 			return;
 		}
+		if (status !== 'authenticated') return;
 		let cancelled = false;
 		fetch('/api/me')
 			.then((res) => res.json())
 			.then((data: MeResponse) => {
-				if (!cancelled) setMe(data);
+				if (!cancelled && data?.authenticated) setMe(data);
 			})
-			.catch(() => {
-				if (!cancelled) setMe(null);
-			});
+			.catch(() => undefined);
 		return () => {
 			cancelled = true;
 		};
 	}, [status]);
 
-	if (status === 'loading') {
+	if (status === 'loading' && !signedIn) {
 		return <div className="h-8 w-28 animate-pulse rounded-lg bg-slate-200" />;
 	}
 
-	if (status !== 'authenticated' || !me?.authenticated) {
+	if (!signedIn) {
 		return (
 			<a
 				href="/login"
@@ -49,8 +50,11 @@ export function AdminProfileMenu() {
 		);
 	}
 
-	const label = me.name ?? me.email ?? 'Admin';
+	const label = me?.name ?? sessionUser?.name ?? me?.email ?? sessionUser?.email ?? 'Admin';
 	const initial = label.slice(0, 1).toUpperCase();
+	const name = me?.name ?? sessionUser?.name ?? null;
+	const email = me?.email ?? sessionUser?.email ?? null;
+	const role = me?.role ?? sessionUser?.role;
 
 	return (
 		<div className="relative flex items-center gap-2">
@@ -84,11 +88,11 @@ export function AdminProfileMenu() {
 					>
 						<div className="border-b border-slate-100 px-3 py-2">
 							<p className="truncate text-sm font-semibold text-slate-900">{label}</p>
-							{me.email && me.name && (
-								<p className="mt-0.5 truncate text-xs text-slate-500">{me.email}</p>
+							{email && name && (
+								<p className="mt-0.5 truncate text-xs text-slate-500">{email}</p>
 							)}
 							<p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
-								{typeof me.role === 'string' && me.role.toLowerCase() === 'admin' ? 'Administrator' : 'User'}
+								{typeof role === 'string' && role.toLowerCase() === 'admin' ? 'Administrator' : 'User'}
 							</p>
 						</div>
 						<button

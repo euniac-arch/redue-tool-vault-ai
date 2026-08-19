@@ -30,30 +30,34 @@ interface HeaderAuthProps {
 
 export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: HeaderAuthProps) {
 	const t = useTranslations('nav');
-	const { status } = useSession();
+	const { data: session, status } = useSession();
 	const [me, setMe] = useState<MeResponse | null>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [pricingOpen, setPricingOpen] = useState(false);
 
 	const forceLight = variant === 'light';
+	const sessionUser = session?.user;
+	const signedIn = status === 'authenticated' || Boolean(sessionUser) || Boolean(me?.authenticated);
 
 	useEffect(() => {
-		if (status !== 'authenticated') {
+		if (status === 'unauthenticated') {
 			setMe(null);
 			return;
 		}
+		if (status !== 'authenticated') return;
 		let cancelled = false;
 		fetch('/api/me')
 			.then((res) => res.json())
 			.then((data: MeResponse) => {
-				if (!cancelled) setMe(data);
-			});
+				if (!cancelled && data?.authenticated) setMe(data);
+			})
+			.catch(() => undefined);
 		return () => {
 			cancelled = true;
 		};
 	}, [status, pricingOpen]);
 
-	if (status === 'loading') {
+	if (status === 'loading' && !signedIn) {
 		return (
 			<div
 				className={`h-8 w-24 animate-pulse rounded-full ${
@@ -63,7 +67,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 		);
 	}
 
-	if (status !== 'authenticated' || !me?.authenticated) {
+	if (!signedIn) {
 		return (
 			<div className={`flex items-center gap-2 ${stacked ? 'w-full flex-col' : ''}`}>
 				<Link
@@ -83,7 +87,13 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 		);
 	}
 
-	const initial = (me.name ?? me.email ?? '?').slice(0, 1).toUpperCase();
+	const name = me?.name ?? sessionUser?.name ?? null;
+	const email = me?.email ?? sessionUser?.email ?? null;
+	const role = me?.role ?? sessionUser?.role;
+	const planId = me?.planId ?? 'starter';
+	const credits = me?.creditsRemaining;
+	const initial = (name ?? email ?? 'R').slice(0, 1).toUpperCase();
+	const isAdmin = typeof role === 'string' && role.toLowerCase() === 'admin';
 
 	return (
 		<div className={`flex items-center gap-3 ${stacked ? 'w-full flex-col items-stretch' : ''}`}>
@@ -98,7 +108,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 				}`}
 				title={t('upgrade')}
 			>
-				⚡ {t('credits', { count: me.creditsRemaining ?? 0 })}
+				⚡ {t('credits', { count: credits ?? 0 })}
 			</button>
 
 			<div className={`relative ${stacked ? 'w-full' : ''}`}>
@@ -136,10 +146,10 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 										forceLight ? 'text-zinc-900' : 'text-slate-900 dark:text-white'
 									}`}
 								>
-									{me.name ?? me.email}
+									{name ?? email}
 								</p>
 								<p className={`mt-0.5 text-xs ${forceLight ? 'text-zinc-500' : 'text-slate-500'}`}>
-									{PLAN_LABEL[me.planId ?? 'starter'] ?? me.planId} 요금제
+									{PLAN_LABEL[planId] ?? planId} 요금제
 								</p>
 							</div>
 							{[
@@ -148,7 +158,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 								{ href: '/reseller', label: `🏷️ ${t('reseller')}` },
 								{ href: '/enterprise', label: `🏢 ${t('enterprise')}` },
 							].map((link) => (
-								<a
+								<Link
 									key={link.href}
 									href={link.href}
 									onClick={() => {
@@ -162,11 +172,11 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 									}`}
 								>
 									{link.label}
-								</a>
+								</Link>
 							))}
-							{typeof me.role === 'string' && me.role.toLowerCase() === 'admin' && (
+							{isAdmin && (
 								<>
-									<a
+									<Link
 										href="/admin"
 										onClick={() => {
 											setMenuOpen(false);
@@ -179,8 +189,8 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 										}`}
 									>
 										🛠️ {t('admin')}
-									</a>
-									<a
+									</Link>
+									<Link
 										href="/admin/self-healing"
 										onClick={() => {
 											setMenuOpen(false);
@@ -193,7 +203,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 										}`}
 									>
 										◈ {t('autonomous')}
-									</a>
+									</Link>
 								</>
 							)}
 							<button
