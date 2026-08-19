@@ -239,7 +239,7 @@ function CoreColoredTick({
 	x?: number;
 	y?: number;
 	payload?: { value?: string };
-	textAnchor?: string;
+	textAnchor?: 'inherit' | 'end' | 'start' | 'middle';
 	index?: number;
 	colors: readonly string[];
 	dy?: number;
