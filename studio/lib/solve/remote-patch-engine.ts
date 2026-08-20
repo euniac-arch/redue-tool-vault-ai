@@ -23,6 +23,8 @@ import {
 import type { RemoteConnectionInput } from '@/lib/solve/remote-creds';
 import {
 	diagnoseRemoteHeaderTargets,
+	gnuboardInjectTier,
+	probeRemotePriorityHeaders,
 	type RankedRemoteTarget,
 	type RemoteDiagnoseResult,
 } from '@/lib/solve/remote-header-finder';
@@ -61,6 +63,8 @@ export type RemotePatchExecuteResult = {
 	backupFolderName: string | null;
 	backupAbsolutePath: string | null;
 	targetPath: string | null;
+	/** Same as targetPath — the file that actually received the inject. */
+	injectedPath: string | null;
 	targetAbsolutePath: string | null;
 	cmsLabel: string | null;
 	engine: 'php-dynamic' | 'html-static' | null;
@@ -185,15 +189,42 @@ export async function runRemoteAutoPatch(opts: {
 			opts.diagnoseHint?.cmsDisplay || opts.schema.cmsType || 'Custom HTML/PHP';
 
 		const hintedPath = opts.targetRelativePath?.trim() || primary?.relativePath || null;
-		if (!hintedPath) {
-			const diagnosed = await diagnoseRemoteHeaderTargets(transport);
-			logs.push(...diagnosed.logs);
-			primary = diagnosed.primaryTarget;
-			cmsLabel = diagnosed.cmsLabel;
-			cmsDisplay = diagnosed.cmsDisplay;
+
+		logs.push('그누보드 테마 우선 경로 재확인…');
+		const probed = await probeRemotePriorityHeaders(transport, { stopAtFirst: true });
+		logs.push(...probed.logs);
+
+		let relativePath: string | null = null;
+		if (probed.primary) {
+			const hintedTier = hintedPath ? gnuboardInjectTier(hintedPath) : null;
+			const probedTier = gnuboardInjectTier(probed.primary);
+			if (
+				hintedPath &&
+				hintedTier != null &&
+				probedTier != null &&
+				hintedTier <= probedTier
+			) {
+				relativePath = hintedPath;
+			} else {
+				if (hintedPath && hintedPath !== probed.primary) {
+					logs.push(
+						`힌트 경로(${hintedPath}) 대신 테마 우선 타겟 사용: ${probed.primary}`,
+					);
+				}
+				relativePath = probed.primary;
+			}
 		}
 
-		const relativePath = hintedPath || primary?.relativePath || null;
+		if (!relativePath) {
+			if (!hintedPath) {
+				const diagnosed = await diagnoseRemoteHeaderTargets(transport);
+				logs.push(...diagnosed.logs);
+				primary = diagnosed.primaryTarget;
+				cmsLabel = diagnosed.cmsLabel;
+				cmsDisplay = diagnosed.cmsDisplay;
+			}
+			relativePath = hintedPath || primary?.relativePath || null;
+		}
 
 		if (!relativePath) {
 			return {
@@ -201,6 +232,7 @@ export async function runRemoteAutoPatch(opts: {
 				backupFolderName: null,
 				backupAbsolutePath: null,
 				targetPath: null,
+				injectedPath: null,
 				targetAbsolutePath: null,
 				cmsLabel,
 				engine: null,
@@ -234,7 +266,7 @@ export async function runRemoteAutoPatch(opts: {
 			cmsType: schemaCms,
 		});
 
-		// Preserve all existing HTML/meta/verification — only strip prior REDUE, then top-inject
+		// Strip prior REDUE markers (overwrite/갱신), then inject before </head> (PHP: after first <?php + </head> call).
 		const prepared = prepareHeadSourceForInject(original);
 		const injected = injectBeforeClosingHead(prepared, snippet);
 		if (!injected.ok) {
@@ -243,6 +275,7 @@ export async function runRemoteAutoPatch(opts: {
 				backupFolderName,
 				backupAbsolutePath: backupDirAbs,
 				targetPath: relativePath,
+				injectedPath: relativePath,
 				targetAbsolutePath: targetAbs,
 				cmsLabel,
 				engine,
@@ -257,22 +290,23 @@ export async function runRemoteAutoPatch(opts: {
 		}
 
 		logs.push(
-			`v30 Top-Priority 주입 완료 (${engine}, anchor=${injected.anchor}) — Precision Canonical & Full-Document Defer · 기존 meta 보존 · 원격 Overwrite 업로드…`,
+			`SEO/GEO 메타 주입 완료 (${engine}, anchor=${injected.anchor}) — </head> 직전 · 기존 마커 덮어쓰기 · 원격 Overwrite 업로드…`,
 		);
 		await transport.writeText(targetAbs, injected.result);
-		logs.push(`[🚀 원격 파일(${relativePath}) v30 Precision Canonical & Full-Document Defer Master Engine 주입 완료]`);
+		logs.push(`[성공] ${relativePath} 에 주입 완료`);
 
 		return {
 			ok: true,
 			backupFolderName,
 			backupAbsolutePath: backupDirAbs,
 			targetPath: relativePath,
+			injectedPath: relativePath,
 			targetAbsolutePath: targetAbs,
 			cmsLabel,
 			engine,
 			anchor: injected.anchor,
 			warning: injected.warning,
-			message: `[✅ 원격 계층형 백업 성공] ➔ [🚀 원격 파일(${relativePath}) v30 Top-Priority Precision Canonical & Full-Document Defer 주입 완료 · 기존 meta 보존]`,
+			message: `[성공] ${relativePath} 에 주입 완료`,
 			logs,
 		};
 	} catch (err) {
@@ -283,6 +317,7 @@ export async function runRemoteAutoPatch(opts: {
 			backupFolderName: null,
 			backupAbsolutePath: null,
 			targetPath: null,
+			injectedPath: null,
 			targetAbsolutePath: null,
 			cmsLabel: null,
 			engine: null,

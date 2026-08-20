@@ -23,14 +23,42 @@ export type ResolvedAuditQuota = AuditQuotaSnapshot & {
 	role: string | null;
 };
 
-function sessionLooksAdmin(session: {
-	user?: { id?: string; email?: string | null; role?: string | null };
-} | null): boolean {
+type QuotaSessionUser = {
+	id?: string | null;
+	email?: string | null;
+	role?: string | null;
+};
+
+type QuotaSession = {
+	user?: QuotaSessionUser | null;
+};
+
+/** next-auth Session can resolve to `{}` in this project — never read `.user` on that type. */
+function asQuotaSession(value: unknown): QuotaSession | null {
+	if (!value || typeof value !== 'object') return null;
+	const rawUser = 'user' in value ? (value as { user?: unknown }).user : undefined;
+	if (!rawUser || typeof rawUser !== 'object') return { user: null };
+	const rec = rawUser as Record<string, unknown>;
+	return {
+		user: {
+			id: typeof rec.id === 'string' ? rec.id : null,
+			email: typeof rec.email === 'string' ? rec.email : null,
+			role: typeof rec.role === 'string' ? rec.role : null,
+		},
+	};
+}
+
+function sessionUserId(session: QuotaSession | null | undefined): string | null {
+	const id = session?.user?.id;
+	return typeof id === 'string' && id.trim() ? id.trim() : null;
+}
+
+function sessionLooksAdmin(session: QuotaSession | null | undefined): boolean {
 	const email = session?.user?.email || '';
-	const role = session?.user?.role || '';
+	const role = session?.user?.role ? String(session.user.role) : '';
 	return (
 		isMasterAdminLoginId(email) ||
-		session?.user?.id === MASTER_ADMIN_ID ||
+		sessionUserId(session) === MASTER_ADMIN_ID ||
 		isDbAdminRole(role) ||
 		role.toUpperCase() === 'ADMIN' ||
 		isAdminEmail(email)
@@ -81,14 +109,14 @@ async function writeStoredDailyUsage(userId: string, used: number, date: string)
 
 export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 	const date = todayStamp();
-	let session: Awaited<ReturnType<typeof getServerSession>> = null;
+	let session: QuotaSession | null = null;
 	try {
-		session = await getServerSession(authOptions);
+		session = asQuotaSession(await getServerSession(authOptions));
 	} catch {
 		session = null;
 	}
 
-	const userId = session?.user?.id?.trim() || null;
+	const userId = sessionUserId(session);
 	const guestUsed = await readGuestAuditCookie(date);
 
 	if (isDevUnlimitedAuditQuota()) {

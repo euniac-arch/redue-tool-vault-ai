@@ -1084,6 +1084,7 @@ export function FilePatchTab({
 				message?: string;
 				backupFolderName?: string | null;
 				targetPath?: string | null;
+				injectedPath?: string | null;
 				cmsLabel?: string | null;
 				logs?: string[];
 			};
@@ -1102,12 +1103,12 @@ export function FilePatchTab({
 
 			setRemoteBackupOk(true);
 			setRemoteProgress(100);
-			const successMessage =
-				data.message ||
-				`[✅ 원격 계층형 백업 성공] ➔ [🚀 원격 파일(${data.targetPath || remotePrimaryTarget.relativePath}) v14 동적 스키마 주입 완료]`;
+			const injectedPath =
+				data.injectedPath || data.targetPath || remotePrimaryTarget.relativePath;
+			const successMessage = data.message || `[성공] ${injectedPath} 에 주입 완료`;
 			setRemoteReport({
 				message: successMessage,
-				targetPath: data.targetPath || remotePrimaryTarget.relativePath,
+				targetPath: injectedPath,
 				backupFolderName: data.backupFolderName || null,
 				cmsLabel: data.cmsLabel || remoteCmsLabel,
 			});
@@ -1115,7 +1116,7 @@ export function FilePatchTab({
 				title: successMessage,
 				message: successMessage,
 				backupFolderName: data.backupFolderName || null,
-				headerPath: data.targetPath || remotePrimaryTarget.relativePath,
+				headerPath: injectedPath,
 				pageCount: auditPages.length,
 				mode: 'remote',
 			});

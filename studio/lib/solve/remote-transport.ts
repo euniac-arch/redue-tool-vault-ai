@@ -64,12 +64,30 @@ export function toRelativeRemotePath(remoteRoot: string, absolutePath: string): 
 	return abs.replace(/^\/+/, '');
 }
 
+const PRIORITY_DIR_NAMES = new Set([
+	'theme',
+	'www',
+	'html',
+	'public_html',
+	'public',
+	'httpdocs',
+	'skin',
+	'wp-content',
+	'app',
+]);
+
 function shouldSkipDirName(name: string): boolean {
 	if (!name || name === '.' || name === '..') return true;
 	if (IGNORE_DIR_NAMES.has(name)) return true;
 	if (/^_redue_backup_/i.test(name) || /^_redue_backups$/i.test(name)) return true;
 	if (name === 'cache' || name === 'tmp' || name === 'temp' || name === 'uploads') return true;
 	return false;
+}
+
+function shouldSkipScanFile(name: string): boolean {
+	return /\.(jpe?g|png|gif|webp|svg|ico|bmp|woff2?|ttf|eot|otf|mp4|mp3|wav|zip|rar|7z|pdf|gz|map)$/i.test(
+		name,
+	);
 }
 
 class FtpTransport implements RemoteTransport {
@@ -274,6 +292,7 @@ export async function walkRemoteTree(
 			continue;
 		}
 
+		const dirs: RemoteListEntry[] = [];
 		for (const entry of entries) {
 			if (relativePaths.length >= maxEntries) {
 				truncated = true;
@@ -283,16 +302,30 @@ export async function walkRemoteTree(
 			if (entry.isDirectory) {
 				if (shouldSkipDirName(entry.name)) continue;
 				if (current.depth < maxDepth) {
-					relativePaths.push(entry.relativePath.endsWith('/')
-						? entry.relativePath
-						: `${entry.relativePath}/`);
-					queue.push({ abs: entry.path, depth: current.depth + 1 });
+					relativePaths.push(
+						entry.relativePath.endsWith('/') ? entry.relativePath : `${entry.relativePath}/`,
+					);
+					dirs.push(entry);
 				}
 				continue;
 			}
 
+			if (shouldSkipScanFile(entry.name)) continue;
 			relativePaths.push(entry.relativePath);
 		}
+
+		// Walk theme / www / html before sibling folders so Gnuboard headers are found first.
+		dirs.sort((a, b) => {
+			const ap = PRIORITY_DIR_NAMES.has(a.name.toLowerCase()) ? 0 : 1;
+			const bp = PRIORITY_DIR_NAMES.has(b.name.toLowerCase()) ? 0 : 1;
+			return ap - bp;
+		});
+		const priorityDirs = dirs.filter((d) => PRIORITY_DIR_NAMES.has(d.name.toLowerCase()));
+		const otherDirs = dirs.filter((d) => !PRIORITY_DIR_NAMES.has(d.name.toLowerCase()));
+		queue.unshift(
+			...priorityDirs.map((entry) => ({ abs: entry.path, depth: current.depth + 1 })),
+		);
+		queue.push(...otherDirs.map((entry) => ({ abs: entry.path, depth: current.depth + 1 })));
 	}
 
 	return { relativePaths, truncated };

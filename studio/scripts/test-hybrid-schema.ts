@@ -53,6 +53,10 @@ import {
 	analyzeGnuboardThemeUsage,
 	parseCfThemeFromConfig,
 } from '../lib/solve/source-mapping';
+import {
+	gnuboardInjectTier,
+	pickPreferredGnuboardInjectPath,
+} from '../lib/solve/remote-header-finder';
 
 function assert(cond: unknown, msg: string): asserts cond {
 	if (!cond) throw new Error(msg);
@@ -62,6 +66,36 @@ assert(rankHeaderPathPriority('theme/basic/head.sub.php') === 100, 'rank 100');
 assert(rankHeaderPathPriority('head.sub.php') === 90, 'rank 90');
 assert(rankHeaderPathPriority('inc/head.php') === 80, 'rank 80');
 assert(rankHeaderPathPriority('index.html') === 70, 'rank 70');
+
+assert(gnuboardInjectTier('theme/basic/head.sub.php') === 1, 'ftp tier 1 basic');
+assert(gnuboardInjectTier('www/theme/basic/head.sub.php') === 1, 'ftp tier 1 www/basic');
+assert(gnuboardInjectTier('html/theme/basic/head.sub.php') === 1, 'ftp tier 1 html/basic');
+assert(gnuboardInjectTier('theme/custom/head.sub.php') === 2, 'ftp tier 2 other theme');
+assert(gnuboardInjectTier('head.sub.php') === 3, 'ftp tier 3 root');
+assert(gnuboardInjectTier('index.php') === 4, 'ftp tier 4 index');
+assert(
+	pickPreferredGnuboardInjectPath([
+		'index.php',
+		'head.sub.php',
+		'theme/custom/head.sub.php',
+		'theme/basic/head.sub.php',
+	]) === 'theme/basic/head.sub.php',
+	'ftp prefers theme/basic over root',
+);
+assert(
+	pickPreferredGnuboardInjectPath(['head.sub.php', 'www/theme/basic/head.sub.php', 'index.html']) ===
+		'www/theme/basic/head.sub.php',
+	'ftp prefers www/theme/basic over root',
+);
+assert(
+	pickPreferredGnuboardInjectPath(['index.php', 'head.sub.php', 'theme/shop/head.sub.php']) ===
+		'theme/shop/head.sub.php',
+	'ftp prefers other theme head.sub.php over root',
+);
+assert(
+	pickPreferredGnuboardInjectPath(['index.html', 'index.php', 'head.sub.php']) === 'head.sub.php',
+	'ftp prefers root head.sub.php over index fallback',
+);
 
 assert(parseCfThemeFromConfig("$config['cf_theme'] = 'basic';") === 'basic', 'cf_theme basic');
 assert(parseCfThemeFromConfig("$config['cf_theme'] = '';") === null, 'cf_theme empty');
