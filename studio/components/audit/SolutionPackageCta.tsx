@@ -1,15 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
+import { ChevronDown, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ContactInquiryForm } from '@/components/ContactInquiryForm';
+import { clampScore } from '@/lib/audit/score-grade';
 import {
-	ENTERPRISE_PACKAGE_PRICE_KRW,
+	PACKAGE_SCORE_BANDS,
 	SOLUTION_PACKAGES,
 	SOLUTION_PACKAGES_ID,
 	formatKrw,
+	packageScoreBand,
+	projectProScore,
+	projectStandardScore,
+	type PackageScoreBandId,
+	type PackageScoreProjection,
 	type SolutionPackageId,
 } from '@/lib/audit/solution-packages';
 
@@ -17,12 +23,63 @@ interface SolutionPackageCtaProps {
 	targetUrl: string;
 	brandName: string;
 	targetQuery?: string;
+	currentScore: number;
 }
 
-export function SolutionPackageCta({ targetUrl, brandName, targetQuery }: SolutionPackageCtaProps) {
+const PLANS = [
+	{
+		key: 'standard',
+		itemKeys: ['jsonld', 'llms', 'meta', 'turnaround'],
+		benefitKeys: ['jsonld', 'llms', 'meta'],
+		order: 'order-2 md:order-1',
+		card: 'bg-white border border-slate-200 shadow-sm dark:bg-slate-900/60 dark:border-slate-800 dark:shadow-none',
+		name: 'text-slate-900 text-lg font-bold dark:text-white',
+		tagline: 'text-slate-500 dark:text-slate-400',
+		price: 'text-slate-900 dark:text-white',
+		unit: 'text-slate-500',
+		list: 'text-slate-600 dark:text-slate-300',
+		badge: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-200',
+		cta: 'border border-slate-200 bg-slate-50 py-3 font-medium text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
+		toggle: 'text-slate-500 hover:text-cyan-700 dark:text-slate-400 dark:hover:text-cyan-300',
+	},
+	{
+		key: 'pro',
+		itemKeys: ['standardAll', 'naver', 'eeat', 'faq', 'reaudit'],
+		benefitKeys: ['standardAll', 'naver', 'eeat', 'reaudit'],
+		order: 'order-1 md:order-2',
+		popular: true,
+		card: 'relative overflow-hidden border-2 border-cyan-300 bg-gradient-to-b from-white via-white to-cyan-50 shadow-sm dark:border-cyan-500/50 dark:from-slate-900 dark:via-slate-900 dark:to-cyan-950/30 dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] md:-translate-y-2',
+		name: 'text-xl font-black text-cyan-700 dark:text-cyan-300',
+		tagline: 'text-cyan-800 dark:text-cyan-200/80',
+		price: 'text-slate-900 dark:text-white',
+		unit: 'text-slate-500 dark:text-slate-400',
+		list: 'text-slate-700 dark:text-slate-200',
+		badge: 'bg-cyan-50 text-cyan-800 dark:bg-cyan-500/15 dark:text-cyan-200',
+		cta: 'bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 font-bold text-white shadow-lg shadow-cyan-900/20 hover:from-cyan-400 hover:to-blue-500 dark:shadow-cyan-900/40',
+		toggle: 'text-cyan-700 hover:text-cyan-500 dark:text-cyan-300 dark:hover:text-cyan-200',
+	},
+	{
+		key: 'enterprise',
+		itemKeys: ['pr', 'wikidata', 'maps', 'rag', 'guard'],
+		benefitKeys: ['wikidata', 'pr', 'guard'],
+		order: 'order-3',
+		comingSoon: true,
+		card: 'border border-slate-200 bg-slate-50 opacity-95 dark:border-slate-800/60 dark:bg-slate-950/40 dark:opacity-85',
+		name: 'text-lg font-bold text-slate-700 dark:text-slate-300',
+		tagline: 'text-slate-500',
+		price: 'text-slate-700 dark:text-slate-300',
+		unit: 'text-slate-500',
+		list: 'text-slate-500 dark:text-slate-400',
+		badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300',
+		cta: 'border border-slate-200 bg-white py-3 font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800',
+		toggle: 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',
+	},
+] as const;
+
+type PlanConfig = (typeof PLANS)[number];
+
+export function SolutionPackageCta({ targetUrl, brandName, targetQuery, currentScore }: SolutionPackageCtaProps) {
 	const t = useTranslations('audit.packages');
-	const locale = useLocale();
-	const lang = locale === 'en' ? 'en' : 'ko';
 	const [selected, setSelected] = useState<SolutionPackageId | null>(null);
 
 	useEffect(() => {
@@ -50,104 +107,27 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery }: Soluti
 		: '';
 
 	return (
-		<div
-			id={SOLUTION_PACKAGES_ID}
-			className="print:hidden mt-8 scroll-mt-24 space-y-6 rounded-3xl border border-blue-500/20 bg-gradient-to-b from-slate-900/90 via-[#0d1527] to-[#0b0f19] p-8 shadow-[0_0_50px_-12px_rgba(59,130,246,0.15)]"
-		>
+		<div id={SOLUTION_PACKAGES_ID} className="print:hidden mt-8 scroll-mt-24 space-y-6">
 			<div className="space-y-1 text-center">
-				<h3 className="text-lg font-extrabold text-white">{t('title')}</h3>
-				<p className="text-xs text-slate-400">{t('subtitle')}</p>
+				<h3 className="break-keep text-lg font-extrabold text-slate-900 dark:text-white">{t('title')}</h3>
+				<p className="break-keep text-[10px] text-slate-500 dark:text-slate-400">{t('subtitle')}</p>
 			</div>
 
-			<div className="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2">
-				<article className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900/80 p-6 transition-all hover:border-slate-700">
-					<div>
-						<span className="text-[11px] font-bold text-slate-400">{t('standard.kicker')}</span>
-						<h4 className="mt-1 text-base font-bold text-white">{t('standard.name')}</h4>
-						<p className="mt-1 text-xs text-slate-400">{t('standard.body')}</p>
-						<div className="mt-4 text-lg font-bold text-indigo-400">
-							₩{formatKrw(SOLUTION_PACKAGES.standard.priceKrw, lang)}{' '}
-							<span className="text-xs font-normal text-slate-500">{t('priceSuffix')}</span>
-						</div>
-					</div>
-					<button
-						type="button"
-						onClick={() => setSelected('standard')}
-						className="mt-4 w-full rounded-lg border border-slate-700 bg-slate-800 py-2.5 text-xs font-bold text-white transition-all hover:border-slate-600 hover:bg-slate-700 hover:shadow-md"
-					>
-						{t('standard.cta')}
-					</button>
-				</article>
+			<ScoreBandGuide currentScore={currentScore} />
 
-				<article className="relative flex flex-col justify-between rounded-2xl border border-blue-500/40 bg-gradient-to-b from-blue-950/40 to-slate-900/90 p-6 shadow-lg shadow-blue-950/50">
-					<span className="absolute top-3 right-4 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 px-2.5 py-0.5 text-[10px] font-bold text-white shadow-md shadow-blue-500/40">
-						{t('pro.badge')}
-					</span>
-					<div>
-						<span className="text-[11px] font-bold text-blue-400">{t('pro.kicker')}</span>
-						<h4 className="mt-1 text-base font-bold text-white">{t('pro.name')}</h4>
-						<p className="mt-1 text-xs text-slate-400">{t('pro.body')}</p>
-						<div className="mt-4 text-lg font-bold text-emerald-400">
-							₩{formatKrw(SOLUTION_PACKAGES.pro.priceKrw, lang)}{' '}
-							<span className="text-xs font-normal text-slate-500">{t('priceSuffix')}</span>
-						</div>
-					</div>
-					<button
-						type="button"
-						onClick={() => setSelected('pro')}
-						className="mt-4 w-full rounded-lg bg-gradient-to-r from-blue-600 to-violet-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-500/40 transition-all hover:from-blue-500 hover:to-violet-500 hover:shadow-blue-500/60"
-					>
-						{t('pro.cta')}
-					</button>
-				</article>
-			</div>
+			<ul className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3">
+				{PLANS.map((plan) => (
+					<li key={plan.key} className={plan.order}>
+						<PackagePlanCard
+							plan={plan}
+							currentScore={currentScore}
+							onSelect={() => setSelected(plan.key)}
+						/>
+					</li>
+				))}
+			</ul>
 
-			<article className="mt-5 flex flex-col gap-6 rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-slate-900/90 via-indigo-950/30 to-slate-900/90 p-6 md:flex-row md:items-stretch md:justify-between md:gap-8">
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="rounded-full border border-indigo-400/40 bg-indigo-500/15 px-2.5 py-0.5 text-[10px] font-bold text-indigo-200">
-							{t('enterprise.badge')}
-						</span>
-						<span className="rounded-full border border-amber-400/35 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-200">
-							{t('enterprise.exclusive')}
-						</span>
-						<span className="rounded-full border border-slate-500/40 bg-slate-800/70 px-2.5 py-0.5 text-[10px] font-bold text-slate-300">
-							{t('enterprise.limited')}
-						</span>
-					</div>
-					<h4 className="mt-3 text-base font-bold text-white md:text-lg">{t('enterprise.name')}</h4>
-					<ul className="mt-4 space-y-2 text-xs leading-relaxed text-slate-300">
-						<li className="whitespace-nowrap">
-							<span className="text-indigo-300">✓</span> {t('enterprise.features.pr')}
-						</li>
-						<li className="whitespace-nowrap">
-							<span className="text-indigo-300">✓</span> {t('enterprise.features.nap')}
-						</li>
-						<li className="whitespace-nowrap">
-							<span className="text-indigo-300">✓</span> {t('enterprise.features.rag')}
-						</li>
-						<li className="whitespace-nowrap">
-							<span className="text-indigo-300">✓</span> {t('enterprise.features.guard')}
-						</li>
-					</ul>
-				</div>
-
-				<div className="flex shrink-0 flex-col justify-center border-t border-indigo-500/20 pt-5 md:w-60 md:border-l md:border-t-0 md:pl-8 md:pt-0">
-					<div className="break-keep text-2xl font-extrabold tracking-tight text-indigo-200">
-						₩{formatKrw(ENTERPRISE_PACKAGE_PRICE_KRW, lang)}~
-					</div>
-					<p className="mt-1 break-keep text-xs text-slate-400">{t('enterprise.priceNote')}</p>
-					<button
-						type="button"
-						disabled
-						className="mt-4 w-full cursor-not-allowed rounded-lg border border-indigo-400/40 bg-transparent py-2.5 text-xs font-bold text-indigo-200/90"
-					>
-						{t('enterprise.cta')}
-					</button>
-				</div>
-			</article>
-
-			<p className="break-keep text-[11px] leading-relaxed text-slate-500">{t('legalDisclaimer')}</p>
+			<p className="break-keep text-[9px] leading-relaxed text-slate-500">{t('legalDisclaimer')}</p>
 
 			{selected && typeof document !== 'undefined'
 				? createPortal(
@@ -203,3 +183,219 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery }: Soluti
 		</div>
 	);
 }
+
+function PackagePlanCard({
+	plan,
+	currentScore,
+	onSelect,
+}: {
+	plan: PlanConfig;
+	currentScore: number;
+	onSelect: () => void;
+}) {
+	const t = useTranslations('audit.packages');
+	const locale = useLocale();
+	const lang = locale === 'en' ? 'en' : 'ko';
+	const [open, setOpen] = useState(false);
+	const panelId = useId();
+	const pkg = SOLUTION_PACKAGES[plan.key];
+	const projection = useMemo(() => {
+		if (plan.key === 'standard') return projectStandardScore(currentScore);
+		if (plan.key === 'pro') return projectProScore(currentScore);
+		return null;
+	}, [plan.key, currentScore]);
+
+	return (
+		<article className={`flex h-full flex-col rounded-2xl p-6 ${plan.card}`}>
+			<div className="min-w-0 flex-1">
+				{plan.key === 'pro' ? (
+					<span className="absolute right-3 top-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 px-2.5 py-1 text-[9px] font-bold text-white shadow-sm">
+						{t('pro.badge')}
+					</span>
+				) : plan.key === 'enterprise' ? (
+					<span className="inline-flex rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
+						{t('enterprise.badge')}
+					</span>
+				) : null}
+
+				<h4 className={`mt-2 break-keep ${plan.key === 'pro' ? 'pr-20' : ''} ${plan.name}`}>{t(`${plan.key}.name`)}</h4>
+				<p className={`mt-0.5 break-keep text-[10px] ${plan.tagline}`}>{t(`${plan.key}.tagline`)}</p>
+
+				<p className="mt-4 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+					<span className={`break-keep text-2xl font-bold tracking-tight ${plan.price}`}>
+						₩{formatKrw(pkg.priceKrw, lang)}
+						{pkg.openEnded ? '~' : ''}
+					</span>
+					<span className={`break-keep text-[11px] font-semibold ${plan.unit}`}>{t(`${plan.key}.vat`)}</span>
+					<span className={`break-keep text-xs font-normal ${plan.unit}`}>/ {t(`${plan.key}.unit`)}</span>
+				</p>
+
+				<ScoreGoalBadge planId={plan.key} projection={projection} className={plan.badge} />
+
+				<p className="mt-3 break-keep text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
+					{t(`${plan.key}.target`)}
+				</p>
+
+				<ul className={`my-5 space-y-1.5 text-[9px] sm:text-[11px] ${plan.list}`}>
+					{plan.itemKeys.map((item) => (
+						<li key={item} className="break-keep leading-snug">
+							{t(`${plan.key}.items.${item}.title`)}
+						</li>
+					))}
+				</ul>
+			</div>
+
+			<div className="mt-auto min-w-0">
+				<button
+					type="button"
+					aria-expanded={open}
+					aria-controls={panelId}
+					onClick={() => setOpen((prev) => !prev)}
+					className={`inline-flex w-full items-center justify-center gap-1 py-2 text-[9px] font-medium transition-colors ${plan.toggle}`}
+				>
+					<span className="shrink-0 leading-none" aria-hidden>
+						💡
+					</span>
+					<span className="break-keep">{open ? t('detailsToggleClose') : t('detailsToggleOpen')}</span>
+					<ChevronDown
+						className={`h-3 w-3 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`}
+						aria-hidden
+					/>
+				</button>
+
+				<div
+					id={panelId}
+					className={`grid transition-all duration-300 ease-out ${
+						open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+					}`}
+					inert={!open ? true : undefined}
+				>
+					<div className="min-h-0 overflow-hidden">
+						<ul className="mb-3 space-y-1.5 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
+							{plan.benefitKeys.map((item) => (
+								<li
+									key={item}
+									className="flex min-w-0 items-start gap-1.5 text-[10px] font-normal leading-relaxed text-slate-600 dark:text-slate-300"
+								>
+									<span className="mt-px shrink-0 leading-relaxed" aria-hidden>
+										•
+									</span>
+									<span className="min-w-0 break-keep">
+										<span className="font-semibold text-slate-800 dark:text-slate-100">
+											{t(`${plan.key}.items.${item}.benefitTitle`)}
+										</span>
+										<span> ➔ </span>
+										<span>{t(`${plan.key}.items.${item}.effect`)}</span>
+									</span>
+								</li>
+							))}
+						</ul>
+					</div>
+				</div>
+
+				<button
+					type="button"
+					onClick={onSelect}
+					className={`mt-1 inline-flex w-full items-center justify-center rounded-xl text-center text-xs transition-all ${plan.cta}`}
+				>
+					{t(`${plan.key}.cta`)}
+				</button>
+			</div>
+		</article>
+	);
+}
+
+function ScoreGoalBadge({
+	planId,
+	projection,
+	className,
+}: {
+	planId: SolutionPackageId;
+	projection: PackageScoreProjection | null;
+	className: string;
+}) {
+	const t = useTranslations('audit.packages');
+
+	const label =
+		planId === 'enterprise' || !projection
+			? t('enterprise.scoreBadge')
+			: t('scoreLift.headline', {
+					current: projection.current,
+					goalLow: projection.goalLow,
+					goalHigh: projection.goalHigh,
+					liftLow: t(`${planId}.liftLow`),
+					liftHigh: t(`${planId}.liftHigh`),
+				});
+
+	return (
+		<p
+			className={`mt-3 flex w-full items-start gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold leading-snug ${className}`}
+		>
+			<span className="mt-0.5 shrink-0 leading-none" aria-hidden>
+				🚀
+			</span>
+			<span className="min-w-0 break-keep">{label}</span>
+		</p>
+	);
+}
+
+function ScoreBandGuide({ currentScore }: { currentScore: number }) {
+	const t = useTranslations('audit.packages');
+	const current = Math.round(clampScore(currentScore));
+	const active = packageScoreBand(current);
+
+	return (
+		<div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900/70">
+			<p className="text-center text-[10px] font-bold tabular-nums text-slate-900 dark:text-white">
+				{t('scoreGuide.current', { score: current })}
+			</p>
+			<div className="mt-3 flex flex-wrap justify-center gap-1.5 sm:gap-2">
+				{PACKAGE_SCORE_BANDS.map((band) => {
+					const on = band.id === active;
+					return (
+						<span
+							key={band.id}
+							className={`inline-flex min-w-0 max-w-full flex-col rounded-xl border px-2 py-1.5 text-center sm:px-2.5 ${
+								on ? BAND_CHIP_ACTIVE[band.id] : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400'
+							}`}
+						>
+							<span className="break-keep text-[8px] font-bold leading-snug">
+								{t(`scoreGuide.${band.id}.range`)} ({t(`scoreGuide.${band.id}.label`)})
+							</span>
+						</span>
+					);
+				})}
+			</div>
+			<p className="mt-2 break-keep text-center text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">
+				{t(`scoreGuide.${active}.desc`)}
+			</p>
+			<div className="relative mt-3">
+				<div className="flex h-2 overflow-hidden rounded-full">
+					{PACKAGE_SCORE_BANDS.map((band) => (
+						<div key={band.id} className={BAND_BAR[band.id]} style={{ width: `${band.barPercent}%` }} />
+					))}
+				</div>
+				<span
+					className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-950 shadow"
+					style={{ left: `${Math.min(97, Math.max(3, current))}%` }}
+					title={`${current}`}
+					aria-hidden
+				/>
+			</div>
+		</div>
+	);
+}
+
+const BAND_CHIP_ACTIVE: Record<PackageScoreBandId, string> = {
+	risk: 'border-rose-400/60 bg-rose-500/20 text-rose-800 dark:text-rose-100 shadow-[0_0_12px_-4px_rgba(244,63,94,0.7)]',
+	fair: 'border-amber-400/60 bg-amber-500/20 text-amber-800 dark:text-amber-100 shadow-[0_0_12px_-4px_rgba(245,158,11,0.7)]',
+	optimized: 'border-emerald-400/60 bg-emerald-500/20 text-emerald-800 dark:text-emerald-100 shadow-[0_0_12px_-4px_rgba(16,185,129,0.7)]',
+	monopoly: 'border-indigo-400/60 bg-indigo-500/20 text-indigo-800 dark:text-indigo-100 shadow-[0_0_12px_-4px_rgba(99,102,241,0.7)]',
+};
+
+const BAND_BAR: Record<PackageScoreBandId, string> = {
+	risk: 'h-full bg-rose-500/80',
+	fair: 'h-full bg-amber-400/80',
+	optimized: 'h-full bg-emerald-400/80',
+	monopoly: 'h-full bg-indigo-400/80',
+};

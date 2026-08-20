@@ -18,6 +18,8 @@ import {
 	scanSiteOnce,
 	upsertGuestAuditOnRescan,
 } from '@/lib/audit-history-storage';
+import { AuditLimitModal } from '@/components/audit/AuditLimitModal';
+import { isAuditLimitError } from '@/lib/audit/free-audit-quota';
 import { persistReportTrackingSnapshot } from '@/lib/audit/domain-tracking';
 import { markImportedCrawlRecordDiagnosed } from '@/lib/crawling/transfer-queue';
 import type { TargetDiagnoseResponse } from '@/lib/crawling/types';
@@ -78,6 +80,7 @@ export default function AuditResultPage() {
 
 function AuditResultContent() {
 	const t = useTranslations('audit');
+	const tQuota = useTranslations('audit.quota');
 	const locale = useLocale();
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -104,6 +107,7 @@ function AuditResultContent() {
 	const [isAnalyzing, setIsAnalyzing] = useState(isLiveAnalysis);
 	const [isDataReady, setIsDataReady] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [limitOpen, setLimitOpen] = useState(false);
 	const [deletedOrMissing, setDeletedOrMissing] = useState(false);
 	const [emailOpen, setEmailOpen] = useState(false);
 	const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
@@ -352,7 +356,12 @@ function AuditResultContent() {
 				}
 			} catch (err) {
 				if (!cancelled) {
-					setError((err as Error).message);
+					if (isAuditLimitError(err)) {
+						setLimitOpen(true);
+						setError(tQuota('limitReached'));
+					} else {
+						setError((err as Error).message);
+					}
 					setIsAnalyzing(false);
 					setIsLoading(false);
 					setIsFetching(false);
@@ -540,6 +549,8 @@ function AuditResultContent() {
 						</div>
 					</div>
 				)}
+
+				<AuditLimitModal open={limitOpen} onClose={() => setLimitOpen(false)} />
 
 				{showResultContent && resultData ? (
 					<div className="audit-result-fade-in">

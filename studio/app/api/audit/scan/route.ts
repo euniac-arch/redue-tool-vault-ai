@@ -11,6 +11,12 @@ import {
 } from '@/lib/firebase/audit-projects';
 import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 import { persistSignedInAuditReport } from '@/lib/audit/persist-audit-report';
+import {
+	applyGuestAuditCookie,
+	incrementAuditUsage,
+	limitReachedPayload,
+	resolveAuditQuota,
+} from '@/lib/audit/free-audit-quota-server';
 import { MASTER_ADMIN_ID } from '@/lib/master-admin';
 import { prisma } from '@/lib/prisma';
 import { syncProjectFromAuditLead } from '@/lib/projects-sync';
@@ -112,6 +118,7 @@ function clientErrorPayload(err: unknown): { status: number; error: string; stag
  * POST /api/audit/scan — public lead-magnet endpoint. Returns the live report
  * plus `id` of the persisted Firestore `audit_projects` doc (primary) so the
  * client can deep-link to `/audit/result?id=…` and `/admin/solve?id=…`.
+ * Free-plan / guest callers are capped at 3 scans per KST day (`AUDIT_LIMIT_REACHED` / 402).
  *
  * Same `targetUrl` is always recrawled (HTML meta + schema). `forceRefresh`
  * (default true) cache-busts the live crawl and overwrites the existing audit
@@ -138,6 +145,14 @@ export async function POST(request: Request) {
 		}
 		const forceRefresh = body.forceRefresh !== false;
 		const replaceId = typeof body.replaceId === 'string' ? body.replaceId.trim() : '';
+
+		const quota = await resolveAuditQuota();
+		if (quota.exhausted) {
+			return noStoreJson(
+				limitReachedPayload(quota, '오늘 무료 진단 횟수(3회)를 모두 소진했습니다. 내일 자정에 충전됩니다.'),
+				{ status: 402 },
+			);
+		}
 
 		let report;
 		try {
@@ -313,7 +328,10 @@ export async function POST(request: Request) {
 			}
 		}
 
-		return noStoreJson({ ...report, id: auditId, forceRefresh });
+		const nextQuota = await incrementAuditUsage(quota);
+		const response = noStoreJson({ ...report, id: auditId, forceRefresh, quota: nextQuota });
+		if (!nextQuota.unlimited) applyGuestAuditCookie(response, nextQuota.used, nextQuota.date);
+		return response;
 	} catch (err) {
 		const mapped = clientErrorPayload(err);
 		console.error('[audit/scan] unhandled POST error:', {

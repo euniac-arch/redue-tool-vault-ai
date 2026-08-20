@@ -351,6 +351,7 @@ export function AuditExecutiveSummary({
 						targetUrl={report.url}
 						brandName={resolveTargetBrandName(report)}
 						targetQuery={conversionModel.targetQuery}
+						currentScore={currentScore}
 					/>
 				</div>
 			</div>

@@ -101,59 +101,199 @@ function flattenCloneBackground(node: HTMLElement, color: string) {
 	(node.style as any).webkitMaskImage = 'none';
 }
 
+function resetCaptureOffset(node: HTMLElement) {
+	node.style.transform = 'none';
+	node.style.translate = 'none';
+	node.style.margin = '0';
+	node.style.top = '0';
+	node.style.left = '0';
+	node.style.right = 'auto';
+	node.style.bottom = 'auto';
+	node.style.inset = 'auto';
+}
+
+function flattenCaptureAncestors(node: HTMLElement) {
+	let current: HTMLElement | null = node.parentElement;
+	while (current && current !== current.ownerDocument.body) {
+		current.style.position = 'static';
+		current.style.display = 'block';
+		current.style.alignItems = 'flex-start';
+		current.style.justifyContent = 'flex-start';
+		current.style.padding = '0';
+		current.style.margin = '0';
+		current.style.transform = 'none';
+		current.style.inset = 'auto';
+		current.style.top = '0';
+		current.style.left = '0';
+		current.style.maxHeight = 'none';
+		current.style.height = 'auto';
+		current.style.overflow = 'visible';
+		current = current.parentElement;
+	}
+}
+
+function prepareExecBriefClone(cloned: HTMLElement) {
+	resetCaptureOffset(cloned);
+	cloned.style.position = 'relative';
+	cloned.style.margin = '0';
+	cloned.style.paddingTop = '24px';
+	cloned.style.transform = 'none';
+	cloned.style.maxHeight = 'none';
+	cloned.style.height = 'auto';
+	cloned.style.overflow = 'visible';
+	cloned.style.flex = 'none';
+	flattenCaptureAncestors(cloned);
+
+	cloned.querySelectorAll<HTMLElement>('h1, h2, h3, p, span').forEach((node) => {
+		node.style.lineHeight = '1.25';
+	});
+}
+
+function collectTransformedAncestors(el: HTMLElement): HTMLElement[] {
+	const nodes: HTMLElement[] = [];
+	let current: HTMLElement | null = el;
+	while (current) {
+		const style = window.getComputedStyle(current);
+		if (current.style.transform || (style.transform && style.transform !== 'none')) {
+			nodes.push(current);
+		}
+		current = current.parentElement;
+	}
+	return nodes;
+}
+
+function expandExecBriefForCapture(el: HTMLElement): () => void {
+	const restores: Array<() => void> = [];
+	const patch = (node: HTMLElement, styles: Record<string, string>) => {
+		const prev = node.style.cssText;
+		Object.assign(node.style, styles);
+		restores.push(() => {
+			node.style.cssText = prev;
+		});
+	};
+
+	patch(el, {
+		maxHeight: 'none',
+		height: 'auto',
+		overflow: 'visible',
+		flex: 'none',
+	});
+
+	const parent = el.parentElement;
+	if (parent) {
+		patch(parent, {
+			maxHeight: 'none',
+			height: 'auto',
+			overflow: 'visible',
+		});
+	}
+
+	el.querySelectorAll<HTMLElement>('[data-exec-brief-scroll]').forEach((node) => {
+		patch(node, {
+			maxHeight: 'none',
+			height: 'auto',
+			overflow: 'visible',
+			flex: 'none',
+		});
+	});
+	el.querySelectorAll<HTMLElement>('[data-exec-brief-chrome]').forEach((node) => {
+		patch(node, { display: 'none' });
+	});
+
+	return () => {
+		for (const restore of restores.reverse()) restore();
+	};
+}
+
 async function saveExecBriefCard(el: HTMLElement, kind: 'png' | 'pdf', filenameBase: string) {
 	const html2canvas = (await import('html2canvas')).default;
 	const isDark = document.documentElement.classList.contains('dark');
-	const canvas = await html2canvas(el, {
-		backgroundColor: isDark ? EXEC_BRIEF_BG_DARK : EXEC_BRIEF_BG_LIGHT,
-		scale: 2,
-		useCORS: true,
-		logging: false,
-		onclone: (doc) => {
-			const card = doc.getElementById('exec-brief-card');
-			if (card instanceof HTMLElement) {
-				card.style.maxHeight = 'none';
-				card.style.height = 'auto';
-				card.style.overflow = 'visible';
-				flattenCloneBackground(card, isDark ? EXEC_BRIEF_BG_DARK : EXEC_BRIEF_BG_LIGHT);
-			}
-			doc.querySelectorAll<HTMLElement>('[data-exec-brief-scroll]').forEach((node) => {
-				node.style.maxHeight = 'none';
-				node.style.overflow = 'visible';
-				node.style.flex = 'none';
-				node.style.backgroundColor = isDark ? EXEC_BRIEF_BG_DARK : EXEC_BRIEF_BG_LIGHT;
-			});
-			doc.querySelectorAll<HTMLElement>('[data-exec-brief-roi-effects]').forEach((node) => {
-				flattenCloneBackground(node, isDark ? ROI_EFFECTS_BG_DARK : ROI_EFFECTS_BG_LIGHT);
-			});
-			doc.querySelectorAll('[data-exec-brief-chrome]').forEach((node) => {
-				(node as HTMLElement).style.display = 'none';
-			});
-		},
+	const bg = isDark ? EXEC_BRIEF_BG_DARK : EXEC_BRIEF_BG_LIGHT;
+	const transformed = collectTransformedAncestors(el);
+	const prev = transformed.map((node) => ({
+		node,
+		transform: node.style.transform,
+		transition: node.style.transition,
+	}));
+	const restoreLayout = expandExecBriefForCapture(el);
+
+	for (const { node } of prev) {
+		node.style.transition = 'none';
+		node.style.transform = 'none';
+	}
+	void el.offsetHeight;
+	await new Promise<void>((resolve) => {
+		requestAnimationFrame(() => resolve());
 	});
 
-	if (kind === 'png') {
-		const link = document.createElement('a');
-		link.download = `${filenameBase}.png`;
-		link.href = canvas.toDataURL('image/png');
-		link.click();
-		return;
-	}
+	const width = Math.max(el.scrollWidth, el.offsetWidth);
+	const height = Math.max(el.scrollHeight, el.offsetHeight) + 24;
 
-	const { jsPDF } = await import('jspdf');
-	const img = canvas.toDataURL('image/png');
-	const orientation = canvas.width >= canvas.height ? 'landscape' : 'portrait';
-	const pdf = new jsPDF({ orientation, unit: 'pt', format: 'a4', compress: true });
-	const pageW = pdf.internal.pageSize.getWidth();
-	const pageH = pdf.internal.pageSize.getHeight();
-	const margin = 28;
-	const maxW = pageW - margin * 2;
-	const maxH = pageH - margin * 2;
-	const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
-	const drawW = canvas.width * ratio;
-	const drawH = canvas.height * ratio;
-	pdf.addImage(img, 'PNG', (pageW - drawW) / 2, (pageH - drawH) / 2, drawW, drawH);
-	pdf.save(`${filenameBase}.pdf`);
+	try {
+		const canvas = await html2canvas(el, {
+			backgroundColor: bg,
+			scale: 2,
+			useCORS: true,
+			logging: false,
+			scrollX: 0,
+			scrollY: 0,
+			windowWidth: width,
+			windowHeight: height,
+			width,
+			height,
+			x: 0,
+			y: 0,
+			onclone: (doc, cloned) => {
+				const target =
+					(doc.querySelector('[data-capture-target="true"]') as HTMLElement | null) ?? cloned;
+				prepareExecBriefClone(target);
+				flattenCloneBackground(target, bg);
+
+				doc.querySelectorAll<HTMLElement>('[data-exec-brief-scroll]').forEach((node) => {
+					node.style.maxHeight = 'none';
+					node.style.height = 'auto';
+					node.style.overflow = 'visible';
+					node.style.flex = 'none';
+					node.style.backgroundColor = bg;
+				});
+				doc.querySelectorAll<HTMLElement>('[data-exec-brief-roi-effects]').forEach((node) => {
+					flattenCloneBackground(node, isDark ? ROI_EFFECTS_BG_DARK : ROI_EFFECTS_BG_LIGHT);
+				});
+				doc.querySelectorAll('[data-exec-brief-chrome]').forEach((node) => {
+					(node as HTMLElement).style.display = 'none';
+				});
+			},
+		});
+
+		if (kind === 'png') {
+			const link = document.createElement('a');
+			link.download = `${filenameBase}.png`;
+			link.href = canvas.toDataURL('image/png');
+			link.click();
+			return;
+		}
+
+		const { jsPDF } = await import('jspdf');
+		const img = canvas.toDataURL('image/png');
+		const orientation = canvas.width >= canvas.height ? 'landscape' : 'portrait';
+		const pdf = new jsPDF({ orientation, unit: 'pt', format: 'a4', compress: true });
+		const pageW = pdf.internal.pageSize.getWidth();
+		const pageH = pdf.internal.pageSize.getHeight();
+		const margin = 28;
+		const maxW = pageW - margin * 2;
+		const maxH = pageH - margin * 2;
+		const ratio = Math.min(maxW / canvas.width, maxH / canvas.height);
+		const drawW = canvas.width * ratio;
+		const drawH = canvas.height * ratio;
+		pdf.addImage(img, 'PNG', (pageW - drawW) / 2, (pageH - drawH) / 2, drawW, drawH);
+		pdf.save(`${filenameBase}.pdf`);
+	} finally {
+		for (const { node, transform, transition } of prev) {
+			node.style.transform = transform;
+			node.style.transition = transition;
+		}
+		restoreLayout();
+	}
 }
 
 interface ExecBriefModalProps {
@@ -237,25 +377,30 @@ export function ExecBriefModal({
 					transition={{ duration: reduceMotion ? 0 : 0.2 }}
 				>
 					<motion.div
-						ref={cardRef}
-						id="exec-brief-card"
-						className="flex max-h-[94vh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0B1028] sm:max-h-[90vh] sm:rounded-2xl"
+						className="flex max-h-[94vh] w-full max-w-3xl flex-col sm:max-h-[90vh]"
 						onClick={(event) => event.stopPropagation()}
 						initial={reduceMotion ? false : { opacity: 0, scale: 0.94, y: 18 }}
 						animate={{ opacity: 1, scale: 1, y: 0 }}
 						exit={reduceMotion ? undefined : { opacity: 0, scale: 0.96, y: 10 }}
 						transition={{ duration: reduceMotion ? 0 : 0.28, ease: EASE }}
 					>
-						<ExecBriefCard
-							brief={brief}
-							saving={saving}
-							saveError={saveError}
-							onClose={onClose}
-							onGoToAnswerCenter={onGoToAnswerCenter}
-							onSave={handleSave}
-							t={t}
-							tUrgency={tUrgency}
-						/>
+						<div
+							ref={cardRef}
+							id="exec-brief-card"
+							data-capture-target="true"
+							className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0B1028] sm:rounded-2xl"
+						>
+							<ExecBriefCard
+								brief={brief}
+								saving={saving}
+								saveError={saveError}
+								onClose={onClose}
+								onGoToAnswerCenter={onGoToAnswerCenter}
+								onSave={handleSave}
+								t={t}
+								tUrgency={tUrgency}
+							/>
+						</div>
 					</motion.div>
 				</motion.div>
 			) : null}
@@ -287,19 +432,19 @@ function ExecBriefCard({
 
 	return (
 		<>
-			<header className="shrink-0 border-b border-slate-200 px-4 py-4 dark:border-white/10 sm:px-6">
+			<header className="h-auto shrink-0 overflow-visible border-b border-slate-200 px-4 py-4 dark:border-white/10 sm:px-6">
 				<div className="flex items-start justify-between gap-3">
-					<div className="min-w-0">
-						<p className="text-[11px] font-bold uppercase tracking-[0.18em] text-indigo-700 dark:text-[#D4AF37]">
+					<div className="flex h-auto min-w-0 flex-col overflow-visible">
+						<span className="text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
 							{t('kicker')}
-						</p>
+						</span>
 						<h2
 							id="exec-brief-title"
-							className="mt-1.5 break-keep text-lg font-extrabold leading-snug tracking-tight text-slate-900 dark:text-white sm:text-xl"
+							className="mt-1 h-auto break-keep text-2xl font-bold leading-normal text-slate-900 dark:text-white"
 						>
 							{t('title')}
 						</h2>
-						<p className="mt-1 truncate text-sm font-semibold text-slate-600 dark:text-slate-300">
+						<p className="mb-2 mt-1 h-auto overflow-visible break-keep text-sm font-medium leading-normal text-slate-500 dark:text-slate-300">
 							{brief.siteName}
 						</p>
 					</div>

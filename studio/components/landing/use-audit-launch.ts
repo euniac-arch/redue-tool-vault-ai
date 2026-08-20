@@ -137,5 +137,5 @@ export function useAuditLaunch({
 		handleDiagnose(url);
 	}
 
-	return { url, setUrl, submitting, error, setError, handleSubmit, t };
+	return { url, setUrl, submitting, error, setError, handleSubmit, handleDiagnose, t };
 }

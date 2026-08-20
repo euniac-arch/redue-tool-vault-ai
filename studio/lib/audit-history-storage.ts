@@ -7,6 +7,12 @@ import { resolveAuditScoreFromReport } from '@/lib/audit/resolveAuditScore';
 import { gradeForScore, type ScoreGrade } from '@/lib/audit/score-grade';
 import { clearLatestAuditPayload, loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
 import type { AuditOverallStatus, AuditReport } from '@/lib/site-auditor';
+import {
+	AUDIT_LIMIT_CODE,
+	AuditLimitError,
+	writeGuestAuditCount,
+	type AuditQuotaSnapshot,
+} from '@/lib/audit/free-audit-quota';
 
 export const AUDIT_HISTORY_STORAGE_KEY = 'redue_audit_history';
 /** Bumped when admin/frontend deletes audits so open tabs can refetch without a full reload. */
@@ -419,8 +425,28 @@ export function scanSiteOnce(
 				...(replaceId ? { replaceId } : {}),
 			}),
 		});
-		const data = (await res.json()) as ScanPayload & { error?: string };
-		if (!res.ok) throw new Error(data.error ?? 'Audit failed.');
+		const data = (await res.json()) as ScanPayload & {
+			error?: string;
+			code?: string;
+			used?: number;
+			remaining?: number;
+			limit?: number;
+			unlimited?: boolean;
+			quota?: AuditQuotaSnapshot;
+		};
+		if (!res.ok) {
+			if (data.code === AUDIT_LIMIT_CODE || res.status === 402) {
+				throw new AuditLimitError(data.error ?? 'AUDIT_LIMIT_REACHED', {
+					used: data.used ?? data.quota?.used,
+					unlimited: data.unlimited ?? data.quota?.unlimited,
+					date: data.quota?.date,
+				});
+			}
+			throw new Error(data.error ?? 'Audit failed.');
+		}
+		if (data.quota && !data.quota.unlimited) {
+			writeGuestAuditCount(data.quota.used, data.quota.date);
+		}
 		return data;
 	})().finally(() => {
 		const clear = () => {

@@ -546,6 +546,9 @@
 				"subtitle": "Once you see the size of the gap, choose the cleanup range. One setup puts you in the AI recommendation pool.",
 				"popular": "⭐ Most popular",
 				"enterpriseBadge": "🔒 Coming soon",
+				"benefitsToggleOpen": "💡 Benefits of choosing this plan",
+				"benefitsToggleClose": "💡 Hide expected impact",
+				"targetRecommend": "Best for",
 				"footnote": "※ Actual scope can be adjusted based on the site audit and CMS (Gnuboard, WordPress, Imweb, and others).",
 				"disclaimer": "※ AI recommendation rank is applied in sequence by each engine’s policy and crawl cycle. We do not guarantee a specific rank or revenue.",
 				"refundNotice": {
@@ -561,12 +564,30 @@
 						"vat": "(excl. VAT)",
 						"unit": "/ one-time setup",
 						"cta": "Start basic cleanup at ₩190K ➔",
+						"target": "Stores and hospitals whose info is wrong or missing in AI search engines",
 						"items": {
 							"0": "✓ Core JSON-LD (MedicalClinic/LocalBusiness)",
 							"1": "✓ /llms.txt AI index generation",
 							"2": "✓ Metadata & semantic-tag optimization",
 							"3": "✓ Basic GEO signal injection",
 							"4": "⏱️ Delivery in 3 business days"
+						},
+						"benefits": {
+							"0": {
+								"icon": "🎯",
+								"title": "Block hallucinations immediately",
+								"desc": "JSON-LD injection prevents distortion of hours, location, and flagship services"
+							},
+							"1": {
+								"icon": "⚡",
+								"title": "AI crawler indexes in 0.1 seconds",
+								"desc": "/llms.txt teaches ChatGPT/SearchGPT the latest facts immediately"
+							},
+							"2": {
+								"icon": "📈",
+								"title": "Secure baseline visibility share",
+								"desc": "Semantic tags and metadata cleanup complete the foundation for top placement on question-style searches"
+							}
 						}
 					},
 					"pro": {
@@ -576,6 +597,7 @@
 						"vat": "(excl. VAT)",
 						"unit": "/ one-time focused package",
 						"cta": "⚡ Apply for GEO Pro",
+						"target": "Businesses that want to beat local/category competitors and take an upper rank in AI recommendations",
 						"items": {
 							"0": "✓ Everything in Speed Setup",
 							"1": "✓ Naver SmartPlace / map alignment review",
@@ -583,6 +605,28 @@
 							"3": "✓ 5 FAQPage types & speakable injection",
 							"4": "✓ 4 live re-audits",
 							"5": "📊 Before/after performance report"
+						},
+						"benefits": {
+							"0": {
+								"icon": "🏆",
+								"title": "Enter the upper rank locally",
+								"desc": "Cross-check Naver Maps/SmartPlace to own local AI queries"
+							},
+							"1": {
+								"icon": "🏛️",
+								"title": "Be recognized as an authority",
+								"desc": "An E-E-A-T knowledge graph scores you as the most trusted brand"
+							},
+							"2": {
+								"icon": "💬",
+								"title": "Maximize direct AI citations",
+								"desc": "FAQPage & Speakable surface your answers to user questions"
+							},
+							"3": {
+								"icon": "📊",
+								"title": "Results you can see",
+								"desc": "4 live re-audits plus a before/after report confirm the score lift"
+							}
 						}
 					},
 					"enterprise": {
@@ -592,12 +636,30 @@
 						"vat": "(excl. VAT / custom quote)",
 						"unit": "/ custom quote",
 						"cta": "Early consult & custom quote ➔",
+						"target": "Nationwide brands that need upper-rank presence and defense in the AI search market",
 						"items": {
 							"0": "✓ Digital PR and press distribution",
 							"1": "✓ Wikidata knowledge-panel Q-ID",
 							"2": "✓ Four global/local map sync",
 							"3": "✓ RAG query-penetration content",
 							"4": "✓ 3-month algorithm-change monitoring"
+						},
+						"benefits": {
+							"0": {
+								"icon": "🌐",
+								"title": "Build a global knowledge panel (Wikidata Q-ID)",
+								"desc": "Register as an absolute-trust entity for global AI engines"
+							},
+							"1": {
+								"icon": "📰",
+								"title": "Combine Digital PR & press signals",
+								"desc": "High-authority media backlinks maximize AI citation weight"
+							},
+							"2": {
+								"icon": "🛡️",
+								"title": "3-month algorithm defense monitoring",
+								"desc": "Keep top share even when AI engines update"
+							}
 						}
 					}
 				}
@@ -871,6 +933,19 @@
 		}
 	},
 	"audit": {
+		"quota": {
+			"remainingBadge": "Free audits today: {remaining}/{limit} left",
+			"devUnlimitedBadge": "[DEV] Unlimited audit mode",
+			"buttonExhausted": "Today's limit reached",
+			"kicker": "DAILY FREE LIMIT",
+			"modalTitle": "Today's free audits are used up",
+			"modalBody": "You have used all 3 free site audits today. The count resets at midnight. Upgrade to a paid plan for unlimited audits.",
+			"modalLogin": "Sign in / Sign up",
+			"modalUpgrade": "View paid plans",
+			"modalContact": "Contact us",
+			"modalClose": "Close",
+			"limitReached": "You have used all 3 free site audits today. The count resets at midnight."
+		},
 		"backToHome": "← Back to home",
 		"backToHistory": "← Back to audit history",
 		"scoreHeaderLabel": "⚙️ SEO·GEO·Schema Diagnosis Results",
@@ -2630,6 +2705,39 @@
 			"title": "REDUE AI search optimization (GEO) 1:1 delivery packages",
 			"subtitle": "We fix the diagnosed gaps within 3 business days to help recover AI search share.",
 			"priceSuffix": "(excl. VAT) / one-time",
+			"targetLabel": "Best for",
+			"effectPrefix": "Impact: ",
+			"scoreGuide": {
+				"current": "Current overall score: {score}",
+				"risk": {
+					"range": "0–49",
+					"label": "At risk",
+					"desc": "AI info is missing or hallucinated"
+				},
+				"fair": {
+					"range": "50–74",
+					"label": "Fair",
+					"desc": "Basic AI recognition is in place (visibility competition)"
+				},
+				"optimized": {
+					"range": "75–85",
+					"label": "Optimized",
+					"desc": "Upper-rank recommendation entry for local/core keywords"
+				},
+				"monopoly": {
+					"range": "86–100",
+					"label": "Top tier",
+					"desc": "Nationwide entity and knowledge-panel presence"
+				}
+			},
+			"scoreLift": {
+				"headline": "Goal score: {current} → {goalLow}–{goalHigh} (+{liftLow}–{liftHigh} pts)",
+				"headlineHold": "Goal score: {current} → holding the goal band",
+				"barCurrent": "Now",
+				"barLift": "Goal"
+			},
+			"detailsToggleOpen": "See expected impact",
+			"detailsToggleClose": "Hide expected impact",
 			"legalDisclaimer": "※ This audit data is a technical indicator based on the site’s public web standards and metadata. Actual recommendations can change with each AI engine’s algorithm policy.",
 			"inquiryTitle": "Request {package}",
 			"inquiryClose": "Close request form",
@@ -2637,31 +2745,144 @@
 			"inquiryPrefillKeyword": "Target query: {keyword}",
 			"inquiryPrefillAsk": "Please deliver the {package} GEO optimization without breaking the site.",
 			"standard": {
-				"kicker": "Speed setup",
-				"name": "Essential GEO structuring",
-				"body": "4 JSON-LD blocks + /llms.txt + metadata optimization",
-				"cta": "Request Standard"
+				"kicker": "Speed Setup",
+				"planLabel": "Standard",
+				"name": "Speed Setup",
+				"tagline": "Essential GEO structuring",
+				"target": "Stores and companies missing from AI search engines that need immediate cleanup",
+				"summary": "The essential foundation so AI can identify our brand accurately and start citing it in answers",
+				"vat": "excl. VAT",
+				"unit": "one-time setup",
+				"liftBadge": "Reach 65–70 (+20–25) · Immediate defense against wrong or missing answers",
+				"liftGoal": "Goal: 65–70",
+				"liftMeaning": "Immediate defense against wrong or missing answers",
+				"liftLow": "20",
+				"liftHigh": "25",
+				"cta": "Request Standard ➔",
+				"items": {
+					"jsonld": {
+						"title": "✓ 4 core JSON-LD structures",
+						"benefitTitle": "4 JSON-LD blocks injected",
+						"desc": "Lets AI bots (ChatGPT, SearchGPT, Perplexity, and more) read store info, hours, and services without distortion",
+						"effect": "Blocks hallucinations and maximizes AI visibility"
+					},
+					"llms": {
+						"title": "✓ /llms.txt AI-only index",
+						"benefitTitle": "/llms.txt generated",
+						"desc": "Lets generative-AI crawlers index core site data in 0.1 seconds",
+						"effect": "Real-time indexing for AI crawlers and higher citation rate"
+					},
+					"meta": {
+						"title": "✓ Metadata & semantic-tag optimization",
+						"benefitTitle": "Metadata optimization",
+						"desc": "Matches question-style search queries",
+						"effect": "Foundation for top placement in AI summary answers"
+					},
+					"turnaround": {
+						"title": "⏱️ Delivery in 3 business days",
+						"benefitTitle": "Delivery in 3 business days",
+						"desc": "Deploys essential structuring right after the audit",
+						"effect": "Completes a baseline setup AI crawlers can read immediately"
+					}
+				}
 			},
 			"pro": {
-				"kicker": "Full-stack management",
-				"name": "Full-stack AI share package",
-				"body": "Standard setup + Naver Place + E-E-A-T proof + 4 live re-audits",
-				"badge": "Most popular",
-				"cta": "Request Pro and consult"
+				"kicker": "GEO Pro",
+				"planLabel": "Pro",
+				"name": "GEO Pro",
+				"tagline": "Full-stack AI share optimization package",
+				"target": "Businesses that want to take an upper rank in AI recommendation results over competitors",
+				"summary": "The full package aimed at upper-rank AI search share in your area/category and more inquiries and bookings",
+				"vat": "excl. VAT",
+				"unit": "one-time focused package",
+				"liftBadge": "Enter 80–85 (+30–35) · Aim for top local recommendations",
+				"liftGoal": "Goal: 80–85",
+				"liftMeaning": "Aim for top local recommendations",
+				"liftLow": "30",
+				"liftHigh": "35",
+				"badge": "⭐ Most popular",
+				"cta": "⚡ Apply for GEO Pro",
+				"items": {
+					"standardAll": {
+						"title": "✓ Everything in Standard included",
+						"benefitTitle": "Everything in Standard included",
+						"desc": "Complete baseline structured setup",
+						"effect": "Complete baseline structured setup"
+					},
+					"naver": {
+						"title": "✓ Naver SmartPlace / Maps review",
+						"benefitTitle": "Naver Place connected",
+						"desc": "Aligns map- and location-based AI recommendation queries",
+						"effect": "Enter the upper rank on local AI questions"
+					},
+					"eeat": {
+						"title": "✓ Stronger E-E-A-T knowledge-graph signals",
+						"benefitTitle": "E-E-A-T knowledge graph",
+						"desc": "Reinforces expertise and authority metadata",
+						"effect": "Cited first as a trusted flagship provider"
+					},
+					"faq": {
+						"title": "✓ 5 FAQPage types & speakable injection",
+						"benefitTitle": "FAQPage & speakable injection",
+						"desc": "Injects answers so question-style searches surface your copy",
+						"effect": "More direct citations in AI answers"
+					},
+					"reaudit": {
+						"title": "📊 4 live re-audits & performance report",
+						"benefitTitle": "4 live re-audit reports",
+						"desc": "Tracks and corrects live visibility across AI engines after the package is applied",
+						"effect": "Verify score-improvement data after the technical work"
+					}
+				}
 			},
 			"enterprise": {
-				"badge": "🏢 Enterprise",
-				"exclusive": "Top 1% exclusive solution",
+				"kicker": "Enterprise",
+				"planLabel": "Enterprise",
+				"name": "Enterprise",
+				"tagline": "Top-tier share & custom solution",
+				"target": "Nationwide brands that need to own and defend the top of the AI search market",
+				"badge": "🔒 Coming soon",
+				"exclusive": "Upper-tier custom solution",
 				"limited": "Limited / Coming soon",
-				"name": "Category-leading share lock-in & enterprise custom package",
+				"vat": "excl. VAT",
+				"unit": "custom quote",
+				"scoreBadge": "Goal score: 90+ top-tier monopoly & defense",
+				"liftBadge": "Goal 90+ top-tier monopoly · 3-month algorithm defense",
+				"priceNote": "(excl. VAT / custom quote)",
+				"cta": "Early consult & custom quote ➔",
+				"items": {
+					"pr": {
+						"title": "✓ Digital PR and press distribution",
+						"benefitTitle": "Digital PR signals combined",
+						"effect": "High-authority media backlinks maximize citation weight"
+					},
+					"wikidata": {
+						"title": "✓ Wikidata knowledge-panel Q-ID",
+						"benefitTitle": "Wikidata Q-ID built",
+						"effect": "Register as an absolute-trust entity for global AI engines"
+					},
+					"maps": {
+						"title": "✓ Flawless sync across 4 global/local maps",
+						"benefitTitle": "4-map flawless sync",
+						"effect": "Recognized as the same entity in global and local AI queries"
+					},
+					"rag": {
+						"title": "✓ RAG query-penetration content",
+						"benefitTitle": "RAG query-penetration content",
+						"effect": "Expand citation share on core industry queries"
+					},
+					"guard": {
+						"title": "🛡️ 3-month algorithm-change monitoring",
+						"benefitTitle": "3-month algorithm monitoring",
+						"effect": "Keep top share even when AI engines update"
+					}
+				},
 				"features": {
 					"pr": "Digital PR authority + Wikidata Q-ID knowledge panel registration",
 					"nap": "Flawless NAP sync across 4 maps (Google, Apple, Naver, Kakao)",
 					"rag": "RAG-penetration articles & expansion of share on key industry target keywords",
 					"guard": "AI hallucination guardrails & 3-month algorithm patch support"
-				},
-				"priceNote": "(excl. VAT / custom quote)",
-				"cta": "Opening soon (pre-consult inquiry)"
+				}
 			}
 		},
 		"verification": {
