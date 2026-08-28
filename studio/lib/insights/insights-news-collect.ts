@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { createHash } from 'crypto';
 import { canonicalizeNewsUrl, normalizeNewsTitle } from '@/lib/admin/geo-news-dedupe';
 import { formatRelativeKo, hostnameAsSource } from '@/lib/admin/geo-news-html';

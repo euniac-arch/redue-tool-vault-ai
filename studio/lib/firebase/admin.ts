@@ -1,3 +1,5 @@
+import 'server-only';
+
 import { existsSync, readFileSync } from 'fs';
 import { isAbsolute, resolve } from 'path';
 import { cert, getApps, initializeApp, type App, type ServiceAccount } from 'firebase-admin/app';

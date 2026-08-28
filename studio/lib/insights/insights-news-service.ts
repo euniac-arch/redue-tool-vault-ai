@@ -13,6 +13,8 @@
  * share a single in-flight promise so RSS is not hammered.
  */
 
+import 'server-only';
+
 import {
 	listCachedInsightsNews,
 	readInsightsNewsMeta,

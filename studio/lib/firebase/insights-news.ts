@@ -10,6 +10,8 @@
  * audit-projects conventions.
  */
 
+import 'server-only';
+
 import { FieldValue } from 'firebase-admin/firestore';
 import { getAdminFirestore, isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 import { createdAtToIso, stripUndefinedDeep } from '@/lib/firebase/audit-projects-types';

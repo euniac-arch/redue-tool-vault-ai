@@ -8,10 +8,30 @@ import {
 	type GeoNewsItem,
 	type GeoNewsRegion,
 } from '@/lib/admin/geo-news-management';
-import { fetchGeoNewsFeed, toggleGeoNewsBookmark } from '@/lib/admin/geoNewsService';
 import { GeoNewsCard } from './GeoNewsCard';
 import { GeoNewsPagination, PAGE_SIZE_OPTIONS, type GeoNewsPageSize } from './GeoNewsPagination';
 import { TrendingTopicsWidget } from './TrendingTopicsWidget';
+
+type GeoInsightsFeedResult = {
+	items: GeoNewsItem[];
+	total?: number;
+	refreshedAt?: string;
+};
+
+async function fetchGeoInsightsFeed(filters: GeoNewsFilters): Promise<GeoNewsItem[]> {
+	const query = new URLSearchParams({
+		q: filters.query,
+		region: filters.region,
+		category: filters.category,
+	});
+	const res = await fetch(`/api/admin/geo-insights?${query.toString()}`, { cache: 'no-store' });
+	if (!res.ok) {
+		const body = (await res.json().catch(() => null)) as { error?: string } | null;
+		throw new Error(body?.error || '뉴스 피드를 불러오지 못했습니다.');
+	}
+	const data = (await res.json()) as GeoInsightsFeedResult;
+	return Array.isArray(data.items) ? data.items : [];
+}
 
 const SELECT_CLASS =
 	'h-8 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-900/10 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100 dark:focus:border-slate-500';
@@ -41,10 +61,18 @@ export function GeoInsightsDashboard() {
 	const [category, setCategory] = useState<GeoNewsFilters['category']>('all');
 	const [page, setPage] = useState(1);
 	const [pageSize, setPageSize] = useState<GeoNewsPageSize>(6);
-	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [toasts, setToasts] = useState<Toast[]>([]);
 	const requestIdRef = useRef(0);
 	const listTopRef = useRef<HTMLDivElement | null>(null);
+	const bookmarkKeysRef = useRef(new Set<string>());
+
+	function applyLocalBookmarks(items: GeoNewsItem[]): GeoNewsItem[] {
+		const keys = bookmarkKeysRef.current;
+		return items.map((item) => ({
+			...item,
+			isBookmarked: keys.has(item.id) || keys.has(item.sourceUrl),
+		}));
+	}
 
 	const filters: GeoNewsFilters = useMemo(() => ({ query, region, category }), [query, region, category]);
 
@@ -62,9 +90,9 @@ export function GeoInsightsDashboard() {
 			if (mode === 'refresh') setRefreshing(true);
 			else setLoading(true);
 			try {
-				const result = await fetchGeoNewsFeed({ filters });
+				const result = await fetchGeoInsightsFeed(filters);
 				if (requestId !== requestIdRef.current) return;
-				setItems(result.items);
+				setItems(applyLocalBookmarks(result));
 				if (mode === 'refresh') pushToast('최신 피드를 갱신했습니다.');
 			} catch (error) {
 				if (requestId !== requestIdRef.current) return;
@@ -100,26 +128,20 @@ export function GeoInsightsDashboard() {
 		listTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 	}
 
-	const handleBookmark = useCallback(
-		async (id: string) => {
-			setPendingId(id);
-			try {
-				const updated = await toggleGeoNewsBookmark(id);
-				setItems((prev) =>
-					prev.map((item) =>
-						item.id === id || item.sourceUrl === id
-							? { ...item, isBookmarked: updated.isBookmarked }
-							: item,
-					),
-				);
-			} catch (error) {
-				pushToast(error instanceof Error ? error.message : '북마크 변경에 실패했습니다.', 'error');
-			} finally {
-				setPendingId(null);
+	const handleBookmark = useCallback((id: string) => {
+		setItems((prev) => {
+			const target = prev.find((item) => item.id === id || item.sourceUrl === id);
+			const keys = [id, target?.sourceUrl, target?.id].filter((key): key is string => Boolean(key));
+			const nextBookmarked = !keys.some((key) => bookmarkKeysRef.current.has(key));
+			for (const key of keys) {
+				if (nextBookmarked) bookmarkKeysRef.current.add(key);
+				else bookmarkKeysRef.current.delete(key);
 			}
-		},
-		[pushToast],
-	);
+			return prev.map((item) =>
+				item.id === id || item.sourceUrl === id ? { ...item, isBookmarked: nextBookmarked } : item,
+			);
+		});
+	}, []);
 
 	function applyTrendingTopic(topic: string) {
 		setQuery(topic);
@@ -239,7 +261,6 @@ export function GeoInsightsDashboard() {
 									<GeoNewsCard
 										key={item.id}
 										item={item}
-										pending={pendingId === item.id}
 										onToggleBookmark={handleBookmark}
 									/>
 								))}

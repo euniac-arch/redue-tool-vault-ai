@@ -1,6 +1,8 @@
 /**
  * Admin "AI GEO & Schema 글로벌 뉴스" — types, mock feed, and filter helpers.
- * Swap point: `studio/lib/admin/geoNewsService.ts`.
+ * Client-safe: no Node.js / firebase-admin imports.
+ * Server collection lives in `geo-news-service.ts` and is exposed via
+ * GET /api/admin/geo-insights.
  */
 
 export type GeoNewsRegion = 'KR' | 'GLOBAL';

@@ -4,6 +4,8 @@
  * does not re-fire the same keyword within the TTL window.
  */
 
+import 'server-only';
+
 import { createHash } from 'crypto';
 import { getAdminFirestore, isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 

@@ -5,6 +5,8 @@
  * Official feeds: Google Search Central, Search Engine Land
  * Keyword feeds: Google News RSS per NEWS_KEYWORD_CATEGORIES (KR + GLOBAL)
  */
+import 'server-only';
+
 import * as cheerio from 'cheerio';
 import type { CollectedNewsArticle } from './geo-news-dedupe';
 import { formatRelativeKo, hostnameAsSource, stripHtml } from './geo-news-html';

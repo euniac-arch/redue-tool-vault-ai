@@ -2,6 +2,8 @@
  * GEO / schema news crawler — merges official SEO RSS, Google News RSS,
  * and Naver News Search, then applies precise keyword targeting + dedupe.
  */
+import 'server-only';
+
 import { collectedToGeoNewsItem, dedupeCollectedNews, type CollectedNewsArticle } from './geo-news-dedupe';
 import { collectOfficialSeoRss, collectGoogleNewsRss } from './geo-news-rss';
 import { collectNaverNewsSearch } from './geo-news-naver';

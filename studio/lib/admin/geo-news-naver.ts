@@ -3,6 +3,8 @@
  * Uses the same NAVER_CLIENT_ID / NAVER_CLIENT_SECRET as webkr discovery.
  * https://developers.naver.com/docs/serviceapi/search/news/news.md
  */
+import 'server-only';
+
 import { readNaverSearchCache, writeNaverSearchCache } from '@/lib/insights/insights-naver-cache';
 import type { CollectedNewsArticle } from './geo-news-dedupe';
 import { hostnameAsSource, stripHtml } from './geo-news-html';
