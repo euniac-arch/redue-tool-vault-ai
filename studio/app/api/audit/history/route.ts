@@ -23,6 +23,18 @@ function noStoreJson(body: unknown, init?: { status?: number }) {
 
 const HISTORY_LIMIT = 50;
 
+/**
+ * `getServerSession` is inferred as `{}` in this project (next-auth callback
+ * generics), so never read `.user` on that type. Narrow at runtime instead.
+ */
+function readSessionUserId(value: unknown): string | null {
+	if (!value || typeof value !== 'object') return null;
+	const rawUser = 'user' in value ? (value as { user?: unknown }).user : undefined;
+	if (!rawUser || typeof rawUser !== 'object') return null;
+	const id = (rawUser as { id?: unknown }).id;
+	return typeof id === 'string' && id.trim() ? id.trim() : null;
+}
+
 function historyUrlKey(raw: string): string {
 	try {
 		const u = new URL(raw);
@@ -48,7 +60,7 @@ function parseStoredReport(reportJson: string): AuditReport | null {
  * (newest first). Guests receive an empty list; the client falls back to localStorage.
  */
 export async function GET() {
-	let session: Awaited<ReturnType<typeof getServerSession>> = null;
+	let session: unknown = null;
 	try {
 		session = await getServerSession(authOptions);
 	} catch (err) {
@@ -58,7 +70,8 @@ export async function GET() {
 		return noStoreJson({ history: [], items: [], total: 0, source: 'empty' });
 	}
 
-	if (!session?.user?.id) {
+	const userId = readSessionUserId(session);
+	if (!userId) {
 		return noStoreJson({ history: [], items: [], total: 0, source: 'empty' });
 	}
 
@@ -69,7 +82,7 @@ export async function GET() {
 		try {
 			const docs = await listAuditProjects(200);
 			for (const doc of docs) {
-				if (doc.userId !== session.user.id) continue;
+				if (doc.userId !== userId) continue;
 				if (seen.has(doc.id)) continue;
 				const report = doc.auditPayload?.report;
 				if (!report?.url) continue;
@@ -83,7 +96,7 @@ export async function GET() {
 
 	try {
 		const reports = await prisma.auditReport.findMany({
-			where: { userId: session.user.id },
+			where: { userId },
 			orderBy: { createdAt: 'desc' },
 			take: HISTORY_LIMIT,
 		});
@@ -102,7 +115,7 @@ export async function GET() {
 	if (items.length < HISTORY_LIMIT) {
 		try {
 			const leads = await prisma.auditLead.findMany({
-				where: { userId: session.user.id },
+				where: { userId },
 				orderBy: { createdAt: 'desc' },
 				take: HISTORY_LIMIT,
 				select: {
