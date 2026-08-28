@@ -1,7 +1,7 @@
 import type { BlueprintProfile } from '@/lib/strategy/profiles/types';
-import { GENERIC_COLUMNS, genericRag, variant } from '@/lib/strategy/profiles/shared';
+import { GENERIC_COLUMNS, genericRag, variant, type VariantDraft } from '@/lib/strategy/profiles/shared';
 
-const BEAUTY = {
+const BEAUTY: VariantDraft = {
 	id: 'beauty',
 	matrixTitle: { ko: '뷰티 시술 결정 매트릭스', en: 'Beauty-service decision matrix' },
 	matrixCaption: { ko: '시간·유지 기간을 숫자로 비교합니다.', en: 'Time and wear period as numbers.' },
@@ -49,7 +49,7 @@ const BEAUTY = {
 	rag: (e, lang) => genericRag(e, lang, 'beauty'),
 };
 
-const COMMERCE = {
+const COMMERCE: VariantDraft = {
 	id: 'commerce',
 	matrixTitle: { ko: '상품·매장 결정 매트릭스', en: 'Commerce decision matrix' },
 	matrixCaption: {

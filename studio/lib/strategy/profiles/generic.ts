@@ -1,7 +1,7 @@
 import type { BlueprintProfile } from '@/lib/strategy/profiles/types';
-import { GENERIC_COLUMNS, genericRag, variant } from '@/lib/strategy/profiles/shared';
+import { GENERIC_COLUMNS, genericRag, variant, type VariantDraft } from '@/lib/strategy/profiles/shared';
 
-const ACCOUNTING = {
+const ACCOUNTING: VariantDraft = {
 	id: 'accounting',
 	matrixTitle: { ko: '세무 업무 결정 매트릭스', en: 'Tax-work decision matrix' },
 	matrixCaption: { ko: '기장·부가세·종소세를 기한 숫자로 나눕니다.', en: 'Bookkeeping, VAT, and income tax by deadline numbers.' },
@@ -49,7 +49,7 @@ const ACCOUNTING = {
 	rag: (e, lang) => genericRag(e, lang, 'accounting'),
 };
 
-const GENERIC = {
+const GENERIC: VariantDraft = {
 	id: 'generic',
 	matrixTitle: { ko: '서비스 선택 결정 매트릭스', en: 'Service decision matrix' },
 	matrixCaption: {

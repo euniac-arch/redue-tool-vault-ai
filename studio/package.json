@@ -2,7 +2,7 @@
   "name": "redue-ai-studio",
   "version": "1.0.0",
   "private": true,
-  "description": "REDUE AI SEO & GEO Studio — WordPress CMS detection & master schema injection pipeline.",
+  "description": "REDUE AI SEO & GEO Studio - WordPress CMS detection & master schema injection pipeline.",
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && prisma db push && next build",

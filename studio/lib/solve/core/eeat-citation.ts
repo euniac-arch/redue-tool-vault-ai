@@ -318,7 +318,7 @@ export function isHowToGuidePage(page: Pick<SolvePageMeta, 'urlPath' | 'title' |
 }
 
 export function isCitationVirtualPage(
-	page: Pick<SolvePageMeta, 'urlPath' | 'virtual'>,
+	page: { urlPath?: string; virtual?: boolean },
 ): boolean {
 	if (page.virtual) return true;
 	const path = normalizeCitationPath(page.urlPath);

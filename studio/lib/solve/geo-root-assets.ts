@@ -106,7 +106,7 @@ export function isRootDeployPath(urlPath: string | undefined): boolean {
 }
 
 export function getRootDeployKind(
-	page: Pick<SolvePageMeta, 'urlPath' | 'title'>,
+	page: { urlPath?: string; title?: string },
 ): RootDeployKind | null {
 	const raw = normalizeDeployPath(page.urlPath);
 	if (/(^|\/)robots\.txt$/.test(raw) || /^robots\.txt$/i.test(String(page.title || '').trim())) {
@@ -125,12 +125,12 @@ export function getRootDeployKind(
 	return null;
 }
 
-export function isRootDeployPage(page: Pick<SolvePageMeta, 'urlPath' | 'title'>): boolean {
+export function isRootDeployPage(page: { urlPath?: string; title?: string }): boolean {
 	return getRootDeployKind(page) !== null;
 }
 
 export function getRootDeploySpec(
-	page: Pick<SolvePageMeta, 'urlPath' | 'title'>,
+	page: { urlPath?: string; title?: string },
 ): RootDeployRowSpec | null {
 	const kind = getRootDeployKind(page);
 	return kind ? ROOT_DEPLOY_ROW_SPECS.find((spec) => spec.kind === kind) || null : null;

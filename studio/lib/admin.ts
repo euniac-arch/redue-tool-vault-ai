@@ -105,8 +105,31 @@ async function readJwtFromRequest(req?: NextRequest): Promise<JWT | null> {
  * request JWT (and cookie store) in parallel. Admin grant is `ADMIN_EMAILS`
  * + DB role + master id.
  */
+type SessionUserFields = {
+	id?: string | null;
+	email?: string | null;
+	name?: string | null;
+	role?: string | null;
+	isAdmin?: boolean;
+};
+
+/** next-auth Session can resolve to `{}` — never read `.user` on that type. */
+function readSessionUser(value: unknown): SessionUserFields | null {
+	if (!value || typeof value !== 'object') return null;
+	const rawUser = 'user' in value ? (value as { user?: unknown }).user : undefined;
+	if (!rawUser || typeof rawUser !== 'object') return null;
+	const rec = rawUser as Record<string, unknown>;
+	return {
+		id: typeof rec.id === 'string' ? rec.id : null,
+		email: typeof rec.email === 'string' ? rec.email : null,
+		name: typeof rec.name === 'string' ? rec.name : null,
+		role: typeof rec.role === 'string' ? rec.role : null,
+		isAdmin: rec.isAdmin === true,
+	};
+}
+
 export async function getAdminAccessState(req?: NextRequest): Promise<AdminAccessState> {
-	let session: Awaited<ReturnType<typeof getServerSession>> = null;
+	let session: unknown = null;
 	try {
 		session = await getServerSession(authOptions);
 	} catch {
@@ -114,12 +137,13 @@ export async function getAdminAccessState(req?: NextRequest): Promise<AdminAcces
 	}
 
 	const token = await readJwtFromRequest(req);
+	const sessionUser = readSessionUser(session);
 
-	let id = session?.user?.id || '';
-	let email = session?.user?.email || '';
-	let name = session?.user?.name ?? null;
-	let role = session?.user?.role || '';
-	let flaggedAdmin = Boolean(session?.user?.isAdmin);
+	let id = sessionUser?.id || '';
+	let email = sessionUser?.email || '';
+	let name = sessionUser?.name ?? null;
+	let role = sessionUser?.role || '';
+	let flaggedAdmin = Boolean(sessionUser?.isAdmin);
 
 	if (token) {
 		if (!id) id = String(token.uid || token.sub || '');
@@ -130,7 +154,7 @@ export async function getAdminAccessState(req?: NextRequest): Promise<AdminAcces
 	}
 
 	const hasIdentity = Boolean(id || email);
-	if (!session?.user && !token && !hasIdentity) {
+	if (!sessionUser && !token && !hasIdentity) {
 		return { state: 'unauthenticated' };
 	}
 

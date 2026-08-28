@@ -123,7 +123,7 @@ export function StrategyWorkspace({
 
 	function handleAnalyze(raw: string, immediate = false) {
 		const keyword = raw.trim();
-		if (!keyword) return;
+		if (!keyword || !ctx || !profile) return;
 		setDraft(keyword);
 		lastAnalyzedRef.current = keyword;
 		const next = analyzeStrategy({ keyword, ctx, profile, lang });

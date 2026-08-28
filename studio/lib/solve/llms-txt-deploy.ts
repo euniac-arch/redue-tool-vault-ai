@@ -26,7 +26,7 @@ export function isLlmsTxtDeployPath(urlPath: string | undefined): boolean {
 	return /(^|\/)llms\.txt$/i.test(raw) || /^llms\.txt$/i.test(raw);
 }
 
-export function isLlmsTxtDeployPage(page: Pick<SolvePageMeta, 'urlPath' | 'title'>): boolean {
+export function isLlmsTxtDeployPage(page: { urlPath?: string; title?: string }): boolean {
 	if (isLlmsTxtDeployPath(page.urlPath)) return true;
 	return /^llms\.txt$/i.test(String(page.title || '').trim());
 }

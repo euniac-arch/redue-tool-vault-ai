@@ -11,7 +11,7 @@ export const GENERIC_COLUMNS: Localized<string[]> = {
 	en: ['Type', 'Recommended approach', 'What to verify', 'Cautions'],
 };
 
-type VariantDraft = Omit<BlueprintVariant, 'patterns'>;
+export type VariantDraft = Omit<BlueprintVariant, 'patterns'>;
 
 export function variant(draft: VariantDraft, patterns: readonly RegExp[]): BlueprintVariant {
 	return { ...draft, patterns };

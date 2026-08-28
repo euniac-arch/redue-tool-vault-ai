@@ -80,7 +80,7 @@ export function hydrateChecklistDetails(
 				item.imagesTotal == null ||
 				item.imageAltCoveragePct == null)
 		) {
-			const missing_images = imageAltIssues.map(toMissingImageRow);
+			const missing_images = imageAltIssues.map((issue) => toMissingImageRow(issue));
 			return {
 				...item,
 				imageAltIssues,

@@ -378,6 +378,7 @@ type ScanPayload = AuditReport & {
 	userId?: string | null;
 	userType?: 'admin' | 'user' | 'guest';
 	diagnosedAt?: string;
+	quota?: AuditQuotaSnapshot;
 };
 
 function isScanReportPayload(data: unknown): data is ScanPayload {
@@ -669,7 +670,7 @@ export function scanSiteOnce(
 
 		console.log('[audit/scan][client] response received', { targetUrl, status: res.status, ok: res.ok });
 
-		type ScanApiResponse = ScanPayload & {
+		type ScanApiResponse = Partial<ScanPayload> & {
 			error?: string;
 			code?: string;
 			used?: number;

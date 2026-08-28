@@ -231,7 +231,7 @@ function extractPhpGlobalRaw(source: string, key: string): string {
 
 function extractPhpGlobalString(source: string, key: string): string {
 	const raw = extractPhpGlobalRaw(source, key);
-	const m = raw.match(/^'(.*)'$/s) || raw.match(/^"(.*)"$/s);
+	const m = raw.match(/^'([\s\S]*)'$/) || raw.match(/^"([\s\S]*)"$/);
 	if (!m) return '';
 	return unescapePhpSingle(m[1] || '');
 }

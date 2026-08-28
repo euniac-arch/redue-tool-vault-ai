@@ -703,7 +703,7 @@ function snapshotToCachePage(page: FullAuditPageSnapshot): DeltaCachePage {
 		missing_alt_images: (
 			page.missing_images?.length
 				? page.missing_images
-				: (page.imageAltIssues || []).map(toMissingImageRow)
+				: (page.imageAltIssues || []).map((issue) => toMissingImageRow(issue))
 		)
 			.slice(0, IMAGE_ALT_ISSUE_CAP)
 			.map((row) => {

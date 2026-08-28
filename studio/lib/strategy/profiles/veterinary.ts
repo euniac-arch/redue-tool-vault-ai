@@ -1,7 +1,7 @@
 import type { BlueprintProfile } from '@/lib/strategy/profiles/types';
-import { CLINICAL_COLUMNS, genericRag, variant } from '@/lib/strategy/profiles/shared';
+import { CLINICAL_COLUMNS, genericRag, variant, type VariantDraft } from '@/lib/strategy/profiles/shared';
 
-const VET = {
+const VET: VariantDraft = {
 	id: 'vet',
 	matrixTitle: { ko: '동물병원 결정 매트릭스', en: 'Veterinary decision matrix' },
 	matrixCaption: {

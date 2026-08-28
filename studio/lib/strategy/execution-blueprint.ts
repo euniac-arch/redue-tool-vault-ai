@@ -307,7 +307,7 @@ function buildSchema(
 			: '브랜드 정체성용입니다. 로컬 타입에 name/url/logo가 있으면 중복 삽입하지 않습니다.',
 	);
 
-	if (profile.registryType === 'medical' && catalog.schemaType !== 'MedicalBusiness') {
+	if (profile.registryType === 'medical') {
 		push(
 			'MedicalBusiness',
 			'skip',

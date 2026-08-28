@@ -347,7 +347,7 @@ function ScoreBreakdownDisclosure({
 }: {
 	measuredScore: number;
 	grade: string;
-	breakdown: MeasuredScoreBreakdown;
+	breakdown?: MeasuredScoreBreakdown | null;
 	cwvMeasured: boolean;
 }) {
 	const t = useTranslations('audit.b2b');

@@ -272,7 +272,7 @@ export function collectMissingAltImages(
 ): { images: MissingAltImage[]; issues: ImageAltIssue[]; missing_images: MissingImageRow[]; total: number } {
 	const collected = collectImageAltIssues($, opts);
 	return {
-		images: collected.issues.map(toMissingAltImage),
+		images: collected.issues.map((issue) => toMissingAltImage(issue)),
 		issues: collected.issues,
 		missing_images: collected.missing_images,
 		total: collected.missing_images.length,
@@ -436,7 +436,7 @@ export function mergeSiteResourceTrackers(opts: {
 
 	const renderBlockingScriptItems = dedupeScripts(scripts);
 	const imageAltIssues = dedupeAltIssues(altIssues);
-	const missing_images = imageAltIssues.map(toMissingImageRow);
+	const missing_images = imageAltIssues.map((issue) => toMissingImageRow(issue));
 	const uniqueScriptSrcCount = new Set(
 		renderBlockingScriptItems.map((row) => row.scriptSrc).filter(Boolean),
 	).size;
@@ -456,7 +456,7 @@ export function mergeSiteResourceTrackers(opts: {
 	return {
 		renderBlockingScriptItems,
 		imageAltIssues,
-		missingAltImages: imageAltIssues.map(toMissingAltImage),
+		missingAltImages: imageAltIssues.map((issue) => toMissingAltImage(issue)),
 		missing_images,
 		imagesTotal,
 		imagesMissingAlt,

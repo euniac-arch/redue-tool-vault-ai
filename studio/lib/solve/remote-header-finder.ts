@@ -17,6 +17,7 @@ import {
 } from '@/lib/solve/source-mapping';
 import {
 	detectCmsFromRootEntries,
+	NESTED_WEB_ROOT_DIRS,
 	type CmsRootListEntry,
 	type CmsRootSignature,
 	type CmsSignatureMode,

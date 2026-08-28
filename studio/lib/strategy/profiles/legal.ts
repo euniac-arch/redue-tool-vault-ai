@@ -1,7 +1,7 @@
 import type { BlueprintProfile } from '@/lib/strategy/profiles/types';
-import { GENERIC_COLUMNS, genericRag, variant } from '@/lib/strategy/profiles/shared';
+import { GENERIC_COLUMNS, genericRag, variant, type VariantDraft } from '@/lib/strategy/profiles/shared';
 
-const LEGAL = {
+const LEGAL: VariantDraft = {
 	id: 'legal',
 	matrixTitle: { ko: '법률 서비스 결정 매트릭스', en: 'Legal-service decision matrix' },
 	matrixCaption: { ko: '상담·자문·소송을 기간과 산출물로 나눕니다.', en: 'Consult, counsel, and litigation by time and deliverable.' },

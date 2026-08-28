@@ -306,7 +306,7 @@ export function reconGnuboardSite(opts: {
 		rep.isExtracted ? rep.jobTitle : representativeName ? '대표' : '',
 	);
 
-	const brandName = compact(configSource.match(CF_TITLE_RE)?.[1] || nap.name || '');
+	const brandName = compact(configSource.match(CF_TITLE_RE)?.[1] || '');
 	const legalName = extractLegalName(corpus, configSource) || brandName;
 	const sameAs = dedupeSameAs([
 		...extractEntitySameAsLinks(htmlBlob),

@@ -19,7 +19,7 @@ export type CmsRootSignature = {
 	nestedWebRoots: string[];
 };
 
-const NESTED_WEB_ROOT_DIRS = ['www', 'html', 'public_html', 'public', 'httpdocs'] as const;
+export const NESTED_WEB_ROOT_DIRS = ['www', 'html', 'public_html', 'public', 'httpdocs'] as const;
 
 /**
  * CMS type from a single 1-depth listing (no recursion).

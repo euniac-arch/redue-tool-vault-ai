@@ -27,6 +27,8 @@ export type ServiceCatalogItem = {
 	description?: string;
 	type?: string;
 	url?: string;
+	'@type'?: string;
+	itemOffered?: { name?: string };
 };
 
 export type ServiceCatalogSeed =

@@ -8,10 +8,12 @@ import { SolveWorkspaceTabs } from '@/components/admin/SolveWorkspaceTabs';
 import { MenuStructurePanel } from '@/components/admin/solve/MenuStructurePanel';
 import { SolveEmptyContext } from '@/components/admin/solve/SolveEmptyContext';
 import { ExternalVerificationLinks } from '@/components/ExternalVerificationLinks';
+import { getAuditProjectByIdClient } from '@/lib/firebase/audit-projects-client';
 import {
-	getAuditProjectByIdClient,
+	buildAuditProjectPayload,
+	mapAuditProjectDoc,
 	type AuditProjectDoc,
-} from '@/lib/firebase/audit-projects-client';
+} from '@/lib/firebase/audit-projects-types';
 import { isFirebaseClientConfigured } from '@/lib/firebase/client';
 import type { AuditReport } from '@/lib/site-auditor';
 import { mapAuditReportToSolveSnapshot } from '@/lib/solve/from-audit-report';
@@ -36,33 +38,19 @@ async function fetchAuditViaApi(id: string): Promise<AuditProjectDoc | null> {
 	try {
 		const res = await fetch(`/api/audit/${encodeURIComponent(id)}`);
 		if (!res.ok) return null;
-		const data = await res.json();
-		if (!data?.report?.url) return null;
-		return {
-			id: data.id as string,
-			url: data.report.url as string,
-			score: typeof data.score === 'number' ? data.score : Math.round(data.report.score),
-			issueCount: typeof data.issueCount === 'number' ? data.issueCount : 0,
-			auditPayload: {
-				report: data.report,
-				issues: [],
-				checklist: [],
-				specs: {
-					h1: { count: 0, texts: [] },
-					meta: {
-						pageTitle: '',
-						metaDescription: '',
-						titleLength: 0,
-						metaDescriptionLength: 0,
-					},
-				schema: { coverage: 0, types: [], jsonLdBlockCount: 0 },
-			},
-				cmsType: undefined,
-			},
-			createdAt: data.createdAt || new Date().toISOString(),
-			userType: data.userType === 'admin' || data.userType === 'user' ? data.userType : 'guest',
-			userId: typeof data.userId === 'string' ? data.userId : null,
-		};
+		const data = (await res.json()) as Record<string, unknown>;
+		const report = data.report as AuditReport | undefined;
+		if (!report?.url) return null;
+		return mapAuditProjectDoc(typeof data.id === 'string' && data.id.trim() ? data.id : id, {
+			url: typeof data.url === 'string' ? data.url : report.url,
+			siteName: typeof data.siteName === 'string' ? data.siteName : undefined,
+			score: data.score,
+			issueCount: data.issueCount,
+			auditPayload: buildAuditProjectPayload(report),
+			createdAt: data.createdAt,
+			userType: data.userType,
+			userId: data.userId,
+		});
 	} catch {
 		return null;
 	}

@@ -1,7 +1,7 @@
 import type { BlueprintProfile } from '@/lib/strategy/profiles/types';
-import { CLINICAL_COLUMNS, genericRag, variant } from '@/lib/strategy/profiles/shared';
+import { CLINICAL_COLUMNS, genericRag, variant, type VariantDraft } from '@/lib/strategy/profiles/shared';
 
-const ACNE_SCAR = {
+const ACNE_SCAR: VariantDraft = {
 	id: 'acne-scar',
 	matrixTitle: { ko: '여드름 흉터 유형별 결정 매트릭스', en: 'Acne-scar decision matrix' },
 	matrixCaption: {
@@ -170,7 +170,7 @@ const ACNE_SCAR = {
 				],
 };
 
-const SCAR = {
+const SCAR: VariantDraft = {
 	id: 'scar',
 	matrixTitle: { ko: '흉터 유형별 결정 매트릭스', en: 'Scar-type decision matrix' },
 	matrixCaption: {
@@ -339,7 +339,7 @@ const SCAR = {
 				],
 };
 
-const LIFTING = {
+const LIFTING: VariantDraft = {
 	id: 'lifting',
 	matrixTitle: { ko: '리프팅 유형별 결정 매트릭스', en: 'Lifting decision matrix' },
 	matrixCaption: {
@@ -508,7 +508,7 @@ const LIFTING = {
 				],
 };
 
-const DERM = {
+const DERM: VariantDraft = {
 	id: 'derm',
 	matrixTitle: { ko: '피부과 시술 결정 매트릭스', en: 'Dermatology decision matrix' },
 	matrixCaption: {
@@ -659,7 +659,7 @@ const DERM = {
 				],
 };
 
-const DENTAL = {
+const DENTAL: VariantDraft = {
 	id: 'dental',
 	matrixTitle: { ko: '치과 선택 결정 매트릭스', en: 'Dental decision matrix' },
 	matrixCaption: {
@@ -760,7 +760,7 @@ const DENTAL = {
 	rag: (e, lang) => genericRag(e, lang, 'dental'),
 };
 
-const PAIN = {
+const PAIN: VariantDraft = {
 	id: 'pain',
 	matrixTitle: { ko: '통증·재활 결정 매트릭스', en: 'Pain / rehab decision matrix' },
 	matrixCaption: {
