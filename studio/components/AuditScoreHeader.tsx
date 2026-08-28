@@ -54,16 +54,16 @@ export function AuditScoreHeader({ diagnostic, scores }: AuditScoreHeaderProps) 
 						</span>
 						<span className="mb-1 text-lg text-slate-600 dark:text-slate-400">{tDist('mainScoreSuffix')}</span>
 					</div>
-					{/* <p
+					<p
 						className="mt-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400"
 						title={tDist('weightedConversionTooltip', scaleCopy)}
 					>
-						{tDist('weightedConversion', {
+						{tDist('complianceScoreBadge', {
 							score: formatRawScore(totalRawScore),
 							max: maxPossibleScore,
 							pct: normalizedScore,
 						})}
-					</p> */}
+					</p>
 					<div className="mt-2 flex flex-wrap items-center gap-2">
 						<ScoreGradeBadge
 							score={normalizedScore}

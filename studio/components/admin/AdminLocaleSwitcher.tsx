@@ -27,7 +27,7 @@ export function AdminLocaleSwitcher() {
 	}
 
 	return (
-		<div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-bold">
+		<div className="flex items-center rounded-lg border border-slate-200 bg-white p-0.5 text-xs font-bold dark:border-slate-600 dark:bg-slate-800">
 			{OPTIONS.map((option) => (
 				<button
 					key={option.code}
@@ -36,8 +36,8 @@ export function AdminLocaleSwitcher() {
 					disabled={pending}
 					className={`inline-flex items-center gap-1 rounded-md px-2 py-1.5 transition-colors ${
 						locale === option.code
-							? 'bg-slate-900 text-white'
-							: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+							? 'bg-slate-900 text-white dark:bg-white dark:text-slate-950'
+							: 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100'
 					}`}
 					aria-pressed={locale === option.code}
 				>

@@ -12,6 +12,7 @@ import {
 	type LocalScannedFile,
 } from '@/lib/solve/local-folder-scan';
 import { REDUE_V14_SCHEMA_PATCH_SUCCESS } from '@/lib/solve/dynamic-php-schema';
+import { sanitizePhpForDeploy, toUtf8WithoutBom } from '@/lib/solve/php-sanitize';
 import { injectBeforeClosingHead } from '@/lib/solve/source-mapping';
 
 export type LocalFsCapability = {
@@ -200,7 +201,7 @@ export async function writeTextFile(
 	const handle = await getFileHandleByPath(root, relativePath, true);
 	const writable = await handle.createWritable();
 	try {
-		await writable.write(content);
+		await writable.write(toUtf8WithoutBom(content));
 	} finally {
 		await writable.close();
 	}
@@ -424,7 +425,7 @@ export async function backupAndDirectPatch(opts: {
 
 		const row = results.find((r) => r.relativePath === rel);
 		try {
-			await writeTextFile(root, rel, target.patchedContent);
+			await writeTextFile(root, rel, sanitizePhpForDeploy(target.patchedContent, rel));
 			injectedCount += 1;
 			if (row) {
 				row.injected = true;
@@ -564,19 +565,20 @@ export function buildPatchedContent(
 	snippet: string,
 	searchText?: string,
 	replaceText?: string,
+	targetPath?: string,
 ): { ok: boolean; result: string; anchor?: string; warning?: string | null } {
 	if (searchText && original.includes(searchText)) {
 		return {
 			ok: true,
-			result: original.split(searchText).join(replaceText ?? ''),
+			result: sanitizePhpForDeploy(original.split(searchText).join(replaceText ?? ''), targetPath),
 			anchor: 'search-replace',
 			warning: null,
 		};
 	}
-	const injected = injectBeforeClosingHead(original, snippet);
+	const injected = injectBeforeClosingHead(original, snippet, { targetPath });
 	return {
 		ok: injected.ok,
-		result: injected.result,
+		result: sanitizePhpForDeploy(injected.result, targetPath),
 		anchor: injected.anchor,
 		warning: injected.warning,
 	};

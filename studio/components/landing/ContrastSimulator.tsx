@@ -15,7 +15,7 @@ export function ContrastSimulator() {
 
 	return (
 		<section className="mt-20 border-t border-slate-200 bg-slate-100 py-16 dark:border-slate-800/80 dark:bg-[#070B14] sm:mt-24 sm:py-20">
-			<div className="mx-auto max-w-[960px] px-4 sm:px-6">
+			<div className="mx-auto w-full max-w-5xl px-6">
 				<div className="mx-auto mb-10 max-w-[640px] text-center">
 					<span className="inline-block rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-widest text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400">
 						{t('kicker')}

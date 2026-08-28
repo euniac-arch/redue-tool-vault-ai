@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import https from 'https';
 import iconv from 'iconv-lite';
 import jschardet from 'jschardet';
+import { withPsiCacheBuster } from '@/lib/audit/pagespeed-fetch';
 import { detectCmsFromHtml } from './cms-from-html';
 
 export { detectCmsFromHtml } from './cms-from-html';
@@ -173,7 +174,7 @@ export function decodeHtmlBuffer(
 }
 
 function buildPsiUrl(targetUrl: string, apiKey: string): string {
-	const encodedUrl = encodeURIComponent(targetUrl);
+	const encodedUrl = encodeURIComponent(withPsiCacheBuster(targetUrl));
 	const apiKeyParam = apiKey ? `&key=${encodeURIComponent(apiKey)}` : '';
 	return `${PSI_SEO_ENDPOINT}?url=${encodedUrl}&category=SEO&strategy=MOBILE${apiKeyParam}`;
 }
@@ -224,7 +225,11 @@ export async function runHybridScan(input: HybridScanInput): Promise<HybridScanR
 		const googleApiUrl = buildPsiUrl(targetUrl, googleApiKey);
 		const googleRes = await axios.get<{ lighthouseResult?: LighthouseResult }>(googleApiUrl, {
 			timeout: 15_000,
-			headers: { Accept: 'application/json' },
+			headers: {
+				Accept: 'application/json',
+				'Cache-Control': 'no-cache, no-store, must-revalidate',
+				Pragma: 'no-cache',
+			},
 			httpsAgent: insecureHttpsAgent,
 			validateStatus: (s) => s >= 200 && s < 300,
 		});

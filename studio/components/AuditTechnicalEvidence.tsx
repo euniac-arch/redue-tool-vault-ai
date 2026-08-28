@@ -1,16 +1,10 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
-import { useAuditPayload } from '@/components/audit/AuditPayloadProvider';
+import { SchemaFactCheckIssueReport } from '@/components/audit/SchemaFactCheckIssueReport';
 import { schemaMappingFromReport } from '@/lib/audit/live-criteria';
 import { isNewsMediaVertical, resolveRecommendedSchemas } from '@/lib/audit/recommended-schemas';
 import { resolveIndustryConfigFromSite } from '@/lib/registry/universalIndustryRegistry';
-import {
-	formatTargetIndexStatus,
-	formatTargetTtfb,
-	inferCmsFromAuditReport,
-	isHttpsUrl,
-} from '@/lib/audit/target-entity';
 import type { AuditReport } from '@/lib/site-auditor';
 
 interface AuditTechnicalEvidenceProps {
@@ -19,24 +13,9 @@ interface AuditTechnicalEvidenceProps {
 
 export function AuditTechnicalEvidence({ report }: AuditTechnicalEvidenceProps) {
 	const t = useTranslations('audit.b2b');
-	const tEntity = useTranslations('audit.targetEntity');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
-	const { latest } = useAuditPayload();
 	const m = report.metrics;
-	const resolvedCms =
-		report.cmsType && report.cmsType !== 'UNKNOWN'
-			? report.cmsType
-			: latest?.cmsType && latest.cmsType !== 'UNKNOWN'
-				? latest.cmsType
-				: inferCmsFromAuditReport(report, lang);
-	const https = isHttpsUrl(report.url);
-	const ttfb = formatTargetTtfb(report.responseTimeMs, lang);
-	const indexStatus = formatTargetIndexStatus(report, lang);
-	const botAllowed =
-		m?.aiBotAccess &&
-		Object.values(m.aiBotAccess).some((allowed) => allowed === true);
-	const botKnown = Boolean(m?.aiBotAccess && Object.keys(m.aiBotAccess).length);
 
 	const mapping = schemaMappingFromReport(report);
 	const newsVertical = isNewsMediaVertical(mapping);
@@ -90,37 +69,6 @@ export function AuditTechnicalEvidence({ report }: AuditTechnicalEvidenceProps) 
 					<span className="text-[11px] text-slate-500">
 						{industry.defaultCategory} · {industry.personJobTitle}
 					</span>
-				</div>
-			</div>
-
-			<div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-				<div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/[0.08] dark:bg-black/25">
-					<p className="text-[10px] uppercase text-slate-500">{tEntity('cms')}</p>
-					<p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{resolvedCms}</p>
-				</div>
-				<div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/[0.08] dark:bg-black/25">
-					<p className="text-[10px] uppercase text-slate-500">{tEntity('security')}</p>
-					<p className={`mt-0.5 text-sm font-bold ${https ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
-						{https ? tEntity('httpsOn') : tEntity('httpsOff')}
-					</p>
-				</div>
-				<div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/[0.08] dark:bg-black/25">
-					<p className="text-[10px] uppercase text-slate-500">{tEntity('ttfb')}</p>
-					<p className="mt-0.5 text-sm font-bold tabular-nums text-slate-900 dark:text-white">{ttfb.valueLabel}</p>
-				</div>
-				<div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/[0.08] dark:bg-black/25">
-					<p className="text-[10px] uppercase text-slate-500">{tEntity('indexStatus')}</p>
-					<p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">{indexStatus.label}</p>
-				</div>
-				<div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/[0.08] dark:bg-black/25">
-					<p className="text-[10px] uppercase text-slate-500">{tEntity('botsLabel')}</p>
-					<p className="mt-0.5 text-sm font-bold text-slate-900 dark:text-white">
-						{!botKnown
-							? '—'
-							: botAllowed
-								? tEntity('botAllowed', { label: 'AI' })
-								: tEntity('botBlocked', { label: 'AI' })}
-					</p>
 				</div>
 			</div>
 
@@ -178,6 +126,8 @@ export function AuditTechnicalEvidence({ report }: AuditTechnicalEvidenceProps) 
 					</ul>
 				</div>
 			)}
+
+			<SchemaFactCheckIssueReport url={report.url} />
 
 			<div>
 				<p className="mb-2 text-sm font-bold text-slate-800 dark:text-slate-200">{t('snippetTitle')}</p>

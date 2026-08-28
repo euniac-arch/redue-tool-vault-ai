@@ -1,7 +1,6 @@
 'use client';
 
 import { useId, useMemo, useState } from 'react';
-import { useReducedMotion } from 'framer-motion';
 import { useTranslations } from 'next-intl';
 import {
 	Bar,
@@ -23,13 +22,25 @@ import { SafeResponsiveContainer } from '@/components/charts/SafeResponsiveConta
 import { gradeQualifierKey, type ScoreGrade } from '@/lib/audit/score-grade';
 
 export interface CoreScoreBarChartProps {
+	/** 종합실측 — final weighted `measuredScore` (Track1*0.4 + Track2*0.4 + CWV*0.2 − security penalty). */
 	overallScore: number;
-	aiTrustScore: number;
-	techSeoScore: number;
+	/** 기술 무결성 규격 — Track 1 (technical SEO infra / schema compliance), 100-point scale. */
+	track1Score: number;
+	/** AI 검색 인용 지배력 — Track 2 (GEO / AI citation & trust signal), 100-point scale. */
+	track2Score: number;
+	/** 웹 성능 실측(CWV) — Track 3 (mobile/desktop Core Web Vitals average), 100-point scale. */
+	track3Score: number;
+	/**
+	 * Keys still waiting on the background PageSpeed(Lighthouse) read — their bar/radar
+	 * point renders translucent + `animate-pulse` instead of solid, while Track1/Track2
+	 * stay fully rendered. `overall` is included because the composite score also depends
+	 * on Track 3. Omit (or pass `undefined`) once the real read has landed.
+	 */
+	pendingKeys?: ReadonlyArray<'overall' | 'track3'>;
 }
 
 type ChartRow = {
-	key: 'overall' | 'aiTrust' | 'techSeo';
+	key: 'overall' | 'track1' | 'track2' | 'track3';
 	name: string;
 	fullName: string;
 	score: number;
@@ -46,10 +57,12 @@ type TooltipContentProps = {
 	payload?: Array<{ payload?: ChartRow }>;
 };
 
+/** 4대 핵심 지표 포인트 컬러 — 종합실측(기존 3지표 시절 Amber) · Track1(Cyan) · Track2(Purple) · Track3(Emerald). */
 export const CORE_SCORE_COLORS = {
 	overall: { chip: '#F59E0B', from: '#FB923C', to: '#F59E0B' },
-	aiTrust: { chip: '#6366F1', from: '#8B5CF6', to: '#6366F1' },
-	techSeo: { chip: '#10B981', from: '#06B6D4', to: '#10B981' },
+	track1: { chip: '#06b6d4', from: '#06b6d4', to: '#06b6d4' },
+	track2: { chip: '#a855f7', from: '#a855f7', to: '#a855f7' },
+	track3: { chip: '#10b981', from: '#10b981', to: '#10b981' },
 } as const;
 
 const BAR_META = CORE_SCORE_COLORS;
@@ -99,6 +112,10 @@ function chartGradeForScore(score: number): ScoreGrade {
 function clampScore(n: number): number {
 	if (!Number.isFinite(n)) return 0;
 	return Math.min(100, Math.max(0, Math.round(n)));
+}
+
+function isPendingRow(key: ChartRow['key'], pendingKeys?: ReadonlyArray<'overall' | 'track3'>): boolean {
+	return (key === 'overall' || key === 'track3') && (pendingKeys?.includes(key) ?? false);
 }
 
 function CoreScoreTooltip({
@@ -211,9 +228,15 @@ function ChartViewTabs({
 	);
 }
 
-function CoreRadarDot(props: { cx?: number; cy?: number; payload?: ChartRow }) {
-	const { cx, cy, payload } = props;
+function CoreRadarDot(props: {
+	cx?: number;
+	cy?: number;
+	payload?: ChartRow;
+	pendingKeys?: ReadonlyArray<'overall' | 'track3'>;
+}) {
+	const { cx, cy, payload, pendingKeys } = props;
 	if (cx == null || cy == null || !payload) return null;
+	const isPending = isPendingRow(payload.key, pendingKeys);
 	return (
 		<circle
 			cx={cx}
@@ -222,6 +245,8 @@ function CoreRadarDot(props: { cx?: number; cy?: number; payload?: ChartRow }) {
 			fill={payload.chip}
 			stroke="#fff"
 			strokeWidth={1.5}
+			className={isPending ? 'animate-pulse' : undefined}
+			opacity={isPending ? 0.45 : 1}
 		/>
 	);
 }
@@ -264,12 +289,14 @@ function CoreColoredTick({
 
 export function CoreScoreBarChart({
 	overallScore,
-	aiTrustScore,
-	techSeoScore,
+	track1Score,
+	track2Score,
+	track3Score,
+	pendingKeys,
 }: CoreScoreBarChartProps) {
 	const t = useTranslations('audit.scoreDistribution');
 	const tGrade = useTranslations('audit.scoreGrade');
-	const reduceMotion = useReducedMotion();
+	const chartAnimated = false;
 	const uid = useId().replace(/:/g, '');
 	const [view, setView] = useState<ChartView>('radar');
 
@@ -289,8 +316,9 @@ export function CoreScoreBarChart({
 			score: number;
 		}> = [
 			{ key: 'overall', score: clampScore(overallScore) },
-			{ key: 'aiTrust', score: clampScore(aiTrustScore) },
-			{ key: 'techSeo', score: clampScore(techSeoScore) },
+			{ key: 'track1', score: clampScore(track1Score) },
+			{ key: 'track2', score: clampScore(track2Score) },
+			{ key: 'track3', score: clampScore(track3Score) },
 		];
 		return rows.map((row) => ({
 			key: row.key,
@@ -302,7 +330,7 @@ export function CoreScoreBarChart({
 			gradientId: `core-score-${row.key}-${uid}`,
 			chip: BAR_META[row.key].chip,
 		}));
-	}, [aiTrustScore, overallScore, t, techSeoScore, uid]);
+	}, [overallScore, t, track1Score, track2Score, track3Score, uid]);
 
 	const axisColors = useMemo(() => chartData.map((row) => row.chip), [chartData]);
 	const radarFillId = `core-radar-fill-${uid}`;
@@ -390,24 +418,38 @@ export function CoreScoreBarChart({
 										dataKey="score"
 										radius={[4, 4, 0, 0]}
 										maxBarSize={28}
-										isAnimationActive={!reduceMotion}
-										animationDuration={700}
+										isAnimationActive={chartAnimated}
+										animationDuration={0}
 									>
-										{chartData.map((entry) => (
-											<Cell key={entry.key} fill={`url(#${entry.gradientId})`} />
-										))}
+										{chartData.map((entry) => {
+											const isPending = isPendingRow(entry.key, pendingKeys);
+											return (
+												<Cell
+													key={entry.key}
+													fill={`url(#${entry.gradientId})`}
+													className={isPending ? 'animate-pulse' : undefined}
+													fillOpacity={isPending ? 0.4 : 1}
+												/>
+											);
+										})}
 										<LabelList
 											dataKey="score"
 											position="top"
 											content={(props) => {
-												const { x, y, width, value } = props;
+												const { x, y, width, value, index } = props;
 												if (x == null || y == null || width == null || value == null) return null;
+												const row = typeof index === 'number' ? chartData[index] : undefined;
+												const isPending = row ? isPendingRow(row.key, pendingKeys) : false;
 												return (
 													<text
 														x={Number(x) + Number(width) / 2}
 														y={Number(y) - 6}
 														textAnchor="middle"
-														className="fill-slate-800 dark:fill-white"
+														className={
+															isPending
+																? 'animate-pulse fill-slate-400 dark:fill-white/40'
+																: 'fill-slate-800 dark:fill-white'
+														}
 														fontSize={11}
 														fontWeight={800}
 													>
@@ -428,14 +470,16 @@ export function CoreScoreBarChart({
 								>
 									<defs>
 										<linearGradient id={radarFillId} x1="0" y1="0" x2="1" y2="1">
-											<stop offset="0%" stopColor={BAR_META.overall.chip} stopOpacity={0.38} />
-											<stop offset="50%" stopColor={BAR_META.aiTrust.chip} stopOpacity={0.28} />
-											<stop offset="100%" stopColor={BAR_META.techSeo.chip} stopOpacity={0.32} />
+											<stop offset="0%" stopColor={BAR_META.overall.chip} stopOpacity={0.36} />
+											<stop offset="33%" stopColor={BAR_META.track1.chip} stopOpacity={0.3} />
+											<stop offset="66%" stopColor={BAR_META.track2.chip} stopOpacity={0.26} />
+											<stop offset="100%" stopColor={BAR_META.track3.chip} stopOpacity={0.32} />
 										</linearGradient>
 										<linearGradient id={radarStrokeId} x1="0" y1="0" x2="1" y2="1">
 											<stop offset="0%" stopColor={BAR_META.overall.chip} />
-											<stop offset="50%" stopColor={BAR_META.aiTrust.chip} />
-											<stop offset="100%" stopColor={BAR_META.techSeo.chip} />
+											<stop offset="33%" stopColor={BAR_META.track1.chip} />
+											<stop offset="66%" stopColor={BAR_META.track2.chip} />
+											<stop offset="100%" stopColor={BAR_META.track3.chip} />
 										</linearGradient>
 									</defs>
 									<PolarGrid
@@ -459,8 +503,8 @@ export function CoreScoreBarChart({
 										fill={`url(#${radarFillId})`}
 										fillOpacity={1}
 										strokeWidth={2}
-										isAnimationActive={!reduceMotion}
-										dot={<CoreRadarDot />}
+										isAnimationActive={chartAnimated}
+										dot={<CoreRadarDot pendingKeys={pendingKeys} />}
 									/>
 									<Tooltip
 										cursor={false}

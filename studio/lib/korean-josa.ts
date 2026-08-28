@@ -39,6 +39,16 @@ export const withJosa = (word: string, josaType: JosaType): string => {
 	return `${trimmed}${getJosa(trimmed, josaType)}`;
 };
 
+/** Strategy copy alias — `"피부시술"를` → `피부시술을`, `대표원장를` → `대표원장을`. */
+export const attachPostposition = withJosa;
+
+/** Keep the quote around the noun: `"피부시술"를` → `"피부시술"을`. */
+export const attachQuotedPostposition = (word: string, josaType: JosaType): string => {
+	const trimmed = (word || '').trim();
+	if (!trimmed) return '';
+	return `"${trimmed}"${getJosa(trimmed, josaType)}`;
+};
+
 /** Korean honorific `님` — no-op in English, skipped if already present. */
 export const withHonorific = (name: string, lang: string = 'ko'): string => {
 	const trimmed = (name || '').trim();

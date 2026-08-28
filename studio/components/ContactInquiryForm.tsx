@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
 const INQUIRY_TYPES = [
-	{ value: 'all', label: '전체 선택' },
 	{ value: 'geo', label: 'GEO 최적화 작업' },
 	{ value: 'seo', label: 'SEO 개선 작업' },
 	{ value: 'schema', label: '스키마 / 구조화 데이터' },

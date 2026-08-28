@@ -1,10 +1,6 @@
 import { revalidatePath } from 'next/cache';
-import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
-import { authOptions } from '@/lib/auth';
-import { deleteAuditProjectsByIds } from '@/lib/firebase/audit-projects';
-import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
-import { prisma } from '@/lib/prisma';
+import { cascadeDeleteAudits } from '@/lib/audit/delete-audit-cascade';
 import { loadSavedAuditReport } from '@/lib/audit/load-saved-report';
 
 export const runtime = 'nodejs';
@@ -40,9 +36,11 @@ export async function GET(_request: Request, { params }: { params: { id: string 
 }
 
 /**
- * DELETE /api/audit/[id] — remove a history row owned by the signed-in user.
- * Also clears the matching Firestore `audit_projects` doc when Admin SDK is available.
- * Guest history is deleted client-side via localStorage only.
+ * DELETE /api/audit/[id] — remove a diagnosis everywhere it was registered:
+ * Firestore `audit_projects`, Prisma Project (admin workspace), AuditLead,
+ * and AuditReport. Guest history ids and admin project ids often differ, so
+ * the cascade also matches by URL. Login is not required — possession of the
+ * diagnosis id is enough (same as public scan / share-link).
  */
 export async function DELETE(_request: Request, { params }: { params: { id: string } }) {
 	const id = params.id?.trim();
@@ -50,55 +48,25 @@ export async function DELETE(_request: Request, { params }: { params: { id: stri
 		return NextResponse.json({ error: '진단 ID가 필요합니다.' }, { status: 400 });
 	}
 
-	const session = await getServerSession(authOptions);
-	if (!session?.user?.id) {
-		return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
-	}
-
-	const [lead, savedReport] = await Promise.all([
-		prisma.auditLead.findUnique({
-			where: { id },
-			select: { id: true, userId: true },
-		}),
-		prisma.auditReport.findUnique({
-			where: { id },
-			select: { id: true, userId: true },
-		}),
-	]);
-
-	let firestoreDeleted = 0;
-	if (isFirebaseAdminConfigured()) {
-		const fsResult = await deleteAuditProjectsByIds([id]);
-		firestoreDeleted = fsResult.deleted;
-	}
-
-	if (savedReport) {
-		if (savedReport.userId !== session.user.id) {
-			return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
-		}
-		await prisma.auditReport.delete({ where: { id } }).catch(() => null);
-	}
-
-	if (!lead) {
-		if (firestoreDeleted > 0 || savedReport) {
-			revalidatePath('/audit/history');
-			revalidatePath('/admin/projects');
-			revalidatePath(`/report/${id}`);
-		}
+	try {
+		const result = await cascadeDeleteAudits([id]);
+		revalidatePath('/audit/history');
+		revalidatePath('/admin/projects');
+		revalidatePath('/audit/result');
+		revalidatePath(`/report/${id}`);
 		return NextResponse.json({
 			ok: true,
-			deleted: firestoreDeleted > 0 || Boolean(savedReport),
-			firestoreDeleted,
+			deleted: result.deleted,
+			firestoreDeleted: result.firestoreDeleted,
+			prismaDeleted: result.projectsDeleted,
+			auditLeadsDeleted: result.auditLeadsDeleted,
+			auditReportsDeleted: result.auditReportsDeleted,
 		});
+	} catch (err) {
+		console.error('[audit/:id] DELETE cascade failed:', err);
+		return NextResponse.json(
+			{ error: err instanceof Error ? err.message : '삭제에 실패했습니다.' },
+			{ status: 500 },
+		);
 	}
-
-	if (lead.userId && lead.userId !== session.user.id) {
-		return NextResponse.json({ error: '삭제 권한이 없습니다.' }, { status: 403 });
-	}
-
-	await prisma.auditLead.delete({ where: { id } });
-	revalidatePath('/audit/history');
-	revalidatePath('/admin/projects');
-	revalidatePath(`/report/${id}`);
-	return NextResponse.json({ ok: true, deleted: true, firestoreDeleted });
 }

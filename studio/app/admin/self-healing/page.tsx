@@ -16,15 +16,15 @@ export default async function AdminSelfHealingPage() {
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div>
 					<p className="text-xs font-semibold uppercase tracking-wide text-cyan-700">Admin · Step 10</p>
-					<h1 className="mt-1 text-2xl font-extrabold text-slate-900">AI Self-Healing 관리</h1>
-					<p className="mt-1 text-sm text-slate-600">
+					<h1 className="mt-1 text-2xl font-extrabold text-slate-900 dark:text-slate-100">AI Self-Healing 관리</h1>
+					<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 						주간 Autonomous Webmaster Agent 파이프라인 모니터링 ({admin.email})
 					</p>
 				</div>
 				<div className="flex gap-2">
 					<Link
 						href="/admin"
-						className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+						className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
 					>
 						← Admin 홈
 					</Link>

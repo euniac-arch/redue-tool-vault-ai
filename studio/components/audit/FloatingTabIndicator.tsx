@@ -1,8 +1,8 @@
 'use client';
 
-import { ShieldCheck, Sparkles } from 'lucide-react';
+import { Gauge, ShieldCheck, Sparkles } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { AUDIT_TAB_ANCHOR_ID, type AuditResultTabId } from '@/components/audit/AuditResultTabs';
+import { AUDIT_RESULT_TAB_ORDER, AUDIT_TAB_ANCHOR_ID, type AuditResultTabId } from '@/components/audit/AuditResultTabs';
 
 interface FloatingTabIndicatorProps {
 	activeTab: AuditResultTabId;
@@ -11,20 +11,28 @@ interface FloatingTabIndicatorProps {
 	targetAnchorId?: string;
 }
 
-const TAB_ITEMS = [
-	{
-		id: 'geo' as const,
-		icon: Sparkles,
-		labelKey: 'reputation',
-		ariaKey: 'reputationAria',
-	},
-	{
-		id: 'onpage' as const,
+const TAB_META = {
+	onpage: {
 		icon: ShieldCheck,
 		labelKey: 'technical',
 		ariaKey: 'technicalAria',
 	},
-] as const;
+	geo: {
+		icon: Sparkles,
+		labelKey: 'reputation',
+		ariaKey: 'reputationAria',
+	},
+	cwv: {
+		icon: Gauge,
+		labelKey: 'performance',
+		ariaKey: 'performanceAria',
+	},
+} as const;
+
+const TAB_ITEMS = AUDIT_RESULT_TAB_ORDER.map((item) => ({
+	id: item.id,
+	...TAB_META[item.id],
+}));
 
 function scrollToTabAnchor(targetAnchorId: string) {
 	window.setTimeout(() => {

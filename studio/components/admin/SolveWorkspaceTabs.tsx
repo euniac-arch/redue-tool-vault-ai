@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import type { SolveAuditSnapshot } from '@/lib/solve/types';
+import type { SolveAuditSnapshot, SolvePageMeta } from '@/lib/solve/types';
 import { AiCmsCodeTab } from './solve/AiCmsCodeTab';
 import { FileIssueTargetReport } from './solve/FileIssueTargetReport';
 import { FilePatchTab } from './solve/FilePatchTab';
@@ -34,9 +34,15 @@ const TABS: { id: SolveTabId; step: string; label: string; description: string }
 interface SolveWorkspaceTabsProps {
 	audit: SolveAuditSnapshot;
 	initialTab?: SolveTabId;
+	/** Checked rows from the menu-structure picker — schema / remote patch only. */
+	schemaPageMetas?: SolvePageMeta[];
 }
 
-export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorkspaceTabsProps) {
+export function SolveWorkspaceTabs({
+	audit,
+	initialTab = 'ai-cms',
+	schemaPageMetas,
+}: SolveWorkspaceTabsProps) {
 	const router = useRouter();
 	const pathname = usePathname();
 	const searchParams = useSearchParams();
@@ -60,7 +66,7 @@ export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorksp
 	return (
 		<div className="flex flex-col gap-4">
 			<nav
-				className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-3"
+				className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-3 dark:bg-slate-800 dark:border-slate-700"
 				aria-label="해결 워크스페이스 탭"
 			>
 				{TABS.map((item) => {
@@ -74,12 +80,12 @@ export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorksp
 							className={`flex items-center justify-center gap-2 rounded-lg px-3 py-3 text-center text-sm font-bold transition ${
 								active
 									? 'bg-slate-900 text-white shadow-sm'
-									: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+									: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100'
 							}`}
 						>
 							<span
 								className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${
-									active ? 'bg-white text-slate-900' : 'bg-slate-200 text-slate-600'
+									active ? 'bg-white text-slate-900 dark:bg-slate-800 dark:text-slate-100' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
 								}`}
 							>
 								{item.step}
@@ -103,7 +109,11 @@ export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorksp
 			{tab === 'file-patch' ? (
 				<FilePatchTab
 					targetUrl={audit.targetUrl}
-					collectedUrlPaths={audit.collectedUrlPaths}
+					collectedUrlPaths={
+						schemaPageMetas
+							? schemaPageMetas.map((page) => page.urlPath).filter(Boolean)
+							: audit.collectedUrlPaths
+					}
 					cmsTypeHint={audit.cmsType}
 					issueCodes={audit.issues.map((i) => i.code || i.id || '').filter(Boolean)}
 					siteName={
@@ -116,7 +126,8 @@ export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorksp
 							}
 						})()
 					}
-					pageMetas={audit.pageMetas}
+					pageMetas={schemaPageMetas ?? audit.pageMetas}
+					schemaSelectionActive={schemaPageMetas !== undefined}
 					mainTitle={audit.mainTitle}
 					mainDescription={audit.mainDescription}
 					mainH1={audit.mainH1}
@@ -124,7 +135,8 @@ export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorksp
 					navItems={audit.navItems}
 					footerText={audit.footerText}
 					legalName={audit.legalName}
-					representativeName={audit.representativeName}
+					representativeName={audit.representativeName || audit.ceoName}
+					ceoName={audit.ceoName || audit.representativeName}
 					representativeTitle={audit.representativeTitle}
 					openingHoursOpens={audit.openingHoursOpens}
 					openingHoursCloses={audit.openingHoursCloses}
@@ -137,6 +149,7 @@ export function SolveWorkspaceTabs({ audit, initialTab = 'ai-cms' }: SolveWorksp
 					streetAddress={audit.streetAddress}
 					addressLocality={audit.addressLocality}
 					addressRegion={audit.addressRegion}
+					telephone={audit.telephone}
 				/>
 			) : null}
 			{tab === 'proposal' ? <ProposalTab audit={audit} /> : null}

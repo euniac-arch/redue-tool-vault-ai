@@ -33,7 +33,7 @@ export function Tab2BelowFold({
 
 	return (
 		<>
-			<div className="print:hidden pdf-screen-only flex flex-col gap-6">
+			<div className="flex flex-col gap-8">
 				<DeferredSection force={force} minHeight={120}>
 					<ImpactPreviewSection
 						siteName={domain}
@@ -45,12 +45,14 @@ export function Tab2BelowFold({
 					<GeoNarrativeSkeleton />
 				) : (
 					<DeferredSection force={force} minHeight={160}>
-						<GeoCitationAlgorithmSection
-							domain={domain}
-							reportData={geoNarrative}
-							auditReport={report}
-						/>
-						<AiSearchResultSimulator meta={report.siteMeta} domain={domain} reportData={geoNarrative} />
+						<div className="flex flex-col gap-8">
+							<AiSearchResultSimulator meta={report.siteMeta} domain={domain} reportData={geoNarrative} />
+							<GeoCitationAlgorithmSection
+								domain={domain}
+								reportData={geoNarrative}
+								auditReport={report}
+							/>
+						</div>
 					</DeferredSection>
 				)}
 			</div>

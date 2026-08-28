@@ -12,9 +12,14 @@ interface RoiEstimateTooltipProps {
 	model?: BusinessConversionModel | null;
 	/** Compact trigger next to a headline loss figure. */
 	variant?: 'inline' | 'block';
+	/** Overrides the default zinc trigger styling — used on dark, always-dark surfaces. */
+	triggerClassName?: string;
 }
 
-export function RoiEstimateTooltip({ reasoning, model, variant = 'inline' }: RoiEstimateTooltipProps) {
+const DEFAULT_TRIGGER_CLASS =
+	'inline-flex items-center gap-1 text-[11px] text-zinc-500 underline underline-offset-2 transition-all hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 dark:text-zinc-400 dark:hover:text-zinc-200';
+
+export function RoiEstimateTooltip({ reasoning, model, variant = 'inline', triggerClassName }: RoiEstimateTooltipProps) {
 	const t = useTranslations('audit.businessConversion');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
@@ -39,23 +44,27 @@ export function RoiEstimateTooltip({ reasoning, model, variant = 'inline' }: Roi
 	}, [open]);
 
 	return (
-		<div ref={rootRef} className={`group relative inline-flex shrink-0 ${variant === 'block' ? 'w-full' : ''}`}>
+		<div ref={rootRef} className={`group relative z-50 inline-flex shrink-0 overflow-visible ${variant === 'block' ? 'w-full' : ''}`}>
 			<button
 				type="button"
 				aria-expanded={open}
 				aria-controls={tooltipId}
 				onClick={() => setOpen((prev) => !prev)}
-				className="inline-flex items-center gap-1 text-[11px] text-zinc-500 underline underline-offset-2 transition-all hover:text-zinc-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400/50 dark:text-zinc-400 dark:hover:text-zinc-200"
+				className={triggerClassName ?? DEFAULT_TRIGGER_CLASS}
 			>
 				<span>{t('roiBasisTrigger')}</span>
 			</button>
 			<div
 				id={tooltipId}
 				role="tooltip"
-				className={`pointer-events-none absolute bottom-full right-0 z-20 mb-2 w-72 rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-[11px] leading-relaxed text-zinc-300 shadow-2xl ${
+				className={`pointer-events-none absolute top-full right-0 z-50 mt-2 w-72 rounded-xl border border-zinc-700 bg-zinc-900 p-3 text-[11px] leading-relaxed text-zinc-300 shadow-2xl ${
 					open ? 'block' : 'hidden group-hover:block group-focus-within:block'
 				}`}
 			>
+				<span
+					aria-hidden
+					className="absolute -top-1.5 right-4 h-0 w-0 border-x-[6px] border-b-[6px] border-x-transparent border-b-zinc-700"
+				/>
 				<p className="mb-1 font-bold text-white">{t('roiBasisTitle')}</p>
 				<p>{reasoning}</p>
 				{model ? (

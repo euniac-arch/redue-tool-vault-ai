@@ -1,5 +1,6 @@
 import type { AuditReport } from '@/lib/site-auditor';
 import { countAuditDefects } from '@/lib/audit/latest-audit-payload';
+import { preferProjectName, resolveProjectSiteName } from '@/lib/audit/project-site-name';
 import { getProjectCategoryLabel } from '@/lib/project-categories';
 import type { AuditHistoryItem, ProjectListItem } from '@/lib/projects';
 
@@ -18,6 +19,7 @@ export interface LocalProjectArchive {
 	maxScore: number;
 	auditId: string | null;
 	statusLabel: string;
+	userType?: 'admin' | 'user' | 'guest';
 }
 
 function isBrowser(): boolean {
@@ -73,13 +75,13 @@ function writeRaw(entries: LocalProjectArchive[]): void {
  */
 export function archiveLocalProjectFromAudit(
 	report: AuditReport,
-	opts?: { auditId?: string | null; cmsType?: string },
+	opts?: { auditId?: string | null; cmsType?: string; userType?: 'admin' | 'user' | 'guest' },
 ): LocalProjectArchive {
 	const targetUrl = normalizeUrl(report.url);
 	const auditedAt = report.fetchedAt || new Date().toISOString();
 	const entry: LocalProjectArchive = {
 		id: opts?.auditId || `local-${Date.now()}`,
-		name: report.siteMeta?.brandName || nameFromUrl(targetUrl),
+		name: resolveProjectSiteName(report) || nameFromUrl(targetUrl),
 		targetUrl,
 		cmsType: opts?.cmsType || 'UNKNOWN',
 		category: 'SOLUTIONS',
@@ -89,6 +91,7 @@ export function archiveLocalProjectFromAudit(
 		maxScore: report.maxScore,
 		auditId: opts?.auditId ?? null,
 		statusLabel: report.statusLabel || 'COMPLETED',
+		userType: opts?.userType || 'guest',
 	};
 
 	const existing = readRaw();
@@ -104,10 +107,25 @@ export function getLocalProjects(): LocalProjectArchive[] {
 	return readRaw().sort((a, b) => +new Date(b.auditedAt) - +new Date(a.auditedAt));
 }
 
+/** Drop local project archives that match history / Firestore / Prisma ids. */
+export function removeLocalProjectsByIds(ids: Iterable<string>): void {
+	const remove = new Set([...ids].map((id) => String(id || '').trim()).filter(Boolean));
+	if (remove.size === 0) return;
+	const next = readRaw().filter((row) => {
+		const rowIds = [row.id, row.auditId, row.id.startsWith('local-') ? '' : `local-proj-${row.id}`];
+		return !rowIds.some((id) => id && remove.has(id));
+	});
+	writeRaw(next);
+	if (isBrowser()) {
+		window.dispatchEvent(new CustomEvent('redue:local-projects', { detail: { removed: [...remove] } }));
+	}
+}
+
 export function localArchiveToProjectListItem(row: LocalProjectArchive): ProjectListItem {
 	return {
 		id: row.id.startsWith('local-') ? row.id : `local-proj-${row.id}`,
 		name: row.name,
+		siteName: row.name,
 		targetUrl: row.targetUrl,
 		cmsType: row.cmsType,
 		category: row.category,
@@ -121,6 +139,7 @@ export function localArchiveToProjectListItem(row: LocalProjectArchive): Project
 		latestAuditId: row.auditId,
 		auditCount: 1,
 		createdAt: row.auditedAt,
+		userType: row.userType || 'guest',
 		defectCount: row.defectCount,
 		isLocalOnly: true,
 	};
@@ -138,6 +157,7 @@ export function localArchiveToAuditHistoryItem(row: LocalProjectArchive): AuditH
 		category: row.category,
 		categoryLabel: getProjectCategoryLabel(row.category),
 		thumbnailUrl: null,
+		userType: row.userType || 'guest',
 		defectCount: row.defectCount,
 	};
 }
@@ -157,6 +177,8 @@ export function mergeProjectsWithLocal(
 		if (!match) return p;
 		return {
 			...p,
+			name: preferProjectName(p.siteName || p.name, match.name, p.targetUrl),
+			siteName: preferProjectName(p.siteName || p.name, match.name, p.targetUrl),
 			defectCount: p.defectCount ?? match.defectCount,
 		};
 	});
@@ -166,23 +188,29 @@ export function mergeProjectsWithLocal(
 	);
 }
 
-/** Merge server audit history with local rows (server wins on same auditId). */
+/** Merge server audit history with local rows (server wins on same auditId or URL). */
 export function mergeAuditsWithLocal(
 	serverAudits: AuditHistoryItem[],
 	local: LocalProjectArchive[],
 ): AuditHistoryItem[] {
 	const serverIds = new Set(serverAudits.map((a) => a.auditId));
+	const serverUrls = new Set(serverAudits.map((a) => normalizeUrl(a.targetUrl)));
 	const localsOnly = local
 		.filter((l) => {
 			const id = l.auditId || l.id;
-			return !serverIds.has(id);
+			if (serverIds.has(id)) return false;
+			return !serverUrls.has(normalizeUrl(l.targetUrl));
 		})
 		.map(localArchiveToAuditHistoryItem);
 
 	const enriched = serverAudits.map((a) => {
 		const match = local.find((l) => (l.auditId || l.id) === a.auditId);
 		if (!match) return a;
-		return { ...a, defectCount: a.defectCount ?? match.defectCount };
+		return {
+			...a,
+			projectName: preferProjectName(a.projectName, match.name, a.targetUrl),
+			defectCount: a.defectCount ?? match.defectCount,
+		};
 	});
 
 	return [...enriched, ...localsOnly].sort(

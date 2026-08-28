@@ -6,13 +6,13 @@ export default function AdminNaverBlogPage() {
 	return (
 		<main className="flex flex-col gap-4">
 			<div>
-				<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+				<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
 					해결 워크스페이스
 				</p>
-				<h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">
+				<h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
 					📝 네이버 블로그 AI 포스팅
 				</h1>
-				<p className="mt-1 text-sm text-slate-600">
+				<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 					진단 프로젝트 데이터를 바탕으로 네이버 블로그 원고와 GEO FAQ를 생성·편집·발행합니다.
 				</p>
 			</div>

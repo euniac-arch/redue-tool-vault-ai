@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useAuditPayload } from '@/components/audit/AuditPayloadProvider';
-import { resolveHistoryGeoHeadline, saveGuestAudit, type AuditHistoryEntry } from '@/lib/audit-history-storage';
+import { startTopProgress } from '@/components/common/top-progress';
+import { resolveHistoryMeasuredHeadline, saveGuestAudit, type AuditHistoryEntry } from '@/lib/audit-history-storage';
+import { resolveProjectSiteName } from '@/lib/audit/project-site-name';
 import { rememberAudit } from '@/lib/audit/report-client-cache';
-import { measuredScoreFromParts } from '@/lib/audit/diagnosis-scores';
-import { resolveAuditScoreFromHistory } from '@/lib/audit/resolveAuditScore';
 import { formatTargetCategory } from '@/lib/audit/target-entity';
 
 function historyScoreTone(score: number) {
@@ -42,6 +42,10 @@ function siteLabelFromUrl(raw: string): string {
 }
 
 function resolveHistorySiteName(item: AuditHistoryEntry): string {
+	if (item.report?.url) {
+		const resolved = resolveProjectSiteName(item.report);
+		if (resolved) return resolved;
+	}
 	const brand = item.report?.siteMeta?.brandName?.trim();
 	if (brand) return brand;
 	const title =
@@ -96,9 +100,11 @@ export function AuditHistoryList({
 				saveGuestAudit(item.id, item.report);
 				persistAudit(item.report, { auditId: item.id, cmsType: item.report.cmsType });
 			}
+			startTopProgress();
 			router.push(`/audit/result?id=${encodeURIComponent(item.id)}`);
 		} catch (err) {
 			console.error('[history] view result failed:', err);
+			startTopProgress();
 			router.push(`/audit/result?id=${encodeURIComponent(item.id)}`);
 		}
 	}
@@ -115,6 +121,7 @@ export function AuditHistoryList({
 		try {
 			const target = (item.url || item.report?.url || '').trim();
 			if (!target) {
+				startTopProgress();
 				router.push(`/audit/result?id=${encodeURIComponent(item.id)}&forceRefresh=true&t=${Date.now()}`);
 				return;
 			}
@@ -123,6 +130,7 @@ export function AuditHistoryList({
 			params.set('replaceId', item.id);
 			params.set('forceRefresh', 'true');
 			params.set('t', String(Date.now()));
+			startTopProgress();
 			router.push(`/audit/result?${params.toString()}`);
 		} catch (err) {
 			console.error('[history] rescan failed:', err);
@@ -133,15 +141,8 @@ export function AuditHistoryList({
 
 	return (
 		<ul className={isGrid ? 'grid grid-cols-2 gap-3 lg:grid-cols-4' : 'space-y-3'}>
-			{items.map((item) => {
-				const auditScore = resolveAuditScoreFromHistory(item);
-				const technicalPercent = auditScore.normalizedScore;
-				const geoHeadline = resolveHistoryGeoHeadline(item);
-				const overallScore = measuredScoreFromParts(
-					geoHeadline?.score ?? technicalPercent,
-					technicalPercent,
-					{ url: item.url, hasSsl: item.report?.hasSsl },
-				);
+			{items.map((item, index) => {
+				const overallScore = resolveHistoryMeasuredHeadline(item).score;
 				const tone = historyScoreTone(overallScore);
 				const isDeleting = deletingId === item.id;
 				const awaitingConfirm = confirmId === item.id;
@@ -162,10 +163,12 @@ export function AuditHistoryList({
 					<li
 						key={item.id}
 						className={
-							isGrid
+							(isGrid
 								? 'group relative flex h-full flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-slate-50 hover:shadow-[0_4px_20px_rgba(6,182,212,0.08)] dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:shadow-none dark:hover:bg-[#0E162B]'
-								: 'group relative flex flex-col items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-slate-50 hover:shadow-[0_4px_20px_rgba(6,182,212,0.08)] dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:shadow-none dark:hover:bg-[#0E162B] sm:flex-row sm:items-center sm:p-5'
+								: 'group relative flex flex-col items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm backdrop-blur-sm transition-all duration-200 hover:border-cyan-500/40 hover:bg-slate-50 hover:shadow-[0_4px_20px_rgba(6,182,212,0.08)] dark:border-slate-800/80 dark:bg-[#0B1120]/80 dark:shadow-none dark:hover:bg-[#0E162B] sm:flex-row sm:items-center sm:p-5') +
+							' recent-audit-card-animate'
 						}
+						style={{ animationDelay: `${Math.min(index, 12) * 60}ms` }}
 					>
 						<div className={`flex min-w-0 flex-1 ${isGrid ? 'items-start gap-2.5' : 'items-start gap-3.5 sm:items-center'}`}>
 							<div className={`flex shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-lg transition-colors group-hover:border-cyan-500/30 dark:border-slate-800 dark:bg-slate-900 ${isGrid ? 'h-9 w-9' : 'h-10 w-10'}`}>

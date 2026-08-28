@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import {
 	formatBytes,
 	formatKiB,
+	formatKiBDistinct,
 	formatMs,
 	type PageSpeedSnapshot,
 	type PsiCoreVital,
@@ -40,6 +41,62 @@ const TIER_STYLES: Record<
 		icon: '🟢',
 	},
 };
+
+function VitalsGrid({
+	snapshot,
+	title,
+}: {
+	snapshot: PageSpeedSnapshot;
+	title: string;
+}) {
+	const t = useTranslations('audit.pageSpeed');
+	return (
+		<div>
+			<p className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">{title}</p>
+			<div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+				{snapshot.vitals.map((v) => {
+					const style = TIER_STYLES[v.tier];
+					const label =
+						v.id === 'lcp'
+							? t('vitals.lcp')
+							: v.id === 'fcp'
+								? t('vitals.fcp')
+								: v.id === 'tbt'
+									? t('vitals.tbt')
+									: t('vitals.cls');
+					const thresholdKey =
+						v.id === 'tbt' ? 'tbt' : v.id === 'lcp' ? 'lcp' : v.id === 'fcp' ? 'fcp' : 'cls';
+					return (
+						<article
+							key={v.id}
+							className={`rounded-xl border ${style.border} ${style.bg} px-4 py-3`}
+						>
+							<div className="flex items-center justify-between gap-2">
+								<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+									{label}
+								</p>
+								<span aria-hidden>{style.icon}</span>
+							</div>
+							<p className={`mt-1 text-2xl font-extrabold tabular-nums ${style.text}`}>
+								{vitalDisplay(v)}
+							</p>
+							<p className={`mt-1 text-[11px] font-semibold ${style.text}`}>
+								{t(
+									`tiers.${
+										v.tier === 'needs-improvement' ? 'needsImprovement' : v.tier
+									}`,
+								)}
+							</p>
+							<p className="mt-1 text-[10px] text-slate-500">
+								{t(`vitalThreshold.${thresholdKey}`)}
+							</p>
+						</article>
+					);
+				})}
+			</div>
+		</div>
+	);
+}
 
 function vitalDisplay(v: PsiCoreVital): string {
 	if (v.displayValue) return v.displayValue;
@@ -84,6 +141,10 @@ interface PageSpeedPrecisionPanelProps {
 	/** Current device strategy tab — default desktop (PC). */
 	strategy?: PageSpeedStrategy;
 	onStrategyChange?: (strategy: PageSpeedStrategy) => void;
+	/** Track 3 부분 재진단(리프레시) 진행 중 여부 — true면 버튼 스피너 노출 + 비활성화. */
+	refreshing?: boolean;
+	/** 전체 사이트 재진단 없이 Lighthouse mobile/desktop만 다시 호출하는 핸들러. 미전달 시 버튼 숨김. */
+	onRefresh?: () => void;
 	/** Diagnosed site URL for the official PageSpeed Insights deep link. */
 	targetUrl?: string;
 }
@@ -101,11 +162,21 @@ export function PageSpeedPrecisionPanel({
 	error,
 	strategy = 'desktop',
 	onStrategyChange,
+	refreshing = false,
+	onRefresh,
 	targetUrl,
 }: PageSpeedPrecisionPanelProps) {
 	const t = useTranslations('audit.pageSpeed');
 	const [isResourceOpen, setIsResourceOpen] = useState(false);
-	const resolved = resolveStrategySnapshot(strategy, snapshot, desktopData, mobileData);
+	const desktopSnap = resolveStrategySnapshot('desktop', snapshot, desktopData, mobileData);
+	const mobileSnap = resolveStrategySnapshot('mobile', snapshot, desktopData, mobileData);
+	const resolved =
+		resolveStrategySnapshot(strategy, snapshot, desktopData, mobileData) ??
+		desktopSnap ??
+		mobileSnap;
+	const hasAnySnap = Boolean(desktopSnap || mobileSnap);
+	const desktopLoading = !desktopSnap && loading;
+	const mobileLoading = !mobileSnap && loading;
 
 	const officialPsiHref = buildOfficialPsiUrl(targetUrl || resolved?.url || snapshot?.url || '');
 
@@ -125,6 +196,8 @@ export function PageSpeedPrecisionPanel({
 		resolved?.lcpElement &&
 		(resolved.lcpElement.hasLazyLoading || resolved.lcpElement.missingFetchPriority);
 
+	const showEstimatedNotice = Boolean(desktopSnap?.estimated || mobileSnap?.estimated);
+
 	return (
 		<section
 			id="pagespeed-vitals"
@@ -141,43 +214,49 @@ export function PageSpeedPrecisionPanel({
 					</h3>
 					<p className="mt-1 text-xs text-slate-600 dark:text-slate-400">{t('precisionSubtitle')}</p>
 				</div>
-
-				{/* PC / Mobile strategy tabs — top-right header */}
-				<div
-					className="inline-flex shrink-0 self-start rounded-lg border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-black/25 p-0.5"
-					role="tablist"
-					aria-label={t('tabAriaLabel')}
-				>
-					{(
-						[
-							{ id: 'desktop' as const, label: t('tabDesktop') },
-							{ id: 'mobile' as const, label: t('tabMobile') },
-						] as const
-					).map((tab) => {
-						const active = strategy === tab.id;
-						return (
-							<button
-								key={tab.id}
-								type="button"
-								role="tab"
-								aria-selected={active}
-								onClick={() => onStrategyChange?.(tab.id)}
-								className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:px-3 ${
-									active
-										? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 ring-1 ring-emerald-400/30'
-										: 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.04] hover:text-slate-800 dark:hover:text-slate-200'
-								}`}
-							>
-								{tab.label}
-							</button>
-						);
-					})}
-				</div>
+				{onRefresh ? (
+					<button
+						type="button"
+						onClick={onRefresh}
+						disabled={refreshing}
+						aria-busy={refreshing}
+						className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 font-['Pretendard',sans-serif] text-[11px] font-medium tracking-tight text-slate-300 transition-colors hover:bg-slate-700 hover:text-white ${
+							refreshing ? 'cursor-not-allowed opacity-75' : ''
+						}`}
+					>
+						<RefreshCw className={`h-3 w-3 ${refreshing ? 'animate-spin' : ''}`} aria-hidden />
+						{refreshing ? t('refreshButtonLoading') : t('refreshButton')}
+					</button>
+				) : null}
 			</div>
 
-			{loading && !resolved ? <PageSpeedSkeleton /> : null}
+			{showEstimatedNotice ? (
+				<p
+					role="status"
+					className="rounded-lg border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200"
+				>
+					{t('estimatedNotice')}
+				</p>
+			) : null}
 
-			{!loading && error && !resolved ? (
+			{loading && !hasAnySnap ? (
+				<div className="flex flex-col gap-4">
+					<p
+						role="status"
+						aria-live="polite"
+						className="flex items-center gap-2 rounded-lg border border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10 px-3 py-2.5 text-[12px] font-semibold text-emerald-800 dark:text-emerald-200"
+					>
+						<span className="relative flex h-2 w-2 shrink-0">
+							<span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+							<span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+						</span>
+						{t('liveMeasuringBanner')}
+					</p>
+					<PageSpeedSkeleton />
+				</div>
+			) : null}
+
+			{!loading && error && !hasAnySnap ? (
 				<div
 					className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-100"
 					role="alert"
@@ -188,67 +267,58 @@ export function PageSpeedPrecisionPanel({
 				</div>
 			) : null}
 
-			{resolved ? (
+			{hasAnySnap && resolved ? (
 				<div
-					key={`${resolved.strategy}|${resolved.url}|${resolved.fetchedAt}`}
+					key={`${desktopSnap?.fetchedAt ?? ''}|${mobileSnap?.fetchedAt ?? ''}|${resolved?.url ?? ''}`}
 					className="psi-slide-in flex flex-col gap-6"
 				>
-					{/* 1단계 — PageSpeed 4대 핵심 지표 */}
+					{/* 1단계 — PC / 모바일 4대 핵심 지표 */}
 					<section aria-labelledby="psi-stage-scores">
 						<p id="psi-stage-scores" className="sr-only">
 							{t('cardsTitle')}
 						</p>
-						<PageSpeedScoreCards snapshot={resolved} />
+						<div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+							{(desktopSnap || desktopLoading) ? (
+								<div className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white/40 dark:bg-white/[0.03] p-3">
+									<p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+										{t('scoresDesktop')}
+									</p>
+									<PageSpeedScoreCards
+										snapshot={desktopSnap}
+										loading={desktopLoading}
+										hideIntro
+										compact
+									/>
+								</div>
+							) : null}
+							{(mobileSnap || mobileLoading) ? (
+								<div className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-white/40 dark:bg-white/[0.03] p-3">
+									<p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400">
+										{t('scoresMobile')}
+									</p>
+									<PageSpeedScoreCards
+										snapshot={mobileSnap}
+										loading={mobileLoading}
+										hideIntro
+										compact
+									/>
+								</div>
+							) : null}
+						</div>
 					</section>
 
-					{/* 2단계 — Core Web Vitals 실측 */}
-					<section aria-labelledby="psi-stage-vitals">
-						<p
-							id="psi-stage-vitals"
-							className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-400"
-						>
+					{/* 2단계 — PC / 모바일 Core Web Vitals 실측 */}
+					<section aria-labelledby="psi-stage-vitals" className="flex flex-col gap-4">
+						<p id="psi-stage-vitals" className="sr-only">
 							{t('vitalsTitle')}
 						</p>
-						<div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-							{resolved.vitals.map((v) => {
-								const style = TIER_STYLES[v.tier];
-								const label =
-									v.id === 'lcp'
-										? t('vitals.lcp')
-										: v.id === 'fcp'
-											? t('vitals.fcp')
-											: v.id === 'tbt'
-												? t('vitals.tbt')
-												: t('vitals.cls');
-								const thresholdKey =
-									v.id === 'tbt' ? 'tbt' : v.id === 'lcp' ? 'lcp' : v.id === 'fcp' ? 'fcp' : 'cls';
-								return (
-									<article
-										key={v.id}
-										className={`rounded-xl border ${style.border} ${style.bg} px-4 py-3`}
-									>
-										<div className="flex items-center justify-between gap-2">
-											<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-												{label}
-											</p>
-											<span aria-hidden>{style.icon}</span>
-										</div>
-										<p className={`mt-1 text-2xl font-extrabold tabular-nums ${style.text}`}>
-											{vitalDisplay(v)}
-										</p>
-										<p className={`mt-1 text-[11px] font-semibold ${style.text}`}>
-											{t(
-												`tiers.${
-													v.tier === 'needs-improvement' ? 'needsImprovement' : v.tier
-												}`,
-											)}
-										</p>
-										<p className="mt-1 text-[10px] text-slate-500">
-											{t(`vitalThreshold.${thresholdKey}`)}
-										</p>
-									</article>
-								);
-							})}
+						<div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+							{desktopSnap ? (
+								<VitalsGrid snapshot={desktopSnap} title={t('vitalsDesktop')} />
+							) : null}
+							{mobileSnap ? (
+								<VitalsGrid snapshot={mobileSnap} title={t('vitalsMobile')} />
+							) : null}
 						</div>
 					</section>
 
@@ -291,11 +361,44 @@ export function PageSpeedPrecisionPanel({
 						</section>
 					) : null}
 
-					{/* 3단계 — 렌더링 차단 리소스 (기본 접힘) */}
+					{/* 3단계 — 렌더링 차단 리소스 (기본 접힘, PC/모바일 전환) */}
 					<section
 						className="rounded-xl border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-black/20"
 						aria-labelledby="psi-stage-resources"
 					>
+						<div className="flex flex-wrap items-center justify-between gap-2 px-3.5 pt-3">
+							<p className="text-[10px] text-slate-500">{t('resourcesStrategyHint')}</p>
+							<div
+								className="inline-flex shrink-0 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-black/25 p-0.5"
+								role="tablist"
+								aria-label={t('tabAriaLabel')}
+							>
+								{(
+									[
+										{ id: 'desktop' as const, label: t('tabDesktop') },
+										{ id: 'mobile' as const, label: t('tabMobile') },
+									] as const
+								).map((tab) => {
+									const active = strategy === tab.id;
+									return (
+										<button
+											key={tab.id}
+											type="button"
+											role="tab"
+											aria-selected={active}
+											onClick={() => onStrategyChange?.(tab.id)}
+											className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold transition-colors sm:px-3 ${
+												active
+													? 'bg-emerald-50 dark:bg-emerald-500/20 text-emerald-800 dark:text-emerald-200 ring-1 ring-emerald-400/30'
+													: 'text-slate-600 dark:text-slate-400 hover:bg-white/[0.04] hover:text-slate-800 dark:hover:text-slate-200'
+											}`}
+										>
+											{tab.label}
+										</button>
+									);
+								})}
+							</div>
+						</div>
 						<button
 							type="button"
 							id="psi-stage-resources"
@@ -334,7 +437,7 @@ export function PageSpeedPrecisionPanel({
 							id="psi-resources-panel"
 							className="psi-accordion"
 							data-open={isResourceOpen ? 'true' : 'false'}
-							inert={!isResourceOpen ? true : undefined}
+							inert={(!isResourceOpen ? '' : undefined) as unknown as boolean | undefined}
 						>
 							<div className="psi-accordion-inner">
 								<div className="flex flex-col gap-3 border-t border-slate-200 dark:border-white/[0.06] px-3.5 pb-3.5 pt-3">
@@ -434,11 +537,25 @@ export function PageSpeedPrecisionPanel({
 																>
 																	{r.ttlLabel}
 																</td>
-																<td className="px-3.5 py-2 tabular-nums text-slate-600 dark:text-slate-400">
-																	{formatKiB(r.totalBytes)}
+																<td
+																	className="px-3.5 py-2 tabular-nums text-slate-600 dark:text-slate-400"
+																	title={
+																		r.totalBytes != null
+																			? `${r.totalBytes.toLocaleString('en-US')} B`
+																			: undefined
+																	}
+																>
+																	{formatKiBDistinct(r.totalBytes, r.wastedBytes)}
 																</td>
-																<td className="px-3.5 py-2 tabular-nums text-slate-600 dark:text-slate-400">
-																	{formatKiB(r.wastedBytes)}
+																<td
+																	className="px-3.5 py-2 tabular-nums text-slate-600 dark:text-slate-400"
+																	title={
+																		r.wastedBytes != null
+																			? `${r.wastedBytes.toLocaleString('en-US')} B`
+																			: undefined
+																	}
+																>
+																	{formatKiBDistinct(r.wastedBytes, r.totalBytes)}
 																</td>
 															</tr>
 														))}

@@ -15,7 +15,7 @@ export function SovShareSection() {
 
 	return (
 		<section className="mt-20 sm:mt-24">
-			<div className="mx-auto w-full max-w-[960px]">
+			<div className="mx-auto w-full max-w-5xl">
 				<div className="text-center">
 					<p className="inline-flex rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[11px] font-bold tracking-[0.16em] text-violet-700 dark:border-violet-400/25 dark:bg-violet-500/10 dark:text-violet-300">
 						{t('badge')}

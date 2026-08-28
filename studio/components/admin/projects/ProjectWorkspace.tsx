@@ -9,6 +9,8 @@ import {
 	type ProjectCategoryFilter,
 } from '@/lib/project-categories';
 import {
+	AUDIT_HISTORY_SYNC_CHANNEL,
+	AUDIT_HISTORY_SYNC_KEY,
 	clearGuestAudits,
 	notifyAuditHistorySync,
 	removeGuestAuditsByIds,
@@ -16,12 +18,32 @@ import {
 import {
 	computeProjectKpi,
 	filterProjects,
+	matchesTypeFilter,
+	projectDisplayName,
+	auditDisplayName,
 	type AuditHistoryItem,
+	type DiagnosisTypeFilter,
 	type ProjectListItem,
 } from '@/lib/projects';
+import { getLocalProjects, mergeAuditsWithLocal, mergeProjectsWithLocal } from '@/lib/projects-local';
+import { UserTypeBadge } from '@/components/admin/UserTypeBadge';
 
 const CMS_OPTIONS = ['UNKNOWN', 'Gnuboard', 'Cafe24', 'WordPress', 'Next.js'] as const;
 const PAGE_SIZE = 12;
+
+const TYPE_FILTER_TABS: { value: DiagnosisTypeFilter; label: string }[] = [
+	{ value: 'ALL', label: '전체' },
+	{ value: 'ADMIN', label: '관리자 직접 진단' },
+	{ value: 'PUBLIC', label: '방문자/사용자 진단' },
+];
+
+function countTypes(rows: { userType: 'admin' | 'user' | 'guest' }[]) {
+	return {
+		ALL: rows.length,
+		ADMIN: rows.filter((r) => r.userType === 'admin').length,
+		PUBLIC: rows.filter((r) => r.userType !== 'admin').length,
+	} as const;
+}
 
 type DeleteConfirm =
 	| { mode: 'selected'; ids: string[] }
@@ -37,6 +59,7 @@ export function ProjectWorkspace() {
 	const [search, setSearch] = useState('');
 	const [cmsFilter, setCmsFilter] = useState('all');
 	const [categoryFilter, setCategoryFilter] = useState<ProjectCategoryFilter>('ALL');
+	const [typeFilter, setTypeFilter] = useState<DiagnosisTypeFilter>('ALL');
 	const [page, setPage] = useState(1);
 	const [selected, setSelected] = useState<Set<string>>(new Set());
 	const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirm | null>(null);
@@ -61,12 +84,15 @@ export function ProjectWorkspace() {
 			setError(null);
 		}
 		try {
-			const res = await fetch('/api/admin/projects');
+			const res = await fetch(`/api/admin/projects?t=${Date.now()}`, {
+				cache: 'no-store',
+				headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate', Pragma: 'no-cache' },
+			});
 			const data = await res.json();
 			if (!res.ok) throw new Error(data.message || '목록을 불러오지 못했습니다.');
-			// Firestore `audit_projects` (or Prisma fallback) — no localStorage merge
-			setProjects(data.projects || []);
-			setAudits(data.recentAudits || []);
+			const local = getLocalProjects();
+			setProjects(mergeProjectsWithLocal(data.projects || [], local));
+			setAudits(mergeAuditsWithLocal(data.recentAudits || [], local));
 		} catch (err) {
 			setError(err instanceof Error ? err.message : '목록을 불러오지 못했습니다.');
 			if (!opts?.quiet) {
@@ -82,9 +108,64 @@ export function ProjectWorkspace() {
 		void load();
 	}, [load]);
 
+	useEffect(() => {
+		const onVisible = () => {
+			if (document.visibilityState === 'visible') void load({ quiet: true });
+		};
+		document.addEventListener('visibilitychange', onVisible);
+		window.addEventListener('focus', onVisible);
+		return () => {
+			document.removeEventListener('visibilitychange', onVisible);
+			window.removeEventListener('focus', onVisible);
+		};
+	}, [load]);
+
+	useEffect(() => {
+		const timers: number[] = [];
+		const refresh = () => {
+			void load({ quiet: true });
+			timers.push(window.setTimeout(() => void load({ quiet: true }), 1200));
+			timers.push(window.setTimeout(() => void load({ quiet: true }), 3500));
+		};
+		const onCustom = () => refresh();
+		const onStorage = (event: StorageEvent) => {
+			if (event.key === AUDIT_HISTORY_SYNC_KEY) refresh();
+		};
+		const onLocalProjects = () => {
+			const local = getLocalProjects();
+			setProjects((prev) => mergeProjectsWithLocal(prev, local));
+			setAudits((prev) => mergeAuditsWithLocal(prev, local));
+			refresh();
+		};
+		window.addEventListener(AUDIT_HISTORY_SYNC_CHANNEL, onCustom);
+		window.addEventListener('storage', onStorage);
+		window.addEventListener('redue:local-projects', onLocalProjects);
+		let channel: BroadcastChannel | null = null;
+		try {
+			channel = new BroadcastChannel(AUDIT_HISTORY_SYNC_CHANNEL);
+			channel.onmessage = refresh;
+		} catch {
+			channel = null;
+		}
+		const poll = window.setInterval(() => {
+			if (document.visibilityState === 'visible') void load({ quiet: true });
+		}, 15_000);
+		return () => {
+			window.removeEventListener(AUDIT_HISTORY_SYNC_CHANNEL, onCustom);
+			window.removeEventListener('storage', onStorage);
+			window.removeEventListener('redue:local-projects', onLocalProjects);
+			channel?.close();
+			window.clearInterval(poll);
+			for (const id of timers) window.clearTimeout(id);
+		};
+	}, [load]);
+
+	const projectTypeCounts = useMemo(() => countTypes(projects), [projects]);
+	const auditTypeCounts = useMemo(() => countTypes(audits), [audits]);
+
 	const filtered = useMemo(
-		() => filterProjects(projects, { search, cms: cmsFilter, category: categoryFilter }),
-		[projects, search, cmsFilter, categoryFilter],
+		() => filterProjects(projects, { search, cms: cmsFilter, category: categoryFilter, type: typeFilter }),
+		[projects, search, cmsFilter, categoryFilter, typeFilter],
 	);
 
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -95,21 +176,25 @@ export function ProjectWorkspace() {
 	useEffect(() => {
 		setPage(1);
 		setSelected(new Set());
-	}, [search, cmsFilter, categoryFilter]);
+	}, [search, cmsFilter, categoryFilter, typeFilter]);
 
 	useEffect(() => {
 		if (page > pageCount) setPage(pageCount);
 	}, [page, pageCount]);
 
+	useEffect(() => {
+		setAuditPage(1);
+	}, [typeFilter]);
+
 	const kpi = useMemo(() => computeProjectKpi(projects, audits), [projects, audits]);
 
 	const sortedAudits = useMemo(() => {
-		const list = [...audits];
+		const list = audits.filter((a) => matchesTypeFilter(a.userType, typeFilter));
 		if (auditSort === 'score-desc') list.sort((a, b) => b.overallScore - a.overallScore);
 		else if (auditSort === 'score-asc') list.sort((a, b) => a.overallScore - b.overallScore);
 		else list.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 		return list;
-	}, [audits, auditSort]);
+	}, [audits, auditSort, typeFilter]);
 
 	const auditPageCount = Math.max(1, Math.ceil(sortedAudits.length / auditPageSize));
 	const auditPageItems = sortedAudits.slice((auditPage - 1) * auditPageSize, auditPage * auditPageSize);
@@ -227,10 +312,10 @@ export function ProjectWorkspace() {
 
 	return (
 		<div className="flex flex-col gap-5">
-			<section className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+			<section className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div>
-					<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">프로젝트 관리</p>
-					<p className="mt-0.5 text-sm text-slate-600">
+					<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">프로젝트 관리</p>
+					<p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
 						Firestore `audit_projects` 진단 결과를 최신순으로 조회하고, 해결 워크스페이스·프론트 결과 리포트로 연결합니다.
 					</p>
 				</div>
@@ -240,9 +325,9 @@ export function ProjectWorkspace() {
 						{ label: '오늘 진단', value: String(kpi.todayDiagnosis) },
 						{ label: '평균 점수', value: kpi.averageScore != null ? String(kpi.averageScore) : '—' },
 					].map((s) => (
-						<div key={s.label} className="min-w-[88px] rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-center">
-							<em className="block text-[10px] font-semibold not-italic text-slate-500">{s.label}</em>
-							<strong className="text-lg font-extrabold tabular-nums text-slate-900">{s.value}</strong>
+						<div key={s.label} className="min-w-[88px] rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-center dark:bg-slate-700/60 dark:border-slate-700">
+							<em className="block text-[10px] font-semibold not-italic text-slate-500 dark:text-slate-400">{s.label}</em>
+							<strong className="text-lg font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</strong>
 						</div>
 					))}
 				</div>
@@ -255,23 +340,23 @@ export function ProjectWorkspace() {
 					{ label: '평균 GEO 점수', value: kpi.averageGeoScore, desc: null, bar: kpi.averageGeoScore },
 					{ label: '이번 달 진단', value: kpi.monthlyDiagnosis, desc: '월간 분석 건수', bar: null },
 				].map((card) => (
-					<article key={card.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-						<em className="text-[11px] font-semibold not-italic text-slate-500">{card.label}</em>
-						<strong className="mt-1 block text-2xl font-extrabold tabular-nums text-slate-900">{card.value}</strong>
+					<article key={card.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+						<em className="text-[11px] font-semibold not-italic text-slate-500 dark:text-slate-400">{card.label}</em>
+						<strong className="mt-1 block text-2xl font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{card.value}</strong>
 						{card.bar != null ? (
-							<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+							<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60">
 								<span className="block h-full rounded-full bg-slate-800" style={{ width: `${Math.min(100, card.bar)}%` }} />
 							</div>
 						) : (
-							<p className="mt-1 text-[11px] text-slate-500">{card.desc}</p>
+							<p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">{card.desc}</p>
 						)}
 					</article>
 				))}
 			</section>
 
-			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div className="mb-3 flex items-center justify-between gap-2">
-					<h2 className="text-base font-bold text-slate-900">새 프로젝트 등록</h2>
+					<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">새 프로젝트 등록</h2>
 					<span className="rounded-md bg-slate-900 px-2 py-0.5 text-[10px] font-bold text-white">+ 새 프로젝트</span>
 				</div>
 				<form onSubmit={(e) => void handleCreate(e)} className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
@@ -280,7 +365,7 @@ export function ProjectWorkspace() {
 						value={name}
 						onChange={(e) => setName(e.target.value)}
 						placeholder="프로젝트명 (예: 신일푸드)"
-						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 					/>
 					<input
 						required
@@ -288,13 +373,13 @@ export function ProjectWorkspace() {
 						value={url}
 						onChange={(e) => setUrl(e.target.value)}
 						placeholder="https://example.com"
-						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 					/>
 					<select
 						required
 						value={category}
 						onChange={(e) => setCategory(e.target.value)}
-						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 					>
 						<option value="" disabled>
 							카테고리 선택 (필수)
@@ -308,7 +393,7 @@ export function ProjectWorkspace() {
 					<select
 						value={cmsType}
 						onChange={(e) => setCmsType(e.target.value)}
-						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+						className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 					>
 						{CMS_OPTIONS.map((cms) => (
 							<option key={cms} value={cms}>
@@ -332,26 +417,45 @@ export function ProjectWorkspace() {
 			</section>
 
 			<section className="grid items-start gap-4 lg:grid-cols-[1.4fr_0.6fr]">
-				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 					<div className="mb-3">
-						<h2 className="text-base font-bold text-slate-900">등록된 프로젝트</h2>
-						<p className="text-sm text-slate-500">등록된 사이트의 SEO 진단과 최근 분석 상태를 확인합니다.</p>
+						<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">등록된 프로젝트</h2>
+						<p className="text-sm text-slate-500 dark:text-slate-400">등록된 사이트의 SEO 진단과 최근 분석 상태를 확인합니다.</p>
+					</div>
+
+					<div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="진단 주체 필터">
+						{TYPE_FILTER_TABS.map((tab) => {
+							const active = typeFilter === tab.value;
+							return (
+								<button
+									key={tab.value}
+									type="button"
+									aria-selected={active}
+									onClick={() => setTypeFilter(tab.value)}
+									className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition ${
+										active ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+									}`}
+								>
+									{tab.label} ({projectTypeCounts[tab.value]}개)
+								</button>
+							);
+						})}
 					</div>
 
 					<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-						<p className="text-xs font-semibold text-slate-500">전체 {filtered.length}건</p>
+						<p className="text-xs font-semibold text-slate-500 dark:text-slate-400">전체 {filtered.length}건</p>
 						<div className="flex flex-wrap gap-2">
 						<input
 							type="search"
 							value={search}
 							onChange={(e) => setSearch(e.target.value)}
 							placeholder="프로젝트명 · URL 검색"
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 						<select
 							value={cmsFilter}
 							onChange={(e) => setCmsFilter(e.target.value)}
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						>
 								<option value="all">전체 CMS</option>
 								{CMS_OPTIONS.map((cms) => (
@@ -374,7 +478,7 @@ export function ProjectWorkspace() {
 									aria-selected={active}
 									onClick={() => setCategoryFilter(code)}
 									className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition ${
-										active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+										active ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-700/60 dark:text-slate-300'
 									}`}
 								>
 									{label}
@@ -383,8 +487,8 @@ export function ProjectWorkspace() {
 						})}
 					</div>
 
-					<div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-						<label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+					<div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:bg-slate-700/60 dark:border-slate-700">
+						<label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
 							<input
 								type="checkbox"
 								checked={allPageSelected}
@@ -393,8 +497,8 @@ export function ProjectWorkspace() {
 								aria-label="전체 선택/해제"
 							/>
 							전체 선택/해제
-							<span className="tabular-nums text-slate-400">
-								(선택 <span className="text-slate-900">{selected.size}</span>)
+							<span className="tabular-nums text-slate-400 dark:text-slate-500">
+								(선택 <span className="text-slate-900 dark:text-slate-100">{selected.size}</span>)
 							</span>
 						</label>
 						<div className="flex gap-2">
@@ -402,7 +506,7 @@ export function ProjectWorkspace() {
 								type="button"
 								disabled={selected.size === 0 || deleting}
 								onClick={requestDeleteSelected}
-								className="rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-rose-700 disabled:opacity-40"
+								className="rounded-md border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-rose-700 disabled:opacity-40 dark:bg-slate-800"
 							>
 								🗑️ 선택 삭제 ({selected.size})
 							</button>
@@ -418,13 +522,19 @@ export function ProjectWorkspace() {
 					</div>
 
 					{loading ? (
-						<p className="py-10 text-center text-sm text-slate-500">불러오는 중...</p>
+						<p className="py-10 text-center text-sm text-slate-500 dark:text-slate-400">불러오는 중...</p>
 					) : error ? (
 						<p className="py-10 text-center text-sm text-rose-600">{error}</p>
 					) : pageItems.length === 0 ? (
-						<div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-12 text-center">
-							<p className="text-sm font-semibold text-slate-700">등록된 프로젝트가 없습니다.</p>
-							<p className="mt-1 text-xs text-slate-500">새 프로젝트를 등록하거나 진단을 실행하면 목록에 표시됩니다.</p>
+						<div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/80 px-4 py-12 text-center dark:bg-slate-700/60 dark:bg-slate-700/50 dark:border-slate-700">
+							{typeFilter !== 'ALL' || categoryFilter !== 'ALL' || cmsFilter !== 'all' || search ? (
+								<p className="text-sm font-semibold text-slate-700 dark:text-slate-200">해당 조건의 진단 이력이 없습니다.</p>
+							) : (
+								<>
+									<p className="text-sm font-semibold text-slate-700 dark:text-slate-200">등록된 프로젝트가 없습니다.</p>
+									<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">새 프로젝트를 등록하거나 진단을 실행하면 목록에 표시됩니다.</p>
+								</>
+							)}
 						</div>
 					) : (
 						<ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -433,10 +543,10 @@ export function ProjectWorkspace() {
 								return (
 									<li
 										key={project.id}
-										className={`rounded-xl border bg-slate-50/60 p-4 transition ${
+										className={`rounded-xl border bg-slate-50/60 p-4 transition dark:bg-slate-700/60 ${
 											isSelected
 												? 'border-indigo-500 bg-indigo-50/70 ring-2 ring-indigo-200'
-												: 'border-slate-200 hover:border-slate-300'
+												: 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-500'
 										}`}
 									>
 										<div className="flex items-start gap-2.5">
@@ -444,22 +554,23 @@ export function ProjectWorkspace() {
 												type="checkbox"
 												checked={isSelected}
 												onChange={() => toggleOne(project.id)}
-												aria-label={`${project.name} 선택`}
+												aria-label={`${projectDisplayName(project)} 선택`}
 												className="mt-1 h-4 w-4 accent-indigo-600"
 											/>
 											<div className="min-w-0 flex-1">
 												<div className="flex flex-wrap items-center gap-1.5">
-													<span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200">
+													<UserTypeBadge userType={project.userType} />
+													<span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-600 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">
 														{project.categoryLabel}
 													</span>
-													<span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200">
+													<span className="rounded bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-500 ring-1 ring-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:ring-slate-700">
 														{project.cmsType}
 													</span>
 													<span
 														className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
 															project.status === 'ACTIVE'
 																? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
-																: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200'
+																: 'bg-slate-100 text-slate-500 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-400 dark:ring-slate-700'
 														}`}
 													>
 														{project.status}
@@ -470,7 +581,9 @@ export function ProjectWorkspace() {
 														</span>
 													) : null}
 												</div>
-												<h3 className="mt-1.5 truncate text-sm font-bold text-slate-900">{project.name}</h3>
+												<h3 className="mt-1.5 truncate text-sm font-bold text-slate-900 dark:text-slate-100">
+													{projectDisplayName(project)}
+												</h3>
 												<a
 													href={project.targetUrl}
 													target="_blank"
@@ -479,7 +592,7 @@ export function ProjectWorkspace() {
 												>
 													{project.targetUrl}
 												</a>
-												<div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+												<div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500 dark:text-slate-400">
 													<span>점수 {project.latestScore ?? '—'}</span>
 													<span>결함 {project.defectCount ?? '—'}</span>
 													<span>SEO {project.latestSeoScore ?? '—'}</span>
@@ -496,7 +609,7 @@ export function ProjectWorkspace() {
 													</Link>
 													<Link
 														href={`/audit/result?id=${encodeURIComponent(project.latestAuditId || project.id)}`}
-														className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+														className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
 													>
 														🌐 프론트 결과 보기
 													</Link>
@@ -515,18 +628,18 @@ export function ProjectWorkspace() {
 								type="button"
 								disabled={page <= 1}
 								onClick={() => setPage((p) => p - 1)}
-								className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40"
+								className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40 dark:text-slate-300 dark:border-slate-700"
 							>
 								이전
 							</button>
-							<span className="text-xs font-semibold text-slate-500">
+							<span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
 								{page} / {pageCount}
 							</span>
 							<button
 								type="button"
 								disabled={page >= pageCount}
 								onClick={() => setPage((p) => p + 1)}
-								className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40"
+								className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40 dark:text-slate-300 dark:border-slate-700"
 							>
 								다음
 							</button>
@@ -536,10 +649,10 @@ export function ProjectWorkspace() {
 
 				<aside className="self-start h-fit" aria-label="대시보드 위젯">
 					<div className="grid gap-3.5">
-						<article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-							<span className="text-xs font-semibold text-slate-500">최근 분석</span>
-							<h4 className="mt-1 truncate text-sm font-bold text-slate-900">{kpi.recentLabel}</h4>
-							<p className="mt-1 text-xs text-slate-400">{kpi.recentMeta}</p>
+						<article className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+							<span className="text-xs font-semibold text-slate-500 dark:text-slate-400">최근 분석</span>
+							<h4 className="mt-1 truncate text-sm font-bold text-slate-900 dark:text-slate-100">{kpi.recentLabel}</h4>
+							<p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{kpi.recentMeta}</p>
 						</article>
 						<div className="grid grid-cols-2 auto-rows-[1fr] gap-3.5">
 							{[
@@ -564,17 +677,17 @@ export function ProjectWorkspace() {
 							].map((w) => (
 								<article
 									key={w.label}
-									className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm"
+									className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm dark:bg-slate-800 dark:border-slate-700"
 								>
-									<span className="text-xs font-medium text-slate-500">{w.label}</span>
+									<span className="text-xs font-medium text-slate-500 dark:text-slate-400">{w.label}</span>
 									<div className="mt-2 flex items-baseline gap-1">
-										<span className="text-2xl font-bold tabular-nums text-slate-900">{w.value}</span>
+										<span className="text-2xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{w.value}</span>
 										{'unit' in w && w.unit ? (
-											<span className="text-xs text-slate-500">{w.unit}</span>
+											<span className="text-xs text-slate-500 dark:text-slate-400">{w.unit}</span>
 										) : null}
 									</div>
 									{'meta' in w && w.meta ? (
-										<p className="mt-1 text-[11px] text-slate-400">{w.meta}</p>
+										<p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">{w.meta}</p>
 									) : null}
 								</article>
 							))}
@@ -583,15 +696,34 @@ export function ProjectWorkspace() {
 				</aside>
 			</section>
 
-			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div className="mb-3">
-					<h2 className="text-base font-bold text-slate-900">최근 진단 이력</h2>
-					<p className="text-sm text-slate-500">최근 실행된 SEO 진단 로그를 한눈에 확인합니다.</p>
+					<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">최근 진단 이력</h2>
+					<p className="text-sm text-slate-500 dark:text-slate-400">최근 실행된 SEO 진단 로그를 한눈에 확인합니다.</p>
+				</div>
+
+				<div className="mb-3 flex flex-wrap gap-1.5" role="tablist" aria-label="진단 주체 필터">
+					{TYPE_FILTER_TABS.map((tab) => {
+						const active = typeFilter === tab.value;
+						return (
+							<button
+								key={tab.value}
+								type="button"
+								aria-selected={active}
+								onClick={() => setTypeFilter(tab.value)}
+								className={`rounded-md px-2.5 py-1.5 text-[11px] font-bold transition ${
+									active ? 'bg-indigo-600 text-white' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'
+								}`}
+							>
+								{tab.label} ({auditTypeCounts[tab.value]}개)
+							</button>
+						);
+					})}
 				</div>
 
 				<div className="mb-3 flex flex-wrap items-center justify-between gap-2">
 					<div className="flex flex-wrap items-center gap-2">
-						<label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+						<label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
 							정렬
 							<select
 								value={auditSort}
@@ -599,16 +731,16 @@ export function ProjectWorkspace() {
 									setAuditSort(e.target.value as typeof auditSort);
 									setAuditPage(1);
 								}}
-							className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
+							className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs dark:bg-slate-800 dark:border-slate-700"
 						>
 							<option value="newest">최신순</option>
 								<option value="score-desc">점수 높은순</option>
 								<option value="score-asc">점수 낮은순</option>
 							</select>
 						</label>
-						<span className="text-xs text-slate-500">전체 {sortedAudits.length}건</span>
+						<span className="text-xs text-slate-500 dark:text-slate-400">전체 {sortedAudits.length}건</span>
 					</div>
-					<label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600">
+					<label className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
 						페이지당
 						<select
 							value={auditPageSize}
@@ -616,7 +748,7 @@ export function ProjectWorkspace() {
 								setAuditPageSize(Number(e.target.value));
 								setAuditPage(1);
 							}}
-						className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
+						className="rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs dark:bg-slate-800 dark:border-slate-700"
 					>
 						<option value={20}>20개</option>
 							<option value={50}>50개</option>
@@ -625,9 +757,9 @@ export function ProjectWorkspace() {
 					</label>
 				</div>
 
-				<div className="overflow-x-auto rounded-lg border border-slate-100">
+				<div className="overflow-x-auto rounded-lg border border-slate-100 dark:border-slate-700">
 					<table className="min-w-full text-left text-sm">
-						<thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+						<thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:bg-slate-700/60 dark:text-slate-400">
 							<tr>
 								<th className="px-3 py-2 font-bold">
 									<input
@@ -640,6 +772,7 @@ export function ProjectWorkspace() {
 										aria-label="전체 선택"
 									/>
 								</th>
+								<th className="px-3 py-2 font-bold">구분</th>
 								<th className="px-3 py-2 font-bold">프로젝트 / URL</th>
 								<th className="px-3 py-2 font-bold">상태</th>
 								<th className="px-3 py-2 font-bold">점수</th>
@@ -651,13 +784,13 @@ export function ProjectWorkspace() {
 						<tbody>
 							{auditPageItems.length === 0 ? (
 								<tr>
-									<td colSpan={7} className="px-3 py-8 text-center text-slate-500">
-										진단 이력이 없습니다.
+									<td colSpan={8} className="px-3 py-8 text-center text-slate-500 dark:text-slate-400">
+										{typeFilter !== 'ALL' ? '해당 조건의 진단 이력이 없습니다.' : '진단 이력이 없습니다.'}
 									</td>
 								</tr>
 							) : (
 								auditPageItems.map((audit) => (
-									<tr key={audit.auditId} className="border-t border-slate-100">
+									<tr key={audit.auditId} className="border-t border-slate-100 dark:border-slate-700">
 										<td className="px-3 py-2">
 											<input
 												type="checkbox"
@@ -673,15 +806,20 @@ export function ProjectWorkspace() {
 											/>
 										</td>
 										<td className="px-3 py-2">
-											<p className="font-semibold text-slate-900">{audit.projectName || '미연결'}</p>
-											<p className="truncate text-xs text-slate-500">{audit.targetUrl}</p>
+											<UserTypeBadge userType={audit.userType} />
 										</td>
-										<td className="px-3 py-2 text-xs font-bold text-slate-600">{audit.status}</td>
-										<td className="px-3 py-2 font-extrabold tabular-nums text-slate-900">{audit.overallScore}</td>
+										<td className="px-3 py-2">
+											<p className="font-semibold text-slate-900 dark:text-slate-100">
+												{auditDisplayName(audit)}
+											</p>
+											<p className="truncate text-xs text-slate-500 dark:text-slate-400">{audit.targetUrl}</p>
+										</td>
+										<td className="px-3 py-2 text-xs font-bold text-slate-600 dark:text-slate-300">{audit.status}</td>
+										<td className="px-3 py-2 font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{audit.overallScore}</td>
 										<td className="px-3 py-2 font-bold tabular-nums text-rose-700">
 											{audit.defectCount ?? '—'}
 										</td>
-										<td className="px-3 py-2 text-xs text-slate-500">
+										<td className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
 											{new Date(audit.createdAt).toLocaleString('ko-KR')}
 										</td>
 										<td className="px-3 py-2">
@@ -694,7 +832,7 @@ export function ProjectWorkspace() {
 												</Link>
 												<Link
 													href={`/audit/result?id=${encodeURIComponent(audit.auditId)}`}
-													className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-50"
+													className="rounded border border-slate-300 bg-white px-1.5 py-0.5 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600 dark:hover:bg-slate-700"
 												>
 													🌐 프론트 결과 보기
 												</Link>
@@ -713,18 +851,18 @@ export function ProjectWorkspace() {
 							type="button"
 							disabled={auditPage <= 1}
 							onClick={() => setAuditPage((p) => p - 1)}
-							className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40"
+							className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40 dark:text-slate-300 dark:border-slate-700"
 						>
 							이전
 						</button>
-						<span className="text-xs font-semibold text-slate-500">
+						<span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
 							{auditPage} / {auditPageCount}
 						</span>
 						<button
 							type="button"
 							disabled={auditPage >= auditPageCount}
 							onClick={() => setAuditPage((p) => p + 1)}
-							className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40"
+							className="rounded-md border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-600 disabled:opacity-40 dark:text-slate-300 dark:border-slate-700"
 						>
 							다음
 						</button>
@@ -739,11 +877,11 @@ export function ProjectWorkspace() {
 					aria-modal="true"
 					aria-labelledby="project-delete-confirm-title"
 				>
-					<div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
-						<h3 id="project-delete-confirm-title" className="text-base font-bold text-slate-900">
+					<div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl dark:bg-slate-800 dark:border-slate-700">
+						<h3 id="project-delete-confirm-title" className="text-base font-bold text-slate-900 dark:text-slate-100">
 							{deleteConfirm.mode === 'all' ? '전체 프로젝트 삭제' : '선택 프로젝트 삭제'}
 						</h3>
-						<p className="mt-2 text-sm leading-relaxed text-slate-600">
+						<p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
 							{deleteConfirm.mode === 'all'
 								? '경고: 현재 등록된 전체 프로젝트 데이터가 영구 삭제됩니다. 진행하시겠습니까?'
 								: `선택한 ${deleteConfirm.ids.length}개의 프로젝트를 정말 삭제하시겠습니까? (복구 불가)`}
@@ -762,7 +900,7 @@ export function ProjectWorkspace() {
 									setDeleteConfirm(null);
 									setDeleteError(null);
 								}}
-								className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+								className="rounded-md border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
 							>
 								취소
 							</button>

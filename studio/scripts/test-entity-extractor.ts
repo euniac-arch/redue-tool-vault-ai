@@ -5,9 +5,16 @@
 import {
 	extractRepresentative,
 	formatRepresentativeLabel,
+	formatRepresentativeParen,
 	isNoiseRepresentativeName,
 	resolveEngineRepresentative,
 } from '../lib/audit/extractors/entity';
+import {
+	detectPersonKnowledgeGraph,
+	extractPlaceIdentity,
+	extractTaxIdPrecise,
+	parseUniversalEntity,
+} from '../lib/audit/extractors/universal-entity';
 import { collectGreetingCandidateUrls, isGreetingPagePath } from '../lib/audit/extractors/representative-pages';
 import { buildEeatAuditData } from '../lib/audit/eeat-audit';
 
@@ -86,6 +93,92 @@ const eeat = buildEeatAuditData({
 assert('eeat personName from footer', eeat.data.personName === '홍길동', eeat.data.personName);
 assert('eeat personJobTitle from footer', eeat.data.personJobTitle === '대표', eeat.data.personJobTitle);
 
+assert('stopword 제품으로 is noise', isNoiseRepresentativeName('제품으로') === true);
+assert('stopword 진료 is noise', isNoiseRepresentativeName('진료') === true);
+assert('stopword 정보 is noise', isNoiseRepresentativeName('정보') === true);
+const productFalse = extractRepresentative('본문 대표 제품으로 만든 패키지 안내 문의');
+assert('대표 제품으로 is not a person', productFalse.isExtracted === false, productFalse.name);
+assert('paren display 배우리 (대표원장)', formatRepresentativeParen('배우리', '대표원장') === '배우리 (대표원장)');
+
+const schemaWins = extractRepresentative(`
+  <footer>대표 제품으로 상담 안내</footer>
+  <script type="application/ld+json">${JSON.stringify({
+		'@context': 'https://schema.org',
+		'@type': 'Person',
+		name: '배우리',
+		jobTitle: '대표원장',
+		worksFor: { '@id': 'https://clinic.example/#org' },
+	})}</script>
+`);
+assert('JSON-LD Person wins over footer 제품으로', schemaWins.name === '배우리', schemaWins.name);
+assert('JSON-LD Person jobTitle 대표원장', schemaWins.jobTitle === '대표원장', schemaWins.jobTitle);
+
+const taxFromSchema = extractTaxIdPrecise(
+	JSON.stringify({ '@type': 'MedicalClinic', taxID: '1208147521', vatID: '' }),
+);
+assert('schema taxID 10-digit normalized', taxFromSchema === '120-81-47521', taxFromSchema);
+assert(
+	'DOM 사업자 등록 번호 spaced',
+	extractTaxIdPrecise('사업자 등록 번호 : 120-81-47521') === '120-81-47521',
+);
+
+const placeHtml = `
+  <a href="https://map.naver.com/p/entry/place/123456789012345">네이버</a>
+  <a href="https://place.map.kakao.com/987654321">카카오</a>
+  <a href="https://maps.google.com/?cid=111222333444">구글</a>
+`;
+const place = extractPlaceIdentity(placeHtml);
+assert('place CID from naver map link', place.cid === '123456789012345', place.cid);
+assert('place urls include kakao', place.urls.some((u) => /place\.map\.kakao\.com/.test(u)));
+assert('place urls include google', place.urls.some((u) => /maps\.google\.com/.test(u)));
+
+const kgHtml = JSON.stringify({
+	'@context': 'https://schema.org',
+	'@graph': [
+		{
+			'@type': 'Person',
+			'@id': 'https://clinic.example/#person',
+			name: '배우리',
+			jobTitle: '대표원장',
+			worksFor: { '@id': 'https://clinic.example/#org' },
+		},
+		{
+			'@type': 'MedicalClinic',
+			'@id': 'https://clinic.example/#org',
+			name: '테스트의원',
+			founder: { '@id': 'https://clinic.example/#person' },
+		},
+	],
+});
+const kg = detectPersonKnowledgeGraph(kgHtml);
+assert('Person KG bidirectional @id linked', kg.linked === true);
+assert('Person KG name 배우리', kg.personName === '배우리', kg.personName);
+
+const jobTitleOnly = detectPersonKnowledgeGraph(
+	JSON.stringify({ '@type': 'Person', name: '배우리', jobTitle: '대표원장' }),
+);
+assert('jobTitle-only Person is not linked KG', jobTitleOnly.linked === false);
+
+const pack = parseUniversalEntity(`
+  <script type="application/ld+json">${kgHtml}</script>
+  <footer>사업자등록번호 120-81-47521 대표원장 : 가짜이름</footer>
+  <a href="https://blog.naver.com/clinic">blog</a>
+  <a href="https://place.naver.com/hospital/123456789012345">place</a>
+`);
+assert('pack representative from Person schema', pack.representative.name === '배우리', pack.representative.name);
+assert('pack taxID from footer/schema', pack.taxId === '120-81-47521', pack.taxId);
+assert('pack sameAs >= 2', pack.sameAs.length >= 2, String(pack.sameAs.length));
+assert('pack schema sameAs matches pack.sameAs', pack.schema.sameAs.count === pack.sameAs.length, `${pack.schema.sameAs.count} vs ${pack.sameAs.length}`);
+assert('pack personKg linked', pack.personKg.linked === true);
+
+const snsOnlyPack = parseUniversalEntity(
+	['https://www.instagram.com/clinic', 'https://blog.naver.com/clinic', 'https://www.facebook.com/clinic', 'https://www.youtube.com/@clinic', 'https://pf.kakao.com/_clinic'].join('\n'),
+);
+assert('SNS-only pack count is 5', snsOnlyPack.sameAs.length === 5, String(snsOnlyPack.sameAs.length));
+assert('SNS-only schema count is 5', snsOnlyPack.schema.sameAs.count === 5, String(snsOnlyPack.schema.sameAs.count));
+assert('SNS-only schema is complete', snsOnlyPack.schema.sameAs.complete === true);
+assert('SNS-only has no place', snsOnlyPack.schema.sameAs.placeCount === 0, String(snsOnlyPack.schema.sameAs.placeCount));
+
 assert('stopword 병원 is noise', isNoiseRepresentativeName('병원') === true);
 assert('stopword 연구소 is noise', isNoiseRepresentativeName('연구소') === true);
 assert('stopword 센터 is noise', isNoiseRepresentativeName('센터') === true);
@@ -102,7 +195,7 @@ assert('user regex title 대표원장', labeledPipe.jobTitle === '대표원장',
 
 const resolvedEmpty = resolveEngineRepresentative({ industryType: 'MEDICAL' });
 assert('empty detect keeps blank name', resolvedEmpty.name === '' && resolvedEmpty.isExtracted === false, resolvedEmpty.name);
-assert('medical default title 대표원장', resolvedEmpty.jobTitle === '대표원장', resolvedEmpty.jobTitle);
+assert('no invented title without name', resolvedEmpty.jobTitle === '', resolvedEmpty.jobTitle);
 
 const resolvedAdmin = resolveEngineRepresentative({
 	adminName: '박서준',
@@ -115,6 +208,7 @@ assert('admin title wins', resolvedAdmin.jobTitle === '대표원장', resolvedAd
 
 assert('102.php is greeting', isGreetingPagePath('/102.php') === true);
 assert('about is greeting', isGreetingPagePath('/about') === true);
+assert('ceo_message is greeting', isGreetingPagePath('/ceo_message.php') === true);
 assert('index is not greeting', isGreetingPagePath('/index.php') === false);
 const greetingUrls = collectGreetingCandidateUrls({
 	origin: 'https://clinic.example.com',

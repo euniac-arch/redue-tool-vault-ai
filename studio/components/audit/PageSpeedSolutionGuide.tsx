@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AlertTriangle, Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
-import type { PageSpeedSnapshot } from '@/lib/audit/pagespeed';
+import { formatKiB, formatKiBDistinct, type PageSpeedSnapshot } from '@/lib/audit/pagespeed';
 import {
 	buildDeferJsCode,
 	buildFontCdnCode,
@@ -114,10 +114,27 @@ function buildGuides(snapshot: PageSpeedSnapshot): GuideBlock[] {
 		(snapshot.categories.find((c) => c.id === 'best-practices')?.tier ?? 'good') !== 'good' ||
 		(snapshot.categories.find((c) => c.id === 'performance')?.score ?? 100) < 90
 	) {
+		const cacheRows = snapshot.cacheResources ?? [];
+		const cacheSize = cacheRows.reduce((sum, r) => sum + (r.totalBytes ?? 0), 0);
+		const cacheSave =
+			snapshot.cacheTotalWastedBytes ??
+			cacheRows.reduce((sum, r) => sum + (r.wastedBytes ?? 0), 0);
+		const typicalTtl =
+			cacheRows.find((r) => r.ttlLabel && r.ttlLabel !== 'None')?.ttlLabel ??
+			cacheRows[0]?.ttlLabel ??
+			'None';
 		guides.push({
 			id: 'htaccess',
 			titleKey: 'guides.htaccess.title',
-			descKey: 'guides.htaccess.desc',
+			descKey: cacheRows.length ? 'guides.htaccess.descMeasured' : 'guides.htaccess.desc',
+			descValues: cacheRows.length
+				? {
+						count: String(cacheRows.length),
+						size: formatKiB(cacheSize) || '—',
+						savings: formatKiBDistinct(cacheSave, cacheSize) || formatKiB(cacheSave) || '—',
+						ttl: typicalTtl,
+					}
+				: undefined,
 			code: HTACCESS,
 			lang: 'apache',
 		});
@@ -225,7 +242,7 @@ export function PageSpeedSolutionGuide({ snapshot }: PageSpeedSolutionGuideProps
 				id="psi-guides-panel"
 				className="psi-accordion"
 				data-open={isGuideOpen ? 'true' : 'false'}
-				inert={!isGuideOpen ? true : undefined}
+				inert={(!isGuideOpen ? '' : undefined) as unknown as boolean | undefined}
 			>
 				<div className="psi-accordion-inner">
 					<div className="flex flex-col gap-3 border-t border-slate-200 dark:border-white/[0.06] px-3.5 pb-3.5 pt-3">

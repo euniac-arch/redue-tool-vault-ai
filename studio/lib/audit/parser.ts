@@ -1,5 +1,32 @@
 import type { CheerioAPI } from 'cheerio';
 import { extractPureUrl } from '@/lib/audit/canonical-url';
+import { extractGnbNavigationPages } from '@/lib/audit/extractors/gnb-pages';
+import {
+	collectH1Elements,
+	collectHeadingOutline,
+	collectImageAltIssues,
+	type ImageCollectScope,
+	type H1ElementDetail,
+	type HeadingOutlineNode,
+	type HeadingSkipDetail,
+	type ImageAltIssue,
+	type MissingAltImageRecord,
+	type MissingImageRow,
+	type PageDisplayLang,
+} from '@/lib/audit/extractors/heading-alt-details';
+import {
+	collectRenderBlockingScripts,
+	type RenderBlockingScript,
+} from '@/lib/audit/extractors/page-resource-trackers';
+
+export type {
+	H1ElementDetail,
+	HeadingOutlineNode,
+	HeadingSkipDetail,
+	ImageAltIssue,
+	MissingImageRow,
+	RenderBlockingScript,
+};
 
 export interface ParsedMeta {
 	/** Full document `<title>` (for SEO length checks). */
@@ -29,21 +56,41 @@ export interface ParsedHeadings {
 	hasSkip: boolean;
 	skipExamples: string[];
 	hasH1ToH3: boolean;
+	/** Raw DOM H1 nodes with CSS path (includes chrome). */
+	h1Elements: H1ElementDetail[];
+	/** Sequential heading skips (H1→H3, H2→H4, …). */
+	headingSkips: HeadingSkipDetail[];
+	/** Full H1–H6 outline for the checklist hierarchy view. */
+	headingOutline: HeadingOutlineNode[];
 }
 
 export interface NavLinkItem {
 	name: string;
 	url: string;
+	/** 1차 주메뉴 라벨 */
+	menu1?: string;
+	/** 2차 서브메뉴 라벨 */
+	menu2?: string;
+	/** 3차 서브메뉴 라벨 */
+	menu3?: string;
+	/** 상위 메뉴 라벨 (flattened GNB) */
+	parent?: string;
+	depth?: 1 | 2 | 3;
 }
 
 /** Main content containers preferred over full-document / GNB chrome. */
 const MAIN_CONTENT_SELECTORS = [
+	'.sub_content',
+	'.sub_con',
+	'#contents',
+	'#bo_v_con',
+	'main',
+	'article',
+	'.content_area',
 	'#sub_contents',
 	'#container',
-	'#contents',
 	'#content',
 	'#wrapper',
-	'main',
 	'[role="main"]',
 	'.sub_contents',
 	'.sub-content',
@@ -70,8 +117,19 @@ export interface ParsedSchema {
 	parseErrors: number;
 	types: string[];
 	nodes: SchemaNodeSummary[];
-	/** Truncated raw JSON-LD blocks for technical evidence in B2B reports. */
+	/** Truncated raw JSON-LD blocks for technical evidence in B2B reports (display only). */
 	snippets: string[];
+	/**
+	 * Untruncated JSON-LD block text — every `application/ld+json` body plus
+	 * microdata/hydration nodes serialized as JSON, none of it length-capped.
+	 * `snippets` is capped at 1200 chars for UI display, which silently corrupts
+	 * large `@graph` documents (Organization + MedicalClinic + MedicalWebPage +
+	 * Person, geo / openingHoursSpecification / hasOfferCatalog, …) into invalid
+	 * JSON. Any downstream re-parse (5-property schema completeness, entity
+	 * disambiguation, live-diagnostic scoring, …) must read this field instead
+	 * of `snippets` so a truncated preview never becomes a false "missing" check.
+	 */
+	fullSnippets: string[];
 	organizationMissing: string[];
 	articleMissing: string[];
 	personMissing: string[];
@@ -94,6 +152,18 @@ export interface ParsedImages {
 	total: number;
 	missingAlt: number;
 	coveragePct: number;
+	/** Pinpoint alt defects: missing / empty / stopword. */
+	imageAltIssues: ImageAltIssue[];
+	/** Report-facing missing-alt rows — length must match `missingAlt` (capped). */
+	missing_images: MissingImageRow[];
+	/** Alias kept for stored-report / UI hydration. */
+	missing_alt_list?: MissingImageRow[];
+	/** Universal missing-alt schema (page_display + normalized_src). */
+	missing_alt_images?: MissingAltImageRecord[];
+	details?: { missing_images: MissingImageRow[] };
+	with_alt_count?: number;
+	/** In-scope image srcs (unique on the page) for site-wide coverage. */
+	imageSrcs?: string[];
 }
 
 export interface PageParseResult {
@@ -103,6 +173,8 @@ export interface PageParseResult {
 	images: ParsedImages;
 	bodyTextLength: number;
 	renderBlockingScripts: number;
+	/** Sync <script src> tags in <head> / early <body> (no async/defer/module). */
+	renderBlockingScriptItems: RenderBlockingScript[];
 	/** Same-origin internal link hrefs (path + query) discovered on the page. */
 	internalLinks: string[];
 }
@@ -697,20 +769,8 @@ export function parseMeta($: CheerioAPI, siteName?: string, hydration?: Hydratio
 }
 
 export function parseHeadings($: CheerioAPI): ParsedHeadings {
-	const levels: number[] = [];
-	const skipExamples: string[] = [];
-	$('h1,h2,h3,h4,h5,h6').each((_, el) => {
-		const tag = (el as { name?: string }).name?.toLowerCase();
-		if (!tag) return;
-		const level = Number(tag.replace('h', ''));
-		if (!Number.isFinite(level)) return;
-		const prev = levels[levels.length - 1];
-		if (prev != null && level > prev + 1 && skipExamples.length < 3) {
-			skipExamples.push(`h${prev} → h${level}`);
-		}
-		levels.push(level);
-	});
-
+	const { outline, skips, skipExamples, levels } = collectHeadingOutline($);
+	const h1Elements = collectH1Elements($);
 	const h1Texts = extractContentScopedHeadings($);
 	const h2Texts = extractContentScopedH2($);
 	// Keep raw DOM h1 count for SEO structure checks (multiple H1 warning).
@@ -721,9 +781,12 @@ export function parseHeadings($: CheerioAPI): ParsedHeadings {
 		h1Texts: h1Texts.length > 0 ? h1Texts : [],
 		h2Texts,
 		levels,
-		hasSkip: skipExamples.length > 0,
+		hasSkip: skips.length > 0,
 		skipExamples,
 		hasH1ToH3: $('h1,h2,h3').length >= 2,
+		h1Elements,
+		headingSkips: skips,
+		headingOutline: outline,
 	};
 }
 
@@ -732,6 +795,7 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string, hydration?: Hydrati
 	let parseErrors = 0;
 	const nodes: Record<string, unknown>[] = [];
 	const snippets: string[] = [];
+	const fullSnippets: string[] = [];
 
 	const bodies = collectJsonLdBodies($, rawHtml);
 	for (const raw of bodies) {
@@ -740,6 +804,10 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string, hydration?: Hydrati
 			parseErrors += 1;
 			continue;
 		}
+		// Keep the exact (untruncated) source text — this is what downstream
+		// re-parsers must consume so a multi-entity `@graph` never gets cut
+		// mid-object the way the 1200-char `snippets` preview below does.
+		fullSnippets.push(raw);
 		const parsed = parseJsonLdDocument(raw);
 		if (snippets.length < 3) {
 			const pretty = parsed
@@ -758,10 +826,12 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string, hydration?: Hydrati
 	if (microdata.length) {
 		rawBlockCount += microdata.length;
 		flattenJsonLd(microdata, nodes);
+		fullSnippets.push(JSON.stringify(microdata));
 	}
 
 	if (hydration?.schemaNodes.length) {
 		flattenJsonLd(hydration.schemaNodes, nodes);
+		fullSnippets.push(JSON.stringify(hydration.schemaNodes));
 	}
 
 	const summaries = nodes.flatMap(summarizeNode);
@@ -808,6 +878,7 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string, hydration?: Hydrati
 		types,
 		nodes: summaries,
 		snippets,
+		fullSnippets,
 		organizationMissing,
 		articleMissing,
 		personMissing,
@@ -844,19 +915,34 @@ export function parseJsonLd($: CheerioAPI, rawHtml?: string, hydration?: Hydrati
 	};
 }
 
-export function parseImages($: CheerioAPI): ParsedImages {
-	const images = $('img');
-	const total = images.length;
-	const missingAlt = images.filter((_, el) => {
-		const alt = $(el).attr('alt')?.trim();
-		const aria = $(el).attr('aria-label')?.trim();
-		const decorative =
-			($(el).attr('role') || '').toLowerCase() === 'presentation' ||
-			$(el).attr('aria-hidden') === 'true';
-		return !(alt || aria || decorative);
-	}).length;
-	const coveragePct = total === 0 ? 100 : Math.round(((total - missingAlt) / total) * 100);
-	return { total, missingAlt, coveragePct };
+export function parseImages(
+	$: CheerioAPI,
+	opts?: {
+		pageUrl?: string;
+		pageTitle?: string;
+		origin?: string;
+		lang?: PageDisplayLang;
+		scope?: ImageCollectScope;
+	},
+): ParsedImages {
+	const collected = collectImageAltIssues($, opts);
+	const total = opts?.scope && opts.scope !== 'all' ? collected.audited : $('img').length;
+	const missing_images = collected.missing_images;
+	const missingAlt = missing_images.length;
+	const with_alt_count = Math.max(0, total - missingAlt);
+	const coveragePct = total === 0 ? 100 : Math.round((with_alt_count / total) * 100);
+	return {
+		total,
+		missingAlt,
+		coveragePct,
+		imageAltIssues: collected.issues,
+		missing_images,
+		missing_alt_list: missing_images,
+		missing_alt_images: collected.missing_alt_images,
+		details: { missing_images },
+		with_alt_count,
+		imageSrcs: collected.imageSrcs,
+	};
 }
 
 /** Score internal hrefs so board/query PHP pages are not dropped by the link cap. */
@@ -937,6 +1023,7 @@ export function extractFooterLegalText($: CheerioAPI, limit = 1200): string {
 		'#ft',
 		'.footer',
 		'#footer',
+		'.copyright',
 		'.ft_info',
 		'.footer_info',
 		'.business_info',
@@ -983,48 +1070,11 @@ export function extractFooterLegalText($: CheerioAPI, limit = 1200): string {
 }
 
 /**
- * Collect GNB / header nav labels with their hrefs for $page_meta title resolution.
+ * Collect GNB / header / submenu labels with hrefs (1st–3rd depth).
+ * Body / footer dump is not used — dummy files stay out of the page table.
  */
-export function extractNavItems($: CheerioAPI, pageUrl: string, limit = 40): NavLinkItem[] {
-	let origin: string;
-	try {
-		origin = new URL(pageUrl).origin;
-	} catch {
-		return [];
-	}
-
-	const scopes = ['header a[href]', 'nav a[href]', '.gnb a[href]', '#gnb a[href]', '#hd a[href]', '.header a[href]', '.lnb a[href]', '#lnb a[href]'];
-	const seen = new Set<string>();
-	const out: NavLinkItem[] = [];
-
-	const ingestSelector = (selector: string) => {
-		$(selector).each((_, el) => {
-			if (out.length >= limit) return false;
-			const href = $(el).attr('href')?.trim();
-			if (!href) return;
-			const norm = normalizeInternalHref(href, pageUrl, origin);
-			if (!norm) return;
-			const name = $(el).text().replace(/\s+/g, ' ').trim();
-			if (!name || name.length > 40) return;
-			if (/^(home|메인|로그인|logout|회원가입)$/i.test(name)) return;
-			const key = norm.hrefPath.toLowerCase();
-			if (seen.has(key)) return;
-			seen.add(key);
-			out.push({ name, url: norm.hrefPath });
-		});
-	};
-
-	for (const sel of scopes) {
-		ingestSelector(sel);
-		if (out.length >= limit) break;
-	}
-
-	// Fallback: whole-document anchors with short labels (still keep query URLs).
-	if (out.length < 4) {
-		ingestSelector('body a[href]');
-	}
-
-	return out;
+export function extractNavItems($: CheerioAPI, pageUrl: string, limit = 120): NavLinkItem[] {
+	return extractGnbNavigationPages($, pageUrl, { limit });
 }
 
 /** Full DOM pass used by the precision audit engine (no LLM). */
@@ -1050,6 +1100,9 @@ export function emptyPageParseResult(): PageParseResult {
 			hasSkip: false,
 			skipExamples: [],
 			hasH1ToH3: false,
+			h1Elements: [],
+			headingSkips: [],
+			headingOutline: [],
 		},
 		schema: {
 			rawBlockCount: 0,
@@ -1058,6 +1111,7 @@ export function emptyPageParseResult(): PageParseResult {
 			types: [],
 			nodes: [],
 			snippets: [],
+			fullSnippets: [],
 			organizationMissing: [],
 			articleMissing: [],
 			personMissing: [],
@@ -1074,9 +1128,20 @@ export function emptyPageParseResult(): PageParseResult {
 			hasBusinessOrApp: false,
 			nap: { name: null, telephone: null, address: null },
 		},
-		images: { total: 0, missingAlt: 0, coveragePct: 0 },
+		images: {
+			total: 0,
+			missingAlt: 0,
+			coveragePct: 0,
+			imageAltIssues: [],
+			missing_images: [],
+			missing_alt_list: [],
+			missing_alt_images: [],
+			details: { missing_images: [] },
+			with_alt_count: 0,
+		},
 		bodyTextLength: 0,
 		renderBlockingScripts: 0,
+		renderBlockingScriptItems: [],
 		internalLinks: [],
 	};
 }
@@ -1090,14 +1155,28 @@ export function parsePageHtml(
 	try {
 		const hydration = extractHydrationSignals(rawHtml || '');
 		const bodyTextLength = $('body').text().replace(/\s+/g, ' ').trim().length;
-		const renderBlockingScripts = $('script[src]:not([async]):not([defer])').length;
+		const renderBlockingScriptItems = collectRenderBlockingScripts($, { pageUrl });
+		const renderBlockingScripts = renderBlockingScriptItems.length;
+		const meta = parseMeta($, siteName, hydration);
+		let origin: string | undefined;
+		try {
+			if (pageUrl) origin = new URL(pageUrl).origin;
+		} catch {
+			origin = undefined;
+		}
 		return {
-			meta: parseMeta($, siteName, hydration),
+			meta,
 			headings: parseHeadings($),
 			schema: parseJsonLd($, rawHtml, hydration),
-			images: parseImages($),
+			images: parseImages($, {
+				pageUrl,
+				pageTitle: meta.pageTitle || meta.title,
+				origin,
+				scope: 'front',
+			}),
 			bodyTextLength,
 			renderBlockingScripts,
+			renderBlockingScriptItems,
 			internalLinks: pageUrl ? extractInternalLinks($, pageUrl) : [],
 		};
 	} catch (error) {

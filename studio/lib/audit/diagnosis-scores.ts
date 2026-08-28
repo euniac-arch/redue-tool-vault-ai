@@ -44,22 +44,26 @@ import {
 	type ComprehensiveAuditScore,
 } from '@/lib/audit/auditScoreCalculator';
 import {
+	blendMeasuredScore,
 	calculateAuditScores,
 	calculateComprehensiveScores,
-	applySecurityGradeCap,
+	MEASURED_SCORE_WEIGHTS as SCORE_CALCULATOR_WEIGHTS,
 	resolveIsHttps,
 	type AuditScores,
 	type DetailedAuditScore,
+	type MeasuredScoreBreakdown,
 	type RadarScores,
 } from '@/lib/audit/scoreCalculator';
+import { resolveReportTrack3Score } from '@/lib/audit/pagespeed';
 import type { AuditLang, AuditReport } from '@/lib/site-auditor';
 import type { AIEngineId } from '@/types/geo-diagnostic';
 
-/** 종합 실측 점수 = 외부 신뢰도 × 50% + 기술 점수 × 50%. */
-export const MEASURED_SCORE_WEIGHTS = {
-	externalTrust: 0.5,
-	technical: 0.5,
-} as const;
+/**
+ * 종합 실측 점수 = Track1(기술 점수)×40% + Track2(외부 신뢰도/GEO)×40% + CWV(성능 실측)×20%
+ * − 보안 페널티(HTTPS 미적용 시 고정 차감). Re-exported from `scoreCalculator` so the
+ * weights used for display copy (tooltips, exec formula) never drift from the calculator.
+ */
+export const MEASURED_SCORE_WEIGHTS = SCORE_CALCULATOR_WEIGHTS;
 
 export function clampDiagnosisScore(n: number): number {
 	if (!Number.isFinite(n)) return 0;
@@ -77,6 +81,12 @@ export function technicalScoreFromReport(report: AuditReport): number {
 	}).technicalScore;
 }
 
+/**
+ * Lightweight recompute for surfaces that only have Track1/Track2 numbers on hand
+ * (history list, exec storytelling, domain tracking) — delegates to the same
+ * `blendMeasuredScore` the main result page uses so the two never drift apart.
+ * No separate CWV read is available at these call sites, so it falls back to `technicalScore`.
+ */
 export function measuredScoreFromParts(
 	externalTrustScore: number,
 	technicalScore: number,
@@ -84,11 +94,8 @@ export function measuredScoreFromParts(
 ): number {
 	const geo = clampDiagnosisScore(externalTrustScore);
 	const seo = clampDiagnosisScore(technicalScore);
-	const blended = clampDiagnosisScore(
-		geo * MEASURED_SCORE_WEIGHTS.externalTrust + seo * MEASURED_SCORE_WEIGHTS.technical,
-	);
-	if (!security) return blended;
-	return applySecurityGradeCap(blended, resolveIsHttps(security));
+	const isHttps = security ? resolveIsHttps(security) : true;
+	return blendMeasuredScore({ track1: seo, track2: geo, isHttps }).totalScore;
 }
 
 /**
@@ -104,9 +111,9 @@ export function resolvePatchedMeasuredScore(currentScore: number, bonus: number)
 export interface DiagnosisScoreSnapshot {
 	/** 기술 점수 — on-page SEO · Schema completeness, 0–100 (pure raw/max proportion). */
 	technicalScore: number;
-	/** 외부 신뢰도 — GEO / external AI-trust, 0–100 (composite hard-cap is applied later). */
+	/** 외부 신뢰도 — GEO / external AI-trust, 0–100 (fixed security penalty is applied later). */
 	externalTrustScore: number;
-	/** 종합 실측 점수 — weighted blend of the two axes (Hard Cap 78 on HTTP). */
+	/** 종합 실측 점수 — Track1×40% + Track2×40% + CWV×20%, minus a fixed −15 penalty on HTTP. */
 	measuredScore: number;
 	grade: ScoreGrade;
 	percentile: number;
@@ -147,12 +154,25 @@ export interface DiagnosisScoreSnapshot {
 		defectCount: number;
 		warningCount: number;
 	};
+	/** Track1/Track2/CWV blend detail for the measuredScore — QA/console logging surface. */
+	scoreBreakdown: MeasuredScoreBreakdown;
+}
+
+export interface DiagnosisScoreSnapshotOptions {
+	/**
+	 * Real Google PageSpeed(Lighthouse) `performance` category read (0–100),
+	 * when the caller already has a live PSI snapshot (e.g. `AuditReportDocument`).
+	 * Omit when PSI hasn't loaded — the CWV axis falls back to the on-page
+	 * performance category automatically.
+	 */
+	coreWebVitalsScore100?: number | null;
 }
 
 export function buildDiagnosisScoreSnapshot(
 	report: AuditReport,
 	reportData?: GeoNarrativeReport | null,
 	lang: AuditLang = 'ko',
+	options?: DiagnosisScoreSnapshotOptions,
 ): DiagnosisScoreSnapshot {
 	const reputation = resolveExternalReputation(report, reportData, lang);
 	const onpage = buildOnPageDiagnostic(report);
@@ -181,6 +201,7 @@ export function buildDiagnosisScoreSnapshot(
 		securityInfra: onpage.categories.find((c) => c.id === 'security')?.score100 ?? radarScores.security,
 		webPerf,
 		aiCitation: radarScores.geoSignal,
+		coreWebVitalsScore100: options?.coreWebVitalsScore100 ?? resolveReportTrack3Score(report),
 		radarScores,
 		engineScores: rawEngineScores,
 	});
@@ -209,6 +230,22 @@ export function buildDiagnosisScoreSnapshot(
 	};
 	const engineScoreById: Partial<Record<AIEngineId, number>> = { ...scores.engineScores };
 	const auditScore = calculateComprehensiveAuditScoreFromOnpage(onpage, { isHttps: scores.isHttps, lang });
+	if (process.env.NODE_ENV !== 'production') {
+		// eslint-disable-next-line no-console
+		console.info('[diagnosisScoreSnapshot]', {
+			url: report.url ?? null,
+			isHttps: scores.isHttps,
+			rawTechnicalScore: `${scores.rawScore122}/${scores.maxRawScore}`,
+			track1_technicalScore: scores.scoreBreakdown.track1,
+			track2_geoScore: scores.scoreBreakdown.track2,
+			coreWebVitals: scores.scoreBreakdown.coreWebVitals,
+			weights: scores.scoreBreakdown.weights,
+			weightedSum: scores.scoreBreakdown.weightedSum,
+			securityPenalty: scores.scoreBreakdown.securityPenalty,
+			measuredScore: scores.totalScore,
+			grade: scores.grade,
+		});
+	}
 	const geoCategory = onpage.categories.find((c) => c.id === 'geo');
 	const geoAiMeasured = {
 		rawScore: geoCategory?.rawScore ?? auditScore.categories.geoAi.score,
@@ -247,6 +284,7 @@ export function buildDiagnosisScoreSnapshot(
 		geoComprehensive,
 		auditScore,
 		geoAiMeasured,
+		scoreBreakdown: scores.scoreBreakdown,
 	};
 }
 

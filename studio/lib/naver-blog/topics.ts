@@ -79,7 +79,7 @@ export function extractProjectCode(project: Pick<ProjectListItem, 'id' | 'name' 
 
 export function formatProjectLabel(project: ProjectListItem): string {
 	const code = extractProjectCode(project);
-	return `[${code}] ${project.name}`;
+	return `[${code}] ${project.siteName || project.name}`;
 }
 
 function looksMedical(project: ProjectListItem): boolean {

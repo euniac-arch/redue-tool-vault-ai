@@ -7,12 +7,23 @@
  * below defer to that controller when File Patch / remote patch injects the full hybrid block.
  */
 
+import { applyCmsAdapterWrap } from '@/lib/solve/adapters';
+import { generateRssFeedCode } from '@/lib/solve/rss-php-engine';
+import {
+	buildPersonEeatNode,
+	idRef,
+	organizationNodeId,
+	personNodeId,
+	postalAddressNode,
+	resolveCompleteNap,
+} from '@/lib/solve/core/eeat-citation';
 import {
 	buildAltAutoFixerScriptTag,
 	buildCrawlerOptimizedCanonicalHeadFragment,
 	buildJsDeferAutoFixerScriptTag,
 	buildUniversalObSeoEnginePhp,
 } from '@/lib/solve/dynamic-php-schema';
+import { buildSaasSchemaInjectorSnippet } from '@/lib/solve/universal-geo-engine';
 
 /** Re-export cancer-type seed map (601–613) for Solve / CMS consumers. */
 export {
@@ -26,33 +37,6 @@ export type CmsSnippetPayload = {
 	description?: string;
 	siteName?: string;
 };
-
-/**
- * v30 Universal fallback FAQ Q&A (2 items) — used whenever no page-specific FAQ data is
- * supplied, so every CMS snippet that emits schema also guarantees a parsable FAQPage
- * signal for AI engines (Perplexity/ChatGPT) even on a bare install.
- */
-function defaultFaqEntities(siteName: string, origin: string, title?: string) {
-	const pageTitle = (title || siteName).trim() || siteName;
-	return [
-		{
-			'@type': 'Question',
-			name: `${pageTitle} 관련 안내 및 상담은 어떻게 신청하나요?`,
-			acceptedAnswer: {
-				'@type': 'Answer',
-				text: `${siteName} 공식 웹사이트(${origin})의 안내 메뉴와 문의 창구를 통해 상세한 전문 안내를 받으실 수 있습니다.`,
-			},
-		},
-		{
-			'@type': 'Question',
-			name: `${siteName} 서비스 이용 문의처는 어디인가요?`,
-			acceptedAnswer: {
-				'@type': 'Answer',
-				text: `웹사이트 상단 고객센터 및 온라인 게시판을 통해 언제든지 문의 남겨주시면 빠르게 답변해 드립니다.`,
-			},
-		},
-	];
-}
 
 function hostname(url?: string): string {
 	try {
@@ -80,41 +64,48 @@ function enrich(data: CmsSnippetPayload = {}) {
 	return { targetUrl, siteName: site, title, description, origin: origin(targetUrl) };
 }
 
-/** Shared JSON-LD graph for static HTML / JS CMS targets (Article + FAQ + Person + Org). */
+/** Shared JSON-LD graph for static HTML / JS CMS targets (Org + Person + WebPage + HowTo + FAQ). */
 function staticSchemaGraph(d: ReturnType<typeof enrich>, isoPublished: string, isoNow: string) {
+	const nap = resolveCompleteNap({ siteName: d.siteName });
+	const person = buildPersonEeatNode({
+		origin: d.origin,
+		canonicalUrl: d.targetUrl,
+		siteName: d.siteName,
+	});
+	const org: Record<string, unknown> = {
+		'@type': ['Organization', 'LocalBusiness', 'ProfessionalService'],
+		'@id': organizationNodeId(d.origin),
+		name: d.siteName,
+		url: d.origin,
+		address: postalAddressNode(nap),
+	};
+	const page: Record<string, unknown> = {
+		'@type': 'WebPage',
+		'@id': `${d.targetUrl}#webpage`,
+		name: d.title,
+		url: d.targetUrl,
+		isPartOf: idRef(`${d.origin}/#website`),
+	};
+	const article: Record<string, unknown> = {
+		'@type': 'Article',
+		'@id': `${d.targetUrl}#article`,
+		headline: d.title,
+		description: d.description,
+		url: d.targetUrl,
+		datePublished: isoPublished,
+		dateModified: isoNow,
+		publisher: idRef(organizationNodeId(d.origin)),
+	};
+	const graph: unknown[] = [org, page, article];
+	if (person) {
+		org.founder = idRef(personNodeId(d.origin));
+		page.author = idRef(personNodeId(d.origin));
+		article.author = idRef(personNodeId(d.origin));
+		graph.push(person);
+	}
 	return {
 		'@context': 'https://schema.org',
-		'@graph': [
-			{
-				'@type': ['Organization', 'ProfessionalService'],
-				'@id': `${d.origin}/#organization`,
-				name: d.siteName,
-				url: d.origin,
-			},
-			{
-				'@type': 'Article',
-				'@id': `${d.targetUrl}#article`,
-				headline: d.title,
-				description: d.description,
-				url: d.targetUrl,
-				datePublished: isoPublished,
-				dateModified: isoNow,
-				publisher: { '@id': `${d.origin}/#organization` },
-				author: { '@type': 'Organization', name: d.siteName },
-			},
-			{
-				'@type': 'FAQPage',
-				'@id': `${d.targetUrl}#faq`,
-				url: d.targetUrl,
-				mainEntity: defaultFaqEntities(d.siteName, d.origin, d.title),
-			},
-			{
-				'@type': 'Person',
-				'@id': `${d.origin}/#person`,
-				name: `${d.siteName} 연구팀/담당자`,
-				worksFor: { '@id': `${d.origin}/#organization` },
-			},
-		],
+		'@graph': graph,
 	};
 }
 
@@ -130,12 +121,32 @@ export function generateAllCmsSnippets(
 	const gnuboard = gnuboardSnippet(code, d);
 	const nextjs = nextjsSnippet(code, d);
 	const wordpress = wordpressSnippet(code, d);
+	const standalone = standaloneSnippet(code);
 	const react = reactSnippet(code, d);
 	const laravel = laravelSnippet(code, d);
 	const custom = customHtmlPhpSnippet(code, d);
 	const universal = universalSnippet(code);
+	const universalJs = universalJsSnippet(code, d);
 
-	return { cafe24, gnuboard, nextjs, wordpress, react, laravel, custom, universal };
+	return { cafe24, gnuboard, nextjs, wordpress, standalone, react, laravel, custom, universal, universalJs };
+}
+
+/**
+ * Client-side Schema Injector — CMS-agnostic, zero server-access install. Unlike the OB PHP
+ * engine above, this works on Imweb/Cafe24-style hosts with no header-file/FTP access: paste
+ * one `<script>` block into Header Code / Custom Code. The engine auto-extracts the 5 NAP
+ * fields from the footer DOM and injects Organization + WebSite + WebPage + BreadcrumbList.
+ */
+function universalJsSnippet(code: string, d: ReturnType<typeof enrich>): string {
+	switch (code) {
+		case 'SCHEMA_MISSING':
+		case 'ORGANIZATION_MISSING':
+		case 'WEBSITE_SCHEMA_MISSING':
+		case 'ARTICLE_DATE_MISSING':
+			return buildSaasSchemaInjectorSnippet({ name: d.siteName });
+		default:
+			return '<!-- Universal GEO Engine(JS): 이 이슈는 스키마/엔티티 항목이 아니라 이 스니펫으로 처리되지 않습니다. Universal(PHP) 또는 CMS별 탭을 사용하세요. -->';
+	}
 }
 
 /**
@@ -156,8 +167,10 @@ function universalSnippet(code: string): string {
 		case 'META_DESC_LENGTH_SUBOPTIMAL':
 		case 'OG_INCOMPLETE':
 		case 'IMAGE_ALT':
-			return `<!-- v32 Crawler-Optimized Canonical & Schema Engine — 어떤 PHP 사이트든 공통 헤더 파일( head.sub.php / header.php / inc_head.php ) 맨 위에 그대로 붙여넣으세요.
-     Charset-After First-Chunk · REQUEST_URI+SCRIPT_NAME 이중 감지 · HTTPS 강제 · exact 서브페이지 canonical · head+body sync script defer · Article/FAQ/Person schema 단일 블록.
+		case 'TITLE_MISSING':
+		case 'TITLE_LENGTH_SUBOPTIMAL':
+			return `<!-- v33 Crawler-Optimized Canonical & Schema Engine — 어떤 PHP 사이트든 공통 헤더 파일( head.sub.php / header.php / inc_head.php ) 맨 위에 그대로 붙여넣으세요.
+     Head-After First-Chunk · 중복 canonical 청소 · LocalBusiness NAP 자동추출 · AboutPage 복합 스키마 · Global Alt Transformer · Title 10–60자 · HTTPS 강제 · Article/FAQ/Person.
      동일 파일에 이미 redue_dynamic_schema_controller()(하이브리드 풀엔진)가 있다면 중복 주입하지 마세요. -->
 ${buildUniversalObSeoEnginePhp()}`;
 		default:
@@ -166,8 +179,6 @@ ${buildUniversalObSeoEnginePhp()}`;
 }
 
 function cafe24Snippet(code: string, d: ReturnType<typeof enrich>): string {
-	const isoNow = new Date().toISOString();
-	const isoPublished = `${new Date().getUTCFullYear()}-01-01T00:00:00+09:00`;
 	switch (code) {
 		case 'CANONICAL_MISSING':
 		case 'CANONICAL_RELATIVE_PATH':
@@ -192,13 +203,8 @@ function cafe24Snippet(code: string, d: ReturnType<typeof enrich>): string {
 		case 'SCHEMA_MISSING':
 		case 'ORGANIZATION_MISSING':
 		case 'WEBSITE_SCHEMA_MISSING':
-		case 'ARTICLE_DATE_MISSING': {
-			const graph = staticSchemaGraph(d, isoPublished, isoNow);
-			return `<!-- REDUE v30: Cafe24 Article + FAQPage + Person (전 페이지 보장) — layout/basic/layout.html </head> -->
-<script type="application/ld+json">
-${JSON.stringify(graph)}
-</script>`;
-		}
+		case 'ARTICLE_DATE_MISSING':
+			return buildSaasSchemaInjectorSnippet({ name: d.siteName });
 		case 'RENDER_BLOCKING':
 		case 'LCP_POOR':
 			return `<!-- REDUE v30 JS Defer Auto-Fixer — layout/basic/layout.html </head> 직전 (PHP면 Universal Master Engine 권장: 전문서 defer) -->
@@ -226,6 +232,9 @@ User-agent: PerplexityBot
 Allow: /
 
 Sitemap: ${d.origin}/sitemap.xml`;
+		case 'RSS_NOT_FOUND':
+			return `<!-- Cafe24 / 표준 HTML: <head>에 RSS 발견 링크를 넣고, 그누보드 계열이면 루트 rss.php를 배포하세요. -->
+<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="${d.origin}/rss.php" />`;
 		default:
 			return `<!-- REDUE Cafe24: ${code} — layout/basic/layout.html <head>에 메타·스키마를 보강하세요 -->`;
 	}
@@ -246,7 +255,7 @@ function gnuboardSnippet(code: string, d: ReturnType<typeof enrich>): string {
      First-Chunk 진단봇 대응 · HTTPS 대표 도메인 고정 · REQUEST_URI+SCRIPT_NAME 이중 감지 · 서브페이지/게시판 고유 URL -->
 ${buildCrawlerOptimizedCanonicalHeadFragment(originHost)}
 
-<!-- (권장) 스키마·defer·중복 청소까지 필요하면 아래 Universal 엔진을 파일 최상단 <?php 직후에 추가 — Canonical 태그는 OB가 charset 직후로 재배치 -->
+<!-- (권장) 스키마·defer·중복 청소까지 필요하면 아래 Universal 엔진을 파일 최상단 <?php 직후에 추가 — Canonical 태그는 OB가 <head> 직후로 재배치 -->
 ${buildUniversalObSeoEnginePhp()}`;
 		case 'SCHEMA_MISSING':
 		case 'ORGANIZATION_MISSING':
@@ -258,13 +267,12 @@ ${buildUniversalObSeoEnginePhp()}`;
 		case 'META_DESC_LENGTH_SUBOPTIMAL':
 		case 'OG_INCOMPLETE':
 		case 'IMAGE_ALT':
-			return `<!-- head.sub.php 첫 <?php 직후(또는 파일 최상단)에 삽입 — Crawler-Optimized Canonical & Schema Engine
-     Charset-After First-Chunk · REQUEST_URI+SCRIPT_NAME 이중 감지 · HTTPS 강제 · G5_URL/cf_title 자동 감지 · 중복 canonical/og:url 청소 · static $executed 1회 가드
-     exact 서브페이지 canonical + head+body script defer + Article/FAQ/Person · 풀 하이브리드와 동시 사용 금지 -->
-${buildUniversalObSeoEnginePhp()}`;
 		case 'TITLE_MISSING':
 		case 'TITLE_LENGTH_SUBOPTIMAL':
-			return `<?php echo '<title>' . htmlspecialchars('${escapePhp(d.title)}') . '</title>'; ?>`;
+			return `<!-- head.sub.php 첫 <?php 직후(또는 파일 최상단)에 삽입 — Crawler-Optimized Canonical & Schema Engine
+     Head-After First-Chunk · G5_URL/cf_title 자동 감지 · 중복 canonical/og:url 청소 · LocalBusiness NAP 자동추출 · AboutPage 복합 스키마 · Global Alt · Title 10–60자
+     exact 서브페이지 canonical + head+body script defer + Article/FAQ/Person · 풀 하이브리드와 동시 사용 금지 -->
+${applyCmsAdapterWrap(buildUniversalObSeoEnginePhp(), 'gnuboard', 'theme/basic/head.sub.php')}`;
 		case 'H1_MISSING':
 			return `<!-- REDUE: Gnuboard H1 -->
 <h1 class="redue-page-title"><?php echo get_text($g5['title']); ?></h1>`;
@@ -277,6 +285,12 @@ Allow: /
 User-agent: GPTBot
 Allow: /
 Sitemap: ${d.origin}/sitemap.xml`;
+		case 'RSS_NOT_FOUND':
+			return generateRssFeedCode({
+				siteName: d.siteName,
+				siteUrl: d.targetUrl || d.origin,
+				description: d.description,
+			});
 		default:
 			return `<?php /* REDUE Gnuboard v30: ${code} — theme/*/head.sub.php 최상단에 Universal Master Engine 삽입 */ ?>
 ${buildUniversalObSeoEnginePhp()}`;
@@ -398,10 +412,10 @@ function wordpressSnippet(code: string, d: ReturnType<typeof enrich>): string {
 		case 'OG_INCOMPLETE':
 		case 'IMAGE_ALT':
 			return `<?php
-/* REDUE v30 Precision Canonical & Full-Document Defer Master Engine — header.php / functions.php 최상단(또는 테마 header.php 맨 위)에 붙여넣기.
- * /?p=123 등 쿼리형 서브페이지도 루트로 붕괴하지 않습니다. Yoast/RankMath 사용 시에도 OB가 중복 canonical을 제거합니다. */
+/* REDUE WordPress adapter — wp-content/mu-plugins/redue-schema.php (권장) 또는 functions.php 마커 블록.
+ * wp_head + redue_wp_dynamic_schema_controller · Footer Scanner · 조건 태그. */
 ?>
-${buildUniversalObSeoEnginePhp()}`;
+${applyCmsAdapterWrap('', 'wordpress', 'wp-content/mu-plugins/redue-schema.php')}`;
 		case 'TITLE_MISSING':
 		case 'TITLE_LENGTH_SUBOPTIMAL':
 			return `<?php
@@ -420,9 +434,38 @@ Allow: /
 User-agent: GPTBot
 Allow: /
 Sitemap: ${d.origin}/sitemap_index.xml`;
+		case 'RSS_NOT_FOUND':
+			return `<!-- WordPress 네이티브 RSS: functions.php 또는 테마 header.php <head> -->
+<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="${d.origin}/feed/" />`;
 		default:
-			return `<?php /* REDUE WordPress v30: ${code} — header.php 최상단에 Universal Master Engine */ ?>
-${buildUniversalObSeoEnginePhp()}`;
+			return `<?php /* REDUE WordPress adapter: ${code} — mu-plugins/redue-schema.php · wp_head */ ?>
+${applyCmsAdapterWrap('', 'wordpress', 'wp-content/mu-plugins/redue-schema.php')}`;
+	}
+}
+
+function standaloneSnippet(code: string): string {
+	switch (code) {
+		case 'CANONICAL_MISSING':
+		case 'CANONICAL_RELATIVE_PATH':
+		case 'SCHEMA_MISSING':
+		case 'ORGANIZATION_MISSING':
+		case 'WEBSITE_SCHEMA_MISSING':
+		case 'ARTICLE_DATE_MISSING':
+		case 'RENDER_BLOCKING':
+		case 'LCP_POOR':
+		case 'META_DESC_MISSING':
+		case 'META_DESC_LENGTH_SUBOPTIMAL':
+		case 'OG_INCOMPLETE':
+		case 'IMAGE_ALT':
+		case 'TITLE_MISSING':
+		case 'TITLE_LENGTH_SUBOPTIMAL':
+			return `<?php
+/* REDUE Standalone / Rhymix / XE — header.php · common/header.php 최상단 안전 인클루드 (마커 블록만 덮어쓰기) */
+?>
+${applyCmsAdapterWrap(buildUniversalObSeoEnginePhp(), 'standalone', 'header.php')}`;
+		default:
+			return `<?php /* REDUE Standalone: ${code} — 공통 헤더 최상단 안전 인클루드 */ ?>
+${applyCmsAdapterWrap(buildUniversalObSeoEnginePhp(), 'standalone', 'header.php')}`;
 	}
 }
 

@@ -54,6 +54,19 @@ export interface FetchedPage {
 	unsafeRedirect: boolean;
 	hasHsts: boolean;
 	hasCsp: boolean;
+	/**
+	 * True when the returned body is a bot/WAF interstitial (Vercel Attack
+	 * Challenge Mode, Cloudflare "Just a moment…", etc.) rather than the real
+	 * page — the crawler was JS-challenged, not actually served the site.
+	 * Downstream metadata extraction must NOT treat this body as real content.
+	 */
+	botChallenge: boolean;
+	/**
+	 * Classified fetch failure when `ok` is false and no HTTP status landed.
+	 * Auxiliary collectors (sitemap / robots / llms.txt) treat this as
+	 * `timeout_or_failed` and continue the diagnosis.
+	 */
+	error?: string | null;
 }
 
 const GEO_HEADER_KEYS = [
@@ -110,6 +123,21 @@ export function readSecurityHeaders(res: Response): SecurityHeaderSnapshot {
 	};
 }
 
+/**
+ * Known bot/WAF challenge interstitials that must never be mistaken for the
+ * real page (title/OG/body all belong to the WAF, not the audited site).
+ * Header check first (cheap + reliable); text markers cover WAFs that don't
+ * set a distinctive header.
+ */
+function isBotChallengeResponse(res: Response, bodyHead: string): boolean {
+	const mitigated = res.headers.get('x-vercel-mitigated');
+	if (mitigated && /challenge/i.test(mitigated)) return true;
+	const sample = bodyHead.slice(0, 4000);
+	return /<title>\s*(?:vercel security checkpoint|just a moment\.\.\.|attention required!\s*\|\s*cloudflare|please wait\.\.\.\s*\|\s*cloudflare|checking your browser before accessing)\s*<\/title>/i.test(
+		sample,
+	);
+}
+
 export function hasUnsafeRedirect(chain: readonly RedirectHop[]): boolean {
 	return chain.some((hop) => {
 		try {
@@ -132,7 +160,7 @@ function withNocacheParam(url: string, forceRefresh: boolean): string {
 	}
 }
 
-function emptyResult(requestedUrl: string, elapsedMs: number): FetchedPage {
+function emptyResult(requestedUrl: string, elapsedMs: number, error?: string | null): FetchedPage {
 	return {
 		ok: false,
 		status: null,
@@ -158,6 +186,8 @@ function emptyResult(requestedUrl: string, elapsedMs: number): FetchedPage {
 		unsafeRedirect: false,
 		hasHsts: false,
 		hasCsp: false,
+		botChallenge: false,
+		error: error || null,
 	};
 }
 
@@ -173,11 +203,61 @@ export interface FetchPageOptions {
 	userAgent?: string;
 	/** Prevent recursive http→https upgrade retries. */
 	skipProtocolUpgrade?: boolean;
+	/**
+	 * Skip the browser-UA retry. Use for auxiliary same-origin files
+	 * (sitemap / robots / llms.txt) so a dead HTTPS hop cannot stack another timeout.
+	 */
+	skipUaRetry?: boolean;
 }
 
 function errorMessage(err: unknown): string {
 	if (err instanceof Error) return err.message;
 	return String(err);
+}
+
+/** Flatten `Error` + Node `cause.code` so undici `fetch failed` is classifiable. */
+export function collectErrorText(err: unknown): string {
+	const parts: string[] = [];
+	let current: unknown = err;
+	for (let depth = 0; depth < 5 && current != null; depth += 1) {
+		if (current instanceof Error) {
+			if (current.message) parts.push(current.message);
+			if ('code' in current && current.code) parts.push(String(current.code));
+			current = 'cause' in current ? (current as { cause?: unknown }).cause : undefined;
+			continue;
+		}
+		if (typeof current === 'object') {
+			const row = current as { code?: unknown; message?: unknown; cause?: unknown };
+			if (row.message) parts.push(String(row.message));
+			if (row.code) parts.push(String(row.code));
+			current = row.cause;
+			if (current === undefined) break;
+			continue;
+		}
+		parts.push(String(current));
+		break;
+	}
+	return parts.join(' ');
+}
+
+const HARD_NETWORK_ERROR_RE =
+	/ECONNREFUSED|ECONNRESET|EHOSTUNREACH|ENOTFOUND|EPROTO|ETIMEDOUT|ERR_SSL|ERR_TLS|ERR_CERT|SSL_PROTOCOL|UNABLE_TO_VERIFY|CERT_|certificate|handshake|fetch failed/i;
+
+const TIMEOUT_ERROR_RE = /timeout|aborted|AbortError|The operation was aborted/i;
+
+/** Connection refused / TLS handshake / generic undici `fetch failed` — retrying will not help. */
+export function isHardNetworkError(err: unknown): boolean {
+	return HARD_NETWORK_ERROR_RE.test(collectErrorText(err));
+}
+
+export function isTimeoutError(err: unknown): boolean {
+	return TIMEOUT_ERROR_RE.test(collectErrorText(err));
+}
+
+/** Stable token for auxiliary collectors (`sitemap` / robots / llms). */
+export function classifyFetchError(err: unknown): string {
+	if (isTimeoutError(err) || isHardNetworkError(err)) return 'timeout_or_failed';
+	return collectErrorText(err).slice(0, 180) || 'timeout_or_failed';
 }
 
 function isBlockedStatus(status: number | null): boolean {
@@ -217,6 +297,7 @@ async function fetchRedirectChain(
 						? {
 								'Cache-Control': 'no-cache, no-store, must-revalidate',
 								Pragma: 'no-cache',
+								Expires: '0',
 							}
 						: {}),
 				},
@@ -244,10 +325,11 @@ async function fetchRedirectChain(
 			const decoded = decodeHtmlBuffer(buffer, res.headers.get('content-type') || undefined);
 			const security = readSecurityHeaders(res);
 			const headers = pickResponseHeaders(res);
+			const text = decoded.slice(0, maxChars);
 			return {
 				ok: res.ok,
 				status: res.status,
-				text: decoded.slice(0, maxChars),
+				text,
 				elapsedMs: Date.now() - started,
 				bytes: buffer.length,
 				requestedUrl,
@@ -258,16 +340,19 @@ async function fetchRedirectChain(
 				unsafeRedirect: hasUnsafeRedirect(chain),
 				hasHsts: Boolean(security.hsts),
 				hasCsp: Boolean(security.csp),
+				botChallenge: isBotChallengeResponse(res, text),
 			};
 		} catch (err) {
+			const classified = classifyFetchError(err);
 			console.error('[fetch-page] hop failed:', {
 				url: fetchUrl,
 				hop,
 				userAgent: userAgent === AUDIT_USER_AGENT ? 'audit-bot' : 'browser',
 				message: errorMessage(err),
+				classified,
 			});
 			return {
-				...emptyResult(requestedUrl, Date.now() - started),
+				...emptyResult(requestedUrl, Date.now() - started, classified),
 				redirectChain: chain,
 				finalUrl: current,
 				unsafeRedirect: hasUnsafeRedirect(chain),
@@ -287,6 +372,10 @@ async function fetchRedirectChain(
 /**
  * Fetch a public URL, following redirects manually so the final DOM/headers
  * and the hop list are both available to the scorer.
+ *
+ * Fail-safe: hop / TLS / timeout errors never throw. HTTP-only hosts that
+ * reject HTTPS (`ECONNREFUSED`, `ERR_SSL_PROTOCOL_ERROR`, `fetch failed`)
+ * skip the browser-UA retry and do at most one protocol-upgrade attempt.
  */
 export async function fetchPageResource(
 	inputUrl: string,
@@ -294,41 +383,58 @@ export async function fetchPageResource(
 ): Promise<FetchedPage> {
 	const started = Date.now();
 
-	let requested: URL;
 	try {
-		requested = opts?.skipSsrf ? coerceHttpUrl(inputUrl) : await assertPublicHttpUrl(inputUrl);
-	} catch (err) {
-		console.error('[fetch-page] URL rejected:', inputUrl, errorMessage(err));
-		return emptyResult(inputUrl, Date.now() - started);
-	}
-
-	const primaryUa = opts?.userAgent ?? AUDIT_USER_AGENT;
-	let result = await fetchRedirectChain(requested, opts, primaryUa, started);
-
-	const blocked = isBlockedStatus(result.status);
-	const emptyBody = !result.text;
-	if ((blocked || (emptyBody && result.status == null)) && primaryUa !== BROWSER_USER_AGENT) {
-		console.warn('[fetch-page] retrying with browser User-Agent', {
-			url: requested.href,
-			status: result.status,
-		});
-		const retry = await fetchRedirectChain(requested, opts, BROWSER_USER_AGENT, started);
-		if (retry.text || retry.status != null) {
-			result = retry;
+		let requested: URL;
+		try {
+			requested = opts?.skipSsrf ? coerceHttpUrl(inputUrl) : await assertPublicHttpUrl(inputUrl);
+		} catch (err) {
+			console.error('[fetch-page] URL rejected:', inputUrl, errorMessage(err));
+			return emptyResult(inputUrl, Date.now() - started, classifyFetchError(err));
 		}
-	}
 
-	if (!result.text && result.status == null && requested.protocol === 'http:' && !opts?.skipProtocolUpgrade) {
-		const httpsUrl = new URL(requested.href);
-		httpsUrl.protocol = 'https:';
-		console.warn('[fetch-page] HTTP fetch empty, trying HTTPS', httpsUrl.href);
-		const httpsResult = await fetchPageResource(httpsUrl.href, {
-			...opts,
-			skipProtocolUpgrade: true,
-			skipSsrf: true,
-		});
-		if (httpsResult.text || httpsResult.ok) return httpsResult;
-	}
+		const primaryUa = opts?.userAgent ?? AUDIT_USER_AGENT;
+		let result = await fetchRedirectChain(requested, opts, primaryUa, started);
 
-	return result;
+		const blocked = isBlockedStatus(result.status) || result.botChallenge;
+		const hardFail = Boolean(result.error);
+		// UA retry is only for WAF / 401-403-429 — never for timeout or TLS refusal.
+		if (!opts?.skipUaRetry && blocked && !hardFail && primaryUa !== BROWSER_USER_AGENT) {
+			console.warn('[fetch-page] retrying with browser User-Agent', {
+				url: requested.href,
+				status: result.status,
+				botChallenge: result.botChallenge,
+			});
+			const retry = await fetchRedirectChain(requested, opts, BROWSER_USER_AGENT, started);
+			if (retry.text || retry.status != null) {
+				result = retry;
+			}
+		}
+
+		if (
+			!result.text &&
+			result.status == null &&
+			requested.protocol === 'http:' &&
+			!opts?.skipProtocolUpgrade
+		) {
+			const httpsUrl = new URL(requested.href);
+			httpsUrl.protocol = 'https:';
+			console.warn('[fetch-page] HTTP fetch empty, trying HTTPS', httpsUrl.href);
+			const httpsResult = await fetchPageResource(httpsUrl.href, {
+				...opts,
+				skipProtocolUpgrade: true,
+				skipUaRetry: true,
+				skipSsrf: true,
+			});
+			if (httpsResult.text || httpsResult.ok) return httpsResult;
+			// HTTPS refused / SSL handshake failed — keep the HTTP result and stop.
+			if (httpsResult.error) {
+				return { ...result, error: result.error || httpsResult.error };
+			}
+		}
+
+		return result;
+	} catch (err) {
+		console.error('[fetch-page] unexpected failure:', inputUrl, errorMessage(err));
+		return emptyResult(inputUrl, Date.now() - started, classifyFetchError(err));
+	}
 }

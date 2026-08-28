@@ -4,7 +4,10 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { signOut, useSession } from 'next-auth/react';
-import { PricingModal } from './PricingModal';
+import { PortalHubTriggerButton } from './admin/portal-hub/PortalHubTriggerButton';
+import { PortalHubModal } from './admin/portal-hub/PortalHubModal';
+// [TEMP] 크레딧 과금/주입 비활성화 — 충전 모달 진입점 숨김
+// import { PricingModal } from './PricingModal';
 
 interface MeResponse {
 	authenticated: boolean;
@@ -33,7 +36,9 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 	const { data: session, status } = useSession();
 	const [me, setMe] = useState<MeResponse | null>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
-	const [pricingOpen, setPricingOpen] = useState(false);
+	// [TEMP] 크레딧 과금/주입 비활성화
+	// const [pricingOpen, setPricingOpen] = useState(false);
+	const [portalHubOpen, setPortalHubOpen] = useState(false);
 
 	const forceLight = variant === 'light';
 	const sessionUser = session?.user;
@@ -55,7 +60,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 		return () => {
 			cancelled = true;
 		};
-	}, [status, pricingOpen]);
+	}, [status]);
 
 	if (status === 'loading' && !signedIn) {
 		return (
@@ -91,12 +96,22 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 	const email = me?.email ?? sessionUser?.email ?? null;
 	const role = me?.role ?? sessionUser?.role;
 	const planId = me?.planId ?? 'starter';
-	const credits = me?.creditsRemaining;
+	// [TEMP] 크레딧 과금/주입 비활성화
+	// const credits = me?.creditsRemaining;
 	const initial = (name ?? email ?? 'R').slice(0, 1).toUpperCase();
-	const isAdmin = typeof role === 'string' && role.toLowerCase() === 'admin';
+	const isAdmin =
+		sessionUser?.isAdmin === true || (typeof role === 'string' && role.toLowerCase() === 'admin');
 
 	return (
 		<div className={`flex items-center gap-3 ${stacked ? 'w-full flex-col items-stretch' : ''}`}>
+			{isAdmin && !stacked && (
+				<PortalHubTriggerButton
+					variant="public"
+					externalModal
+					onOpen={() => setPortalHubOpen(true)}
+				/>
+			)}
+			{/* [TEMP] 크레딧 과금/주입 비활성화 — 헤더 잔여 크레딧 뱃지
 			<button
 				onClick={() => setPricingOpen(true)}
 				className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold transition-colors duration-200 ${
@@ -110,6 +125,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 			>
 				⚡ {t('credits', { count: credits ?? 0 })}
 			</button>
+			*/}
 
 			<div className={`relative ${stacked ? 'w-full' : ''}`}>
 				<button
@@ -204,8 +220,18 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 									>
 										◈ {t('autonomous')}
 									</Link>
+									<PortalHubTriggerButton
+										variant="menu"
+										externalModal
+										onOpen={() => {
+											setMenuOpen(false);
+											setPortalHubOpen(true);
+											onNavigate?.();
+										}}
+									/>
 								</>
 							)}
+							{/* [TEMP] 크레딧 과금/주입 비활성화 — 프로필 메뉴 충전/업그레이드
 							<button
 								onClick={() => {
 									setMenuOpen(false);
@@ -219,6 +245,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 							>
 								{t('upgrade')}
 							</button>
+							*/}
 							<button
 								onClick={() => signOut({ callbackUrl: '/' })}
 								className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-200 ${
@@ -232,7 +259,10 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 				)}
 			</div>
 
+			{/* [TEMP] 크레딧 과금/주입 비활성화
 			<PricingModal open={pricingOpen} onClose={() => setPricingOpen(false)} />
+			*/}
+			<PortalHubModal open={portalHubOpen} onClose={() => setPortalHubOpen(false)} />
 		</div>
 	);
 }

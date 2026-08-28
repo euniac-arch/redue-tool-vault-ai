@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocale } from 'next-intl';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import { buildTechnicalFailsFromReport } from '@/lib/audit/geo-narrative';
@@ -20,6 +20,10 @@ import {
 import { siteLabelFromUrl } from '@/lib/audit/report-url';
 import type { AuditReport } from '@/lib/site-auditor';
 
+/** Slightly above `/api/audit/pagespeed`'s own `maxDuration=60` so a normal (if slow) real
+ *  Lighthouse read is never cut off client-side before the server's own fallback would fire. */
+const PAGESPEED_CLIENT_FETCH_TIMEOUT_MS = 65_000;
+
 export function useAuditReportEnrichment(report: AuditReport | null) {
 	const locale = useLocale();
 	const [geoNarrative, setGeoNarrative] = useState<GeoNarrativeReport | null>(null);
@@ -34,6 +38,8 @@ export function useAuditReportEnrichment(report: AuditReport | null) {
 		Partial<Record<PageSpeedStrategy, string | null>>
 	>({});
 	const [psiStrategy, setPsiStrategy] = useState<PageSpeedStrategy>('desktop');
+	/** Track 3 부분 재진단(리프레시) — 전체 재스캔 없이 Lighthouse만 다시 호출하는 동안 true. */
+	const [isPsiRefreshing, setIsPsiRefreshing] = useState(false);
 	const geoFetchKeyRef = useRef('');
 	const psiCacheRef = useRef<{
 		auditKey: string;
@@ -141,12 +147,41 @@ export function useAuditReportEnrichment(report: AuditReport | null) {
 		const auditKey = `${targetUrl}|${fetchedAt}`;
 		let strategy = psiStrategy;
 
+		// Improves the server's on-page estimate fallback (used only if the live Lighthouse
+		// read fails) — mirrors the hints the scan orchestrator used to compute itself
+		// before Track 3 was deferred to this client-side fetch.
+		const perfCategory = report.categories?.find((c) => c.id === 'performance');
+		const onPagePerformanceScore100 =
+			perfCategory && perfCategory.maxScore > 0
+				? Math.round((perfCategory.score / perfCategory.maxScore) * 100)
+				: undefined;
+		const responseTimeMs = report.responseTimeMs ?? undefined;
+
 		if (psiCacheRef.current.auditKey !== auditKey) {
-			psiCacheRef.current = { auditKey, byStrategy: {} };
+			// Track 3 is now collected server-side alongside Track 1/2 by `/api/audit/scan`
+			// — seed both strategies straight from the scan payload instead of re-fetching
+			// PageSpeed client-side. Only a report saved before this field existed (or one
+			// where a Lighthouse run genuinely failed) falls through to fetchStrategy below.
+			const seededByStrategy: Partial<Record<PageSpeedStrategy, PageSpeedSnapshot>> = {};
+			if (report.pageSpeedDesktop) seededByStrategy.desktop = report.pageSpeedDesktop;
+			if (report.pageSpeedMobile) seededByStrategy.mobile = report.pageSpeedMobile;
+			for (const [seededStrategy, snapshot] of Object.entries(seededByStrategy) as Array<
+				[PageSpeedStrategy, PageSpeedSnapshot]
+			>) {
+				rememberPageSpeed(psiCacheKey(targetUrl, fetchedAt, seededStrategy), snapshot);
+			}
+
+			psiCacheRef.current = { auditKey, byStrategy: seededByStrategy };
 			psiInflightRef.current = {};
-			setPsiByStrategy({});
-			setPsiErrorByStrategy({});
-			setPsiLoadingByStrategy({ desktop: true, mobile: true });
+			setPsiByStrategy(seededByStrategy);
+			setPsiErrorByStrategy({
+				desktop: seededByStrategy.desktop?.unavailableMessage || null,
+				mobile: seededByStrategy.mobile?.unavailableMessage || null,
+			});
+			setPsiLoadingByStrategy({
+				desktop: !seededByStrategy.desktop,
+				mobile: !seededByStrategy.mobile,
+			});
 			if (psiStrategy !== 'desktop') {
 				setPsiStrategy('desktop');
 				return;
@@ -161,7 +196,10 @@ export function useAuditReportEnrichment(report: AuditReport | null) {
 			setPsiByStrategy((prev) =>
 				prev[nextStrategy] === snapshot ? prev : { ...prev, [nextStrategy]: snapshot },
 			);
-			setPsiErrorByStrategy((prev) => ({ ...prev, [nextStrategy]: null }));
+			setPsiErrorByStrategy((prev) => ({
+				...prev,
+				[nextStrategy]: snapshot.unavailableMessage || null,
+			}));
 			setPsiLoadingByStrategy((prev) => ({ ...prev, [nextStrategy]: false }));
 		}
 
@@ -192,11 +230,23 @@ export function useAuditReportEnrichment(report: AuditReport | null) {
 
 			const promise = (async () => {
 				try {
+					console.log('[audit/pagespeed][client][Track 3] fetch start', { targetUrl, strategy: nextStrategy, background });
 					const res = await fetch('/api/audit/pagespeed', {
 						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ url: targetUrl, strategy: nextStrategy }),
-					});
+						cache: 'no-store',
+						headers: {
+							'Content-Type': 'application/json',
+						'Cache-Control': 'no-cache, no-store, must-revalidate',
+						Pragma: 'no-cache',
+					},
+					body: JSON.stringify({
+						url: targetUrl,
+						strategy: nextStrategy,
+						onPagePerformanceScore100,
+						responseTimeMs,
+					}),
+					signal: AbortSignal.timeout(PAGESPEED_CLIENT_FETCH_TIMEOUT_MS),
+				});
 					const data = await res.json().catch(() => ({}));
 					if (psiCacheRef.current.auditKey !== auditKey) return null;
 					if (!res.ok) {
@@ -229,29 +279,97 @@ export function useAuditReportEnrichment(report: AuditReport | null) {
 		}
 
 		const other: PageSpeedStrategy = strategy === 'desktop' ? 'mobile' : 'desktop';
-		const cached = psiCacheRef.current.byStrategy[strategy] ?? peekCachedPageSpeed(
-			psiCacheKey(targetUrl, fetchedAt, strategy),
-		);
-		if (cached) {
-			applySnapshot(strategy, cached);
-			void fetchStrategy(other, true);
-			return;
-		}
+		const cached =
+			psiCacheRef.current.byStrategy[strategy] ??
+			peekCachedPageSpeed(psiCacheKey(targetUrl, fetchedAt, strategy));
+		if (cached) applySnapshot(strategy, cached);
+
+		const otherCached =
+			psiCacheRef.current.byStrategy[other] ?? peekCachedPageSpeed(psiCacheKey(targetUrl, fetchedAt, other));
+		if (otherCached) applySnapshot(other, otherCached);
+
+		// Both strategies already resolved (embedded scan payload or module cache) —
+		// nothing left to fetch, so the result screen never shows a Track 3 spinner.
+		if (cached && otherCached) return;
 
 		let cancelled = false;
-		void Promise.all([fetchStrategy(strategy, false), fetchStrategy(other, true)]).then(() => {
+		const pending: Promise<PageSpeedSnapshot | null>[] = [];
+		if (!cached) pending.push(fetchStrategy(strategy, false));
+		if (!otherCached) pending.push(fetchStrategy(other, true));
+		void Promise.all(pending).then(() => {
 			if (cancelled) return;
 		});
 
 		return () => {
 			cancelled = true;
 		};
-	}, [report?.url, report?.fetchedAt, psiStrategy]);
+	}, [report?.url, report?.fetchedAt, report?.pageSpeedDesktop, report?.pageSpeedMobile, psiStrategy]);
+
+	/**
+	 * Track 3 부분 재진단(리프레시) — 전체 사이트 재스캔(`runAudit`) 없이 Lighthouse
+	 * mobile/desktop 두 API만 강제로 재호출한다(`forceRefresh: true` → 서버 15분 캐시 우회).
+	 * 결과가 도착하면 `psiByStrategy`만 교체되고, 이 값을 소비하는
+	 * `resolveTrack3PerformanceScore` → `buildDiagnosisScoreSnapshot`(AuditReportDocument)이
+	 * 자동으로 재계산되어 종합 점수(SSOT)·3-트랙 카드·Track 3 세부 영역이 모두 리렌더링된다.
+	 */
+	const refreshPageSpeed = useCallback(async () => {
+		if (!report?.url || isPsiRefreshing) return;
+		const targetUrl = report.url;
+		const fetchedAt = report.fetchedAt;
+		const auditKey = `${targetUrl}|${fetchedAt}`;
+		if (psiCacheRef.current.auditKey !== auditKey) return;
+
+		setIsPsiRefreshing(true);
+
+		async function refreshStrategy(nextStrategy: PageSpeedStrategy): Promise<void> {
+			try {
+				console.log('[audit/pagespeed][client][Track 3] manual refresh start', { targetUrl, strategy: nextStrategy });
+				const res = await fetch('/api/audit/pagespeed', {
+					method: 'POST',
+					cache: 'no-store',
+					headers: {
+						'Content-Type': 'application/json',
+						'Cache-Control': 'no-cache, no-store, must-revalidate',
+						Pragma: 'no-cache',
+					},
+					body: JSON.stringify({ url: targetUrl, strategy: nextStrategy, forceRefresh: true }),
+					signal: AbortSignal.timeout(PAGESPEED_CLIENT_FETCH_TIMEOUT_MS),
+				});
+				const data = await res.json().catch(() => ({}));
+				if (psiCacheRef.current.auditKey !== auditKey) return;
+				if (!res.ok) {
+					throw new Error(
+						typeof data.error === 'string' && data.error ? data.error : 'PageSpeed Insights failed',
+					);
+				}
+				const snapshot = data as PageSpeedSnapshot;
+				psiCacheRef.current.byStrategy[nextStrategy] = snapshot;
+				rememberPageSpeed(psiCacheKey(targetUrl, fetchedAt, nextStrategy), snapshot);
+				setPsiByStrategy((prev) => ({ ...prev, [nextStrategy]: snapshot }));
+				setPsiErrorByStrategy((prev) => ({ ...prev, [nextStrategy]: snapshot.unavailableMessage || null }));
+			} catch (err) {
+				if (psiCacheRef.current.auditKey === auditKey) {
+					setPsiErrorByStrategy((prev) => ({
+						...prev,
+						[nextStrategy]: err instanceof Error ? err.message : 'PageSpeed Insights failed',
+					}));
+				}
+			}
+		}
+
+		try {
+			await Promise.all([refreshStrategy('desktop'), refreshStrategy('mobile')]);
+		} finally {
+			if (psiCacheRef.current.auditKey === auditKey) setIsPsiRefreshing(false);
+		}
+	}, [report?.url, report?.fetchedAt, isPsiRefreshing]);
 
 	const pageSpeed = psiByStrategy[psiStrategy] ?? null;
 	const pageSpeedDesktop = psiByStrategy.desktop ?? null;
 	const pageSpeedMobile = psiByStrategy.mobile ?? null;
-	const pageSpeedLoading = Boolean(psiLoadingByStrategy[psiStrategy]) && !pageSpeed;
+	const pageSpeedLoadingDesktop = Boolean(psiLoadingByStrategy.desktop) && !pageSpeedDesktop;
+	const pageSpeedLoadingMobile = Boolean(psiLoadingByStrategy.mobile) && !pageSpeedMobile;
+	const pageSpeedLoading = pageSpeedLoadingDesktop || pageSpeedLoadingMobile;
 	const pageSpeedError = pageSpeed ? null : (psiErrorByStrategy[psiStrategy] ?? null);
 
 	return {
@@ -264,5 +382,7 @@ export function useAuditReportEnrichment(report: AuditReport | null) {
 		pageSpeedError,
 		psiStrategy,
 		setPsiStrategy,
+		isPsiRefreshing,
+		refreshPageSpeed,
 	};
 }

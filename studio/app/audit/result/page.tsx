@@ -9,15 +9,26 @@ import { AuditLoading } from '@/components/AuditLoading';
 import { AuditResultLoader } from '@/components/audit/AuditResultLoader';
 import { AuditScrollspyNav } from '@/components/AuditScrollspyNav';
 import { AuditShareBar } from '@/components/AuditShareBar';
-import { type AuditResultTabId } from '@/components/audit/AuditResultTabs';
+import { DEFAULT_AUDIT_RESULT_TAB, type AuditResultTabId } from '@/components/audit/AuditResultTabs';
 import { useAuditPayload } from '@/components/audit/AuditPayloadProvider';
 import {
 	getGuestAuditById,
+	getGuestAudits,
 	notifyAuditHistorySync,
 	removeGuestAudit,
 	scanSiteOnce,
 	upsertGuestAuditOnRescan,
+	type AuditHistoryEntry,
 } from '@/lib/audit-history-storage';
+import { archiveLocalProjectFromAudit } from '@/lib/projects-local';
+import {
+	buildSnapshotFromReport,
+	hostnameFromAuditUrl,
+	isProjectedAuditReport,
+	listDomainTrackingSnapshots,
+	mergeDomainHistoryPoints,
+	snapshotsFromHistoryList,
+} from '@/lib/audit/domain-tracking';
 import { AuditLimitModal } from '@/components/audit/AuditLimitModal';
 import { isAuditLimitError } from '@/lib/audit/free-audit-quota';
 import { persistReportTrackingSnapshot } from '@/lib/audit/domain-tracking';
@@ -26,31 +37,36 @@ import type { TargetDiagnoseResponse } from '@/lib/crawling/types';
 import { OPEN_GEO_ANSWER_CENTER_EVENT } from '@/lib/audit/exec-brief';
 import { ensureExecutiveSummary } from '@/lib/audit/executive-summary';
 import { fetchAuditById, peekCachedAudit, rememberAudit } from '@/lib/audit/report-client-cache';
-import { buildPublicReportUrl, siteLabelFromUrl } from '@/lib/audit/report-url';
+import { buildMilestoneClientShareUrl, buildPublicReportUrl, siteLabelFromUrl } from '@/lib/audit/report-url';
+import { resolveProjectSiteName } from '@/lib/audit/project-site-name';
+import { endPdfLightPrint } from '@/lib/audit/print-pdf';
 import { requestFullReportMount } from '@/lib/audit/scroll-to-category';
 import { useAuditReportEnrichment } from '@/lib/audit/use-audit-report-enrichment';
+import {
+	resultSummaryFromAuditReport,
+	resultSummaryFromTrackingPoint,
+	type ResultSummaryAudit,
+} from '@/lib/audit/result-summary-compare';
+import { resolveTrack3PerformanceScore } from '@/lib/audit/pagespeed';
 import type { AuditReport } from '@/lib/site-auditor';
-
-const AuditReportDocument = dynamic(
-	() => import('@/components/audit/AuditReportDocument').then((mod) => mod.AuditReportDocument),
-	{
-		ssr: false,
-		loading: () => <AuditResultLoader variant="compose" />,
-	},
-);
-
-const EmailPreviewModal = dynamic(
-	() => import('@/components/EmailPreviewModal').then((mod) => mod.EmailPreviewModal),
-	{ ssr: false },
-);
+import { AuditReportDocument } from '@/components/audit/AuditReportDocument';
+import { EmailPreviewModal } from '@/components/EmailPreviewModal';
+import { MilestoneAuditPanel } from '@/components/audit/milestone/MilestoneAuditPanel';
+import { RoundSnapshotSummaryCard } from '@/components/audit/milestone/RoundSnapshotSummaryCard';
+import { MilestoneUpsellCta } from '@/components/audit/milestone/MilestoneUpsellCta';
+import { useMilestoneAudit } from '@/lib/audit/use-milestone-audit';
+import { useMilestonePermission } from '@/lib/audit/use-milestone-permission';
 
 const ExecBriefModal = dynamic(
-	() => import('@/components/audit/ExecBriefOverlay').then((mod) => mod.ExecBriefModal),
+	() => import('@/components/audit/ExecBriefOverlay').then((m) => m.ExecBriefModal),
 	{ ssr: false },
 );
-
 const PDFPreviewModal = dynamic(
-	() => import('@/components/audit/PDFPreviewModal').then((mod) => mod.PDFPreviewModal),
+	() => import('@/components/audit/PDFPreviewModal').then((m) => m.PDFPreviewModal),
+	{ ssr: false },
+);
+const ResultSummaryOverlay = dynamic(
+	() => import('@/components/audit/ResultSummaryOverlay').then((m) => m.ResultSummaryOverlay),
 	{ ssr: false },
 );
 
@@ -112,7 +128,10 @@ function AuditResultContent() {
 	const [emailOpen, setEmailOpen] = useState(false);
 	const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 	const [execBriefOpen, setExecBriefOpen] = useState(false);
-	const [resultTab, setResultTab] = useState<AuditResultTabId>('geo');
+	const [resultSummaryOpen, setResultSummaryOpen] = useState(false);
+	const [resultSummaryPreview, setResultSummaryPreview] = useState(false);
+	const [compareInitial, setCompareInitial] = useState<ResultSummaryAudit | null>(null);
+	const [resultTab, setResultTab] = useState<AuditResultTabId>(DEFAULT_AUDIT_RESULT_TAB);
 	/** Keeps admin-list `target_id` across `?url=` to `?id=` replacement. */
 	const targetIdRef = useRef(targetIdParam);
 	const diagnosisSavedRef = useRef(false);
@@ -131,7 +150,42 @@ function AuditResultContent() {
 		pageSpeedError,
 		psiStrategy,
 		setPsiStrategy,
+		isPsiRefreshing,
+		refreshPageSpeed,
 	} = useAuditReportEnrichment(report);
+	// Same Track 3 read `AuditReportDocument` feeds into `buildDiagnosisScoreSnapshot` for the
+	// on-screen headline score — reusing it here keeps the Before/After popup's "After" number
+	// pixel-identical to the score the user is looking at when they open it.
+	const psiPerformanceScore = resolveTrack3PerformanceScore({
+		mobile: pageSpeedMobile,
+		desktop: pageSpeedDesktop,
+	});
+	const liveOptimizedSummary = useMemo(() => {
+		if (!report) return null;
+		const afterReport =
+			evaluationResult && evaluationResult.url === report.url ? evaluationResult : report;
+		return resultSummaryFromAuditReport(afterReport, {
+			coreWebVitalsScore100: psiPerformanceScore,
+		});
+	}, [report, evaluationResult, psiPerformanceScore]);
+
+	useEffect(() => {
+		if (!report) return;
+		if (!pageSpeedDesktop && !pageSpeedMobile) return;
+		const nextDesktop = pageSpeedDesktop ?? report.pageSpeedDesktop;
+		const nextMobile = pageSpeedMobile ?? report.pageSpeedMobile;
+		if (nextDesktop === report.pageSpeedDesktop && nextMobile === report.pageSpeedMobile) return;
+		const nextReport: AuditReport = {
+			...report,
+			pageSpeedDesktop: nextDesktop,
+			pageSpeedMobile: nextMobile,
+		};
+		setReport(nextReport);
+		if (!resolvedId) return;
+		rememberAudit(resolvedId, nextReport);
+		persistReportTrackingSnapshot(resolvedId, nextReport);
+		persistAudit(nextReport, { auditId: resolvedId, cmsType: nextReport.cmsType });
+	}, [pageSpeedDesktop, pageSpeedMobile, report, resolvedId, persistAudit]);
 
 	/** Prevents a second loading flash when we replace ?url= with ?id= after animation. */
 	const holdRevealRef = useRef(false);
@@ -264,22 +318,51 @@ function AuditResultContent() {
 		}
 
 		async function runScan(targetUrl: string, opts?: { forceRefresh?: boolean; replaceId?: string }) {
+			console.log('[audit/result] re-audit: fetch dispatched', {
+				targetUrl,
+				replaceId: opts?.replaceId || null,
+			});
 			const data = await scanSiteOnce(targetUrl, locale, {
 				forceRefresh: true,
 				replaceId: opts?.replaceId,
 			});
+			console.log('[audit/result] re-audit: response parsed, binding report to state', {
+				targetUrl,
+				id: data.id ?? null,
+			});
 			const { id, ...rest } = data;
-			const nextReport = ensureExecutiveSummary(rest as AuditReport);
+			let nextReport: AuditReport;
+			try {
+				nextReport = ensureExecutiveSummary(rest as AuditReport);
+			} catch (err) {
+				console.error('[audit/result] executive summary bind failed (report still renders):', err);
+				nextReport = rest as AuditReport;
+			}
+			if (!nextReport?.url || !Array.isArray(nextReport.categories)) {
+				throw new Error(t('failedTitle'));
+			}
 
 			if (!cancelled) {
+				// Best-effort local bookkeeping (guest history row, project archive, cross-tab
+				// sync notice) — a completed, rendered diagnosis must never be turned into an
+				// error screen just because one of these side effects throws.
 				if (id) {
-					rememberAudit(id, nextReport);
-					const entry = upsertGuestAuditOnRescan(id, nextReport, { replaceId: opts?.replaceId });
-					persistReportTrackingSnapshot(id, nextReport);
-					notifyAuditHistorySync({
-						ids: [id, opts?.replaceId || ''].filter(Boolean),
-						entry,
-					});
+					try {
+						rememberAudit(id, nextReport);
+						const entry = upsertGuestAuditOnRescan(id, nextReport, { replaceId: opts?.replaceId });
+						persistReportTrackingSnapshot(id, nextReport);
+						archiveLocalProjectFromAudit(nextReport, {
+							auditId: id,
+							cmsType: nextReport.cmsType,
+							userType: data.userType,
+						});
+						notifyAuditHistorySync({
+							ids: [id, opts?.replaceId || ''].filter(Boolean),
+							entry,
+						});
+					} catch (err) {
+						console.error('[audit/result] post-scan bookkeeping failed (report still renders):', err);
+					}
 				}
 				setReport(nextReport);
 				setResolvedId(id ?? null);
@@ -289,7 +372,7 @@ function AuditResultContent() {
 				// Context cache; durable store is Firestore audit_projects (scan API returns doc id)
 				persistAudit(nextReport, { auditId: id ?? null, cmsType: nextReport.cmsType });
 				void persistAdminTargetDiagnosis(nextReport, id ?? null);
-				// Keep loading UI up until AuditLoading finishes 6/6.
+				// Keep loading UI up until AuditLoading finishes 7/7 (incl. the Track 3 PageSpeed gate).
 			}
 		}
 
@@ -300,10 +383,17 @@ function AuditResultContent() {
 			try {
 				const liveRescan = Boolean(scanUrl) || forceRefresh;
 				if (liveRescan && (scanUrl || auditId)) {
+					console.log('[audit/result] re-audit: starting new scan cycle, clearing prior report state', {
+						scanUrl,
+						auditId,
+						forceRefresh,
+					});
 					setIsAnalyzing(true);
 					setIsLoading(true);
 					setIsFetching(true);
 					setIsDataReady(false);
+					// Clear the previously rendered diagnosis before kicking off the new fetch so a
+					// stale report can never bleed into the fresh loading cycle / get confused with it.
 					setReport(null);
 					setJustRefreshed(false);
 
@@ -355,6 +445,11 @@ function AuditResultContent() {
 					setError(t('noUrl'));
 				}
 			} catch (err) {
+				console.error('[audit/result] re-audit failed — showing error screen instead of hanging:', {
+					scanUrl,
+					auditId,
+					message: err instanceof Error ? err.message : String(err),
+				});
 				if (!cancelled) {
 					if (isAuditLimitError(err)) {
 						setLimitOpen(true);
@@ -394,6 +489,9 @@ function AuditResultContent() {
 			const params = new URLSearchParams();
 			params.set('id', resolvedId);
 			if (targetIdRef.current) params.set('target_id', targetIdRef.current);
+			console.log('[audit/result] re-audit: loading terminal finished, routing to result view', {
+				resolvedId,
+			});
 			router.replace(`/audit/result?${params.toString()}`);
 		}
 	}, [resolvedId, router]);
@@ -406,13 +504,40 @@ function AuditResultContent() {
 	const previewBindKey = useMemo(
 		() =>
 			displayReport
-				? `pdf-${resolvedId || displayReport.url}-${appliedResult?.viewMode ?? (displayReport.isPrescriptionApplied ? 'after' : 'before')}-${displayReport.score}-${displayReport.prescriptionAppliedAt ?? '0'}-${prescriptionRevision}`
+				? `pdf-${resolvedId || displayReport.url}-${appliedResult?.viewMode ?? (displayReport.isPrescriptionApplied ? 'after' : 'before')}-${displayReport.score}-${psiPerformanceScore ?? 'pending'}-${pageSpeedLoading ? 'cwv-loading' : 'cwv-ready'}-${displayReport.prescriptionAppliedAt ?? '0'}-${prescriptionRevision}`
 				: `pdf-empty-${prescriptionRevision}`,
-		[displayReport, resolvedId, appliedResult?.viewMode, prescriptionRevision],
+		[displayReport, resolvedId, appliedResult?.viewMode, prescriptionRevision, psiPerformanceScore, pageSpeedLoading],
 	);
 
 	const shareUrl = useMemo(
 		() => (resolvedId ? buildPublicReportUrl(resolvedId) : ''),
+		[resolvedId],
+	);
+
+	// "4주 집중 마일스톤" — 회차별 원클릭 박제 시스템. 권한(관리자/고객공유/일반)에 따라
+	// 타임라인 탭·박제 컨트롤러 노출 여부가 갈리며, 라이브 진단은 항상 그대로 유지된다.
+	// 재진단 시작 시 `report`가 잠깐 `null`이 되어 `milestoneDomain`도 함께 비워지므로,
+	// 아래 렌더링(`milestoneTopSlot`)과 패널에 넘기는 `domain`은 절대 `milestoneDomain`을
+	// 직접 쓰지 않고 `milestone.effectiveDomain`(훅 내부에서 마지막 실제 도메인을 별도로
+	// 기억하는 안정 값)을 사용한다 — 그래야 재진단 도중 패널/박제 배지가 잠깐 사라졌다가
+	// 다시 나타나며 "확정이 초기화된 것처럼" 보이는 현상 없이, 라이브 상태와 마일스톤
+	// 슬롯이 화면상으로도 완전히 분리된다.
+	const milestonePermission = useMilestonePermission();
+	const milestoneDomain = report ? hostnameFromAuditUrl(report.url) : '';
+	const milestone = useMilestoneAudit({
+		domain: milestoneDomain,
+		reportId: resolvedId,
+		liveReport: report,
+		geoNarrative,
+		pageSpeed,
+		pageSpeedDesktop,
+		pageSpeedMobile,
+		lang: locale === 'en' ? 'en' : 'ko',
+		enableRemoteSync: milestonePermission.mode !== 'user',
+	});
+	const milestoneDisplayedPayload = milestone.displayedSnapshot?.data ?? null;
+	const milestoneClientShareUrl = useMemo(
+		() => (resolvedId ? buildMilestoneClientShareUrl(resolvedId) : ''),
 		[resolvedId],
 	);
 
@@ -422,7 +547,10 @@ function AuditResultContent() {
 		requestFullReportMount();
 		setPdfPreviewOpen(true);
 	}, []);
-	const handleClosePdfPreview = useCallback(() => setPdfPreviewOpen(false), []);
+	const handleClosePdfPreview = useCallback(() => {
+		endPdfLightPrint();
+		setPdfPreviewOpen(false);
+	}, []);
 	const handleOpenExecBrief = useCallback(() => setExecBriefOpen(true), []);
 	const handleCloseExecBrief = useCallback(() => setExecBriefOpen(false), []);
 	const handleResultTabChange = useCallback((tab: AuditResultTabId) => setResultTab(tab), []);
@@ -433,6 +561,67 @@ function AuditResultContent() {
 			window.dispatchEvent(new CustomEvent(OPEN_GEO_ANSWER_CENTER_EVENT));
 		}, 80);
 	}, []);
+	const handleCloseResultSummary = useCallback(() => {
+		setResultSummaryOpen(false);
+		setResultSummaryPreview(false);
+	}, []);
+	const handlePreviewResultSummary = useCallback(async () => {
+		if (resultSummaryPreview) {
+			setResultSummaryOpen((open) => !open);
+			return;
+		}
+		if (!report) return;
+
+		// Real before/after for the actual audited site: the very first ever measured
+		// diagnosis for this hostname vs the most recent one (this session's rescan or the
+		// latest stored diagnosis) — same append-only timeline used by ActualAuditHistoryTracker.
+		const afterReport =
+			evaluationResult && evaluationResult.url === report.url ? evaluationResult : report;
+		const hostname = hostnameFromAuditUrl(report.url);
+		const currentId = resolvedId || `local:${hostname}`;
+		const currentSnapshot = isProjectedAuditReport(report)
+			? null
+			: buildSnapshotFromReport(currentId, report);
+
+		const local = listDomainTrackingSnapshots(hostname);
+		const guest = snapshotsFromHistoryList(getGuestAudits(), hostname);
+		let server: AuditHistoryEntry[] = [];
+		try {
+			const res = await fetch('/api/audit/history', { cache: 'no-store' });
+			const data = (await res.json()) as { items?: AuditHistoryEntry[] };
+			if (res.ok && Array.isArray(data.items)) server = data.items;
+		} catch {
+			// Local + guest tracking alone still gives a real (if session-local) timeline.
+		}
+
+		const merged = mergeDomainHistoryPoints([
+			...local,
+			...guest,
+			...snapshotsFromHistoryList(server, hostname),
+			...(currentSnapshot ? [currentSnapshot] : []),
+		]);
+		const firstPoint = merged[0] ?? currentSnapshot;
+		const latestPoint = merged[merged.length - 1] ?? currentSnapshot;
+
+		const afterSummary = resultSummaryFromAuditReport(afterReport, {
+			coreWebVitalsScore100: psiPerformanceScore,
+		});
+		const known = {
+			siteName: afterSummary.siteName,
+			url: report.url,
+			schemaType: afterSummary.schema.schemaType,
+			llmsTxt: afterSummary.llmsTxt.status,
+		};
+		const hasHistoricalBefore =
+			Boolean(firstPoint && latestPoint && firstPoint.snapshotId !== latestPoint.snapshotId);
+		setCompareInitial(
+			hasHistoricalBefore && firstPoint
+				? resultSummaryFromTrackingPoint(firstPoint, known)
+				: null,
+		);
+		setResultSummaryPreview(true);
+		setResultSummaryOpen(true);
+	}, [resultSummaryPreview, report, evaluationResult, resolvedId, psiPerformanceScore]);
 
 	const loadingUrl = scanUrl || url || report?.url || '';
 	const resultData = report;
@@ -440,32 +629,11 @@ function AuditResultContent() {
 	const showError = !isAnalyzing && Boolean(error);
 	const showResultContent = !isAnalyzing && Boolean(resultData);
 	const showResultLoader = !isAnalyzing && !error && isResultPending && !resultData;
+
 	const loaderVariant = auditId && !isLiveAnalysis ? 'hydrate' : 'compose';
 	const emailSiteName = resultData
-		? resultData.siteMeta?.brandName ||
-			resultData.metrics?.pageTitle ||
-			siteLabelFromUrl(resultData.url)
+		? resolveProjectSiteName(resultData) || siteLabelFromUrl(resultData.url)
 		: '';
-
-	useEffect(() => {
-		if (!showResultContent) return;
-		const win = window as Window & {
-			requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
-			cancelIdleCallback?: (id: number) => void;
-		};
-		const prefetch = () => {
-			void import('@/components/EmailPreviewModal');
-			void import('@/components/audit/ExecBriefOverlay');
-			void import('@/components/audit/PDFPreviewModal');
-			void import('@/components/audit/Tab2OnpageBody');
-		};
-		if (typeof win.requestIdleCallback === 'function') {
-			const id = win.requestIdleCallback(prefetch, { timeout: 4000 });
-			return () => win.cancelIdleCallback?.(id);
-		}
-		const timer = window.setTimeout(prefetch, 2800);
-		return () => window.clearTimeout(timer);
-	}, [showResultContent]);
 
 	return (
 		<main ref={contentShellRef} className="audit-report-page relative">
@@ -478,6 +646,14 @@ function AuditResultContent() {
 					<Link href="/" className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
 						{t('backToHome')}
 					</Link>
+					<button
+						type="button"
+						onClick={handlePreviewResultSummary}
+						disabled={!report}
+						className="rounded-lg border border-[#00F2FE]/40 bg-[#00F2FE]/10 px-3 py-1.5 text-xs font-extrabold text-[#00F2FE] transition hover:bg-[#00F2FE]/20 disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{t('resultSummary.preview')}
+					</button>
 					{targetIdRef.current || targetPersisted ? (
 						<Link
 							href="/admin/crawling/list"
@@ -554,23 +730,81 @@ function AuditResultContent() {
 
 				{showResultContent && resultData ? (
 					<div className="audit-result-fade-in">
-						<AuditReportDocument
-							report={resultData}
-							reportId={resolvedId}
-							geoNarrative={geoNarrative}
-							geoNarrativeLoading={geoNarrativeLoading}
-							pageSpeed={pageSpeed}
-							pageSpeedDesktop={pageSpeedDesktop}
-							pageSpeedMobile={pageSpeedMobile}
-							pageSpeedLoading={pageSpeedLoading}
-							pageSpeedError={pageSpeedError}
-							psiStrategy={psiStrategy}
-							onPsiStrategyChange={setPsiStrategy}
-							resultTab={resultTab}
-							onResultTabChange={handleResultTabChange}
-							onOpenPdfPreview={handleOpenPdfPreview}
-							justRefreshed={justRefreshed}
-						/>
+						{/* 회차가 확정 상태인데 이 브라우저에 전체 리포트 캐시(`data`)가 없는 경우
+						    (다른 기기에서 열람, 로컬 캐시 정리 등) — 라이브 데이터를 그 회차인 것처럼
+						    잘못 보여주지 않고, Firestore에서 받아온 경량 점수 요약 카드로 대체한다. */}
+						{milestone.displayedSnapshot && !milestone.displayedSnapshot.data ? (
+							<>
+								{milestonePermission.mode !== 'user' && milestone.effectiveDomain ? (
+									<MilestoneAuditPanel
+										domain={milestone.effectiveDomain}
+										mode={milestonePermission.mode}
+										history={milestone.history}
+										activeRound={milestone.activeRound}
+										onSelectRound={milestone.setActiveRound}
+										scoreByRound={milestone.scoreByRound}
+										isLocking={milestone.isLocking}
+										lockError={milestone.lockError}
+										lastLockedRound={milestone.lastLockedRound}
+										onLockRound={milestone.lockRound}
+										onDownloadCurrentPdf={handleOpenPdfPreview}
+										shareUrl={milestoneClientShareUrl}
+										lang={locale === 'en' ? 'en' : 'ko'}
+									/>
+								) : null}
+								<div className="mt-4">
+									<RoundSnapshotSummaryCard
+										snapshot={milestone.displayedSnapshot.roundSnapshot}
+										onBackToLive={() => milestone.setActiveRound('LIVE')}
+									/>
+								</div>
+							</>
+						) : (
+							<AuditReportDocument
+								report={milestoneDisplayedPayload?.report ?? resultData}
+								reportId={resolvedId}
+								geoNarrative={milestoneDisplayedPayload ? milestoneDisplayedPayload.geoNarrative : geoNarrative}
+								geoNarrativeLoading={milestoneDisplayedPayload ? false : geoNarrativeLoading}
+								pageSpeed={milestoneDisplayedPayload ? milestoneDisplayedPayload.pageSpeed : pageSpeed}
+								pageSpeedDesktop={
+									milestoneDisplayedPayload ? milestoneDisplayedPayload.pageSpeedDesktop : pageSpeedDesktop
+								}
+								pageSpeedMobile={
+									milestoneDisplayedPayload ? milestoneDisplayedPayload.pageSpeedMobile : pageSpeedMobile
+								}
+								pageSpeedLoading={milestoneDisplayedPayload ? false : pageSpeedLoading}
+								pageSpeedError={milestoneDisplayedPayload ? null : pageSpeedError}
+								psiStrategy={psiStrategy}
+								onPsiStrategyChange={setPsiStrategy}
+								pageSpeedRefreshing={isPsiRefreshing}
+								onRefreshPageSpeed={refreshPageSpeed}
+								resultTab={resultTab}
+								onResultTabChange={handleResultTabChange}
+								onOpenPdfPreview={handleOpenPdfPreview}
+								justRefreshed={justRefreshed}
+								bypassEvaluationOverlay={!milestone.isViewingLive}
+								milestoneTopSlot={
+									milestonePermission.mode !== 'user' && milestone.effectiveDomain ? (
+										<MilestoneAuditPanel
+											domain={milestone.effectiveDomain}
+											mode={milestonePermission.mode}
+											history={milestone.history}
+											activeRound={milestone.activeRound}
+											onSelectRound={milestone.setActiveRound}
+											scoreByRound={milestone.scoreByRound}
+											isLocking={milestone.isLocking}
+											lockError={milestone.lockError}
+											lastLockedRound={milestone.lastLockedRound}
+											onLockRound={milestone.lockRound}
+											onDownloadCurrentPdf={handleOpenPdfPreview}
+											shareUrl={milestoneClientShareUrl}
+											lang={locale === 'en' ? 'en' : 'ko'}
+										/>
+									) : undefined
+								}
+								milestoneBottomSlot={milestonePermission.mode === 'user' ? <MilestoneUpsellCta /> : undefined}
+							/>
+						)}
 					</div>
 				) : null}
 			</div>
@@ -623,6 +857,14 @@ function AuditResultContent() {
 						/>
 					) : null}
 				</>
+			) : null}
+			{resultSummaryOpen ? (
+				<ResultSummaryOverlay
+					open={resultSummaryOpen}
+					onClose={handleCloseResultSummary}
+					initialAudit={compareInitial ?? liveOptimizedSummary}
+					optimizedAudit={liveOptimizedSummary}
+				/>
 			) : null}
 		</main>
 	);

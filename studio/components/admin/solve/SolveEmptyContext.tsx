@@ -90,26 +90,26 @@ export function SolveEmptyContext({ missingDocId = null }: SolveEmptyContextProp
 			</div>
 
 			<div className="grid gap-4 lg:grid-cols-2">
-				<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+				<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 					<div className="flex items-baseline justify-between gap-2">
-						<h2 className="text-sm font-bold text-slate-900">최근 진단 이력 선택</h2>
+						<h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">최근 진단 이력 선택</h2>
 						<Link
 							href="/admin/projects"
-							className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+							className="text-[11px] font-semibold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
 						>
 							전체 프로젝트 →
 						</Link>
 					</div>
-					<p className="mt-1 text-xs text-slate-500">
+					<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
 						최근 {RECENT_LIMIT}건 · 항목을 클릭하면 해결 워크스페이스에 바인딩됩니다.
 					</p>
 
 					{loading ? (
-						<p className="mt-4 text-xs text-slate-400">불러오는 중…</p>
+						<p className="mt-4 text-xs text-slate-400 dark:text-slate-500">불러오는 중…</p>
 					) : listError ? (
 						<p className="mt-4 text-xs font-medium text-rose-600">{listError}</p>
 					) : recent.length === 0 ? (
-						<p className="mt-4 text-xs text-slate-500">
+						<p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
 							저장된 진단이 없습니다. 오른쪽에서 새 URL 진단을 시작해 주세요.
 						</p>
 					) : (
@@ -118,12 +118,12 @@ export function SolveEmptyContext({ missingDocId = null }: SolveEmptyContextProp
 								<li key={item.auditId}>
 									<Link
 										href={`/admin/solve?id=${encodeURIComponent(item.auditId)}`}
-										className="flex flex-col gap-1 rounded-lg border border-slate-200 px-3 py-2.5 transition hover:border-slate-400 hover:bg-slate-50"
+										className="flex flex-col gap-1 rounded-lg border border-slate-200 px-3 py-2.5 transition hover:border-slate-400 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-700"
 									>
-										<span className="truncate text-sm font-semibold text-slate-900">
+										<span className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
 											{item.targetUrl}
 										</span>
-										<span className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+										<span className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
 											<span>{formatAuditDate(item.createdAt)}</span>
 											<span className="rounded-md bg-slate-900 px-1.5 py-0.5 font-bold text-white tabular-nums">
 												점수 {item.overallScore}
@@ -141,9 +141,9 @@ export function SolveEmptyContext({ missingDocId = null }: SolveEmptyContextProp
 					)}
 				</div>
 
-				<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-					<h2 className="text-sm font-bold text-slate-900">새 URL 진단하기</h2>
-					<p className="mt-1 text-xs text-slate-500">
+				<div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+					<h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">새 URL 진단하기</h2>
+					<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
 						진단 완료 후 결과 페이지에서 해결 워크스페이스로 연결할 수 있습니다.
 					</p>
 					<form onSubmit={handleNewAudit} className="mt-4 flex flex-col gap-2.5 sm:flex-row">
@@ -153,7 +153,7 @@ export function SolveEmptyContext({ missingDocId = null }: SolveEmptyContextProp
 							value={url}
 							onChange={(e) => setUrl(e.target.value)}
 							placeholder="https://example.com"
-							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none ring-slate-400/0 transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300"
+							className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none ring-slate-400/0 transition focus:border-slate-500 focus:ring-2 focus:ring-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
 						/>
 						<button
 							type="submit"
@@ -163,9 +163,9 @@ export function SolveEmptyContext({ missingDocId = null }: SolveEmptyContextProp
 							{submitting ? '이동 중…' : '진단하기'}
 						</button>
 					</form>
-					<p className="mt-3 text-[11px] text-slate-400">
+					<p className="mt-3 text-[11px] text-slate-400 dark:text-slate-500">
 						또는{' '}
-						<Link href="/" className="font-semibold text-slate-600 underline-offset-2 hover:underline">
+						<Link href="/" className="font-semibold text-slate-600 underline-offset-2 hover:underline dark:text-slate-300">
 							메인 진단 폼
 						</Link>
 						으로 이동할 수 있습니다.

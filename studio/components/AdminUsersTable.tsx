@@ -1,6 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { fetchAdminApi } from '@/lib/admin/admin-api';
+import { handleAdminUnauthorized } from '@/lib/admin/handle-admin-unauthorized';
+import { useAdminSession } from '@/lib/admin/use-admin-session';
 
 interface AdminUserRow {
 	id: string;
@@ -22,25 +25,37 @@ function formatKrw(amount: number): string {
 }
 
 export function AdminUsersTable() {
+	const { canFetchAdmin, status, session } = useAdminSession();
 	const [users, setUsers] = useState<AdminUserRow[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [drafts, setDrafts] = useState<Record<string, string>>({});
 
 	async function load() {
-		try {
-			const res = await fetch('/api/admin/users');
-			const data = await res.json();
-			if (!res.ok) throw new Error(data.error ?? '회원 목록을 불러오지 못했습니다.');
-			setUsers(data.users as AdminUserRow[]);
-		} catch (err) {
-			setError((err as Error).message);
+		if (status !== 'authenticated' || !session?.user || session.user.isAdmin !== true || !canFetchAdmin) return;
+		const result = await fetchAdminApi<{ users: AdminUserRow[] }>('/api/admin/users');
+		if (!result.ok) {
+			if (result.forbidden) {
+				setUsers(null);
+				setError(null);
+				if (result.unauthorized) void handleAdminUnauthorized();
+				return;
+			}
+			setError(result.message);
+			return;
 		}
+		setUsers(result.data.users);
+		setError(null);
 	}
 
 	useEffect(() => {
-		load();
-	}, []);
+		if (status !== 'authenticated' || !session?.user || session.user.isAdmin !== true || !canFetchAdmin) {
+			setUsers(null);
+			setError(null);
+			return;
+		}
+		void load();
+	}, [canFetchAdmin, status, session]);
 
 	async function adjustCredits(userId: string, delta: number) {
 		setPendingId(userId);
@@ -61,19 +76,22 @@ export function AdminUsersTable() {
 		}
 	}
 
+	if (!canFetchAdmin) {
+		return null;
+	}
 	if (error) {
 		return <div className="rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>;
 	}
 
 	if (!users) {
-		return <div className="h-40 animate-pulse rounded-xl border border-slate-200 bg-white" />;
+		return <div className="h-40 animate-pulse rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700" />;
 	}
 
 	return (
-		<div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+		<div className="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-700">
 			<table className="w-full min-w-[820px] text-left text-sm">
 				<thead>
-					<tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+					<tr className="border-b border-slate-200 bg-slate-50 text-xs uppercase tracking-wide text-slate-500 dark:bg-slate-700/60 dark:text-slate-400 dark:border-slate-700">
 						<th className="px-4 py-3 font-semibold">이메일</th>
 						<th className="px-4 py-3 font-semibold">가입일</th>
 						<th className="px-4 py-3 font-semibold">요금제</th>
@@ -84,20 +102,20 @@ export function AdminUsersTable() {
 				</thead>
 				<tbody>
 					{users.map((user) => (
-						<tr key={user.id} className="border-b border-slate-100 last:border-0">
+						<tr key={user.id} className="border-b border-slate-100 last:border-0 dark:border-slate-700">
 							<td className="px-4 py-3">
-								<p className="font-medium text-slate-800">{user.email ?? '(이메일 없음)'}</p>
+								<p className="font-medium text-slate-800 dark:text-slate-100">{user.email ?? '(이메일 없음)'}</p>
 								{user.role === 'admin' && (
 									<span className="mt-0.5 inline-block rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-700">
 										ADMIN
 									</span>
 								)}
 							</td>
-							<td className="px-4 py-3 text-slate-500">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
-							<td className="px-4 py-3 text-slate-700">{PLAN_LABEL[user.planId] ?? user.planId}</td>
+							<td className="px-4 py-3 text-slate-500 dark:text-slate-400">{new Date(user.createdAt).toLocaleDateString('ko-KR')}</td>
+							<td className="px-4 py-3 text-slate-700 dark:text-slate-200">{PLAN_LABEL[user.planId] ?? user.planId}</td>
 							<td className="px-4 py-3 font-mono text-cyan-700">{user.creditsRemaining}회</td>
 							<td className="px-4 py-3">
-								<p className="text-slate-700">{formatKrw(user.totalPaidKrw)}</p>
+								<p className="text-slate-700 dark:text-slate-200">{formatKrw(user.totalPaidKrw)}</p>
 								<p className={`text-xs ${user.marginKrw >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
 									마진 {formatKrw(user.marginKrw)} (API ${user.totalApiCostUsd.toFixed(4)})
 								</p>
@@ -107,7 +125,7 @@ export function AdminUsersTable() {
 									<input
 										type="number"
 										placeholder="개수"
-										className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-indigo-500"
+										className="w-16 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-indigo-500 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600"
 										value={drafts[user.id] ?? ''}
 										onChange={(event) => setDrafts((prev) => ({ ...prev, [user.id]: event.target.value }))}
 									/>

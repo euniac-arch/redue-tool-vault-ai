@@ -14,6 +14,7 @@ import { DeferredSection } from '@/components/audit/DeferredSection';
 import { LlmsTxtCopyBox } from '@/components/audit/LlmsTxtCopyBox';
 import { computeAdvancedGeoFromReport } from '@/lib/audit/advancedGeoFromReport';
 import type { DynamicSovResult } from '@/lib/audit/advancedGeoMetrics';
+import { resolveDiagnosticSovPresets } from '@/lib/audit/sovDiagnosticValidation';
 import {
 	snapshotHasRealCompetitors,
 	type RealCompetitorSnapshot,
@@ -32,7 +33,7 @@ export interface Tab1ReputationSectionProps {
 }
 
 /**
- * Tab 1 — AI search trust & external reputation.
+ * Track 2 tab — AI search trust & citation dominance (GEO).
  * Top: unified market leaderboard (live top 3 including the client + To-Be).
  * E-E-A-T: entity identification gauge.
  * Bottom crawler diagnosis: /llms.txt status + jump to Answer Center module 5.
@@ -62,16 +63,21 @@ function Tab1ReputationSectionInner({
 		const region = slots.location || '';
 		const mainService = slots.categoryNouns[0] || '';
 		const subService = slots.categoryNouns[1];
+		const sovPresets = resolveDiagnosticSovPresets({
+			brandName: clientName,
+			siteUrl: report.url || report.siteMeta?.targetUrl,
+			fallback: queryMatrix.sovPresets,
+		});
 		return {
 			clientName,
 			region,
 			mainService,
 			subService,
 			categoryName: report.siteMeta?.category || mainService,
-			sovPresets: queryMatrix.sovPresets,
-			defaultQuery: queryMatrix.sovPresets[0] || queryMatrix.sovPresets[1],
+			sovPresets,
+			defaultQuery: sovPresets[0] || queryMatrix.sovPresets[1],
 		};
-	}, [queryMatrix, report.siteMeta?.category]);
+	}, [queryMatrix, report.siteMeta?.category, report.url, report.siteMeta?.targetUrl]);
 	const [liveSnapshot, setLiveSnapshot] = useState<RealCompetitorSnapshot | null>(
 		() => report.realCompetitors ?? null,
 	);
@@ -165,15 +171,15 @@ function Tab1ReputationSectionInner({
 				reportData={reportData}
 			/>
 			<BrandTrustPanel report={report} reportData={reportData} entity={metrics.entityDisambiguation} />
+			<GeoLocalNapCard report={report} reportData={reportData} />
+			<DeferredSection force={publicView} minHeight={160}>
+				<DigitalFootprintSection report={report} reportData={reportData} />
+			</DeferredSection>
 			<LlmsTxtCopyBox
 				present={metrics.hasLlmsTxt}
 				report={report}
 				reportData={reportData}
 			/>
-			<GeoLocalNapCard report={report} reportData={reportData} />
-			<DeferredSection force={publicView} minHeight={160}>
-				<DigitalFootprintSection report={report} reportData={reportData} />
-			</DeferredSection>
 			<DeferredSection force={publicView} minHeight={120}>
 				<GeoActionPlanPanel report={report} reportData={reportData} />
 			</DeferredSection>

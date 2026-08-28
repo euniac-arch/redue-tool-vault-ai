@@ -2,7 +2,9 @@
 
 import Link from 'next/link';
 import { memo, useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import { useTranslations } from 'next-intl';
+import { AuthModal } from '@/components/AuthModal';
 import { ReportShareLinkButton } from '@/components/audit/ReportShareLinkButton';
 import { shareToKakao } from '@/lib/kakao-share';
 
@@ -26,6 +28,8 @@ function ActionButton({
 	title,
 	nowrap = false,
 	wrap = false,
+	locked = false,
+	lockedBadgeLabel,
 }: {
 	onClick: () => void;
 	className: string;
@@ -37,6 +41,12 @@ function ActionButton({
 	nowrap?: boolean;
 	/** Allow the desktop label to wrap instead of truncating. */
 	wrap?: boolean;
+	/**
+	 * Smart-Lock: member-only feature shown to a guest. Never hide the
+	 * button — surface a 🔒 badge instead and route the click to signup.
+	 */
+	locked?: boolean;
+	lockedBadgeLabel?: string;
 }) {
 	const labelLayout = nowrap
 		? 'whitespace-nowrap'
@@ -49,9 +59,17 @@ function ActionButton({
 			type="button"
 			onClick={onClick}
 			title={title ?? label}
-			aria-label={label}
-			className={`group flex w-auto items-center gap-2 rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5 ${nowrap || wrap ? 'overflow-visible' : 'overflow-hidden'} ${className}`}
+			aria-label={locked && lockedBadgeLabel ? `${label} (${lockedBadgeLabel})` : label}
+			className={`group relative flex w-auto items-center gap-2 rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5 ${nowrap || wrap ? 'overflow-visible' : 'overflow-hidden'} ${className}`}
 		>
+			{locked ? (
+				<span
+					aria-hidden
+					className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-[10px] leading-none shadow-md dark:border-slate-950"
+				>
+					🔒
+				</span>
+			) : null}
 			<span className="shrink-0 text-base leading-none" aria-hidden>
 				{icon}
 			</span>
@@ -60,6 +78,11 @@ function ActionButton({
 				className={`min-[1600px]:inline max-[1599px]:hidden ${labelLayout}`}
 			>
 				{label}
+				{locked && lockedBadgeLabel ? (
+					<span className="ml-1.5 inline-flex items-center whitespace-nowrap rounded-full bg-black/15 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide">
+						{lockedBadgeLabel}
+					</span>
+				) : null}
 			</span>
 			<span
 				className={`hidden text-xs max-[1599px]:inline max-[450px]:hidden ${
@@ -82,10 +105,15 @@ function AuditShareBarInner({
 }: AuditShareBarProps) {
 	const t = useTranslations('audit.share');
 	const tBrief = useTranslations('audit.execBrief');
+	const tAuth = useTranslations('audit.authModal');
+	const { data: session } = useSession();
+	const signedIn = Boolean(session?.user?.id);
 	const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 	const [shareError, setShareError] = useState<string | null>(null);
 	const [isCompactBar, setIsCompactBar] = useState(false);
 	const [footerLiftPx, setFooterLiftPx] = useState(0);
+	const [authModalOpen, setAuthModalOpen] = useState(false);
+	const [authModalMessage, setAuthModalMessage] = useState('');
 
 	useEffect(() => {
 		const mq = window.matchMedia(COMPACT_BAR_MQ);
@@ -147,10 +175,22 @@ function AuditShareBarInner({
 	}
 
 	function handlePrintPdf() {
+		// Smart-Lock: viral actions stay fully open, but the official PDF report
+		// is a member-only funnel into signup.
+		if (!signedIn) {
+			setAuthModalMessage(tAuth('pdfMessage'));
+			setAuthModalOpen(true);
+			return;
+		}
 		onOpenPdfPreview();
 	}
 
 	function openRedueEmailModal() {
+		if (!signedIn) {
+			setAuthModalMessage(tAuth('emailMessage'));
+			setAuthModalOpen(true);
+			return;
+		}
 		onOpenEmail();
 	}
 
@@ -194,6 +234,8 @@ function AuditShareBarInner({
 							icon="📄"
 							label={t('pdf')}
 							shortLabel={t('pdfShort')}
+							locked={!signedIn}
+							lockedBadgeLabel={t('memberOnlyBadge')}
 							className="bg-[#D4AF37] text-[#0B1C2C] hover:bg-[#e0c15a]"
 						/>
 						<ActionButton
@@ -202,6 +244,8 @@ function AuditShareBarInner({
 							label={t('email')}
 							shortLabel={t('emailShort')}
 							nowrap
+							locked={!signedIn}
+							lockedBadgeLabel={t('memberOnlyBadge')}
 							className="border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20"
 						/>
 						<ReportShareLinkButton
@@ -244,6 +288,12 @@ function AuditShareBarInner({
 					</div>
 				</div>
 			</aside>
+
+			<AuthModal
+				open={authModalOpen}
+				onClose={() => setAuthModalOpen(false)}
+				message={authModalMessage}
+			/>
 		</>
 	);
 }

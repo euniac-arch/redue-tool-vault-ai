@@ -18,6 +18,13 @@ import {
 	normalizeLoginIdentifier,
 	resolveNextAuthSecret,
 } from './master-admin';
+import {
+	describeKakaoErrorCode,
+	extractKakaoErrorCode,
+	getKakaoRedirectUri,
+	logKakaoAuthEvent,
+	sanitizeAuthMeta,
+} from './auth-kakao-errors';
 import { ensureMasterAdminUser } from './ensure-master-admin';
 import { prisma } from './prisma';
 
@@ -50,6 +57,39 @@ function sessionRoleForUser(email: string | null | undefined, dbRole?: string | 
 
 export { ensureMasterAdminUser } from './ensure-master-admin';
 
+/**
+ * Registering an OAuth provider with a placeholder clientId (e.g.
+ * "KAKAO_CLIENT_ID_NOT_SET") still sends that literal string to Kakao as
+ * `client_id`, which Kakao rejects with KOE101 ("등록되지 않은 앱") — a
+ * confusing error that looks like a config mismatch rather than a missing
+ * env var. Only register a provider once both id/secret are present, and
+ * warn loudly at boot so the real cause shows up in server logs instead of
+ * surfacing as a cryptic Kakao error page.
+ */
+export function isKakaoOAuthConfigured(): boolean {
+	return Boolean(process.env.KAKAO_CLIENT_ID?.trim() && process.env.KAKAO_CLIENT_SECRET?.trim());
+}
+
+export function isGoogleOAuthConfigured(): boolean {
+	return Boolean(process.env.GOOGLE_CLIENT_ID?.trim() && process.env.GOOGLE_CLIENT_SECRET?.trim());
+}
+
+if (!isKakaoOAuthConfigured()) {
+	console.warn(
+		'[auth] KAKAO_CLIENT_ID/KAKAO_CLIENT_SECRET missing or empty — Kakao login button is disabled. ' +
+			'Set both in studio/.env.local (KAKAO_CLIENT_ID = Kakao "REST API 키", not the JavaScript key).',
+	);
+} else {
+	console.info('[auth] Kakao provider enabled', {
+		clientIdChars: process.env.KAKAO_CLIENT_ID!.trim().length,
+		clientSecretChars: process.env.KAKAO_CLIENT_SECRET!.trim().length,
+		redirectUri: getKakaoRedirectUri(),
+	});
+}
+if (!isGoogleOAuthConfigured()) {
+	console.warn('[auth] GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET missing or empty — Google login button is disabled.');
+}
+
 export const authOptions: AuthOptions = {
 	adapter: buildAdapter(),
 	session: { strategy: 'jwt' },
@@ -59,14 +99,36 @@ export const authOptions: AuthOptions = {
 		signIn: '/login',
 	},
 	providers: [
-		GoogleProvider({
-			clientId: process.env.GOOGLE_CLIENT_ID || 'GOOGLE_CLIENT_ID_NOT_SET',
-			clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'GOOGLE_CLIENT_SECRET_NOT_SET',
-		}),
-		KakaoProvider({
-			clientId: process.env.KAKAO_CLIENT_ID || 'KAKAO_CLIENT_ID_NOT_SET',
-			clientSecret: process.env.KAKAO_CLIENT_SECRET || 'KAKAO_CLIENT_SECRET_NOT_SET',
-		}),
+		...(isGoogleOAuthConfigured()
+			? [
+					GoogleProvider({
+						clientId: process.env.GOOGLE_CLIENT_ID!,
+						clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+					}),
+				]
+			: []),
+		...(isKakaoOAuthConfigured()
+			? [
+					KakaoProvider({
+						clientId: process.env.KAKAO_CLIENT_ID!,
+						clientSecret: process.env.KAKAO_CLIENT_SECRET!,
+						profile(profile) {
+							const account = profile.kakao_account;
+							logKakaoAuthEvent('info', 'profile received', {
+								hasId: profile.id != null,
+								hasEmail: Boolean(account?.email),
+								emailNeedsAgreement: account?.email_needs_agreement ?? null,
+							});
+							return {
+								id: String(profile.id),
+								name: account?.profile?.nickname ?? null,
+								email: account?.email ?? null,
+								image: account?.profile?.profile_image_url ?? null,
+							};
+						},
+					}),
+				]
+			: []),
 		CredentialsProvider({
 			id: 'credentials',
 			name: '이메일',
@@ -122,36 +184,89 @@ export const authOptions: AuthOptions = {
 	],
 	callbacks: {
 		async jwt({ token, user }) {
-			if (user) {
+			if (user?.id) {
 				token.uid = user.id;
-				token.role = user.role || sessionRoleForUser(user.email, null);
+			} else if (!token.uid && token.sub) {
+				token.uid = String(token.sub);
 			}
-			if (!token.role && token.email) {
-				token.role = sessionRoleForUser(String(token.email), null);
-			}
-			if (isMasterAdminLoginId(String(token.email || '')) || token.uid === MASTER_ADMIN_ID) {
+
+			const email = String(token.email || user?.email || '');
+			const isMaster = isMasterAdminLoginId(email) || token.uid === MASTER_ADMIN_ID;
+			if (isMaster) {
 				token.uid = (token.uid as string) || MASTER_ADMIN_ID;
 				token.role = MASTER_ADMIN_ROLE;
+				token.isAdmin = true;
+				return token;
 			}
+
+			if (user) {
+				token.role = sessionRoleForUser(user.email, user.role);
+			} else if (email && isAdminEmail(email)) {
+				token.role = MASTER_ADMIN_ROLE;
+			} else if (!token.role) {
+				token.role = sessionRoleForUser(email, null);
+			}
+
+			// Allowlist wins on every refresh so ADMIN_EMAILS changes apply without re-login.
+			if (email && isAdminEmail(email)) {
+				token.role = MASTER_ADMIN_ROLE;
+			}
+
+			token.isAdmin = token.role === MASTER_ADMIN_ROLE || isDbAdminRole(String(token.role || ''));
 			return token;
 		},
 		async session({ session, token }) {
 			if (session.user) {
-				session.user.id = (token.uid as string) || MASTER_ADMIN_ID;
-				session.user.role = (token.role as string) || sessionRoleForUser(session.user.email, null);
-				if (isMasterAdminLoginId(session.user.email || '') || session.user.id === MASTER_ADMIN_ID) {
+				const uid = (token.uid as string) || (token.sub as string) || '';
+				if (uid) session.user.id = uid;
+
+				const email = session.user.email || (token.email as string) || '';
+				if (email && !session.user.email) session.user.email = email;
+
+				const isMaster = isMasterAdminLoginId(email) || session.user.id === MASTER_ADMIN_ID;
+				if (isMaster) {
 					session.user.role = MASTER_ADMIN_ROLE;
 					session.user.email = session.user.email || MASTER_ADMIN_EMAIL;
+					if (!session.user.id) session.user.id = MASTER_ADMIN_ID;
+				} else if (email && isAdminEmail(email)) {
+					session.user.role = MASTER_ADMIN_ROLE;
+				} else {
+					session.user.role = (token.role as string) || sessionRoleForUser(email, null);
 				}
+
+				session.user.isAdmin =
+					Boolean(token.isAdmin) ||
+					session.user.role === MASTER_ADMIN_ROLE ||
+					isDbAdminRole(session.user.role) ||
+					Boolean(email && isAdminEmail(email));
 			}
 			return session;
+		},
+	},
+	logger: {
+		error(code, metadata) {
+			const kakaoCode = extractKakaoErrorCode(metadata) || extractKakaoErrorCode(code);
+			logKakaoAuthEvent('error', String(code), {
+				kakaoCode,
+				hint: describeKakaoErrorCode(kakaoCode),
+				metadata: sanitizeAuthMeta(metadata),
+			});
+		},
+		warn(code) {
+			console.warn('[auth]', code);
 		},
 	},
 	events: {
 		// Bootstrap mechanism for Step 6's admin backoffice: no self-service "become
 		// admin" UI exists on purpose, so listing an email in ADMIN_EMAILS is how the
 		// operator grants themselves access on first sign-in (OAuth or credentials).
-		async signIn({ user }) {
+		async signIn({ user, account }) {
+			if (account?.provider === 'kakao') {
+				logKakaoAuthEvent('info', 'sign-in succeeded', {
+					hasEmail: Boolean(user?.email),
+					hasName: Boolean(user?.name),
+				});
+			}
 			try {
 				if (user?.email && isAdminEmail(user.email)) {
 					await prisma.user.updateMany({

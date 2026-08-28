@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { loadSavedAuditReport } from '@/lib/audit/load-saved-report';
 import { buildPublicReportUrl, getAppOrigin, siteLabelFromUrl } from '@/lib/audit/report-url';
-import { ReportA4View } from '@/components/audit/ReportA4View';
+import { PublicReportClient } from './PublicReportClient';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -65,5 +65,5 @@ export default async function PublicReportPage({ params }: ReportPageProps) {
 		);
 	}
 
-	return <ReportA4View reportId={saved.id} report={saved.report} />;
+	return <PublicReportClient reportId={saved.id} report={saved.report} />;
 }

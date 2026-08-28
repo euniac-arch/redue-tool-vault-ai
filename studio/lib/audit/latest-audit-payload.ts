@@ -8,6 +8,8 @@ export interface LatestAuditPayload {
 	auditId: string | null;
 	report: AuditReport;
 	cmsType?: string;
+	/** Shared representative bind (`audit_payload.ceo_name`). */
+	ceo_name?: string;
 	/** Fail-only defect count at save time (warnings are excluded). */
 	defectCount: number;
 	score: number;
@@ -46,6 +48,11 @@ export function buildLatestAuditPayload(
 		auditId: opts?.auditId ?? null,
 		report,
 		cmsType: opts?.cmsType,
+		ceo_name:
+			report.siteMeta?.ceoName ||
+			report.ceoName ||
+			report.siteMeta?.representativeName ||
+			'대표원장',
 		defectCount: countAuditDefects(report),
 		score: Number.isFinite(report.score) ? Math.round(Number(report.score) * 10) / 10 : 0,
 		maxScore: report.maxScore,

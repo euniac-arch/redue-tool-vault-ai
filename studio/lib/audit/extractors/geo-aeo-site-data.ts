@@ -9,22 +9,14 @@ import {
 	collectJsonLdNodesFromHtml,
 	walkJsonLdNodes,
 } from '@/lib/audit/extractors/nap';
+import { extractUniversalSameAs } from '@/lib/audit/extractors/universal-same-as';
+import { extractGeoFromMapScripts, isOfficialChannelUrl } from '@/lib/audit/extractors/schema-entity-pack';
 
 export const DEFAULT_OPENS = '09:00';
 export const DEFAULT_CLOSES = '18:00';
 
 /** Seocho-gu civic centroid — used when address/JSON-LD coords are missing. */
 export const DEFAULT_SEOCHO_GEO = { latitude: '37.4837', longitude: '127.0324' } as const;
-
-const ENTITY_LINK_HOSTS = [
-	'map.naver.com',
-	'place.map.kakao.com',
-	'map.kakao.com',
-	'youtube.com',
-	'youtu.be',
-	'instagram.com',
-	'blog.naver.com',
-] as const;
 
 const TIME_RANGE_RE =
 	/(\d{1,2})\s*[:：]\s*(\d{2})\s*[~\-–—∼～]\s*(\d{1,2})\s*[:：]\s*(\d{2})/;
@@ -88,7 +80,7 @@ export interface OpeningHoursSpec {
 export interface GeoCoordinates {
 	latitude: string;
 	longitude: string;
-	source: 'jsonld' | 'locality' | 'default';
+	source: 'map' | 'jsonld' | 'locality' | 'default';
 }
 
 export interface GeoAeoSiteData {
@@ -200,12 +192,7 @@ function normalizeEntityUrl(raw: string): string {
 }
 
 function hostMatchesEntityLink(url: string): boolean {
-	try {
-		const host = new URL(url).hostname.replace(/^www\./i, '').toLowerCase();
-		return ENTITY_LINK_HOSTS.some((needle) => host === needle || host.endsWith(`.${needle}`));
-	} catch {
-		return false;
-	}
+	return isOfficialChannelUrl(url);
 }
 
 export function extractEntitySameAsLinks(html: string, $?: CheerioAPI | null): string[] {
@@ -220,6 +207,7 @@ export function extractEntitySameAsLinks(html: string, $?: CheerioAPI | null): s
 		push(root(el).attr('href') || '');
 	});
 
+	for (const url of extractUniversalSameAs(html)) push(url);
 	const nodes = collectJsonLdNodesFromHtml(html);
 	for (const node of nodes) {
 		const sameAs = node.sameAs;
@@ -280,7 +268,11 @@ export function extractGeoAeoSiteData(opts: {
 		const corpus = [footerText, compact($('body').text()).slice(0, 8000), html].filter(Boolean).join('\n');
 
 		const openingHours = extractOpeningHours(corpus);
-		const geo = geoFromJsonLd(html) || geocodeFromAddress([opts.addressText, opts.location, corpus].filter(Boolean).join(' '));
+		const mapGeo = extractGeoFromMapScripts(html);
+		const geo = mapGeo
+			? { latitude: String(mapGeo.latitude), longitude: String(mapGeo.longitude), source: 'map' as const }
+			: geoFromJsonLd(html) ||
+				geocodeFromAddress([opts.addressText, opts.location, corpus].filter(Boolean).join(' '));
 		const sameAs = extractEntitySameAsLinks(html, $);
 		const medicalSpecialty = mapMedicalSpecialties(
 			[...(opts.keywords || []), corpus.slice(0, 2000)],
@@ -324,9 +316,18 @@ export function mergeGeoAeoSiteData(
 	const medicalSpecialty = Array.from(
 		new Set([...(fallback.medicalSpecialty || []), ...(extra.medicalSpecialty || [])]),
 	);
+	const geoRank: Record<GeoCoordinates['source'], number> = {
+		map: 3,
+		jsonld: 2,
+		locality: 1,
+		default: 0,
+	};
+	const extraGeo = extra.geo;
+	const pickedGeo =
+		extraGeo && geoRank[extraGeo.source] > geoRank[fallback.geo.source] ? extraGeo : fallback.geo;
 	return {
 		openingHours: extra.openingHours?.detected ? extra.openingHours : fallback.openingHours,
-		geo: extra.geo && extra.geo.source !== 'default' ? extra.geo : fallback.geo,
+		geo: pickedGeo,
 		sameAs,
 		medicalSpecialty,
 		isAcceptingNewPatients: extra.isAcceptingNewPatients ?? fallback.isAcceptingNewPatients,

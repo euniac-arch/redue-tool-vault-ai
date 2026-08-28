@@ -15,6 +15,7 @@
  *                                            which only ever sees a `GeoNarrativeRequest`).
  */
 
+import { naverSameAsStatusMessage } from '@/lib/audit/extractors/universal-same-as';
 import { countAuditDefects } from '@/lib/audit/latest-audit-payload';
 import {
 	calculateGeoComprehensiveScores,
@@ -89,6 +90,12 @@ export interface DigitalFootprint {
 	googleMentionBenchmark: number;
 	naverMentionCount: number;
 	naverMentionIssue?: string;
+	/** Schema.org sameAs — Naver blog/cafe host matched. */
+	isNaverBlogLinked?: boolean;
+	/** Schema.org sameAs — Naver Place/map host matched. */
+	isNaverPlaceLinked?: boolean;
+	/** Success or missing copy for the Naver blog/cafe diagnosis panel. */
+	naverSameAsMessage?: string;
 	bingPlacesRegistered: boolean;
 	bingPlacesNote?: string;
 	/** Optional per-bot robots.txt / WAF access snapshot. */
@@ -148,6 +155,9 @@ export interface GeoReputationSignals {
 	schemaTypes?: string[];
 	jsonLdCorpus?: string;
 	footerText?: string;
+	/** Official sameAs URLs shared with Entity Disambiguation. */
+	sameAs?: string[];
+	collectedUrls?: string[];
 	representativeName?: string;
 	representativeJobTitle?: string;
 	organizationMissing?: string[];
@@ -279,9 +289,14 @@ export function extractSignalsFromReport(report: AuditReport): GeoReputationSign
 		checkPassed(checks, 'organization') || checks.some((c) => c.id === 'organization' && resolveStatus(c) === 'warning');
 	const orgComplete = orgPresent && (!orgMissing || orgMissing.length === 0);
 	const schemaTypes = report.metrics?.schemaTypes ?? report.siteMeta?.schemaEntityTypes;
-	const jsonLdCorpus = (report.metrics?.jsonLdSnippets ?? []).join('\n');
-	const extraCorpus = [...(report.collectedUrls ?? []), report.footerText ?? ''].join('\n');
-	const platform = detectEnginePlatformSignals({ schemaTypes, jsonLdCorpus, extraCorpus });
+	const jsonLdCorpus = report.metrics?.jsonLdFullCorpus || (report.metrics?.jsonLdSnippets ?? []).join('\n');
+	const extraCorpus = [...(report.collectedUrls ?? []), report.footerText ?? '', ...(report.siteMeta?.sameAs ?? [])].join('\n');
+	const platform = detectEnginePlatformSignals({
+		schemaTypes,
+		jsonLdCorpus,
+		extraCorpus,
+		sameAs: report.siteMeta?.sameAs,
+	});
 
 	return {
 		domain,
@@ -317,6 +332,8 @@ export function extractSignalsFromReport(report: AuditReport): GeoReputationSign
 		schemaTypes,
 		jsonLdCorpus,
 		footerText: report.footerText,
+		sameAs: report.siteMeta?.sameAs,
+		collectedUrls: report.collectedUrls,
 		representativeName: report.siteMeta?.representativeName,
 		representativeJobTitle: report.siteMeta?.representativeJobTitle,
 		organizationMissing: report.metrics?.organizationMissing,
@@ -386,6 +403,8 @@ export function computeExternalReputationFromSignals(
 		detectEnginePlatformSignals({
 			schemaTypes: signals.schemaTypes,
 			jsonLdCorpus: signals.jsonLdCorpus,
+			extraCorpus: [signals.footerText, ...(signals.collectedUrls ?? [])].filter(Boolean).join('\n'),
+			sameAs: signals.sameAs,
 		});
 
 	// —— Overview score = exact 4-pillar sum (entity + bots + NAP + RAG) ——
@@ -417,6 +436,8 @@ export function computeExternalReputationFromSignals(
 		schemaTypes: signals.schemaTypes,
 		jsonLdCorpus: signals.jsonLdCorpus,
 		footerText: signals.footerText,
+		sameAs: signals.sameAs,
+		collectedUrls: signals.collectedUrls,
 		representativeName: signals.representativeName,
 		representativeJobTitle: signals.representativeJobTitle,
 		organizationMissing: signals.organizationMissing,
@@ -432,12 +453,11 @@ export function computeExternalReputationFromSignals(
 	const googleMentionBenchmark = eeat.data.digitalFootprint.googleBenchmarkAvg;
 	const googleMentionCount = eeat.data.digitalFootprint.googleMentionsCount;
 	const naverMentionCount = eeat.data.digitalFootprint.naverPostingsCount;
-	const naverLow = !platform.naverPlaceLinked && !platform.naverBlogLinked;
-	const naverMentionIssue = naverLow
-		? lang === 'en'
-			? 'No Naver Place or blog sameAs signal was found on the audited page.'
-			: '감사 페이지에서 네이버 플레이스·블로그 sameAs 신호가 확인되지 않았습니다.'
-		: undefined;
+	const isNaverBlogLinked = Boolean(platform.naverBlogLinked);
+	const isNaverPlaceLinked = Boolean(platform.naverPlaceLinked);
+	const naverChannelLinked = isNaverBlogLinked || isNaverPlaceLinked;
+	const naverSameAsMessage = naverSameAsStatusMessage(naverChannelLinked, lang);
+	const naverMentionIssue = naverChannelLinked ? undefined : naverSameAsMessage;
 
 	const bingPlacesRegistered = eeat.data.digitalFootprint.bingPlacesRegistered;
 	const bingPlacesNote = bingPlacesRegistered
@@ -464,6 +484,9 @@ export function computeExternalReputationFromSignals(
 		googleMentionBenchmark,
 		naverMentionCount,
 		naverMentionIssue,
+		isNaverBlogLinked,
+		isNaverPlaceLinked,
+		naverSameAsMessage,
 		bingPlacesRegistered,
 		bingPlacesNote,
 		aiBots: buildAiCrawlerStatuses({
@@ -526,7 +549,7 @@ export function computeExternalReputationFromSignals(
 					: 'ChatGPT 크롤러가 직접 인용할 수 있는 1차 데이터 출처를 확보합니다.',
 		});
 	}
-	if (naverLow || !faqPresent) {
+	if (!naverChannelLinked || !faqPresent) {
 		actionPlan.push({
 			id: 'naver-faq',
 			priority: 'recommended',
@@ -656,6 +679,9 @@ export function resolveExternalReputation(
 			googleMentionBenchmark: computed.digitalFootprint.googleMentionBenchmark,
 			naverMentionCount: computed.digitalFootprint.naverMentionCount,
 			naverMentionIssue: computed.digitalFootprint.naverMentionIssue,
+			isNaverBlogLinked: computed.digitalFootprint.isNaverBlogLinked,
+			isNaverPlaceLinked: computed.digitalFootprint.isNaverPlaceLinked,
+			naverSameAsMessage: computed.digitalFootprint.naverSameAsMessage,
 			bingPlacesRegistered: computed.digitalFootprint.bingPlacesRegistered,
 			bingPlacesNote: computed.digitalFootprint.bingPlacesNote,
 			aiBots: computed.digitalFootprint.aiBots,

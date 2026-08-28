@@ -62,7 +62,9 @@ export function DigitalFootprintReportTabs({
 	const naverCount = digitalFootprint.naverMentionCount;
 	const totalCount = googleCount + naverCount;
 	const googleBelowAvg = googleCount < googleAvg;
-	const naverIssue = Boolean(digitalFootprint.naverMentionIssue) || naverCount < 20;
+	const naverChannelLinked =
+		digitalFootprint.isNaverBlogLinked === true || digitalFootprint.isNaverPlaceLinked === true;
+	const naverIssue = !naverChannelLinked;
 	const howto = digitalFootprint.howtoGuides;
 
 	const googleHowto = howto?.google?.length
@@ -150,15 +152,13 @@ export function DigitalFootprintReportTabs({
 				<div className={`df-status-box rounded-xl border px-4 py-3 ${STATUS_BOX[naverIssue ? 'danger' : 'ok']}`}>
 					<strong className="block text-sm font-extrabold">
 						{naverIssue
-							? t('naver.statusDanger', { count: naverCount })
-							: t('naver.statusOk', { count: naverCount })}
+							? digitalFootprint.naverMentionIssue || t('naver.sameAsMissing')
+							: digitalFootprint.naverSameAsMessage || t('naver.sameAsLinked')}
 					</strong>
 					<p className="mt-2 text-xs leading-relaxed text-slate-700 dark:text-slate-300">
 						{naverIssue
-							? t.rich('naver.statusBodyWarn', {
-									strong: (chunks) => <strong className="text-slate-900 dark:text-slate-100">{chunks}</strong>,
-								})
-							: t('naver.statusBodyOk')}
+							? t('naver.sameAsBodyWarn')
+							: t('naver.sameAsBodyOk')}
 					</p>
 				</div>
 				<div className="df-solution-title text-sm font-extrabold text-slate-900 dark:text-slate-100">{t('howtoTitle')}</div>

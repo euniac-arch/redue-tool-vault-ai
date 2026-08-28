@@ -11,7 +11,7 @@ interface LightDiffViewerProps {
 const LINE_STYLES: Record<DiffLineModel['type'], string> = {
 	add: 'bg-emerald-50 text-emerald-900',
 	remove: 'bg-rose-50 text-rose-900',
-	context: 'text-slate-600',
+	context: 'text-slate-600 dark:text-slate-300',
 };
 
 const GUTTER_SYMBOL: Record<DiffLineModel['type'], string> = {
@@ -28,29 +28,29 @@ export function LightDiffViewer({
 }: LightDiffViewerProps) {
 	if (!diff || diff.length === 0) {
 		return (
-			<div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+			<div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:bg-slate-700/60 dark:text-slate-400 dark:border-slate-700">
 				{emptyMessage}
 			</div>
 		);
 	}
 
 	return (
-		<div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+		<div className="overflow-hidden rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700">
 			{filePath ? (
-				<div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs font-semibold text-slate-700">
+				<div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs font-semibold text-slate-700 dark:bg-slate-700/60 dark:text-slate-200 dark:border-slate-700">
 					{filePath}
 				</div>
 			) : null}
 			<div className="max-h-[420px] overflow-auto font-mono text-[12px] leading-relaxed">
 				{diff.map((line, index) => (
 					<div key={index} className={`flex whitespace-pre ${LINE_STYLES[line.type]}`}>
-						<span className="w-10 shrink-0 select-none border-r border-slate-100 px-1.5 text-right text-slate-400">
+						<span className="w-10 shrink-0 select-none border-r border-slate-100 px-1.5 text-right text-slate-400 dark:text-slate-500 dark:border-slate-700">
 							{line.oldLineNumber ?? ''}
 						</span>
-						<span className="w-10 shrink-0 select-none border-r border-slate-100 px-1.5 text-right text-slate-400">
+						<span className="w-10 shrink-0 select-none border-r border-slate-100 px-1.5 text-right text-slate-400 dark:text-slate-500 dark:border-slate-700">
 							{line.newLineNumber ?? ''}
 						</span>
-						<span className="w-4 shrink-0 select-none text-center font-bold text-slate-500">
+						<span className="w-4 shrink-0 select-none text-center font-bold text-slate-500 dark:text-slate-400">
 							{GUTTER_SYMBOL[line.type]}
 						</span>
 						<span className="flex-1 px-2">{line.content.length ? line.content : ' '}</span>

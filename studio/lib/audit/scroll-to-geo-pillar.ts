@@ -1,5 +1,5 @@
 /**
- * One-click jump from the GEO 4-pillar score table to the matching
+ * One-click jump from the GEO 5-domain score table to the matching
  * measured card on Tab 1.
  */
 

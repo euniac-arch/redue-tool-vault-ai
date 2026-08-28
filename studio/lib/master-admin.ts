@@ -85,14 +85,19 @@ export function applyRuntimeAuthEnv(): void {
 	}
 }
 
+/** `ADMIN_EMAILS` in `.env.local` — comma-separated, case-insensitive. */
 function envAdminEmails(): string[] {
-	return (process.env.ADMIN_EMAILS || '')
+	return (process.env.ADMIN_EMAILS || process.env.ADMIN_EMAIL || '')
 		.split(',')
 		.map((entry) => entry.trim().toLowerCase())
 		.filter(Boolean);
 }
 
-/** Allowlist plus the bootstrap admin id (`admin`). */
+/**
+ * Allowlist plus the bootstrap admin id (`admin`).
+ * Set `ADMIN_EMAILS="you@domain.com,other@domain.com"` in `studio/.env.local`
+ * so Kakao/Google accounts can call `/api/admin/*`.
+ */
 export function isAdminEmail(email: string): boolean {
 	const normalized = email.trim().toLowerCase();
 	if (!normalized) return false;

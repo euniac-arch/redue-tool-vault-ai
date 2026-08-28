@@ -2,11 +2,16 @@
  * Unified FTP / SFTP transport for Universal Remote Auto-Patch Engine.
  */
 
-import { Client as FtpClient, type FileInfo as FtpFileInfo } from 'basic-ftp';
+import {
+	Client as FtpClient,
+	enterPassiveModeIPv4,
+	type FileInfo as FtpFileInfo,
+} from 'basic-ftp';
 import SftpClient from 'ssh2-sftp-client';
-import { Writable } from 'stream';
+import { Readable, Writable } from 'stream';
 import type { RemoteConnectionInput } from '@/lib/solve/remote-creds';
 import { IGNORE_DIR_NAMES } from '@/lib/solve/local-folder-scan';
+import { toUtf8WithoutBom } from '@/lib/solve/php-sanitize';
 
 export type RemoteListEntry = {
 	name: string;
@@ -26,13 +31,70 @@ export type RemoteTransport = {
 	writeText(absolutePath: string, content: string): Promise<void>;
 	ensureDir(absolutePath: string): Promise<void>;
 	exists(absolutePath: string): Promise<boolean>;
+	/** Lightweight existence/size probe — prefer this over list() on Cafe24. */
+	size(absolutePath: string): Promise<number>;
 	close(): Promise<void>;
 };
 
-const CONNECT_TIMEOUT_MS = 25_000;
-const MAX_SCAN_DEPTH = 6;
-const MAX_SCAN_ENTRIES = 2500;
+/** Socket + per-command cap so Cafe24 PASV data sockets cannot hang forever. */
+export const FTP_TIMEOUT_MS = 10_000;
+const CONNECT_TIMEOUT_MS = FTP_TIMEOUT_MS;
+/** Fallback walk only — CMS pinpoint should finish within 1–2s. */
+export const MAX_REMOTE_SCAN_DEPTH = 2;
+export const MAX_REMOTE_SCAN_ENTRIES = 50;
 const DEFAULT_READ_MAX = 2_500_000; // 2.5MB
+
+/** Bulk/media folders never enter recursive LIST (Cafe24 session kill). */
+export const REMOTE_SCAN_SKIP_DIR_NAMES = new Set([
+	...IGNORE_DIR_NAMES,
+	'data',
+	'uploads',
+	'upload',
+	'files',
+	'file',
+	'images',
+	'img',
+	'image',
+	'cache',
+	'session',
+	'sessions',
+	'tmp',
+	'temp',
+	'thumb',
+	'thumbnail',
+	'logs',
+	'log',
+]);
+
+export function shouldSkipRemoteScanDir(name: string): boolean {
+	if (!name || name === '.' || name === '..') return true;
+	const key = name.toLowerCase();
+	if (REMOTE_SCAN_SKIP_DIR_NAMES.has(key) || REMOTE_SCAN_SKIP_DIR_NAMES.has(name)) return true;
+	if (/^_redue_backup_/i.test(name) || /^_redue_backups$/i.test(name)) return true;
+	if (name.startsWith('.')) return true;
+	return false;
+}
+
+export async function withRemoteTimeout<T>(
+	promise: Promise<T>,
+	ms: number,
+	label: string,
+): Promise<T> {
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	try {
+		return await Promise.race([
+			promise,
+			new Promise<T>((_, reject) => {
+				timer = setTimeout(
+					() => reject(new Error(`원격 타임아웃 (${ms}ms): ${label}`)),
+					ms,
+				);
+			}),
+		]);
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+}
 
 function joinRemote(...parts: string[]): string {
 	const cleaned = parts
@@ -77,11 +139,7 @@ const PRIORITY_DIR_NAMES = new Set([
 ]);
 
 function shouldSkipDirName(name: string): boolean {
-	if (!name || name === '.' || name === '..') return true;
-	if (IGNORE_DIR_NAMES.has(name)) return true;
-	if (/^_redue_backup_/i.test(name) || /^_redue_backups$/i.test(name)) return true;
-	if (name === 'cache' || name === 'tmp' || name === 'temp' || name === 'uploads') return true;
-	return false;
+	return shouldSkipRemoteScanDir(name);
 }
 
 function shouldSkipScanFile(name: string): boolean {
@@ -101,7 +159,11 @@ class FtpTransport implements RemoteTransport {
 	}
 
 	async list(dirAbsolute: string): Promise<RemoteListEntry[]> {
-		const list = await this.client.list(dirAbsolute);
+		const list = await withRemoteTimeout(
+			this.client.list(dirAbsolute),
+			FTP_TIMEOUT_MS,
+			`LIST ${dirAbsolute}`,
+		);
 		return list
 			.filter((e) => e.name && e.name !== '.' && e.name !== '..')
 			.map((e: FtpFileInfo) => {
@@ -131,35 +193,57 @@ class FtpTransport implements RemoteTransport {
 				cb();
 			},
 		});
-		await this.client.downloadTo(writable, absolutePath);
+		await withRemoteTimeout(
+			this.client.downloadTo(writable, absolutePath),
+			FTP_TIMEOUT_MS,
+			`RETR ${absolutePath}`,
+		);
 		return Buffer.concat(chunks).toString('utf8');
 	}
 
 	async writeText(absolutePath: string, content: string): Promise<void> {
-		const { Readable } = await import('stream');
-		const stream = Readable.from([Buffer.from(content, 'utf8')]);
-		await this.client.uploadFrom(stream, absolutePath);
+		const payload = Buffer.from(toUtf8WithoutBom(content), 'utf8');
+		const stream = new Readable({
+			read() {
+				this.push(payload);
+				this.push(null);
+			},
+		});
+		await withRemoteTimeout(
+			this.client.uploadFrom(stream, absolutePath),
+			FTP_TIMEOUT_MS,
+			`STOR ${absolutePath}`,
+		);
 	}
 
 	async ensureDir(absolutePath: string): Promise<void> {
-		await this.client.ensureDir(absolutePath);
+		await withRemoteTimeout(
+			this.client.ensureDir(absolutePath),
+			FTP_TIMEOUT_MS,
+			`MKD ${absolutePath}`,
+		);
 		// ensureDir may cwd into the dir — reset to root for subsequent ops
-		await this.client.cd(this.root === '/' ? '/' : this.root);
+		await withRemoteTimeout(
+			this.client.cd(this.root === '/' ? '/' : this.root),
+			FTP_TIMEOUT_MS,
+			`CWD ${this.root}`,
+		);
+	}
+
+	async size(absolutePath: string): Promise<number> {
+		return withRemoteTimeout(
+			this.client.size(absolutePath),
+			FTP_TIMEOUT_MS,
+			`SIZE ${absolutePath}`,
+		);
 	}
 
 	async exists(absolutePath: string): Promise<boolean> {
 		try {
-			await this.client.size(absolutePath);
+			await this.size(absolutePath);
 			return true;
 		} catch {
-			try {
-				const parent = absolutePath.replace(/\/[^/]+$/, '') || '/';
-				const name = absolutePath.split('/').filter(Boolean).pop() || '';
-				const list = await this.client.list(parent);
-				return list.some((e) => e.name === name);
-			} catch {
-				return false;
-			}
+			return false;
 		}
 	}
 
@@ -179,7 +263,11 @@ class SftpTransport implements RemoteTransport {
 	}
 
 	async list(dirAbsolute: string): Promise<RemoteListEntry[]> {
-		const list = await this.client.list(dirAbsolute);
+		const list = await withRemoteTimeout(
+			this.client.list(dirAbsolute),
+			FTP_TIMEOUT_MS,
+			`SFTP LIST ${dirAbsolute}`,
+		);
 		return list
 			.filter((e) => e.name && e.name !== '.' && e.name !== '..')
 			.map((e) => {
@@ -195,7 +283,11 @@ class SftpTransport implements RemoteTransport {
 	}
 
 	async readText(absolutePath: string, maxBytes = DEFAULT_READ_MAX): Promise<string> {
-		const buf = (await this.client.get(absolutePath)) as Buffer;
+		const buf = (await withRemoteTimeout(
+			this.client.get(absolutePath) as Promise<Buffer>,
+			FTP_TIMEOUT_MS,
+			`SFTP GET ${absolutePath}`,
+		)) as Buffer;
 		if (buf.length > maxBytes) {
 			throw new Error(`파일이 너무 큽니다 (${absolutePath}, >${maxBytes} bytes)`);
 		}
@@ -203,16 +295,41 @@ class SftpTransport implements RemoteTransport {
 	}
 
 	async writeText(absolutePath: string, content: string): Promise<void> {
-		await this.client.put(Buffer.from(content, 'utf8'), absolutePath);
+		await withRemoteTimeout(
+			this.client.put(Buffer.from(toUtf8WithoutBom(content), 'utf8'), absolutePath),
+			FTP_TIMEOUT_MS,
+			`SFTP PUT ${absolutePath}`,
+		);
 	}
 
 	async ensureDir(absolutePath: string): Promise<void> {
-		await this.client.mkdir(absolutePath, true);
+		await withRemoteTimeout(
+			this.client.mkdir(absolutePath, true),
+			FTP_TIMEOUT_MS,
+			`SFTP MKDIR ${absolutePath}`,
+		);
+	}
+
+	async size(absolutePath: string): Promise<number> {
+		const stat = await withRemoteTimeout(
+			this.client.stat(absolutePath),
+			FTP_TIMEOUT_MS,
+			`SFTP STAT ${absolutePath}`,
+		);
+		return Number(stat.size) || 0;
 	}
 
 	async exists(absolutePath: string): Promise<boolean> {
-		const exists = await this.client.exists(absolutePath);
-		return Boolean(exists);
+		try {
+			const exists = await withRemoteTimeout(
+				this.client.exists(absolutePath),
+				FTP_TIMEOUT_MS,
+				`SFTP EXISTS ${absolutePath}`,
+			);
+			return Boolean(exists);
+		} catch {
+			return false;
+		}
 	}
 
 	async close(): Promise<void> {
@@ -228,16 +345,26 @@ export async function connectRemoteTransport(
 	if (conn.protocol === 'ftp') {
 		const client = new FtpClient(CONNECT_TIMEOUT_MS);
 		client.ftp.verbose = false;
+		client.ftp.ipFamily = 4;
+		// Cafe24 / hosting panels: force IPv4 PASV (never EPSV / active).
+		client.prepareTransfer = enterPassiveModeIPv4;
 		try {
-			await client.access({
-				host: conn.host,
-				port: conn.port,
-				user: conn.username,
-				password: conn.password,
-				secure: false,
-			});
+			await withRemoteTimeout(
+				client.access({
+					host: conn.host,
+					port: conn.port,
+					user: conn.username,
+					password: conn.password,
+					secure: false,
+					// basic-ftp is PASV-only; pasv/timeout are explicit for Cafe24 hardening.
+					pasv: true,
+					timeout: FTP_TIMEOUT_MS,
+				} as Parameters<FtpClient['access']>[0] & { pasv: true; timeout: number }),
+				FTP_TIMEOUT_MS,
+				`FTP ACCESS ${conn.host}:${conn.port}`,
+			);
 			// Verify root is reachable
-			await client.cd(root);
+			await withRemoteTimeout(client.cd(root), FTP_TIMEOUT_MS, `CWD ${root}`);
 			return new FtpTransport(client, root);
 		} catch (err) {
 			client.close();
@@ -254,6 +381,7 @@ export async function connectRemoteTransport(
 			username: conn.username,
 			password: conn.password,
 			readyTimeout: CONNECT_TIMEOUT_MS,
+			timeout: FTP_TIMEOUT_MS,
 			retries: 1,
 		});
 		const exists = await client.exists(root);
@@ -277,8 +405,8 @@ export async function walkRemoteTree(
 	transport: RemoteTransport,
 	opts?: { maxDepth?: number; maxEntries?: number },
 ): Promise<{ relativePaths: string[]; truncated: boolean }> {
-	const maxDepth = opts?.maxDepth ?? MAX_SCAN_DEPTH;
-	const maxEntries = opts?.maxEntries ?? MAX_SCAN_ENTRIES;
+	const maxDepth = opts?.maxDepth ?? MAX_REMOTE_SCAN_DEPTH;
+	const maxEntries = opts?.maxEntries ?? MAX_REMOTE_SCAN_ENTRIES;
 	const relativePaths: string[] = [];
 	const queue: Array<{ abs: string; depth: number }> = [{ abs: transport.root, depth: 0 }];
 	let truncated = false;

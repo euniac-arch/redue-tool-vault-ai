@@ -16,6 +16,10 @@ export interface PageSpeedReportProps {
 	error: string | null;
 	strategy?: PageSpeedStrategy;
 	onStrategyChange?: (strategy: PageSpeedStrategy) => void;
+	/** Track 3 부분 재진단(리프레시) 진행 중 여부 — 버튼 스피너/비활성화에 사용. */
+	refreshing?: boolean;
+	/** 전체 사이트 재진단 없이 Lighthouse mobile/desktop만 다시 호출하는 핸들러. */
+	onRefresh?: () => void;
 	targetUrl?: string;
 }
 
@@ -32,6 +36,8 @@ export function PageSpeedReport({
 	error,
 	strategy = 'desktop',
 	onStrategyChange,
+	refreshing,
+	onRefresh,
 	targetUrl,
 }: PageSpeedReportProps) {
 	const isolatedDesktop = desktopData?.strategy === 'desktop' ? desktopData : null;
@@ -47,6 +53,8 @@ export function PageSpeedReport({
 			error={error}
 			strategy={strategy}
 			onStrategyChange={onStrategyChange}
+			refreshing={refreshing}
+			onRefresh={onRefresh}
 			targetUrl={targetUrl}
 		/>
 	);

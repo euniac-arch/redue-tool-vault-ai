@@ -53,7 +53,7 @@ function AdminSidebarInner({ collapsed }: AdminSidebarProps) {
 
 	return (
 		<aside
-			className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 ${
+			className={`flex h-full shrink-0 flex-col border-r border-slate-200 bg-white transition-[width] duration-200 dark:border-slate-700 dark:bg-slate-800 ${
 				collapsed ? 'w-[4.25rem]' : 'w-64'
 			}`}
 			aria-label="Admin navigation"
@@ -71,8 +71,8 @@ function AdminSidebarInner({ collapsed }: AdminSidebarProps) {
 									onClick={() => toggleGroup(group.id)}
 									className={`mb-0.5 flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[11px] font-bold uppercase tracking-wide transition-colors ${
 										groupActive
-											? 'bg-slate-100 text-slate-900'
-											: 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+											? 'bg-slate-100 text-slate-900 dark:bg-slate-700/60 dark:text-slate-100'
+											: 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100'
 									}`}
 									aria-expanded={open}
 								>
@@ -84,7 +84,7 @@ function AdminSidebarInner({ collapsed }: AdminSidebarProps) {
 									</span>
 									<svg
 										viewBox="0 0 20 20"
-										className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform ${
+										className={`h-3.5 w-3.5 shrink-0 text-slate-400 transition-transform dark:text-slate-500 ${
 											open ? 'rotate-180' : ''
 										}`}
 										fill="currentColor"
@@ -102,7 +102,7 @@ function AdminSidebarInner({ collapsed }: AdminSidebarProps) {
 							{(collapsed || open) && (
 								<ul
 									className={`space-y-0.5 ${
-										collapsed ? 'mb-2' : 'mb-2 ml-1 border-l border-slate-100 pl-1'
+										collapsed ? 'mb-2' : 'mb-2 ml-1 border-l border-slate-100 pl-1 dark:border-slate-700'
 									}`}
 								>
 									{group.items.map((item) => {
@@ -117,8 +117,8 @@ function AdminSidebarInner({ collapsed }: AdminSidebarProps) {
 														collapsed ? 'justify-center px-0' : ''
 													} ${
 														active
-															? 'bg-slate-900 font-semibold text-white'
-															: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+															? 'bg-slate-900 font-semibold text-white dark:bg-white dark:text-slate-950'
+															: 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100'
 													}`}
 													aria-current={active ? 'page' : undefined}
 												>
@@ -149,14 +149,14 @@ export function AdminSidebar({ collapsed }: AdminSidebarProps) {
 		<Suspense
 			fallback={
 				<aside
-					className={`sticky top-0 flex h-screen shrink-0 flex-col border-r border-slate-200 bg-white ${
+					className={`flex h-full shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800 ${
 						collapsed ? 'w-[4.25rem]' : 'w-64'
 					}`}
 					aria-label="Admin navigation"
 				>
 					<div className="space-y-2 p-3">
 						{ADMIN_NAV_GROUPS.map((group) => (
-							<div key={group.id} className="h-8 animate-pulse rounded-lg bg-slate-100" />
+							<div key={group.id} className="h-8 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-700/60" />
 						))}
 					</div>
 				</aside>

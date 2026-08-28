@@ -137,6 +137,13 @@ const CHECK_PRIORITY: Record<string, Omit<ActionPriorityMeta, 'rank'>> = {
 		geoHighlight: true,
 		effectKey: 'llmsTxt',
 	},
+	'rss-feed': {
+		priority: 'P2',
+		labelKey: 'high',
+		difficulty: 'easy',
+		geoHighlight: false,
+		effectKey: 'canonical',
+	},
 };
 
 const PRIORITY_ORDER: Record<ActionPriority, number> = {

@@ -24,19 +24,19 @@ export function SolveSummaryBar({
 
 	return (
 		<section
-			className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+			className="flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm dark:bg-slate-800 dark:border-slate-700"
 			aria-label="진단 요약"
 		>
 			<div className="min-w-0 flex-1">
-				<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">선택된 URL</p>
-				<p className="truncate text-sm font-semibold text-slate-900" title={url}>
+				<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">선택된 URL</p>
+				<p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100" title={url}>
 					{url || 'URL이 선택되지 않았습니다'}
 				</p>
 			</div>
 
 			<div className="flex flex-wrap items-center gap-2">
 				{overallScore != null ? (
-					<span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700">
+					<span className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:bg-slate-700/60 dark:text-slate-200 dark:border-slate-700">
 						점수
 						<span className="rounded-md bg-slate-900 px-1.5 py-0.5 text-[11px] font-extrabold text-white tabular-nums">
 							{overallScore}
@@ -63,7 +63,7 @@ export function SolveSummaryBar({
 						type="button"
 						onClick={onReanalyzeMenu}
 						disabled={reanalyzing || !url}
-						className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+						className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 					>
 						<span aria-hidden>{reanalyzing ? '⏳' : '🔄'}</span>
 						{reanalyzing ? '재분석 중…' : '웹 사이트 메뉴구조 재분석'}

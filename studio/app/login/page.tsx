@@ -1,17 +1,11 @@
 import { Suspense } from 'react';
+import { isGoogleOAuthConfigured, isKakaoOAuthConfigured } from '@/lib/auth';
 import { LoginForm } from './LoginForm';
 
-function isSocialOAuthConfigured(): boolean {
-	return [
-		process.env.GOOGLE_CLIENT_ID,
-		process.env.GOOGLE_CLIENT_SECRET,
-		process.env.KAKAO_CLIENT_ID,
-		process.env.KAKAO_CLIENT_SECRET,
-	].every((value) => Boolean(value?.trim()));
-}
-
 export default function LoginPage() {
-	const showOAuthEnvGuide = process.env.NODE_ENV !== 'production' && !isSocialOAuthConfigured();
+	const kakaoEnabled = isKakaoOAuthConfigured();
+	const googleEnabled = isGoogleOAuthConfigured();
+	const showOAuthEnvGuide = process.env.NODE_ENV !== 'production' && (!kakaoEnabled || !googleEnabled);
 
 	return (
 		<Suspense
@@ -21,7 +15,7 @@ export default function LoginPage() {
 				</div>
 			}
 		>
-			<LoginForm showOAuthEnvGuide={showOAuthEnvGuide} />
+			<LoginForm kakaoEnabled={kakaoEnabled} googleEnabled={googleEnabled} showOAuthEnvGuide={showOAuthEnvGuide} />
 		</Suspense>
 	);
 }

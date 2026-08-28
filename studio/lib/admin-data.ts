@@ -1,3 +1,4 @@
+import { resolveStoredDiagnosisUserType, type DiagnosisUserType } from './audit/diagnosis-actor';
 import { USD_TO_KRW } from './llm-pricing';
 import { prisma } from './prisma';
 import type { DiagnosticReport } from './types';
@@ -106,6 +107,8 @@ export interface AdminAuditLeadRow {
 	statusLabel: string;
 	createdAt: Date;
 	userId: string | null;
+	/** Diagnosing party at scan time: admin | user | guest. */
+	userType: DiagnosisUserType;
 }
 
 /** Step 7's "영업 유인" surface — recent free-audit leads for sales follow-up. */
@@ -113,9 +116,46 @@ export async function getAdminAuditLeads(limit = 30): Promise<AdminAuditLeadRow[
 	const leads = await prisma.auditLead.findMany({
 		orderBy: { createdAt: 'desc' },
 		take: limit,
-		select: { id: true, url: true, score: true, maxScore: true, statusLabel: true, createdAt: true, userId: true },
+		select: {
+			id: true,
+			url: true,
+			score: true,
+			maxScore: true,
+			statusLabel: true,
+			createdAt: true,
+			userId: true,
+			userType: true,
+		},
 	});
-	return leads;
+
+	const userIds = [...new Set(leads.map((lead) => lead.userId).filter((id): id is string => Boolean(id)))];
+	const linkedById = new Map<string, { email: string | null; role: string | null }>();
+	if (userIds.length > 0) {
+		try {
+			const users = await prisma.user.findMany({
+				where: { id: { in: userIds } },
+				select: { id: true, email: true, role: true },
+			});
+			for (const user of users) {
+				linkedById.set(user.id, { email: user.email, role: user.role });
+			}
+		} catch (err) {
+			console.error('[admin-data] lead user lookup failed:', err);
+		}
+	}
+
+	return leads.map((lead) => {
+		const linked = lead.userId ? linkedById.get(lead.userId) : undefined;
+		return {
+			...lead,
+			userType: resolveStoredDiagnosisUserType({
+				userType: lead.userType,
+				userId: lead.userId,
+				email: linked?.email,
+				role: linked?.role,
+			}),
+		};
+	});
 }
 
 export async function getAdminLogsData(limit = 50): Promise<AdminLogRow[]> {

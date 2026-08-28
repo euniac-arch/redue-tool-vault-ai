@@ -3,24 +3,33 @@
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
+import { startTopProgress } from '@/components/common/top-progress';
+import { describeNextAuthOAuthError } from '@/lib/auth-kakao-errors';
 
 type Mode = 'signin' | 'signup';
 
 const fieldClass =
 	'rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none placeholder-slate-500 focus:border-cyan-500 dark:border-white/[0.08] dark:bg-black/30';
 
-export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean }) {
+type LoginFormProps = {
+	kakaoEnabled: boolean;
+	googleEnabled: boolean;
+	showOAuthEnvGuide: boolean;
+};
+
+export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: LoginFormProps) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
 	const callbackUrl = searchParams.get('callbackUrl') || '/';
 	const initialMode: Mode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
+	const oauthError = describeNextAuthOAuthError(searchParams.get('error'));
 
 	const [mode, setMode] = useState<Mode>(initialMode);
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [name, setName] = useState('');
 	const [loading, setLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const [error, setError] = useState<string | null>(oauthError);
 
 	async function handleEmailSubmit(event: React.FormEvent) {
 		event.preventDefault();
@@ -43,6 +52,7 @@ export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean })
 			if (result?.error) {
 				throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
 			}
+			startTopProgress();
 			router.push(callbackUrl);
 			router.refresh();
 		} catch (err) {
@@ -64,21 +74,29 @@ export function LoginForm({ showOAuthEnvGuide }: { showOAuthEnvGuide: boolean })
 			<div className="flex flex-col gap-2">
 				<button
 					type="button"
+					disabled={!googleEnabled}
+					title={googleEnabled ? undefined : 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET 미설정 — .env.local에 등록해야 활성화됩니다.'}
 					onClick={() => signIn('google', { callbackUrl })}
-					className="flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-900 dark:border-white/[0.08] dark:bg-white/5 dark:hover:bg-white/10"
+					className="flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-950 dark:border-white/[0.08] dark:bg-white/5 dark:hover:bg-white/10"
 				>
 					Google로 계속하기
 				</button>
 				<button
 					type="button"
+					disabled={!kakaoEnabled}
+					title={kakaoEnabled ? undefined : 'KAKAO_CLIENT_ID / KAKAO_CLIENT_SECRET 미설정 — .env.local에 등록해야 활성화됩니다.'}
 					onClick={() => signIn('kakao', { callbackUrl })}
-					className="flex items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-2.5 text-sm font-semibold text-black/85 hover:brightness-95"
+					className="flex items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-2.5 text-sm font-semibold text-black/85 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
 				>
 					카카오로 계속하기
 				</button>
 				{showOAuthEnvGuide && (
 					<p className="text-center text-[11px] text-slate-500">
-						구글/카카오 로그인은 실제 서비스 배포 시 .env에 발급받은 Client ID/Secret을 등록해야 정상 동작합니다.
+						{!kakaoEnabled && !googleEnabled
+							? '구글/카카오 로그인은 .env.local에 발급받은 Client ID/Secret을 등록해야 활성화됩니다.'
+							: !kakaoEnabled
+								? '카카오 로그인은 .env.local에 KAKAO_CLIENT_ID(REST API 키)/KAKAO_CLIENT_SECRET을 등록해야 활성화됩니다.'
+								: '구글 로그인은 .env.local에 GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET을 등록해야 활성화됩니다.'}
 					</p>
 				)}
 			</div>

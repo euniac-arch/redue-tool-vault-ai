@@ -43,12 +43,12 @@ export function ProposalTab({ audit }: ProposalTabProps) {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+			<div className="flex flex-wrap gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<button
 					type="button"
 					disabled={!!busy}
 					onClick={() => void runAction('roi-pdf', 'ROI PDF 제안서')}
-					className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-60"
+					className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-60 dark:bg-slate-700/60 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-700"
 				>
 					{busy === 'roi-pdf' ? '생성 중…' : '개선 기대효과 및 ROI 제안서 (.pdf)'}
 				</button>
@@ -56,7 +56,7 @@ export function ProposalTab({ audit }: ProposalTabProps) {
 					type="button"
 					disabled={!!busy}
 					onClick={() => void runAction('roi-pptx', '영업용 PPTX')}
-					className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-60"
+					className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-100 disabled:opacity-60 dark:bg-slate-700/60 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-700"
 				>
 					{busy === 'roi-pptx' ? '생성 중…' : '영업용 제안서 (.pptx)'}
 				</button>
@@ -76,10 +76,10 @@ export function ProposalTab({ audit }: ProposalTabProps) {
 			) : null}
 
 			<div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-				<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+				<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 					<div className="mb-4">
-						<h3 className="text-base font-bold text-slate-900">제안서 &amp; 견적 출력</h3>
-						<p className="mt-1 text-sm text-slate-600">
+						<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">제안서 &amp; 견적 출력</h3>
+						<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 							에이전시 납품용 SEO/GEO 통합 PDF와 Excel 체크리스트 폼입니다. 상단에서 ROI 제안서도 별도 생성할 수 있습니다.
 						</p>
 					</div>
@@ -91,29 +91,29 @@ export function ProposalTab({ audit }: ProposalTabProps) {
 						}}
 					>
 						<label className="flex flex-col gap-1">
-							<span className="text-xs font-bold text-slate-500">고객사명</span>
+							<span className="text-xs font-bold text-slate-500 dark:text-slate-400">고객사명</span>
 							<input
 								value={clientName}
 								onChange={(e) => setClientName(e.target.value)}
 								placeholder="예: 삼삼물산 (주)"
-								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 							/>
 						</label>
 						<label className="flex flex-col gap-1">
-							<span className="text-xs font-bold text-slate-500">에이전시명</span>
+							<span className="text-xs font-bold text-slate-500 dark:text-slate-400">에이전시명</span>
 							<input
 								value={agencyName}
 								onChange={(e) => setAgencyName(e.target.value)}
-								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 							/>
 						</label>
 						<div className="grid gap-3 sm:grid-cols-2">
 							<label className="flex flex-col gap-1">
-								<span className="text-xs font-bold text-slate-500">CMS / 플랫폼</span>
+								<span className="text-xs font-bold text-slate-500 dark:text-slate-400">CMS / 플랫폼</span>
 								<select
 									value={cmsType}
 									onChange={(e) => setCmsType(e.target.value)}
-									className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+									className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								>
 									{CMS_DISPLAY_OPTIONS.map((cms) => (
 										<option key={cms} value={cms}>
@@ -124,14 +124,14 @@ export function ProposalTab({ audit }: ProposalTabProps) {
 								</select>
 							</label>
 							<label className="flex flex-col gap-1">
-								<span className="text-xs font-bold text-slate-500">시간당 단가 (₩)</span>
+								<span className="text-xs font-bold text-slate-500 dark:text-slate-400">시간당 단가 (₩)</span>
 								<input
 									type="number"
 									min={0}
 									step={1000}
 									value={hourlyRate}
 									onChange={(e) => setHourlyRate(Number(e.target.value) || 0)}
-									className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+									className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								/>
 							</label>
 						</div>
@@ -145,8 +145,8 @@ export function ProposalTab({ audit }: ProposalTabProps) {
 					</form>
 				</section>
 
-				<aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-					<h4 className="text-sm font-bold text-slate-900">견적 미리보기</h4>
+				<aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+					<h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">견적 미리보기</h4>
 					<div className="mt-3 grid grid-cols-2 gap-2">
 						{[
 							{ label: '종합 점수', value: String(audit.overallScore ?? '—') },
@@ -159,17 +159,17 @@ export function ProposalTab({ audit }: ProposalTabProps) {
 								className={`rounded-lg border px-3 py-2.5 ${
 									stat.highlight
 										? 'border-slate-900 bg-slate-900 text-white'
-										: 'border-slate-100 bg-slate-50 text-slate-900'
+										: 'border-slate-100 bg-slate-50 text-slate-900 dark:bg-slate-700/60 dark:text-slate-100 dark:border-slate-700'
 								}`}
 							>
 								<p className="text-lg font-extrabold tabular-nums">{stat.value}</p>
-								<p className={`text-[11px] font-medium ${stat.highlight ? 'text-slate-300' : 'text-slate-500'}`}>
+								<p className={`text-[11px] font-medium ${stat.highlight ? 'text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}>
 									{stat.label}
 								</p>
 							</div>
 						))}
 					</div>
-					<ul className="mt-4 space-y-1.5 text-xs leading-relaxed text-slate-600">
+					<ul className="mt-4 space-y-1.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
 						<li>표지 · 핵심 요약 · 영역별 점검표</li>
 						<li>통합 개선 로드맵 (3단계)</li>
 						<li>Excel 이슈 체크리스트 + CMS 스니펫</li>

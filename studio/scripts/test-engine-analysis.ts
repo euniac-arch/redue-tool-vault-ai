@@ -17,7 +17,7 @@ import {
 import { computeExternalReputationFromSignals, type GeoReputationSignals } from '../lib/audit/geo-score';
 import { getRatingMeta } from '../lib/geo/rating-meta';
 import { HTTPS_ENGINE_SCORE_CAP } from '../lib/audit/scoreCalculator';
-import { attachCauseReason, getJosa, withJosa } from '../lib/korean-josa';
+import { attachCauseReason, attachPostposition, attachQuotedPostposition, getJosa, withJosa } from '../lib/korean-josa';
 
 let failed = 0;
 
@@ -135,6 +135,10 @@ assert('은/는: 안성 → 은', withJosa('안성', '은/는') === '안성은')
 assert('을/를: 스포츠재활 → 을', withJosa('스포츠재활', '을/를') === '스포츠재활을');
 assert('을/를: 아동발달센터 → 를', withJosa('아동발달센터', '을/를') === '아동발달센터를');
 assert('을/를: 성형외과 → 를', withJosa('성형외과', '을/를') === '성형외과를');
+assert('attachPostposition: 피부시술 → 을', attachPostposition('피부시술', '을/를') === '피부시술을');
+assert('attachPostposition: 피부시술 → 은', attachPostposition('피부시술', '은/는') === '피부시술은');
+assert('attachPostposition: 대표원장 → 을', attachPostposition('대표원장', '을/를') === '대표원장을');
+assert('quoted 을/를: 피부시술', attachQuotedPostposition('피부시술', '을/를') === '"피부시술"을');
 assert('과/와: 스포츠재활 → 과', withJosa('스포츠재활', '과/와') === '스포츠재활과');
 assert(
 	'attachCauseReason: 신호 없음이 원인입니다',

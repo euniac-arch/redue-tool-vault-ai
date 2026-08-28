@@ -9,9 +9,35 @@ import {
 	buildAltAutoFixerScriptTag,
 	buildCanonicalLinkHtmlTag,
 	buildJsDeferAutoFixerScriptTag,
-	stripHardcodedCanonicalTags,
+	prepareHeadSourceForInject,
+	REDUE_SCHEMA_RENDER_MARKER_END,
+	REDUE_SCHEMA_RENDER_MARKER_START,
 	stripRedueSchemaBlocks,
 } from '@/lib/solve/dynamic-php-schema';
+import {
+	cleanPhpTemplate,
+	isGnuboardHeadSubPath,
+	sanitizeGeneratedPhpSnippet,
+	sanitizePhpForDeploy,
+	stripGnuboardThemeSelfDelegation,
+} from '@/lib/solve/php-sanitize';
+import { buildSaasSchemaInjectorSnippet, isSaasCmsType } from '@/lib/solve/universal-geo-engine';
+
+export type HeadInjectOptions = {
+	/** Relative path of the file being patched — required to refuse theme self-`return;`. */
+	targetPath?: string;
+};
+
+/** Phase 2 render-call block — charset 직후 1회 echo only. */
+export function buildGnuboardRenderCallBlock(): string {
+	return cleanPhpTemplate(`<?php
+/* ${REDUE_SCHEMA_RENDER_MARKER_START} */
+if (function_exists('redue_render_full_schema')) {
+    echo redue_render_full_schema();
+}
+/* ${REDUE_SCHEMA_RENDER_MARKER_END} */
+?>`);
+}
 
 export type InjectionGroup = 'global' | 'page' | 'other';
 
@@ -96,6 +122,12 @@ const CHARSET_META_RE =
  * Insert canonical/og pair immediately after charset meta (bot First-Chunk safe).
  * Falls back to after `<head>` when charset is missing.
  */
+/** True when head.sub.php already has a real HTML canonical tag (not a PHP string literal). */
+export function hasLiveCanonicalHtmlTag(source: string): boolean {
+	return /<link\s+rel=["']canonical["']\s+href=["']<\?php/i.test(source) ||
+		/<link\s+rel=["']canonical["']\s+href=["']https?:/i.test(source);
+}
+
 export function injectAfterCharsetOrHead(source: string, tags: string): string {
 	const block = String(tags || '').trimEnd();
 	if (!block) return source;
@@ -430,6 +462,74 @@ export function parseCfThemeFromConfig(source: string): string | null {
 	return name.length > 0 ? name : null;
 }
 
+/** Official G5 root `head.sub.php` dispatcher — includes theme head then `return;`. */
+export function isGnuboardRootHeadDispatcher(source: string): boolean {
+	const head = String(source || '').slice(0, 2800);
+	if (!/G5_THEME_PATH/i.test(head)) return false;
+	if (!/\b(?:include|require)(?:_once)?\b/i.test(head)) return false;
+	return /\breturn\s*;/.test(head);
+}
+
+const THEME_FOLDER_RE = /(?:^|\/)theme\/([a-zA-Z0-9_-]+)\//i;
+
+function bumpThemeScore(scores: Map<string, number>, name: string, weight: number): void {
+	const key = String(name || '')
+		.trim()
+		.toLowerCase();
+	if (!key || /^(css|js|img|images|scss|font|fonts|assets)$/i.test(key)) return;
+	scores.set(key, (scores.get(key) || 0) + weight);
+}
+
+function scoreThemePathHint(raw: string, scores: Map<string, number>, base: number): void {
+	const m = String(raw || '').match(THEME_FOLDER_RE);
+	if (!m?.[1]) return;
+	const rest = String(raw || '').toLowerCase();
+	if (/\/contents\//.test(rest) || /\/skin\//.test(rest)) bumpThemeScore(scores, m[1], base + 6);
+	else if (/\/(?:css|js|img|images|scss)\//.test(rest)) bumpThemeScore(scores, m[1], base + 2);
+	else if (/head\.sub\.php|head\.php$/i.test(rest)) bumpThemeScore(scores, m[1], base);
+	else bumpThemeScore(scores, m[1], base);
+}
+
+/**
+ * Infer the live theme folder when `$config['cf_theme']` is not in config.php
+ * (Gnuboard stores it in MySQL). Live `/theme/{name}/contents|skin|css` signals
+ * beat a leftover ghost `theme/basic/head.sub.php`.
+ */
+export function inferGnuboardThemeName(opts: {
+	relativePaths?: string[];
+	urlPaths?: string[];
+	html?: string;
+	configSource?: string;
+}): string | null {
+	const fromConfig = opts.configSource ? parseCfThemeFromConfig(opts.configSource) : null;
+	if (fromConfig) return fromConfig;
+
+	const scores = new Map<string, number>();
+	for (const p of opts.relativePaths || []) scoreThemePathHint(p, scores, 2);
+	for (const p of opts.urlPaths || []) scoreThemePathHint(p, scores, 3);
+	const html = String(opts.html || '');
+	if (html) {
+		const re = /\/theme\/([a-zA-Z0-9_-]+)\//gi;
+		let m: RegExpExecArray | null;
+		while ((m = re.exec(html))) {
+			scoreThemePathHint(m[0], scores, 2);
+		}
+	}
+
+	let best: string | null = null;
+	let bestScore = 0;
+	for (const [name, score] of scores) {
+		if (score > bestScore) {
+			best = name;
+			bestScore = score;
+		}
+	}
+	// Ghost leftover is usually just theme/{name}/head.sub.php (score 2).
+	// contents/skin or several CSS/JS hits are required to activate a theme.
+	if (!best || bestScore < 6) return null;
+	return best;
+}
+
 /**
  * Active Theme Checker (Strict Priority Rule):
  * ① Parse root /config.php → `$config['cf_theme']`
@@ -442,6 +542,8 @@ export function parseCfThemeFromConfig(source: string): string | null {
 export function analyzeGnuboardThemeUsage(opts: {
 	relativePaths: string[];
 	fileContents?: Record<string, string>;
+	urlPaths?: string[];
+	html?: string;
 }): GnuboardThemeUsage {
 	const paths = opts.relativePaths.map(normalizePath);
 	const contents = opts.fileContents || {};
@@ -454,10 +556,14 @@ export function analyzeGnuboardThemeUsage(opts: {
 
 	const hasG5ThemePathInRootHead = Boolean(rootHeadSource && /G5_THEME_PATH/i.test(rootHeadSource));
 	const cfTheme = configSource ? parseCfThemeFromConfig(configSource) : null;
-
-	// Strict: only `$config['cf_theme']` with a non-empty value activates themes.
-	const active = Boolean(cfTheme);
-	const themeName = cfTheme;
+	const inferredTheme = inferGnuboardThemeName({
+		relativePaths: paths,
+		urlPaths: opts.urlPaths,
+		html: opts.html || rootHeadSource || undefined,
+		configSource: configSource || undefined,
+	});
+	const themeName = cfTheme || inferredTheme;
+	const active = Boolean(themeName);
 
 	const evidence = {
 		hasG5ThemePathInRootHead,
@@ -470,7 +576,9 @@ export function analyzeGnuboardThemeUsage(opts: {
 		return {
 			active: true,
 			themeName,
-			reason: `테마 사용: theme/${themeName}/head.sub.php 감지`,
+			reason: cfTheme
+				? `테마 사용: theme/${themeName}/head.sub.php 감지`
+				: `테마 사용(경로/콘텐츠 신호): theme/${themeName}/head.sub.php 감지`,
 			evidence,
 		};
 	}
@@ -525,6 +633,17 @@ export function pickGlobalHeaderTarget(
 	}
 
 	if (cmsKey === 'WordPress') {
+		const functions =
+			firstMatch(paths, [
+				/wp-content\/themes\/[^/]+\/functions\.php$/i,
+				/(^|\/)functions\.php$/i,
+			]) || pathRankEndsWith(paths, 'functions.php');
+		if (functions) {
+			return {
+				path: functions,
+				badge: '자동 선택됨 / 워드프레스 functions.php (wp_head 훅 + ob_start)',
+			};
+		}
 		const header =
 			firstMatch(paths, [
 				/wp-content\/themes\/[^/]+\/header\.php$/i,
@@ -533,10 +652,25 @@ export function pickGlobalHeaderTarget(
 		if (header) {
 			return {
 				path: header,
-				badge: '자동 선택됨 / 워드프레스 header.php (wp_head 직전 또는 </head> 직전)',
+				badge: '자동 선택됨 / 워드프레스 header.php (functions.php 미검출 폴백)',
 			};
 		}
 		return null;
+	}
+
+	if (cmsKey === 'Rhymix / XE' || /rhymix|라이믹스|xpressengine|\bxe\b/i.test(cmsKey)) {
+		const header =
+			firstMatch(paths, [
+				/(^|\/)common\/header\.php$/i,
+				/(^|\/)layouts\/[^/]+\/header\.php$/i,
+				/(^|\/)header\.php$/i,
+			]) || pathRankEndsWith(paths, 'header.php');
+		if (header) {
+			return {
+				path: header,
+				badge: '자동 선택됨 / 라이믹스·XE·Standalone 공통 헤더 최상단 인클루드',
+			};
+		}
 	}
 
 	if (cmsKey === 'Cafe24') {
@@ -1118,18 +1252,110 @@ export function unwrapPhpSnippet(snippet: string): string {
 /** True when a top-priority PHP block is the v26 calc-only canonical engine (`$exact_canonical_url`). */
 const EXACT_CANONICAL_ASSIGN_RE = /\$exact_canonical_url\s*=/;
 
+/** GnuBoard direct-access guard — engine functions are inserted right after this line, never before. */
+const GNUBOARD_GUARD_RE =
+	/if\s*\(\s*!\s*defined\s*\(\s*['"]_GNUBOARD_['"]\s*\)\s*\)\s*(?:exit|die)\s*(?:\(\s*\))?\s*;?/i;
+
+/** Matches the whole `<?php … REDUE_AI_STUDIO_RENDER:START … REDUE_AI_STUDIO_RENDER:END … ?>` render-call block. */
+function renderCallBlockRe(): RegExp {
+	return new RegExp(
+		`<\\?php\\s*\\/\\*\\s*${REDUE_SCHEMA_RENDER_MARKER_START}[\\s\\S]*?${REDUE_SCHEMA_RENDER_MARKER_END}\\s*\\*\\/\\s*\\?>`,
+		'i',
+	);
+}
+
+/**
+ * Phase 1 split: a 2-phase GnuBoard snippet embeds a small `REDUE_AI_STUDIO_RENDER:START…END`
+ * `<?php … ?>` block (the `echo redue_render_full_schema();` call) after its own
+ * `REDUE_AI_STUDIO:START…END` engine block. Pulling it out lets the caller place the two
+ * halves at different anchors: engine functions after the `_GNUBOARD_` guard, render call
+ * after `<meta charset>`.
+ */
+function splitRenderCallBlock(snippet: string): { enginePart: string; renderPart: string | null } {
+	const re = renderCallBlockRe();
+	const match = re.exec(snippet);
+	if (!match) return { enginePart: snippet, renderPart: null };
+	const renderPart = match[0].trim();
+	const enginePart = (snippet.slice(0, match.index) + snippet.slice(match.index + match[0].length)).trim();
+	return { enginePart, renderPart };
+}
+
+/**
+ * Insert `block` right after `<meta charset>` (bot First-Chunk safe). Falls back to right
+ * after `<head …>`, then right before `</head>`, then appends to the end of the source.
+ * Returns the new source plus a warning when a lower-priority fallback anchor was used.
+ */
+function injectRenderCallAfterCharset(
+	source: string,
+	block: string,
+): { result: string; warning: string | null } {
+	const tag = block.trim();
+	if (!tag) return { result: source, warning: null };
+	if (CHARSET_META_RE.test(source)) {
+		return { result: source.replace(CHARSET_META_RE, (m) => `${m}\n${tag}`), warning: null };
+	}
+	if (HEAD_OPEN_RE.test(source)) {
+		return {
+			result: source.replace(HEAD_OPEN_RE, (m) => `${m}\n${tag}`),
+			warning: '<meta charset> 태그를 찾지 못해 <head> 바로 아래에 렌더링 호출을 주입했습니다.',
+		};
+	}
+	if (/<\/head>/i.test(source)) {
+		return {
+			result: injectBeforeLastHeadClose(source, tag + '\n'),
+			warning: '<meta charset> / <head> 태그를 찾지 못해 </head> 앞에 렌더링 호출을 주입했습니다.',
+		};
+	}
+	return {
+		result: `${source.trimEnd()}\n${tag}\n`,
+		warning: '<head> 관련 앵커를 찾지 못해 파일 끝에 렌더링 호출을 주입했습니다.',
+	};
+}
+
+/**
+ * GnuBoard `head.sub.php` — render-call only.
+ * The 24-point engine lives in `/extend/redue.schema.php` (see `planCmsInjection`).
+ * This function strips any previously inlined engine and inserts the 5-line
+ * `echo redue_render_full_schema();` block right after `<meta charset>`.
+ */
+function injectTwoPhaseGnuboardSnippet(
+	cleaned: string,
+	snippet: string,
+	_phpOpen: RegExpExecArray,
+	targetPath?: string,
+): { ok: boolean; result: string; anchor: InjectionAnchor; warning: string | null } {
+	const renderPart = buildGnuboardRenderCallBlock();
+
+	const rendered = injectRenderCallAfterCharset(cleaned, renderPart);
+	let result = rendered.result;
+	const warning: string | null = rendered.warning;
+
+	// Canonical / og:url / description / OG / JSON-LD are emitted once from
+	// redue_render_full_schema() — never stamp a second HTML pair into head.sub.php.
+
+	result = addDeferToScriptTagsInSource(result);
+	result = sanitizePhpForDeploy(result, targetPath);
+
+	return { ok: true, result, anchor: 'php-open-top', warning };
+}
+
 /**
  * v22 Top-Priority: insert engine body immediately after the first `<?php`.
- * Strips prior REDUE blocks + stale canonical/og:url tags (v26 has no runtime ob_start()
- * cleaner anymore, so this static pass is what keeps canonical/og:url from duplicating),
- * then statically writes `defer` onto every `<script src>` in the file. Never deletes any
- * other existing HTML, includes, or meta tags.
+ * Strips prior REDUE blocks, stale canonical/og:url, theme description/OG metas
+ * (PHP-aware, so `<?php echo … ?>` does not leave leftover `">`), then writes `defer`
+ * onto every `<script src>`. Keeps charset / robots / naver-site-verification.
+ *
+ * When `snippet` is a 2-phase GnuBoard engine (contains a `REDUE_AI_STUDIO_RENDER` block),
+ * delegates to `injectTwoPhaseGnuboardSnippet()` so the engine and its render call land at
+ * different, correct anchors instead of being dumped together at the top of the file.
  */
 export function injectAfterFirstPhpOpen(
 	source: string,
 	snippet: string,
+	opts?: HeadInjectOptions,
 ): { ok: boolean; result: string; anchor: InjectionAnchor; warning: string | null } {
-	const cleaned = stripHardcodedCanonicalTags(stripPriorRedueInject(source));
+	const targetPath = opts?.targetPath;
+	const cleaned = prepareHeadSourceForInject(source, targetPath);
 	const phpOpen = PHP_OPEN_RE.exec(cleaned);
 	if (!phpOpen) {
 		return {
@@ -1140,23 +1366,26 @@ export function injectAfterFirstPhpOpen(
 		};
 	}
 
-	let topBlock = unwrapPhpSnippet(snippet);
+	const safeSnippet = stripGnuboardThemeSelfDelegation(sanitizeGeneratedPhpSnippet(snippet));
+	const useRenderOnly =
+		safeSnippet.includes(REDUE_SCHEMA_RENDER_MARKER_START) ||
+		isGnuboardHeadSubPath(targetPath) ||
+		/G5_IS_ADMIN/.test(safeSnippet);
+	if (useRenderOnly) {
+		return injectTwoPhaseGnuboardSnippet(cleaned, safeSnippet, phpOpen, targetPath);
+	}
+
+	let topBlock = unwrapPhpSnippet(safeSnippet);
 	let headCall: string | null = null;
-	// Hybrid controller must not echo JSON-LD before <!doctype> — keep call before </head>
+	// Hybrid (non-GnuBoard-automated) engines still relocate the immediate
+	// `redue_dynamic_schema_controller();` call before </head> so JSON-LD does not echo
+	// before <!doctype>.
 	const controllerCallRe = /\n?[ \t]*redue_dynamic_schema_controller\s*\(\s*\)\s*;[ \t]*/g;
 	if (controllerCallRe.test(topBlock)) {
 		controllerCallRe.lastIndex = 0;
 		topBlock = topBlock.replace(controllerCallRe, '\n');
 		headCall = '<?php redue_dynamic_schema_controller(); ?>\n';
 	}
-	// v32 Type A calc-only engine: it never echoes anything itself, so the actual
-	// <link rel="canonical">/og:url tags must be inserted separately, right after charset
-	// (Bot Optimized Top Position — before large CSS that pushes tags past First Chunk).
-	const isDirectCanonicalCalcOnly =
-		!headCall &&
-		(EXACT_CANONICAL_ASSIGN_RE.test(topBlock) || /\$final_canonical_url\s*=/.test(topBlock)) &&
-		!/<link\b/i.test(topBlock);
-
 	const insertAt = phpOpen.index + phpOpen[0].length;
 	let result =
 		cleaned.slice(0, insertAt) + '\n' + topBlock.trimEnd() + '\n' + cleaned.slice(insertAt);
@@ -1167,12 +1396,27 @@ export function injectAfterFirstPhpOpen(
 		} else if (WP_HEAD_RE.test(result)) {
 			result = result.replace(WP_HEAD_RE, (match) => `${headCall}${match}`);
 		}
-	} else if (isDirectCanonicalCalcOnly && (CHARSET_META_RE.test(result) || HEAD_OPEN_RE.test(result))) {
+	}
+
+	// Always stamp a live HTML canonical into <head> (after charset).
+	// Full engines contain `<link rel="canonical"` only inside PHP strings ($seo_tags .= …),
+	// so a naive /<link/ test used to skip this and leave crawlers with "canonical link missing"
+	// when Gnuboard nested ob_start() swallowed the runtime callback.
+	const engineCanComputeCanonical =
+		/redue_get_exact_canonical/.test(topBlock) ||
+		EXACT_CANONICAL_ASSIGN_RE.test(topBlock) ||
+		/\$final_canonical_url\s*=/.test(topBlock);
+	if (
+		engineCanComputeCanonical &&
+		!hasLiveCanonicalHtmlTag(result) &&
+		(CHARSET_META_RE.test(result) || HEAD_OPEN_RE.test(result))
+	) {
 		result = injectAfterCharsetOrHead(result, buildCanonicalLinkHtmlTag());
 	}
 
 	// v26: no ob_start() whole-document defer scanner anymore — rewrite <script src> statically.
 	result = addDeferToScriptTagsInSource(result);
+	result = sanitizePhpForDeploy(result, targetPath);
 
 	return { ok: true, result, anchor: 'php-open-top', warning: null };
 }
@@ -1186,29 +1430,35 @@ export function injectAfterFirstPhpOpen(
 export function injectBeforeClosingHead(
 	source: string,
 	snippet: string,
+	opts?: HeadInjectOptions,
 ): { ok: boolean; result: string; anchor: InjectionAnchor; warning: string | null } {
 	const cleaned = stripPriorRedueInject(source);
 	if (PHP_OPEN_RE.test(cleaned)) {
-		return injectAfterFirstPhpOpen(cleaned, snippet);
+		return injectAfterFirstPhpOpen(cleaned, snippet, opts);
 	}
 
-	const safety = checkInjectionSafety(stripHardcodedCanonicalTags(cleaned));
-	const safeSource = stripHardcodedCanonicalTags(cleaned);
-	const block = snippet.trimEnd() + '\n';
+	const safeSource = prepareHeadSourceForInject(cleaned, opts?.targetPath);
+	const safety = checkInjectionSafety(safeSource);
+	const block = cleanPhpTemplate(snippet).trimEnd() + '\n';
 
 	if (safety.anchor === 'head-close') {
-		const result = addDeferToScriptTagsInSource(safeSource.replace(HEAD_CLOSE_RE, `${block}</head>`));
+		const result = sanitizePhpForDeploy(
+			addDeferToScriptTagsInSource(safeSource.replace(HEAD_CLOSE_RE, `${block}</head>`)),
+			opts?.targetPath,
+		);
 		return { ok: true, result, anchor: 'head-close', warning: null };
 	}
 	if (safety.anchor === 'wp_head') {
-		const result = addDeferToScriptTagsInSource(
-			safeSource.replace(WP_HEAD_RE, (match) => `${block}${match}`),
+		const result = sanitizePhpForDeploy(
+			addDeferToScriptTagsInSource(safeSource.replace(WP_HEAD_RE, (match) => `${block}${match}`)),
+			opts?.targetPath,
 		);
 		return { ok: true, result, anchor: 'wp_head', warning: safety.warning };
 	}
 	if (safety.anchor === 'head-open') {
-		const result = addDeferToScriptTagsInSource(
-			safeSource.replace(HEAD_OPEN_RE, (match) => `${match}\n${block}`),
+		const result = sanitizePhpForDeploy(
+			addDeferToScriptTagsInSource(safeSource.replace(HEAD_OPEN_RE, (match) => `${match}\n${block}`)),
+			opts?.targetPath,
 		);
 		return { ok: true, result, anchor: 'head-open', warning: safety.warning };
 	}
@@ -1558,6 +1808,9 @@ export function buildDefaultInjectSnippet(opts: {
 	targetUrl?: string;
 	siteName?: string;
 }): string {
+	if (isSaasCmsType(opts.cmsType)) {
+		return buildSaasSchemaInjectorSnippet({ name: opts.siteName || '' });
+	}
 	return buildInjectSnippetForMappedFile(
 		{
 			relativePath: 'header',

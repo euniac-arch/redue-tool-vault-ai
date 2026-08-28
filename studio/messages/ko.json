@@ -6,9 +6,22 @@
 		"tagline": "AI SEO & GEO 정밀 진단",
 		"scanner": "진단 엔진",
 		"auditHistory": "진단 내역",
+		"liveDiagnose": "실시간 진단",
 		"geoOptimization": "GEO 최적화",
+		"aeoGeo": "AEO · GEO",
+		"aeoGeoGuide": "AEO · GEO 가이드",
+		"industry": "업종별 플레이북",
+		"strategyStudio": "검색 전략 설계",
+		"aiHub": "AI 허브",
+		"globalAiTools": "글로벌 AI 도구",
+		"aiPromptHub": "AI 프롬프트 허브",
+		"insights": "인사이트",
+		"insightsHub": "인사이트 & AI 허브",
+		"insightsColumn": "인사이트 칼럼",
 		"portfolio": "포트폴리오",
 		"contact": "작업 문의",
+		"openMenu": "메뉴 열기",
+		"closeMenu": "메뉴 닫기",
 		"enterprise": "엔터프라이즈",
 		"reseller": "리셀러",
 		"wpPlugin": "WP 플러그인",
@@ -26,26 +39,226 @@
 		"themeToLight": "라이트 모드로 전환",
 		"themeToDark": "다크 모드로 전환"
 	},
+	"strategyStudio": {
+		"pageTitle": "검색 전략 설계",
+		"pageDescription": "기존 REDUE 진단 결과를 기준으로, 사이트 URL을 다시 입력하지 않고 다음 검색 전략을 설계합니다.",
+		"eyebrow": "검색 전략 설계",
+		"ctaAria": "검색 전략 설계로 이동",
+		"ctaKicker": "Next step",
+		"ctaTitle": "진단 결과를 기준으로 검색 전략을 설계합니다.",
+		"ctaHint": "사이트 URL을 다시 입력하지 않습니다.",
+		"ctaButton": "검색 전략 설계 →",
+		"scoreStrategyCta": "이 사이트의 키워드별 공략 전략 설계하기 ➔",
+		"engineerCta": "직접 구현이 어려우신가요? REDUE 엔지니어에게 의뢰하기",
+		"siteSwitcherOpen": "최근 진단 사이트 선택",
+		"siteSwitcherLoading": "최근 진단 내역을 불러오는 중입니다...",
+		"siteSwitcherEmpty": "전환할 최근 진단이 없습니다.",
+		"siteNewAudit": "새 사이트 진단하기",
+		"loading": "진단 기준 데이터를 불러오는 중입니다...",
+		"kicker": "Strategy baseline · 전략 분석 기준 데이터",
+		"measuredLabel": "종합 실측",
+		"metaIndustry": "업종",
+		"metaSubIndustry": "세부 업종",
+		"metaLocation": "지역",
+		"baselineNote": "아래 숫자는 1차 진단에서 실측된 값만 표시합니다. 없는 축은 만들지 않았습니다.",
+		"pillarHint": "GEO pillar",
+		"seedKeyword": "추정 검색어",
+		"schemaCoverage": "스키마 커버리지",
+		"issueCount": "문제 {count}건",
+		"competitorCount": "경쟁사 {count}",
+		"backToResult": "← 진단 결과로 돌아가기",
+		"handoffNote": "URL 재입력 없이 기존 진단을 불러왔습니다.",
+		"heroLine1": "검색시장에서",
+		"heroLine2": "무엇을 어떻게 공략할 것인가",
+		"heroBody": "진단 결과와 업종별 검색 특성을 바탕으로 공략 키워드별 실행 전략을 설계합니다.",
+		"notExtracted": "미추출",
+		"scoreRow": "현재 점수",
+		"scoreHint": "1차 진단에서 실측된 축만 표시합니다.",
+		"keywordHelp": "한 개의 공략 검색어를 기준으로 전략을 설계합니다.",
+		"keywordPlaceholder": "공략하고 싶은 검색어를 입력하세요.",
+		"keywordPlaceholderExamples": "예: {examples}",
+		"analyze": "전략 분석",
+		"profileTitle": "이 업종에서 중요한 신호",
+		"intentTitle": "이 검색어에 포함된 의도",
+		"intentEmpty": "키워드에서 확인된 의도 신호가 없습니다.",
+		"intentHint": "의도는 키워드 정규화 결과로만 표시하며, 확률 수치는 만들지 않습니다.",
+		"matchHigh": "진단 업종과 검색어 업종 관련성이 높습니다.",
+		"matchMedium": "검색어에 명확한 업종 명사가 없어 관련성을 중간으로 둡니다.",
+		"matchLow": "진단 업종과 검색어 업종 관련성이 낮습니다. 공략 키워드를 다시 확인하세요.",
+		"parsedLocation": "지역",
+		"parsedIndustry": "업종",
+		"parsedService": "서비스",
+		"parsedProblem": "문제",
+		"entityTitle": "현재 Entity 관계",
+		"entityPresent": "PRESENT",
+		"entityPartial": "PARTIAL",
+		"entityMissing": "MISSING",
+		"surfaceTitle": "관련 검색 환경",
+		"surfaceHint": "질의 형태와 맞닿은 환경입니다. 특정 플랫폼 상위 노출을 보장하지 않습니다.",
+		"surfaceRelated": "관련",
+		"surfaceIdle": "비중심",
+		"impactLabel": "EXPECTED IMPACT",
+		"compareTitle": "현재 상태와 전략 목표",
+		"compareHint": "TARGET은 실측 점수가 아니라 권장 수준 · 전략 목표입니다.",
+		"gapTitle": "공략해야 할 간격",
+		"gapCurrent": "현재",
+		"gapStrategy": "전략",
+		"priorityTitle": "실행 우선순위",
+		"moveTitle": "갭별 전략",
+		"sampleTitle": "실행 샘플",
+		"sampleDisclaimer": "검색 순위를 보장하는 문구가 아닙니다. 바로 쓸 수 있는 콘텐츠 구조 예시입니다.",
+		"sampleNextStep": "아래 실행 블루프린트가 현재 규칙 엔진이 만든 적용용 결과물입니다. 파일보내기는 다음 단계에서 연결됩니다.",
+		"planTitle": "실행 계획",
+		"blueprintTitle": "실행 블루프린트",
+		"blueprintDisclaimer": "사이트에 바로 옮길 수 있는 초안입니다. 검색 순위나 특정 플랫폼 노출을 보장하지 않습니다.",
+		"blueprintRelatedServices": "관련 서비스",
+		"blueprintNone": "확인된 항목 없음",
+		"blueprintInternalHint": "진단에서 확인된 페이지만 추천합니다. 없는 URL은 만들지 않습니다.",
+		"blueprintNoUrl": "확인된 URL 없음",
+		"blueprintLocalEmpty": "사업장 지역과 겹치는 토큰이 없습니다.",
+		"blueprintP0": "반드시 먼저",
+		"blueprintP1": "높은 우선순위",
+		"blueprintP2": "추가 개선",
+		"nowTitle": "그래서 지금 할 일",
+		"nowHint": "분석이 끝난 뒤 바로 실행할 P0입니다. 순위 보장이 아닙니다.",
+		"resultSectionEyebrow": "STRATEGY INTELLIGENCE",
+		"resultSectionTitle": "전략 분석 결과",
+		"resultSectionDesc": "입력하신 공략 키워드와 사이트 진단 데이터를 기반으로 도출된 핵심 실행 우선순위 및 공략 방향입니다.",
+		"jumpBlueprint": "실행 샘플",
+		"jumpAction": "실행 순서",
+		"jumpGap": "간격",
+		"flowNav": "분석 흐름",
+		"jumpMap": "전략 맵",
+		"mapTitle": "이 검색어의 검색시장 전략",
+		"mapSubtitle": "이 검색어에서 무엇이 중요하고, 현재 무엇이 부족하며, 어떤 순서로 개선해야 하는지 보여줍니다.",
+		"summaryTitle": "한 화면 요약",
+		"intentMapTitle": "검색 의도 맵",
+		"intentMapHint": "막대는 Primary / Secondary / Idle 가중치입니다. 확률이나 점유율 수치가 아닙니다.",
+		"weightPrimary": "Primary",
+		"weightSecondary": "Secondary",
+		"weightIdle": "Idle",
+		"journeyTitle": "검색 여정",
+		"entityMapTitle": "Entity 맵",
+		"entityStatusTitle": "Entity 상태",
+		"entityWhy": "왜 필요한가?",
+		"entityWhat": "무엇을 보완해야 하는가?",
+		"surfaceMapTitle": "검색 환경",
+		"surfaceSignals": "Relevant Signals",
+		"coverageTitle": "현재 상태 · 전략 목표 · GAP",
+		"coverageHint": "실측 점수가 있는 축만 숫자를 표시합니다. TARGET은 권장 커버리지이며 검색엔진 필요 점수가 아닙니다.",
+		"measuredShort": "실측 {value}",
+		"priorityEngineTitle": "우선순위 엔진",
+		"whyFirst": "왜 이것을 먼저?",
+		"competitionTitle": "검색 경쟁 뷰",
+		"competitorGap": "Competitor Gap 축",
+		"contentSampleTitle": "적용 샘플",
+		"clusterTitle": "콘텐츠 아키텍처",
+		"clusterHint": "진단에서 확인된 페이지는 EXISTING, 없는 페이지는 NEW입니다. 없는 URL은 만들지 않습니다.",
+		"clusterExisting": "EXISTING",
+		"clusterNew": "NEW",
+		"horizonTitle": "실행 일정",
+		"horizonToday": "TODAY",
+		"horizonWeek": "THIS WEEK",
+		"horizonNext": "NEXT",
+		"copilotImprove": "AI 개선",
+		"copilotLoading": "고도화 중…",
+		"copilotDraft": "AI 초안 · 적용 전",
+		"copilotApply": "이 항목만 적용",
+		"copilotDiscard": "취소",
+		"copilotError": "AI 고도화를 실행하지 못했습니다.",
+		"ctaSample": "실행 블루프린트로 이동",
+		"ctaAnother": "다른 키워드 분석",
+		"ctaBack": "진단 결과로 돌아가기",
+		"emptyTitle": "불러올 진단 결과가 없습니다.",
+		"emptyBody": "검색 전략 설계는 기존 진단 결과를 기준으로 시작합니다. 먼저 사이트를 진단하거나 진단 내역에서 결과를 선택해 주세요.",
+		"emptyNetwork": "진단 결과를 불러오지 못했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.",
+		"emptyHistory": "진단 내역에서 선택",
+		"emptyScan": "새로 진단하기",
+		"contextDesc": "현재 진단 결과를 기반으로 검색 전략을 설계합니다.",
+		"keywordQuestion": "어떤 검색어를 공략할까요?",
+		"keywordCommandHint": "공략할 검색시장을 입력하세요.",
+		"recommendKeywords": "추천 키워드",
+		"recommendGroupMetro": "광역 시술/질환",
+		"recommendGroupAeo": "추천·질문형",
+		"recommendGroupLocal": "로컬/거점",
+		"analysisDesc": "검색어의 의도와 검색 구조를 분석합니다.",
+		"gapSectionDesc": "현재 검색시장 대응에서 가장 큰 차이를 만드는 요소입니다.",
+		"blueprintSectionDesc": "분석 결과를 실제 웹사이트 작업으로 연결합니다.",
+		"actionSectionDesc": "지금, 이번 주, 다음에 실행할 순서를 정리합니다.",
+		"primaryLabel": "PRIMARY",
+		"secondaryLabel": "SECONDARY",
+		"currentAudit": "CURRENT AUDIT",
+		"currentStateLabel": "CURRENT STATE",
+		"strategicTargetLabel": "STRATEGIC TARGET",
+		"gapAxisLabel": "GAP",
+		"priorityCritical": "CRITICAL",
+		"priorityHighLabel": "HIGH",
+		"priorityOptimize": "OPTIMIZE",
+		"analyzingTitle": "ANALYZING SEARCH MARKET",
+		"analyzingNote": "검색 시장 분석을 단계적으로 적용하고 있습니다.",
+		"analyzingStep1": "Reading audit context",
+		"analyzingStep2": "Matching industry profile",
+		"analyzingStep3": "Analyzing search intent",
+		"analyzingStep4": "Mapping entities",
+		"analyzingStep5": "Finding strategic gaps",
+		"analyzingStep6": "Building execution plan",
+		"guidedEmpty": "검색어를 입력하면 검색시장 전략 분석이 시작됩니다.",
+		"strategyRecommendation": "STRATEGY RECOMMENDATION",
+		"whyNeeded": "왜 필요한가?",
+		"whatToDo": "무엇을 해야 하는가?",
+		"howToExecute": "실행 예시",
+		"recommendedStrategy": "권장 전략",
+		"contentSample": "CONTENT SAMPLE",
+		"viewStrategyDetail": "상세 전략 보기",
+		"hideStrategyDetail": "상세 전략 닫기",
+		"executionOrder": "EXECUTION ORDER",
+		"actionContentSample": "콘텐츠 샘플 만들기",
+		"actionFaq": "FAQ 생성",
+		"actionEntitySentence": "Entity 문장 만들기",
+		"actionBlueprint": "실행안 보기",
+		"actionPlanJump": "Action Plan",
+		"actionRag": "RAG 청크 열기",
+		"actionMatrix": "비교 매트릭스 열기",
+		"actionSafety": "안전성 기준 열기",
+		"actionLlms": "llms.txt 열기",
+		"blueprintAiCite": "AI CITE",
+		"blueprintRagTitle": "RAG 청크",
+		"blueprintRagHint": "대명사 없이 브랜드·의료진·지역·시술/장비를 한 문단에 담은 자립형 인용 단위입니다. SearchGPT, Perplexity, Gemini, Google AI Overviews가 앞 문장 없이 가져갈 수 있습니다.",
+		"blueprintMatrixTitle": "비교 매트릭스",
+		"blueprintGainTitle": "정보 이득률",
+		"blueprintSafetyTitle": "안전성 & 비추천 기준",
+		"blueprintSafetyHint": "권장하지 않는 대상을 명시해 E-E-A-T 신뢰 신호를 만듭니다. 개인 진단이 아닙니다.",
+		"blueprintLlmsTitle": "llms.txt 내보내기",
+		"blueprintLlmsHint": "사이트 루트({path})에 그대로 배포할 수 있는 마크다운입니다.",
+		"blueprintCopyMarkdown": "Markdown 복사",
+		"blueprintCopyHtml": "HTML 복사",
+		"blueprintCopyAll": "전체 복사",
+		"blueprintDownloadLlms": "llms.txt 다운로드",
+		"blueprintDownloaded": "저장됨",
+		"blueprintTokenEstimate": "약 {count} 토큰",
+		"blueprintSideEffects": "부작용",
+		"blueprintContraindications": "금기"
+	},
 	"hero": {
-		"badge": "무료 · 회원가입 없이 · 10초 정밀 진단",
+		"badge": "무료 · 회원가입 없이 · 3-트랙 정밀 실측",
 		"engines": "4대 실시간 라이브 실측 | 2대 포털 색인 시뮬레이션 통합 지원",
 		"enginesLive": "4대 실시간 라이브 실측",
 		"enginesProxy": "2대 포털 색인 시뮬레이션 통합 지원",
 		"title": "검색되는 회사를 넘어, AI가 추천하는 회사로.",
 		"titleLine1": "검색되는 회사를 넘어,",
 		"titleLine2": "AI가 추천하는 회사로.",
-		"description": "Google 검색부터 ChatGPT·Gemini·Perplexity까지, 검색엔진과 AI가 우리 사이트를 어떻게 이해하고 있는지 정밀 진단합니다. 10초 안에 SEO · GEO · Schema · E-E-A-T 핵심 결함과 개선 우선순위를 확인하세요.",
+		"description": "Google 검색부터 ChatGPT·Gemini·Perplexity까지, 검색엔진과 AI가 우리 사이트를 어떻게 이해하고 있는지 정밀 진단합니다. 실시간으로 SEO · GEO · Schema · E-E-A-T 핵심 결함과 개선 우선순위를 확인하세요.",
 		"descriptionLine1": "Google 검색부터 ChatGPT·Gemini·Perplexity까지,",
 		"descriptionLine2": "AI 검색에서 먼저 선택되는 이유를 만듭니다.",
 		"placeholder": "https://your-domain.com",
-		"button": "10초 무료 진단 시작",
+		"button": "AI 검색 · 스키마 · 웹 성능 통합 진단",
 		"buttonLoading": "진단 페이지로 이동 중...",
 		"invalidUrl": "유효한 도메인 또는 URL을 입력해 주세요.",
 		"launchError": "진단을 시작하지 못했습니다. 도메인을 확인한 뒤 다시 시도해 주세요.",
 		"formHint": "※ 별도의 회원가입 없이 즉시 6대 AI 검색 준비도 통합 정밀 진단 리포트가 생성됩니다.",
 		"formDisclaimer": "※ ChatGPT·Perplexity·Gemini·Claude는 실시간 질의 실측을 진행하며, Copilot·Naver Cue:는 Bing 및 스마트플레이스 신호 가중치 기반 시뮬레이션으로 산출됩니다.",
 		"points": {
-			"speed": "10초 정밀 진단",
+			"speed": "3-트랙 정밀 실측",
 			"unified": "AI·SEO·GEO 통합 분석",
 			"actionable": "실행 가능한 인사이트"
 		},
@@ -73,7 +286,7 @@
 		"title": "정밀 SEO & GEO 진단 엔진",
 		"description": "외부 LLM API 없이 HTML/JSON-LD를 직접 파싱하는 개발자 도구형 진단 엔진입니다.",
 		"engineBadge": "Precision Audit Engine",
-		"engineTitle": "10초 만에 사이트의 검색 경쟁력을 정밀 분석합니다",
+		"engineTitle": "실시간으로 사이트의 검색 경쟁력을 정밀 분석합니다",
 		"engineDescription": "단순히 HTML 존재 여부만 체크하는 것이 아니라 실제 DOM 구조, 메타데이터, JSON-LD, SEO·GEO 요소를 종합 분석하여 검색엔진과 AI 인용을 막는 핵심 병목을 찾아냅니다.",
 		"engineHistoryCta": "최근 진단 내역 보기",
 		"enginePillars": {
@@ -101,7 +314,7 @@
 		"trustProof": {
 			"ariaLabel": "핵심 신뢰 지표",
 			"items": {
-				"speed": { "title": "10초", "sub": "정밀 진단" },
+				"speed": { "title": "실시간", "sub": "정밀 진단" },
 				"engines": { "title": "AI 6종", "sub": "4실측 · 2색인" },
 				"sites": { "title": "10만+", "sub": "웹사이트 분석" },
 				"security": { "title": "99.9%", "sub": "보안 보장" }
@@ -194,7 +407,7 @@
 					"line2": "2대 포털 색인 시뮬레이션"
 				},
 				"speed": {
-					"title": "10초 정밀 파싱",
+					"title": "실시간 정밀 파싱",
 					"line1": "빠르고 정확한 진단으로",
 					"line2": "시간 절약"
 				},
@@ -404,7 +617,7 @@
 					"status": "1위 추천 진입 목표"
 				},
 				"cta": "⚡ 내 업종의 AI 점유율(SoV) 무료 확인하기",
-				"ctaNote": "※ 사이트 URL 입력 시 10초 만에 실시간 경쟁사 점유율을 분석합니다."
+				"ctaNote": "※ 사이트 URL 입력 시 실시간으로 경쟁사 점유율과 AI 인용 지배력을 정밀 분석합니다."
 			},
 			"modules": {
 				"badge": "THE 5-PILLAR PRESCRIPTION",
@@ -417,7 +630,7 @@
 					"effect": "기대 효과"
 				},
 				"trust": "💡 기존 사이트를 리뉴얼할 필요 없이, <strong>단 1회의 엔진 주입으로 5대 처방이 즉시 활성화</strong>됩니다.",
-				"cta": "10초 무료 진단으로 내 결함 확인하기 ➔",
+				"cta": "내 사이트 3-트랙 통합 진단하기 ➔",
 				"items": {
 					"schema": {
 						"badge": "MODULE 01 · CORE FOUNDATION",
@@ -588,7 +801,8 @@
 								"title": "기초 노출 점유율 확보",
 								"desc": "시맨틱 태그 및 메타데이터 정비로 질문형 검색 상단 노출 기반 완성"
 							}
-						}
+						},
+						"benefitsSummary": "월 고정 비용 없이 1회 세팅으로 AI 크롤러 수집 누락(404)을 즉시 방어하고 공식 엔티티를 등록합니다."
 					},
 					"pro": {
 						"name": "GEO 프로",
@@ -603,8 +817,8 @@
 							"1": "✓ 네이버 스마트플레이스 / 지도 연동 점검",
 							"2": "✓ Entity / E-E-A-T 대표자 지식그래프 강화",
 							"3": "✓ FAQPage 5종 & speakable 정밀 주입",
-							"4": "✓ 실측 재진단 4회 제공",
-							"5": "📊 개선 전후 비교 성과 리포트 발행"
+							"4": "✓ 4주간 점수 추이 트래킹 & 주 1회 실측 재진단 (총 4회)",
+							"5": "📊 4주 개선 전후 비교 성과 리포트 최종 발행"
 						},
 						"benefits": {
 							"0": {
@@ -624,10 +838,11 @@
 							},
 							"3": {
 								"icon": "📊",
-								"title": "눈으로 보는 결과 검증",
-								"desc": "실측 4회 재진단 + 개선 전후 성과 리포트로 점수 상승 확인"
+								"title": "4주간 점수 추이 & 성과 검증",
+								"desc": "4주간 주 1회 실측 재진단(총 4회)과 최종 성과 리포트로 점수 상승 추이 확인"
 							}
-						}
+						},
+						"benefitsSummary": "대화형 1순위 인용(FAQPage)과 대표자 지식그래프를 구축하고, 4주간의 추이 관리를 통해 고관여 잠재 고객 유출을 완벽히 차단합니다."
 					},
 					"enterprise": {
 						"name": "엔터프라이즈",
@@ -660,7 +875,8 @@
 								"title": "3개월 알고리즘 방어 모니터링",
 								"desc": "AI 엔진 업데이트 시에도 상위 점유율 유지 관리"
 							}
-						}
+						},
+						"benefitsSummary": "업계 최상위 SoV 점유율 선점 및 3개월 밀착 모니터링으로 독점적 AI 인용 기반을 완성합니다."
 					}
 				}
 			},
@@ -676,24 +892,24 @@
 					},
 					"timing": {
 						"q": "작업 후 바로 ChatGPT나 Perplexity에 반영되나요?",
-						"a": "온페이지 주입 즉시 크롤러 인덱싱 신호는 즉각 활성화됩니다. 이후 GPTBot, PerplexityBot, Google AI 등 주요 AI 크롤러의 수집 주기에 따라 통상 3영업일에서 2주 이내에 AI 검색 인용 지수가 갱신되고 추천 결과에 순차 반영됩니다."
+						"a": "AI 크롤러의 수집 주기에 따라 통상 3~7영업일 이내 순차 반영되며, /llms.txt 배포를 통해 AI 인덱싱 속도를 극대화합니다."
 					},
 					"builder": {
 						"q": "그누보드, 워드프레스 등 어떤 홈페이지에도 적용 가능한가요?",
-						"a": "네, 100% 호환됩니다. 그누보드, 워드프레스, 아임웹, 카페24, 식스샵, 자체 개발(PHP/Node/React) 등 HTML 소스 수정이나 FTP/CMS 관리자 접근이 가능한 모든 웹사이트에 완벽히 적용됩니다."
+						"a": "네. 그누보드, 워드프레스, 아임웹, 카페24, 쇼피파이 및 커스텀 React/Vue/HTML 등 모든 웹 환경에 100% 호환 적용됩니다."
 					},
 					"rank": {
 						"q": "AI 검색 1위 추천이 100% 보장되나요?",
-						"a": "AI 추천 알고리즘은 사용자의 질문 의도와 외부 신뢰도를 종합 평가하므로 특정 순위를 기계적으로 영구 보장하지는 않습니다. 다만, AI가 귀사를 신뢰할 수 있는 공식 출처(Source)로 인식하고 1순위 추천 정답 카드에 채택될 수 있는 최고 수준의 기술적·구조적 표준(Level 3 도달)을 완벽히 구축해 드립니다."
+						"a": "각 AI 엔진의 최신 가이드라인에 맞춘 최상위 스키마 규격을 구축하지만, 과장 광고 및 허위 보장을 방지하기 위해 특정 순위를 영구 보증하지는 않습니다."
 					},
 					"diff": {
 						"q": "19만 원(스피드 셋업)과 49만 원(GEO 프로)의 차이는 무엇인가요?",
-						"a": "19만 원 패키지는 JSON-LD 스키마와 /llms.txt를 신속 배포하는 핵심 온페이지 기초 세팅이며, 49만 원 패키지는 여기에 더해 네이버 스마트플레이스 연동, 대표원장 E-E-A-T 지식그래프 구축, 실측 4회 재진단 및 개선 전후 비교 리포트 발행까지 포함된 풀스택 점유율 독점 관리 패키지입니다."
+						"a": "스피드 셋업은 엔티티/기본 스키마와 /llms.txt 기본 정비이며, GEO 프로는 대화형 FAQPage, 대표자 지식그래프, 지도 연동 점검 및 4회 실측 재진단 리포트가 포함됩니다."
 					}
 				}
 			},
 			"sticky": {
-				"badge": "10초 무료 정밀 진단",
+				"badge": "AI 검색 · 스키마 · 웹 성능 통합 진단",
 				"title": "지금 귀사의 사이트는 <score>AI에게 몇 점</score>일까요?",
 				"button": "무료 진단하기"
 			}
@@ -702,9 +918,9 @@
 			"badge": "⚡ REAL-TIME AI AUDIT",
 			"title": "지금 귀사의 사이트는",
 			"titleLine2": "AI에게 몇 점으로 평가받고 있을까요?",
-			"subtitle": "URL 입력 한 번으로 4대 AI 실시간 실측과 2대 포털 생태계 색인 시뮬레이션을 통합한 검색 준비도와 경쟁사 유출 점유율을 10초 만에 분석해 드립니다.",
+			"subtitle": "URL 입력 한 번으로 4대 AI 실시간 실측과 2대 포털 생태계 색인 시뮬레이션을 통합한 검색 준비도와 경쟁사 유출 점유율을 실시간으로 정밀 분석해 드립니다.",
 			"placeholder": "https://your-domain.com",
-			"button": "10초 무료 정밀 진단 ➔",
+			"button": "AI 검색 · 스키마 · 웹 성능 통합 진단 ➔",
 			"note": "✓ 회원가입 없음 · ✓ 신용카드 등록 없음 · ✓ 즉시 34개 항목 정밀 분석 리포트 발행",
 			"disclaimer": "※ ChatGPT·Perplexity·Gemini·Claude는 실시간 질의 실측을 진행하며, Copilot·Naver Cue:는 Bing 및 스마트플레이스 신호 가중치 기반 시뮬레이션으로 산출됩니다."
 		},
@@ -715,7 +931,7 @@
 			"brandFull": "REDUE AI SEO GEO STUDIO",
 			"slogan": "검색되는 회사를 넘어, AI가 1순위로 추천하는 회사로.",
 			"llmsCta": "🤖 /llms.txt AI 전용 인덱스",
-			"auditCta": "⚡ 10초 정밀 진단",
+			"auditCta": "⚡ 3-트랙 정밀 진단",
 			"cols": {
 				"solutions": "GEO 솔루션",
 				"plans": "서비스 & 요금제",
@@ -723,7 +939,7 @@
 				"agents": "AI 크롤러 정책"
 			},
 			"solutions": {
-				"audit": "10초 AI 정밀 진단",
+				"audit": "AI 검색 · 스키마 · 웹 성능 통합 진단",
 				"prescription": "5대 GEO 처방 시스템",
 				"schema": "Schema.org JSON-LD 생성기",
 				"faq": "대화형 FAQPage 마크업",
@@ -799,7 +1015,7 @@
 			"readTime": "약 3분 분량 · 마케팅 / 영업 백서",
 			"closeAria": "가이드북 닫기",
 			"cta": "🚀 지금 우리 사이트 무료 GEO 진단해보기",
-			"ctaNote": "URL만 입력하면 10초 안에 SEO · GEO · Schema 결함을 확인합니다.",
+			"ctaNote": "URL만 입력하면 실시간으로 SEO · GEO · Schema 결함을 확인합니다.",
 			"paradigm": {
 				"title": "1. 지금 왜 AI 검색 진단을 받아야 하는가? (패러다임의 변화)",
 				"lead": "검색 결과는 더 이상 ‘10개의 파란 링크’가 아닙니다.",
@@ -935,16 +1151,29 @@
 	"audit": {
 		"quota": {
 			"remainingBadge": "오늘 무료 진단: {remaining}/{limit}회 남음",
-			"devUnlimitedBadge": "[DEV] 무제한 진단 모드",
+			"guestRemainingBadge": "게스트 무료 진단 (남은 횟수 {remaining}/{limit})",
 			"buttonExhausted": "오늘 횟수 소진",
+			"guestButtonExhausted": "게스트 진단 횟수 소진",
 			"kicker": "DAILY FREE LIMIT",
+			"guestKicker": "GUEST FREE LIMIT",
 			"modalTitle": "오늘 무료 진단 횟수를 모두 사용했습니다",
 			"modalBody": "오늘 무료 진단 횟수(3회)를 모두 소진했습니다. 내일 자정에 충전됩니다. 유료 플랜으로 업그레이드하면 제한 없이 진단할 수 있습니다.",
+			"guestModalTitle": "게스트 무료 진단 3회를 모두 사용했습니다",
+			"guestModalBody": "로그인하지 않은 방문자는 무료 진단을 3회까지만 이용할 수 있습니다. 로그인/회원가입하면 계속 진단할 수 있습니다.",
 			"modalLogin": "로그인 / 회원가입",
 			"modalUpgrade": "유료 플랜 보기",
 			"modalContact": "도입 문의",
 			"modalClose": "닫기",
-			"limitReached": "오늘 무료 진단 횟수(3회)를 모두 소진했습니다. 내일 자정에 충전됩니다."
+			"limitReached": "무료 진단 횟수(3회)를 모두 사용했습니다. 로그인/회원가입하면 계속 진단할 수 있습니다."
+		},
+		"engine": {
+			"kicker": "DIAGNOSTIC ENGINE",
+			"title": "진단 엔진",
+			"description": "사이트의 SEO · GEO · AEO 상태를 실시간으로 진단하거나, 이전 진단 내역을 확인합니다.",
+			"tabsAria": "진단 엔진 화면",
+			"liveTab": "실시간 진단",
+			"historyTab": "진단 내역",
+			"presetApplied": "{industry} 업종 프리셋이 적용되었습니다."
 		},
 		"backToHome": "← 메인으로",
 		"backToHistory": "← 진단 목록으로 돌아가기",
@@ -962,23 +1191,40 @@
 			"heroScoreSuffix": "/ 100",
 			"rawScoreLabel": "실측 원점수",
 			"rawScoreValue": "{score} / {max}",
-			"chartTitle": "3대 핵심 진단 점수",
-			"chartAriaLabel": "종합 실측, AI 검색 신뢰도, 검색 기술 최적화 점수 비교 차트",
+			"weightCompositionTechLabel": "기술",
+			"weightCompositionGeoLabel": "GEO",
+			"weightCompositionPerfLabel": "성능",
+			"weightCompositionPerfPending": "성능 실측 중...",
+			"weightCompositionPointSuffix": "점",
+			"weightCompositionSecurityPenaltyStrip": "보안 결함 패널티 -{penalty}점 적용 ➔ 최종 {final}점",
+			"weightCompositionSecurityOkStrip": "보안 결함 없음 (패널티 0점)",
+			"complianceScoreBadge": "규격 충족 {score} / {max}점 (환산 {pct}점)",
+			"cwvLoadingBadge": "실측 성능 집계 중...",
+			"cwvLoadingAria": "PageSpeed 실측 데이터 로딩 중",
+			"heroScorePending": "계산 중",
+			"heroFormulaPending": "기술 {track1} + GEO {track2} + {perfPending} = {scorePending}",
+			"chartTitle": "4대 핵심 진단 점수",
+			"chartAriaLabel": "종합실측, 기술 무결성 규격, AI 검색 인용 지배력, 웹 성능 실측 점수 비교 차트",
 			"chart": {
 				"overall": {
-					"short": "종합 실측",
-					"full": "종합 실측 점수",
-					"desc": "5대 카테고리 실측 가중 총점"
+					"short": "종합",
+					"full": "종합실측",
+					"desc": "Track1(기술)·Track2(GEO)·CWV(성능) 가중 종합 실측 점수"
 				},
-				"aiTrust": {
-					"short": "AI 신뢰도",
-					"full": "AI 검색 신뢰도",
-					"desc": "GEO & AI 인용/크롤러 신뢰도"
+				"track1": {
+					"short": "기술",
+					"full": "기술 무결성 규격",
+					"desc": "기술 SEO 인프라 · 스키마 규격 준수도 (Track 1)"
 				},
-				"techSeo": {
-					"short": "기술 최적화",
-					"full": "검색 기술 최적화",
-					"desc": "SEO 인프라/스키마/성능"
+				"track2": {
+					"short": "GEO",
+					"full": "AI 검색 인용 지배력",
+					"desc": "GEO & AI 검색엔진 인용/신뢰 신호 (Track 2)"
+				},
+				"track3": {
+					"short": "성능",
+					"full": "웹 성능 실측(CWV)",
+					"desc": "모바일/PC 평균 Core Web Vitals 실측 성능 (Track 3)"
 				}
 			},
 			"chartScoreLabel": "{score}점",
@@ -1099,6 +1345,8 @@
 		"pageSpeed": {
 			"cardsBadge": "PageSpeed Insights",
 			"cardsTitle": "실측 4대 핵심 지표",
+			"unavailableFallback": "페이지가 첫 콘텐츠를 그리지 못해 PageSpeed 측정이 불가합니다. 빈 화면·지연 렌더링·봇 차단을 확인한 뒤 다시 시도하세요.",
+			"estimatedNotice": "Google Lighthouse 실측 응답이 지연되어 온페이지 성능 신호 기반 추정치를 표시하고 있습니다. 잠시 후 다시 진단하면 실측값으로 갱신됩니다.",
 			"cardsAriaLabel": "PageSpeed Insights 성능·접근성·권장사항·SEO 점수",
 			"strategyLabel": "{strategy} 실측",
 			"strategyNames": {
@@ -1122,7 +1370,15 @@
 			},
 			"precisionBadge": "웹 성능 & 접근성 · PageSpeed 실측",
 			"precisionTitle": "Core Web Vitals & 리소스 정밀 진단",
-			"precisionSubtitle": "4대 핵심 지표 → Core Web Vitals → 이미지·캐시·LCP·JS 실행 진단 및 맞춤형 해결 가이드를 제공합니다.",
+			"precisionSubtitle": "PC·모바일 실측 4대 지표와 Core Web Vitals를 함께 비교하고, 이미지·캐시·LCP·JS 리소스 진단과 맞춤형 해결 가이드를 제공합니다.",
+			"liveMeasuringBanner": "⚡ Google Lighthouse 모바일 & PC 실측 엔진 가동 중... (약 10~15초 소요)",
+			"refreshButton": "웹 성능 실측만 다시 검사",
+			"refreshButtonLoading": "재진단 중...",
+			"scoresDesktop": "🖥️ PC 실측 4대 지표",
+			"scoresMobile": "📱 모바일 실측 4대 지표",
+			"vitalsDesktop": "🖥️ PC 실측 Core Web Vitals",
+			"vitalsMobile": "📱 모바일 실측 Core Web Vitals",
+			"resourcesStrategyHint": "리소스 목록은 PC/모바일 실측별로 다릅니다.",
 			"measuring": "구글 Core Web Vitals 및 성능 실측 데이터 측정 중...",
 			"measuringHint": "PageSpeed Insights API · 성능·접근성·권장사항·SEO · LCP · TBT/INP · CLS · 보통 10~15초",
 			"progressStepLabel": "{current} / {total}",
@@ -1142,7 +1398,7 @@
 			"vitals": {
 				"lcp": "LCP · 최대 콘텐츠 렌더링",
 				"fcp": "FCP · 첫 콘텐츠 렌더링",
-				"tbt": "TBT / INP · 총 차단 시간",
+				"tbt": "TBT · 총 차단 시간",
 				"cls": "CLS · 누적 레이아웃 이동"
 			},
 			"vitalThreshold": {
@@ -1161,7 +1417,7 @@
 				"mainThread": "메인 스레드 작업 분해",
 				"lcpWarningTitle": "LCP 크리티컬 경로 경고",
 				"colFile": "파일",
-				"colSize": "용량",
+				"colSize": "현재 용량",
 				"colWasted": "절감 예상",
 				"colDelay": "지연",
 				"colWebpSave": "WebP 절감",
@@ -1209,7 +1465,8 @@
 				},
 				"htaccess": {
 					"title": "서버/보안 — HTTPS 리디렉션 & 브라우저 캐싱",
-					"desc": "HTTP→HTTPS 301과 정적 자산 Expires/Cache-Control을 .htaccess에 적용하세요."
+					"desc": "HTTP→HTTPS 301과 정적 자산 Expires/Cache-Control을 .htaccess에 적용하세요.",
+					"descMeasured": "짧은 캐시 TTL {count}개 · 현재 용량 {size} · 절감 예상 {savings} (대표 TTL {ttl}). HTTP→HTTPS 301과 정적 자산 Expires/Cache-Control을 .htaccess에 적용하세요."
 				},
 				"duplicateJquery": {
 					"title": "중복된 jQuery 라이브러리 로드 감지",
@@ -1217,10 +1474,34 @@
 				}
 			}
 		},
+		"cwvHero": {
+			"badge": "Track 3 · Core Web Vitals 실측",
+			"title": "웹 성능 & Core Web Vitals 종합",
+			"heroLabel": "대표 실측 성능 점수",
+			"heroScoreSuffix": "/ 100",
+			"sourceAverage": "📱 모바일 & 🖥️ PC 통합 실측 평균 기준",
+			"sourceMobile": "📱 모바일 Lighthouse 실측 기준 (PC 실측 대기 중)",
+			"sourceDesktop": "🖥️ PC Lighthouse 성능 실측 기준 (모바일 실측 대기 중)",
+			"sourceFallback": "⏳ 온페이지 성능 지표로 잠정 대체 (PSI 실측 대기 중)",
+			"contributionCaption": "종합 실측 점수 반영: {weight}% (환산 {contribution}점)",
+			"loadingLabel": "실측 성능 집계 중...",
+			"gradeGood": "양호",
+			"gradeNeedsImprovement": "개선필요",
+			"gradePoor": "위험"
+		},
 		"findingsTitle": "우선 개선 항목",
 		"findingsSubtitle": "AI 노출 및 SEO 감점 요인 중 가장 시급하게 보완해야 할 핵심 과제를 우선순위별로 표출합니다.",
 		"findingsEmpty": "✅ 주요 결함이 발견되지 않았습니다. 이미 훌륭한 상태입니다.",
 		"detectedSchemas": "감지된 스키마",
+		"schemaShowcase": {
+			"kicker": "Structured Data",
+			"title": "스키마 구조화 데이터",
+			"scoreLabel": "{score} / {max}",
+			"perfect": "만점",
+			"partial": "{pct}점 환산",
+			"detected": "감지된 스키마 {count}종",
+			"empty": "감지된 스키마가 없습니다."
+		},
 		"loadingTitle": "정밀 SEO & GEO 진단 엔진 가동 중",
 		"loadingRescanTitle": "🔄 실시간 재진단 중...",
 		"loadingTerminalTitle": "redue-audit — precision parser",
@@ -1236,6 +1517,159 @@
 		"justRefreshedSuffix": " (방금 전 갱신됨)",
 		"noUrl": "진단할 URL이 없습니다. 메인 페이지에서 사이트 주소를 입력해 주세요.",
 		"printFooter": "본 보고서는 REDUE AI 정밀 진단 엔진에 의해 생성되었습니다. 작업 문의: contact@redue.ai",
+		"printFooterWatermark": "REDUE AI STUDIO 인증 진단서",
+		"printFooterDisclaimer": "본 진단서는 W3C Schema.org 표준 및 주요 생성형 AI 검색 알고리즘 기준에 따라 분석된 공식 리포트입니다.",
+		"pdfReport": {
+			"twoTrack": {
+				"eyebrow": "3-Track Composite"
+			},
+			"quickAxes": {
+				"eyebrow": "Core Diagnostic Axes",
+				"title": "핵심 진단 축 4종 요약",
+				"hint": "AI 인용 준비도·구조화 데이터·온페이지 기술 신뢰도·인프라 보안을 한눈에 확인합니다.",
+				"geo": "AI 인용 준비도 (GEO)",
+				"schema": "구조화 데이터 완성도",
+				"technical": "온페이지 기술 신뢰도",
+				"infra": "인프라 & 보안",
+				"status": {
+					"pass": "양호",
+					"warning": "보완 필요",
+					"fail": "위험"
+				}
+			},
+			"engineTable": {
+				"eyebrow": "Stage 2 · GEO Citation",
+				"title": "생성형 AI 검색엔진별 인용 점수표",
+				"hint": "ChatGPT·Perplexity·Gemini·Claude 등 주요 생성형 AI의 브랜드 인지·색인 준비도와 크롤러 접근 현황입니다.",
+				"colEngine": "AI 엔진",
+				"colReadiness": "인지·지식그래프 준비도",
+				"colLlmsTxt": "llms.txt 지원",
+				"colCrawler": "AI 크롤러 접근",
+				"colLiveGrounding": "실시간 검색 인용 대응",
+				"scoreLabel": "{score}점",
+				"llmsTxtYes": "지원됨",
+				"llmsTxtNo": "미지원",
+				"crawlerAllowed": "수집 허용",
+				"crawlerBlocked": "수집 차단",
+				"crawlerNotTracked": "별도 봇 미추적",
+				"liveGroundingEligible": "실시간 인용 대상",
+				"liveGroundingProxy": "프록시 인덱스 기반",
+				"footnote": "※ 인지·지식그래프 준비도는 실시간 AI 응답 결과가 아닌, 크롤링된 온페이지 신호(스키마·FAQ·robots.txt 등) 기반 규칙형 추정치입니다.",
+				"llmsTxtSectionTitle": "AI 컨텍스트 파일 (llms.txt) 분석",
+				"llmsTxtSupported": "/llms.txt 지원 확인됨",
+				"llmsTxtNotSupported": "/llms.txt 미지원",
+				"botAccessTitle": "AI 크롤러(User-Agent)별 robots.txt 접근 현황",
+				"keywordSectionTitle": "AI 브랜드 가시성 & 키워드 연관도 지표",
+				"keywordDetectedTitle": "현재 사이트 감지 키워드",
+				"keywordEmpty": "감지된 기본 메타 키워드가 없습니다.",
+				"keywordCategory": {
+					"geoPrompt": "AI 질문 프롬프트",
+					"primary": "메인 타겟 키워드",
+					"longTail": "구매 전환 롱테일",
+					"lsiLocal": "LSI 연관 & 로컬"
+				}
+			},
+			"schemaTable": {
+				"eyebrow": "Stage 3 · Schema Graph",
+				"title": "JSON-LD 스키마 지식그래프 현황표",
+				"hint": "AI 검색엔진이 브랜드 엔티티를 정확히 인식하는 데 필요한 핵심 구조화 데이터 노드별 통과 여부입니다.",
+				"colNode": "스키마 노드",
+				"colStatus": "상태",
+				"colEvidence": "근거",
+				"medicalClinicNode": "업종 핵심 스키마 (MedicalClinic 등)",
+				"personNode": "Person (E-E-A-T)",
+				"medicalWebPageNode": "MedicalWebPage / AboutPage",
+				"websiteBreadcrumbNode": "WebSite / BreadcrumbList",
+				"videoObjectNote": "감지된 VideoObject가 없습니다.",
+				"videoDetectedCount": "{count}건 감지됨",
+				"noEvidence": "세부 근거 데이터가 없습니다.",
+				"status": {
+					"pass": "통과",
+					"warning": "보완 필요",
+					"fail": "미흡",
+					"neutral": "미검출·확인 필요"
+				},
+				"detectedTypesTitle": "감지된 스키마 @type 전체 목록",
+				"attributesTitle": "속성별 통과·누락 상세 체크리스트",
+				"attrOrganizationTitle": "Organization 누락 속성",
+				"attrArticleTitle": "Article / 페이지 스키마 누락 속성",
+				"attrPersonTitle": "Person 누락 속성",
+				"attributesAllPresent": "필수 속성 모두 충족",
+				"videoSectionTitle": "감지된 유튜브 VideoObject 목록",
+				"videoEmpty": "페이지 JSON-LD에서 실시간으로 감지된 VideoObject가 없습니다. 유튜브 영상을 게시했다면 VideoObject 스키마 삽입을 권장합니다.",
+				"videoFieldEmbed": "임베드 URL",
+				"videoFieldContent": "영상 URL",
+				"videoFieldThumbnail": "썸네일",
+				"videoFieldUpload": "업로드일"
+			},
+			"cwv": {
+				"eyebrow": "Stage 4 · Core Web Vitals",
+				"title": "모바일 반응형 & 렌더링 성능 실측 (Core Web Vitals)",
+				"hint": "Google PageSpeed Insights(Lighthouse) 실측값 기준 PC/모바일 성능 점수와 핵심 웹 지표입니다.",
+				"mobileLabel": "모바일",
+				"desktopLabel": "PC (데스크톱)",
+				"performanceScoreLabel": "성능 {score}점",
+				"notMeasured": "아직 측정되지 않았습니다.",
+				"vitalLabels": {
+					"lcp": "LCP (최대 콘텐츠풀 페인트)",
+					"fcp": "FCP (최초 콘텐츠풀 페인트)",
+					"tbt": "TBT (총 차단 시간)",
+					"cls": "CLS (누적 레이아웃 이동)",
+					"inp": "INP (다음 페인트까지 상호작용)"
+				},
+				"tier": {
+					"good": "양호",
+					"needs-improvement": "개선 필요",
+					"poor": "미흡"
+				},
+				"viewportLabel": "모바일 반응형 뷰포트",
+				"viewportOk": "정상 대응",
+				"viewportNeedsWork": "보완 필요"
+			},
+			"onpageGrid": {
+				"eyebrow": "Stage 5 · On-page & Infra",
+				"title": "온페이지 · 인프라 상세 진단 체크리스트 (24개 항목 전체)",
+				"hint": "Canonical·OpenGraph·헤딩 구조(H1~H6)·SSL/HTTPS를 포함한 5대 카테고리 전체 체크리스트와 주요 채널 sameAs 연동 상태입니다.",
+				"colItem": "점검 항목",
+				"colStatusHeader": "상태",
+				"colEvidenceHeader": "근거",
+				"categoryScoreLabel": "{score} / {max}점",
+				"emptyCategory": "해당 카테고리에 측정된 항목이 없습니다.",
+				"noEvidence": "세부 근거 데이터가 없습니다.",
+				"status": {
+					"pass": "정상",
+					"warning": "보완 필요",
+					"fail": "미흡",
+					"neutral": "확인 필요"
+				},
+				"channelTitle": "채널 sameAs 연동 현황",
+				"channelLinked": "연동됨",
+				"channelMissing": "미연동",
+				"channelNaverBlog": "네이버 블로그·카페",
+				"channelNaverPlace": "네이버 플레이스",
+				"channelGoogleMaps": "구글 맵스",
+				"channelYoutube": "유튜브",
+				"channelInstagram": "인스타그램",
+				"channelFacebook": "페이스북"
+			},
+			"roadmap": {
+				"eyebrow": "Stage 6 · Roadmap",
+				"title": "우선순위별 개선 로드맵 & 코드 수정 가이드",
+				"hint": "감지된 결함을 긴급(P0·P1) · 경고(P2·P3) · 최적화(P4·P5) 3단계로 재그룹하고, 즉시 적용 가능한 JSON-LD 코드까지 전체 제공합니다.",
+				"allClear": "현재 감지된 개선 필요 항목이 없습니다. 최상의 진단 상태입니다.",
+				"tier": {
+					"critical": "긴급",
+					"warning": "경고",
+					"optimal": "최적화"
+				},
+				"countLabel": "{count}건",
+				"moreItems": "그 외 {count}건 더 있습니다.",
+				"codeGuideTitle": "즉시 적용 가능한 코드 가이드",
+				"codeGuideHint": "실제 크롤링된 데이터를 기반으로 생성된 JSON-LD 스니펫입니다. 값이 비어있는 필드는 관리자 설정에서 보완해주세요.",
+				"codeGuideEmpty": "현재 별도로 생성이 필요한 JSON-LD 보완 스니펫이 없습니다.",
+				"snippetPasteHint": "※ 위 <script type=\"application/ld+json\"> 코드는 그누보드·워드프레스 등 대부분의 CMS에서 <head> 태그 내부 또는 </body> 태그 바로 앞에 붙여넣으면 됩니다."
+			}
+		},
 		"execBriefing": {
 			"badge": "정밀 종합 진단 브리핑",
 			"title": "개별 맞춤형 Executive Summary",
@@ -1251,12 +1685,17 @@
 			"disclaimer": "※ 본 요약 리포트의 점수 및 추정치는 공개 웹 표준과 시뮬레이션 알고리즘에 기반한 기술적 지표이며, 개별 AI 엔진의 정책 변화에 따라 실제 반영 결과는 달라질 수 있습니다."
 		},
 		"tabs": {
-			"geo": "AI 검색 신뢰도 · GEO 진단 결과",
-			"onpage": "SEO·GEO·Schema 진단 결과",
-			"geoTitle": "🌐 AI 검색 신뢰도 & 외부 평판 정밀 진단",
+			"trackBadge": "Track {n}",
+			"weightBadge": "가중치 {pct}%",
+			"geo": "AI 검색 신뢰도 · 인용 지배력 (GEO)",
+			"onpage": "기술 무결성 · Schema 진단",
+			"cwv": "Core Web Vitals · 웹 성능 실측",
+			"geoTitle": "🌐 Track 2 · AI 검색 신뢰도 & 인용 지배력 (GEO)",
 			"geoDescription": "주요 AI 엔진(ChatGPT, Perplexity, Gemini 등)이 브랜드를 신뢰하고 추천/인용할 수 있는 외부 신호와 평판 지표입니다.",
-			"onpageTitle": "⚙️ 검색 기술 & 온페이지(Schema) 정밀 진단",
-			"onpageDescription": "검색엔진과 AI 크롤러가 웹사이트 데이터를 완벽히 수집하고 해석할 수 있도록 구축된 기술적 기반 지표입니다."
+			"onpageTitle": "⚙️ Track 1 · 기술 무결성 & Schema 진단",
+			"onpageDescription": "검색엔진과 AI 크롤러가 웹사이트 데이터를 완벽히 수집하고 해석할 수 있도록 구축된 기술적 기반 지표입니다.",
+			"cwvTitle": "⚡ Track 3 · Core Web Vitals & 웹 성능 실측",
+			"cwvDescription": "구글 PageSpeed Insights(Lighthouse) 실측 기반 로딩 속도, 반응성, 시각적 안정성 등 실사용자 체감 성능 지표입니다."
 		},
 		"geoScore": {
 			"badge": "GEO Score",
@@ -1295,7 +1734,8 @@
 			"pillarsHint": "카드를 클릭하면 하단 실측 섹션으로 이동합니다",
 			"pillarsSum": "실측 합산 {score} / {max}",
 			"pillarJump": "{name} 실측 카드로 이동",
-			"pillarJumpHint": "하단 실측 카드로 이동"
+			"pillarJumpHint": "하단 실측 카드로 이동",
+			"weightCaption": "(비중 {weight}% · 환산 {score}점)"
 		},
 		"trackingStatus": {
 			"SYNCING": "반영 대기 중 (Syncing...)",
@@ -1554,6 +1994,43 @@
 			"savePdf": "PDF 저장",
 			"saveHint": "요약 카드만 이미지 또는 1장 PDF로 저장합니다.",
 			"saveError": "요약본 저장에 실패했습니다. 잠시 후 다시 시도해 주세요."
+		},
+		"resultSummary": {
+			"kicker": "1분 요약 결과보고서",
+			"title": "작업 전후 점수 비교",
+			"preview": "결과보고서 미리보기",
+			"previewShort": "1분 요약",
+			"closeAria": "결과보고서 닫기",
+			"close": "닫기",
+			"scoreKicker": "종합 점수",
+			"before": "Before",
+			"after": "After",
+			"liftBadge": "+{n}점 상승",
+			"dropBadge": "-{n}점 하락",
+			"liftNone": "점수 변동 없음",
+			"scoreUnit": "점",
+			"metricsKicker": "4대 핵심 지표",
+			"metric": {
+				"schema": "Schema.org 구조화 데이터",
+				"llms": "AI 탐색성 (llms.txt)",
+				"metaOg": "메타태그 & OpenGraph",
+				"geoLocal": "GEO 지역성/로컬 타겟"
+			},
+			"schemaStatus": {
+				"missing": "없음",
+				"incomplete": "미흡",
+				"complete": "완료"
+			},
+			"llmsStatus": {
+				"missing": "없음",
+				"present": "생성 완료"
+			},
+			"actionsKicker": "자동화 적용 내역",
+			"actionsEmpty": "기록된 자동화 적용 내역이 없습니다.",
+			"export": "클라이언트 보고서 복사/다운로드",
+			"exported": "복사 및 다운로드 완료",
+			"exportHint": "클립보드에 복사하고 텍스트 파일로 저장합니다.",
+			"exportError": "보고서 내보내기에 실패했습니다. 잠시 후 다시 시도해 주세요."
 		},
 		"aiEngineCards": {
 			"kicker": "트리거 키워드 깊이",
@@ -1826,6 +2303,8 @@
 			"googleLabel": "구글 검색 언급 문서",
 			"googleBenchmarkHint": "지역 평균 {benchmark}건 대비",
 			"naverLabel": "네이버 블로그/카페",
+			"sameAsLinked": "공식 채널 sameAs 신호 연동 완료",
+			"sameAsMissing": "감사 페이지에서 네이버 플레이스·블로그 sameAs 신호가 확인되지 않았습니다.",
 			"bingLabel": "Bing Places 프로필",
 			"bingRegistered": "등록됨",
 			"bingNotRegistered": "미등록",
@@ -1864,8 +2343,12 @@
 			"naver": {
 				"statusDanger": "🚨 진단 상태: 최근 3개월간 최신 리뷰 및 신규 포스팅 부재 (현재 {count}건)",
 				"statusOk": "✅ 진단 상태: 네이버 최신성 신호 양호 (현재 {count}건)",
+				"sameAsLinked": "공식 채널 sameAs 신호 연동 완료",
+				"sameAsMissing": "감사 페이지에서 네이버 플레이스·블로그 sameAs 신호가 확인되지 않았습니다.",
 				"statusBodyWarn": "네이버 지식베이스 및 ChatGPT/Perplexity의 한글 검색 로봇은 네이버 블로그/카페의 <strong>최신성(Recency)</strong>을 핵심 신호로 평가합니다.",
 				"statusBodyOk": "네이버 블로그/카페 언급량이 충분해 한글 AI 검색의 최신성 신호가 상대적으로 안정적입니다.",
+				"sameAsBodyOk": "스키마 sameAs에 네이버 블로그·카페 또는 플레이스 채널이 연동되어 상단 점수와 동일한 공식 채널 신호가 확인되었습니다.",
+				"sameAsBodyWarn": "감사 페이지 JSON-LD에서 네이버 플레이스·블로그 sameAs 신호가 확인되지 않았습니다. Organization/LocalBusiness sameAs에 공식 채널 URL을 등록하세요.",
 				"howto1Title": "주기적 원고 발행:",
 				"howto1Body": "최소 주 1~2회 브랜드명 및 주요 치료법 키워드가 포함된 네이버 블로그 포스팅 지속 유지",
 				"howto2Title": "커뮤니티 언급 확대:",
@@ -2050,8 +2533,21 @@
 		},
 		"b2b": {
 			"execBadge": "Executive Summary",
-			"execTitle": "🎯 AI 검색 경쟁력 핵심 진단",
-			"execSubtitle": "의사결정자가 30초 안에 수주/개선 필요성을 판단할 수 있도록 핵심 지표만 압축했습니다.",
+			"execTitle": "AEO · GEO 통합 최적화 지수",
+			"execTitleEn": "AI Citation & Recommendation Score",
+			"execSubtitle": "ChatGPT, Perplexity, Gemini 등 AI 답변 엔진의 공식 출처 채택 및 추천 가능성 점수입니다.",
+			"aeoGeoStatus": {
+				"top": "🟢 AEO/GEO 최상위 (인용 준비 완료)",
+				"mid": "🟡 AEO/GEO 보통 (시맨틱 구조 보완 필요)",
+				"low": "🔴 AEO/GEO 취약 (AI 수집 및 답변 누락 위험)"
+			},
+			"aeoGeoSummaryLabel": "🧭 AEO · GEO 인용 상태 분석",
+			"aeoGeoSummary": {
+				"caseA": "귀사의 사이트는 <b>GEO(브랜드 인지도 및 엔티티)</b> 식별 상태는 양호하나, FAQPage 마크업 미적용으로 인해 <b>AEO(Perplexity · ChatGPT 다이렉트 정답 인용)</b> 확률이 낮게 측정되었습니다. FAQ 구조화 스크립트 주입이 시급합니다.",
+				"caseB": "현재 주요 AI 검색 크롤러(GPTBot, PerplexityBot)가 사이트 구조를 파싱하지 못하고 있습니다. <b>AEO(답변 채택)와 GEO(추천 점유)</b> 모두를 위해 표준 JSON-LD 스키마와 /llms.txt 인덱스 배치가 필요합니다.",
+				"caseC": "축하합니다! 귀사의 사이트는 <b>AEO(다이렉트 답변 인용)</b> 및 <b>GEO(AI 추천 최적화)</b> 준비가 완벽히 갖추어져 있어, 생성형 AI 검색 환경에서 우선 출처로 채택될 확률이 매우 높습니다.",
+				"caseDefault": "<b>AEO(다이렉트 답변 인용)</b>와 <b>GEO(엔티티 · 신뢰 신호)</b> 최적화가 부분적으로 진행된 상태입니다. 남아있는 진단 항목을 보완하면 AI 검색 노출 가능성이 한층 강화됩니다."
+			},
 			"execInsight": {
 				"geo": "기술 최적화는 {seoScore}점이지만, AI 외부 신뢰도는 {geoScore}점입니다. 현재는 기술보다 AI가 신뢰하고 인용할 수 있는 외부 신뢰 신호 개선이 우선입니다.",
 				"seo": "AI 외부 신뢰도는 {geoScore}점이지만, 온페이지 기술 최적화가 {seoScore}점으로 미흡합니다. 검색엔진이 구조를 쉽게 파악할 수 있는 기술적 보완이 시급합니다.",
@@ -2059,8 +2555,23 @@
 				"bothWeak": "AI 외부 신뢰도 {geoScore}점, 온페이지 기술 최적화 {seoScore}점 모두 경쟁 기준에 미달합니다. 기술 구조와 외부 신뢰 신호를 함께 끌어올리는 것이 우선입니다.",
 				"bothStrong": "AI 외부 신뢰도 {geoScore}점, 온페이지 기술 최적화 {seoScore}점으로 검색·인용 기반이 안정적입니다. 남은 결함을 보완하면 경쟁력을 한 단계 더 끌어올릴 수 있습니다."
 			},
-			"execFormula": "📊 산출 공식: 외부 신뢰도({geoWeight}%) + 기술 점수({seoWeight}%) 가중 합산",
+			"execFormula": "📊 산출 공식: 기술 점수({seoWeight}%) + 외부 신뢰도({geoWeight}%) + 성능 실측({cwvWeight}%) 가중 합산 − 보안 페널티(HTTPS 미적용 시)",
 			"execFormulaAria": "산출 공식 안내",
+			"breakdownButtonLabel": "산출 내역 보기",
+			"breakdownButtonAria": "종합 실측 점수 산출 내역 보기",
+			"breakdownTitle": "종합 실측 점수 산출 내역",
+			"breakdownSubtitle": "기술 규격 · AI 인용 지배력 · CWV(성능 실측) 3개 축을 가중 합산한 값입니다.",
+			"breakdownTrack1Label": "기술 규격",
+			"breakdownTrack2Label": "AI 인용 지배력",
+			"breakdownCwvLabel": "Core Web Vitals 실측",
+			"breakdownCwvFallbackNote": "* PSI 실측이 완료되기 전에는 온페이지 성능 지표로 잠정 대체됩니다.",
+			"breakdownScoreToContribution": "{score}점 → +{contribution}점",
+			"breakdownSecurityPenaltyLabel": "보안 페널티 (HTTP)",
+			"breakdownSecurityPenaltyValue": "-{penalty}점",
+			"breakdownSecurityOkLabel": "✅ HTTPS 적용 · 보안 페널티 없음",
+			"breakdownFinalLabel": "최종 합산",
+			"breakdownFinalValue": "{score}점 ({grade}등급)",
+			"breakdownCloseAria": "산출 내역 닫기",
 			"execDiagnosisRxLabel": "핵심 진단 및 처방효과",
 			"execDiagnosisLabel": "핵심 진단",
 			"execRxLabel": "처방 효과",
@@ -2089,6 +2600,8 @@
 			"quickCtaButton": "⚡ 3일 점수 복구 작업 의뢰하기 (견적 확인)",
 			"quickCtaLossKicker": "기회비용 손실 추정",
 			"quickCtaValueKicker": "경제적 가치 추정",
+			"quickCtaSimEstimate": "시뮬레이션 추정치",
+			"exposureCompareKicker": "Optimization Potential",
 			"exposureCompareTitle": "최적화 잠재력 시뮬레이터",
 			"exposureCompareHint": "패치 적용 전후 종합 실측 점수 비교",
 			"exposureMeasuredFormula": "종합 실측 점수 = 외부 신뢰도({geoScore}점 × {geoWeight}%) + 기술 점수({seoScore}점 × {seoWeight}%)",
@@ -2391,6 +2904,13 @@
 			"footnote": "이메일 하단의 ‘전문가 1:1 작업 요청’ 버튼으로 바로 상담을 이어갈 수 있습니다."
 		},
 		"checklist": {
+			"aeoGeoTags": {
+				"faqHowtoSchema": { "tag": "AEO 핵심", "note": "AI 답변 엔진(Perplexity 등)의 직접 인용 1순위 소스" },
+				"organization": { "tag": "GEO", "note": "AI 모델이 기업/브랜드 실체를 정확히 식별" },
+				"llmsTxt": { "tag": "AEO · GEO", "note": "GPTBot, PerplexityBot 전용 수집 통로 확보" },
+				"eeat": { "tag": "GEO", "note": "공신력 검증 및 AI 환각(오정보) 방지" },
+				"semanticStructure": { "tag": "AEO · GEO", "note": "텍스트의 맥락과 계층 구조 파싱 지원" }
+			},
 			"pass": "Pass",
 			"fail": "Fail",
 			"warning": "Warn",
@@ -2399,6 +2919,7 @@
 			"filterWarning": "Warn {count}",
 			"filterPass": "Pass {count}",
 			"evidence": "감지된 증거",
+			"imageAltTip": "💡 TIP: 누락된 이미지가 단순 장식용 아이콘이 아닌 본문 주요 콘텐츠 이미지인지 점검하세요.",
 			"why": "왜 감점되었나요?",
 			"impact": "개선 시 실무 이득",
 			"empty": "체크리스트 항목이 없습니다.",
@@ -2409,7 +2930,35 @@
 			"impactPass": "유지 시 실무 이득",
 			"points": "{earned} / {weight}점",
 			"totalRawLabel": "정밀 실측 합계",
-			"totalRaw": "{score} / {max}점"
+			"totalRaw": "{score} / {max}점",
+			"detailScroll": {
+				"imageAltTitle": "이미지 Alt 커버리지",
+				"imageAltEmpty": "alt 문제가 있는 이미지가 없습니다.",
+				"imageAltCoverage": "{coverage}% 커버리지 · {missing}개 누락",
+				"issueMissing": "Alt 누락",
+				"issueEmpty": "빈 값",
+				"issueStopword": "불용어 사용",
+				"suggestedAlt": "권장 Alt",
+				"pageHome": "홈 (/)",
+				"previewAlt": "미리보기",
+				"copySrc": "경로 복사",
+				"copied": "복사됨",
+				"openSrc": "새 창에서 열기",
+				"copyTag": "태그 복사",
+				"pageUrl": "발견 위치",
+				"renderBlockingTitle": "렌더링 차단 스크립트",
+				"renderBlockingSummary": "총 {count}개의 동기 스크립트 감지됨 · 권장 ≤{max}개",
+				"renderBlockingEmpty": "동기 외부 스크립트가 감지되지 않았습니다.",
+				"recDefer": "defer 속성 추가 권장",
+				"recMoveToBody": "하단 </body> 직전으로 이동",
+				"h1Title": "다중 H1 목록",
+				"h1Count": "총 {count}개의 H1 감지됨",
+				"h1Keep": "메인 H1로 유지",
+				"h1Demote": "H2로 강등 권장",
+				"h1Empty": "(텍스트 없음)",
+				"headingSkipTitle": "헤딩 계층 순서 비약",
+				"headingSkipWarn": "중간 건너뜀 ({missing} 누락)"
+			}
 		},
 		"history": {
 			"title": "최근 진단 내역",
@@ -2643,11 +3192,8 @@
 			"line2Highlight": "검색 리치결과와 AI 인용 신호",
 			"line2Post": "가 함께 강해집니다.",
 			"buttonHistory": "진단 내역에서 다시 보기",
+			"buttonStrategy": "검색 전략 설계 →",
 			"buttonRescan": "다른 URL 진단하기",
-			"adminSolveTitle": "관리자 · 전문가 워크스페이스",
-			"adminSolveHint": "현재 진단 JSON을 해결 워크스페이스로 전달합니다. 관리자 로그인 후 CMS별 교정 코드를 바로 적용할 수 있습니다.",
-			"adminSolveButton": "🚀 전문가용 해결 코드 생성하기 (관리자 로그인)",
-			"adminSolveButtonSub": "(관리자 로그인)",
 			"footnote": "리포트 링크를 공유하면 팀원도 동일한 정밀 진단 결과를 확인할 수 있습니다."
 		},
 		"businessConversion": {
@@ -2689,11 +3235,11 @@
 			"roiBasisGap": "자사 점유율({brand}%) vs 경쟁사 평균({competitor}%) 격차 {gap}% 반영",
 			"roiBasisDisclaimer": "※ 본 수치는 업종별 평균 CPC 단가 및 AI 검색 점유율 통계 모델을 기반으로 환산된 시뮬레이션 수치입니다.",
 			"roiLegalNote": "* 기회 손실 및 트래픽 가치는 업종별 키워드 평균 CPC와 Level 1~3 질의 유입 시뮬레이션을 역산한 이론적 추정치이며, 특정 순위나 매출을 영구 보장하지 않습니다.",
+			"aeoGeoCtaButton": "⚡ REDUE 초경량 스크립트로 AEO · GEO 즉시 활성화하기",
+			"aeoGeoCtaSubtitle": "단 1줄의 스크립트 주입으로 FAQPage, 엔티티 스키마, /llms.txt를 일괄 적용합니다.",
 			"ctaKicker": "전문가 1:1 대행",
 			"ctaGuarantee": "코드 수정이 어려우신가요? REDUE 전문가가 24시간 이내에 사이트 손상 없이 스키마 및 AI 최적화 패치를 완벽 적용해 드립니다.",
-			"ctaPatch": "전문가 맞춤 기술 패치 대행 신청하기",
-			"ctaPatchLine1": "전문가 맞춤 기술 패치",
-			"ctaPatchLine2": "대행 신청하기",
+			"ctaPatch": "전문가 맞춤 기술 패치 신청하기",
 			"ctaConsult": "실시간 GEO 최적화 무료 상담 문의",
 			"inquiryTitle": "대행 패치 신청",
 			"inquiryClose": "신청 창 닫기",
@@ -2912,20 +3458,56 @@
 			"emailShort": "이메일 미리보기",
 			"contact": "문의하기",
 			"contactShort": "문의",
-			"floatingAria": "보고서 빠른 작업"
+			"floatingAria": "보고서 빠른 작업",
+			"memberOnlyBadge": "무료회원"
+		},
+		"authModal": {
+			"kicker": "MEMBERS ONLY",
+			"title": "회원 전용 기능입니다",
+			"defaultMessage": "무료 회원가입하고 이 기능을 바로 사용해 보세요.",
+			"pdfMessage": "3초 만에 무료 회원가입하고 공식 A4 PDF 진단 리포트를 출력하세요!",
+			"emailMessage": "무료 회원가입 후 원클릭 이메일 정밀 분석 보고서를 받아보세요!",
+			"benefit1": "A4 PDF / 인쇄용 정밀 진단 보고서",
+			"benefit2": "이메일로 받는 심층 분석 리포트",
+			"benefit3": "진단 이력 저장 및 재방문 비교",
+			"signupCta": "3초 무료 회원가입",
+			"loginCta": "이미 계정이 있으신가요? 로그인",
+			"close": "닫기"
 		},
 		"pdfPreview": {
 			"title": "📄 REDUE AI - SEO & GEO Technical Audit Report (A4 미리보기)",
 			"subtitle": "A4 페이지에서 텍스트·그래프가 잘리지 않았는지 확인하세요.",
 			"close": "✕ 미리보기 닫기",
 			"download": "📥 이대로 PDF 다운로드하기",
+			"print": "🖨 빠른 인쇄 (시스템)",
+			"minimize": "최소화",
+			"maximize": "최대화",
+			"restore": "이전 크기로 복원",
+			"minimizedLabel": "REDUE AI 진단 리포트",
+			"minimizedOpen": "열기",
+			"zoomFit": "맞춤",
 			"saving": "PDF 저장 중...",
+			"savingHint": "페이지별로 JPEG 압축 저장 중입니다. 잠시만 기다려 주세요.",
+			"savingProgress": "{current} / {total} 페이지",
 			"building": "A4 미리보기 페이지를 구성하는 중...",
 			"syncing": "리포트 데이터 완벽 동기화 중...",
 			"syncingHint": "PageSpeed Insights와 AI 엔진 시뮬레이션이 모두 반영된 뒤에 미리보기가 열립니다.",
 			"error": "미리보기를 만들지 못했습니다. 다시 시도해 주세요.",
+			"downloadError": "PDF를 생성하지 못했습니다. 잠시 후 다시 시도해 주세요.",
 			"empty": "출력할 보고서 내용이 없습니다.",
-			"pageLabel": "총 {total}페이지"
+			"pageLabel": "총 {total}페이지",
+			"loader": {
+				"kicker": "Document Compile",
+				"title": "A4 인쇄 리포트 컴파일 중",
+				"hint": "트랙 1·2·3 진단 시트를 스택으로 병합하고 있습니다.",
+				"progressLabel": "컴파일 진행률",
+				"sheetLabel": "Track {n}",
+				"stacked": "트랙 시트 {count}/3 스택 완료",
+				"track1": "📄 [트랙 1] 기본 진단 지표 데이터 컴파일 중...",
+				"track2": "📊 [트랙 2] 세부 솔루션 및 차트 렌더링 중...",
+				"track3": "📑 [트랙 3] 종합 심화 리포트 A4 규격 병합 중...",
+				"complete": "✨ A4 인쇄 리포트 완성! 미리보기를 여는 중입니다."
+			}
 		},
 		"scrollspy": {
 			"ariaLabel": "리포트 목차",
@@ -2940,6 +3522,8 @@
 			"checklist": "세부 진단 체크리스트",
 			"actionable": "개선 제안 및 작업 가이드",
 			"keywordRecommend": "GEO/SEO 타깃 키워드 추천",
+			"twoTrackDiagnosis": "3-트랙 종합 진단",
+			"sovLeaderboard": "시장 랭킹 리더보드 (SoV)",
 			"geoScoreSummary": "GEO 점수 & 등급 요약",
 			"aiEngineStatus": "6대 AI 엔진별 노출 현황",
 			"triggerKeywordDepth": "AI 엔진별 트리거 테스트",
@@ -2949,12 +3533,18 @@
 			"digitalFootprint": "외부 데이터 수집 현황",
 			"actionPlan85": "85점 달성 Action Plan",
 			"technicalScoreSummary": "SEO/GEO 정밀 점수 요약",
+			"cwvScoreSummary": "CWV 실측 점수 요약",
 			"pagespeedVitals": "PageSpeed & Core Web Vitals",
 			"technicalEvidenceJsonld": "기술 증거 & JSON-LD 소스",
 			"liveCriteriaReport": "6대 필수 기준 비교",
 			"aiSearchSimulator": "AI 검색 추천 시뮬레이션",
 			"detailedChecklist22": "세부 진단 체크리스트 (22종)",
 			"keywordPipeline": "타깃 키워드 파이프라인",
+			"schemaStructuredData": "스키마 구조화 데이터",
+			"ragFactDensity": "RAG 청킹 & 팩트 밀도",
+			"businessImpact": "비즈니스 임팩트 요약",
+			"exposureSimulator": "최적화 잠재력 시뮬레이터",
+			"solutionPackages": "1:1 대행 패키지",
 			"officialTools": "공식 SEO·스키마 검증 툴",
 			"timelineForecast": "실측 추이 · 예측",
 			"scrollToTop": "맨 위로",
@@ -3008,7 +3598,79 @@
 			"filterAll": "전체",
 			"loadMore": "이전 기록 더보기",
 			"showingOf": "{shown} / {total}건",
-			"listEmpty": "해당 기간의 진단 기록이 없습니다."
+			"listEmpty": "해당 기간의 진단 기록이 없습니다.",
+			"loadError": "이력 차트를 불러오지 못했습니다. 페이지를 새로고침해 주세요."
+		},
+		"twoTrack": {
+			"title": "3-트랙 종합 진단",
+			"subtitle": "기술 무결성 규격, AI 검색 인용 지배력, Core Web Vitals 실측 성능을 나란히 비교합니다. 100점 달성 이후에는 주간 관리 가이드로 반영 주기를 관리하세요.",
+			"badgeAchieved": "상위 1% 기술 규격 달성",
+			"badgeTarget": "상위 1% 기술 규격 달성",
+			"openGuide": "반영 타임라인 & 가이드",
+			"scoreSuffix": "/ 100",
+			"percentile": "상위 {percentile}%",
+			"track1": {
+				"label": "Track 1",
+				"title": "기술 무결성 규격",
+				"weightBadge": "가중치 40%",
+				"sslMissing": "85점 이상이어도 SSL(HTTPS)이 없으면 상위 등급이 제한됩니다. 인증서를 적용해야 100점 규격을 완성할 수 있습니다.",
+				"sslSafeLine": "안전 기준선(85점)은 통과했습니다. 잔여 결함을 보완하면 100점 기술 규격에 도달합니다.",
+				"sslBelow": "기술 무결성 안전 기준선은 85점입니다. SSL·스키마·성능 결함을 우선 보완하세요.",
+				"sslComplete": "기술 무결성 100점 규격을 달성했습니다. 이제 AI 엔진 반영 주기와 주간 체크리스트를 유지하세요."
+			},
+			"track2": {
+				"label": "Track 2",
+				"title": "AI 검색 인용 지배력",
+				"weightBadge": "가중치 40%",
+				"body": "ChatGPT, Perplexity, Gemini 등 AI 검색이 브랜드를 우선 인용할 수 있는 외부 신뢰·엔티티 신호입니다."
+			},
+			"track3": {
+				"label": "Track 3",
+				"title": "웹 성능 실측 (CWV)",
+				"weightBadge": "가중치 20%",
+				"body": "구글 PageSpeed(Lighthouse) 실측 기준 LCP·CLS·TBT 등 Core Web Vitals 성능 지표입니다.",
+				"bodyFallback": "실측 대기 중에는 온페이지 성능 지표로 잠정 대체되며, 실측치 도착 시 자동으로 갱신됩니다.",
+				"loadingLabel": "구글 Lighthouse 실측 분석 중..."
+			},
+			"modal": {
+				"kicker": "POST-100 ROADMAP",
+				"title": "AI 검색 반영 타임라인 & 주간 관리 가이드",
+				"desc": "기술 100점 달성 이후에도 AI 엔진은 즉시 인용하지 않습니다. 엔진별 반영 주기를 이해하고, 아래 3대 주간 실무를 반복하세요.",
+				"closeAria": "가이드 모달 닫기",
+				"cyclesTitle": "AI 엔진별 반영 주기",
+				"cycles": {
+					"realtime": {
+						"title": "실시간 검색 AI",
+						"window": "3일 ~ 2주",
+						"body": "웹 인덱스를 실시간으로 조회하는 검색형 AI는 재수집 후 수일 내 인용 후보에 오를 수 있습니다.",
+						"engines": "Perplexity · Bing Copilot · Google AI Overviews"
+					},
+					"generative": {
+						"title": "생성형 AI 모델",
+						"window": "2주 ~ 4주",
+						"body": "학습·그라운딩 주기가 긴 대화형 모델은 스키마·엔티티가 안정화된 뒤 2~4주에 걸쳐 추천 풀에 반영됩니다.",
+						"engines": "ChatGPT · Gemini · Claude"
+					}
+				},
+				"checklistTitle": "3대 주간 실무 체크리스트",
+				"checklistHint": "매주 같은 순서로 실행하면 기술 100점 이후의 인용 공백을 줄일 수 있습니다.",
+				"checklist": {
+					"index": {
+						"title": "검색 포털 색인 강제 호출",
+						"body": "Google Search Console, Bing Webmaster, 네이버 서치어드바이저에서 URL 검사·색인 요청을 다시 보내 크롤러 재수집을 유도하세요."
+					},
+					"qa": {
+						"title": "Q&A형 고밀도 콘텐츠 발행",
+						"body": "고객이 AI에 던지는 지역+서비스 질의를 [질문 → 1줄 직답 → 3대 근거] 구조(500~800자)로 매주 1건 이상 발행하세요."
+					},
+					"nap": {
+						"title": "로컬 NAP 일관성 유지",
+						"body": "Google·Apple·네이버·카카오 지도의 상호·주소·전화가 1글자도 어긋나지 않는지 주간으로 대조하고 불일치를 즉시 수정하세요."
+					}
+				},
+				"disclaimer": "※ 반영 시점은 평균 크롤러 주기를 기준으로 한 실무 가이드이며, 개별 AI 엔진 정책에 따라 달라질 수 있습니다. 특정 순위나 영구 노출을 보장하지 않습니다.",
+				"forecastCta": "상세 예측 타임라인 보기"
+			}
 		},
 		"timelineForecast": {
 			"title": "📈 AI 검색 엔진 반영 타임라인 & 노출 예측",
@@ -3165,6 +3827,8 @@
 				"rankLabel": "{rank}위",
 				"rankBadge": "검색 랭킹 기준",
 				"directoryBadge": "3자 분산",
+				"majorityBadge": "과반",
+				"compositionAria": "시장 점유율 구성: 1위 {rank1}%, 2위 {rank2}%, 자사 {own}%, 3자 분산 {third}%",
 				"ownName": "자사 · {name}",
 				"asIsToBe": "{asIs}% → 목표 {toBe}%",
 				"realBadge": "실시간",
@@ -3181,7 +3845,9 @@
 				"vulnerabilityTitle": "역전 전략 · Vulnerability Gap",
 				"leaderFallback": "지역 1위 업체",
 				"selfFallback": "자사",
-				"vulnerabilityBody": "주요 경쟁사 역시 구조화 데이터 신호가 불완전하여 {comp1Share}% 수준에 머물러 있습니다. GEO 처방을 선제 적용할 경우 3자 블로그로 분산되던 트래픽을 흡수하여 최대 {toBeShare}% 수준의 점유율 확보를 목표로 최적화할 수 있습니다."
+				"vulnerabilityBody": "주요 경쟁사 역시 구조화 데이터 신호가 불완전하여 {comp1Share}% 수준에 머물러 있습니다. GEO 처방을 선제 적용할 경우 3자 블로그로 분산되던 트래픽을 흡수하여 최대 {toBeShare}% 수준의 점유율 확보를 목표로 최적화할 수 있습니다.",
+				"dataScopeNoteLabel": "※ 데이터 산출 범위 및 기준",
+				"dataScopeNoteBody": "본 데이터는 포털 전체의 총 트래픽이 아닌, 지정된 핵심 질의군(대구 피부과 및 대구 동구 특화 리프팅·장비 키워드 4종)을 대상으로 산출된 실시간 로컬 및 AI 검색 시장의 노출 점유율(SoV, Share of Voice)입니다. 현재 검색 상위권 병의원과 3자 채널(블로그·카페·리뷰)로 분산된 트래픽 비중을 진단하고, GEO(생성형 검색 최적화) 처방을 통해 자사 공식 채널로 전환 가능한 잠재 점유율 범위를 나타냅니다."
 			},
 			"entity": {
 				"kicker": "Entity Disambiguation",
@@ -3343,10 +4009,12 @@
 		},
 		"floatingTab": {
 			"ariaLabel": "현재 탭 전환 및 상단 이동",
-			"reputation": "AI 검색 신뢰도·GEO 진단 결과",
-			"technical": "SEO·GEO·SCHEMA 진단 결과",
-			"reputationAria": "AI 검색 신뢰도·GEO 진단 결과 탭으로 이동",
-			"technicalAria": "SEO·GEO·SCHEMA 진단 결과 탭으로 이동"
+			"reputation": "Track 2 · AI 검색 신뢰도 & 인용 지배력 (GEO)",
+			"technical": "Track 1 · 기술 무결성 & Schema 진단",
+			"performance": "Track 3 · Core Web Vitals & 웹 성능 실측",
+			"reputationAria": "Track 2 AI 검색 신뢰도 & 인용 지배력 탭으로 이동",
+			"technicalAria": "Track 1 기술 무결성 & Schema 진단 탭으로 이동",
+			"performanceAria": "Track 3 Core Web Vitals & 웹 성능 실측 탭으로 이동"
 		},
 		"onpageDiagnostic": {
 			"status": {

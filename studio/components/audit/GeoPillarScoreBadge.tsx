@@ -2,6 +2,7 @@
 
 import { useTranslations } from 'next-intl';
 import { GeoPillarBadge } from '@/components/audit/GeoPillarBadge';
+import { GeoWeightCaption } from '@/components/audit/GeoWeightCaption';
 import type { GeoPillarScore } from '@/lib/audit/geoScoreCalculator';
 import {
 	geoPillarIndex,
@@ -48,15 +49,18 @@ export function GeoPillarScoreBadge({
 	}
 
 	return (
-		<span
-			data-geo-pillar-badge={pillar.id}
-			data-geo-pillar-status={status}
-			className={`inline-flex shrink-0 items-baseline gap-0.5 rounded-full px-2.5 py-1 font-extrabold tabular-nums ring-1 ${compactTone(status)} ${
-				size === 'sm' ? 'text-[10px]' : 'text-[11px]'
-			}`}
-		>
-			<span>{pillar.earned}</span>
-			<span className="font-semibold opacity-70">/{pillar.max}</span>
+		<span className="inline-flex shrink-0 flex-col">
+			<span
+				data-geo-pillar-badge={pillar.id}
+				data-geo-pillar-status={status}
+				className={`inline-flex items-baseline gap-0.5 rounded-full px-2.5 py-1 font-extrabold tabular-nums ring-1 ${compactTone(status)} ${
+					size === 'sm' ? 'text-[10px]' : 'text-[11px]'
+				}`}
+			>
+				<span>{pillar.earned}</span>
+				<span className="font-semibold opacity-70">/{pillar.max}</span>
+			</span>
+			<GeoWeightCaption score={pillar.earned} maxScore={pillar.max} />
 		</span>
 	);
 }

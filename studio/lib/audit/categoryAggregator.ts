@@ -103,11 +103,11 @@ export interface RadarAxisScores {
 }
 
 export const CATEGORY_DEFINITIONS: readonly CategoryDefinition[] = [
-	{ id: 'security_infra', name: '보안 & 인프라', shortName: '보안/인프라', icon: '🔒', max: 15, defaultDesc: 'SSL 보안 인증 및 서버 응답 인프라' },
-	{ id: 'web_perf_access', name: '웹 성능 & 접근성', shortName: '성능/접근성', icon: '⚡', max: 12, defaultDesc: '문서 경량화 및 리소스 차단 최적화' },
-	{ id: 'basic_seo', name: 'SEO 기술 기본기', shortName: '검색 기초', icon: '🔎', max: 29, defaultDesc: '메타·헤딩·시맨틱 온페이지 기본기' },
-	{ id: 'schema_data', name: '스키마 구조화 데이터', shortName: '구조화 데이터', icon: '🧩', max: 36, defaultDesc: 'W3C JSON-LD 및 엔티티 지식그래프' },
-	{ id: 'geo_ai_signals', name: 'GEO & AI 인용 신호', shortName: 'AI 인용 신호', icon: '🤖', max: 30, defaultDesc: '/llms.txt 및 AI 검색엔진 인용 신호' },
+	{ id: 'security_infra', name: '보안 & 인프라', shortName: '보안/인프라', icon: '🔒', max: CHECKLIST_CATEGORY_MAX.security_infra, defaultDesc: 'SSL 보안 인증 및 서버 응답 인프라' },
+	{ id: 'web_perf_access', name: '웹 성능 & 접근성', shortName: '성능/접근성', icon: '⚡', max: CHECKLIST_CATEGORY_MAX.web_perf_access, defaultDesc: '문서 경량화 및 리소스 차단 최적화' },
+	{ id: 'basic_seo', name: 'SEO 기술 기본기', shortName: '검색 기초', icon: '🔎', max: CHECKLIST_CATEGORY_MAX.basic_seo, defaultDesc: '메타·헤딩·시맨틱 온페이지 기본기' },
+	{ id: 'schema_data', name: '스키마 구조화 데이터', shortName: '구조화 데이터', icon: '🧩', max: CHECKLIST_CATEGORY_MAX.schema_data, defaultDesc: 'W3C JSON-LD 및 엔티티 지식그래프' },
+	{ id: 'geo_ai_signals', name: 'GEO & AI 인용 신호', shortName: 'AI 인용 신호', icon: '🤖', max: CHECKLIST_CATEGORY_MAX.geo_ai_signals, defaultDesc: '/llms.txt · RSS 및 AI 검색엔진 인용 신호' },
 ] as const;
 
 export const STANDARD_CATEGORY_IDS: readonly StandardCategoryId[] = CATEGORY_DEFINITIONS.map((def) => def.id);

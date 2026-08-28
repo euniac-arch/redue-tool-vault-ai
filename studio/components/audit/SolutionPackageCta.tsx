@@ -107,7 +107,7 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery, currentS
 		: '';
 
 	return (
-		<div id={SOLUTION_PACKAGES_ID} className="print:hidden mt-8 scroll-mt-24 space-y-6">
+		<div id={SOLUTION_PACKAGES_ID} className="print:hidden scroll-mt-24 space-y-6">
 			<div className="space-y-1 text-center">
 				<h3 className="break-keep text-lg font-extrabold text-slate-900 dark:text-white">{t('title')}</h3>
 				<p className="break-keep text-[10px] text-slate-500 dark:text-slate-400">{t('subtitle')}</p>
@@ -268,7 +268,7 @@ function PackagePlanCard({
 					className={`grid transition-all duration-300 ease-out ${
 						open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
 					}`}
-					inert={!open ? true : undefined}
+					inert={(!open ? '' : undefined) as unknown as boolean | undefined}
 				>
 					<div className="min-h-0 overflow-hidden">
 						<ul className="mb-3 space-y-1.5 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">

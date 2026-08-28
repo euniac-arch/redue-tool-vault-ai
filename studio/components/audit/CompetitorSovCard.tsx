@@ -13,6 +13,15 @@ import {
 	type LeaderboardItem,
 } from '@/lib/audit/advancedGeoMetrics';
 import { anonymizedCompetitorLabel, softenComparativeQuery } from '@/lib/audit/anonymize-competitor';
+import {
+	isNineoneClinicTarget,
+	logSovValidationResult,
+	resolveDiagnosticSovPresets,
+	resolveSovOwnBadgeTone,
+	resolveSovUiTokens,
+	SOV_OWN_RANK_TONE_CLASSES,
+	validateSovLeaderboardData,
+} from '@/lib/audit/sovDiagnosticValidation';
 import { generateQueryMatrix } from '@/lib/geo/query-matrix';
 import { type IndustryConfig } from '@/lib/registry/universalIndustryRegistry';
 
@@ -30,12 +39,21 @@ export interface CompetitorSovCardProps {
 	onQueryChange?: (newQuery: string) => Promise<DynamicSovResult>;
 }
 
-function barClass(item: LeaderboardItem): string {
+function barClass(item: LeaderboardItem, unrankedClient = false): string {
 	if (item.isThirdParty) return 'h-full rounded-full bg-amber-400 transition-all duration-500 dark:bg-amber-600';
+	if (item.isClient && unrankedClient) return 'h-full rounded-full bg-rose-500 transition-all duration-500 dark:bg-rose-500';
 	if (item.isClient) return 'h-full rounded-full bg-indigo-600 transition-all duration-500';
 	if (item.rank === 1) return 'h-full rounded-full bg-slate-500 transition-all duration-500 dark:bg-slate-500';
 	if (item.rank === 2) return 'h-full rounded-full bg-slate-400 transition-all duration-500 dark:bg-slate-600';
 	return 'h-full rounded-full bg-slate-300 transition-all duration-500 dark:bg-slate-700';
+}
+
+function compositionDonutStyle(rank1: number, rank2: number, own: number, thirdParty: number): string {
+	const a = Math.max(0, rank1);
+	const b = a + Math.max(0, rank2);
+	const c = b + Math.max(0, own);
+	const d = Math.min(100, c + Math.max(0, thirdParty));
+	return `conic-gradient(#64748b 0 ${a}%, #94a3b8 ${a}% ${b}%, #f43f5e ${b}% ${c}%, #f59e0b ${c}% ${d}%)`;
 }
 
 /**
@@ -62,21 +80,27 @@ export function CompetitorSovCard({
 	const resolvedSub = subService || industryConfig.subService;
 	const presets = useMemo(
 		() =>
-			queryPresets ??
-			generateQueryMatrix({
-				lang,
-				location: region,
-				primaryKeyword: resolvedMain,
-				category: resolvedMain,
-				coreSpecialties: [resolvedMain, resolvedSub].filter(Boolean),
-			}).sovPresets,
-		[queryPresets, region, resolvedMain, resolvedSub, lang],
+			resolveDiagnosticSovPresets({
+				brandName: clientName,
+				siteUrl,
+				fallback:
+					queryPresets ??
+					generateQueryMatrix({
+						lang,
+						location: region,
+						primaryKeyword: resolvedMain,
+						category: resolvedMain,
+						coreSpecialties: [resolvedMain, resolvedSub].filter(Boolean),
+					}).sovPresets,
+			}),
+		[queryPresets, region, resolvedMain, resolvedSub, lang, clientName, siteUrl],
 	);
 
 	const [localSov, setLocalSov] = useState<DynamicSovResult>(sovData);
 	const [activeQuery, setActiveQuery] = useState(sovData.targetQuery || presets[0]);
 	const [customInput, setCustomInput] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
+	const [validationToast, setValidationToast] = useState<string | null>(null);
 	const requestQueryRef = useRef(activeQuery);
 
 	// Single source of truth for "which site/report is being diagnosed" —
@@ -143,6 +167,64 @@ export function CompetitorSovCard({
 	const potentialGain = reclaimGain;
 	const currentSovWidth = Math.min(100, Math.max(0, currentSov));
 	const targetSovWidth = Math.min(100, Math.max(0, targetSov));
+	const rank1Share = rankingRows.find((row) => row.rank === 1)?.share ?? 0;
+	const rank2Share = rankingRows.find((row) => row.rank === 2)?.share ?? 0;
+	const thirdPartyShare = directory?.share ?? displaySov.directoryShare ?? 0;
+	const unranked = displaySov.clientRank === 4;
+	const ownTone = resolveSovOwnBadgeTone({
+		clientRank: displaySov.clientRank,
+		rankText: unranked ? t('unrankedBadge') : undefined,
+		currentSov,
+	});
+	const uiTokens = resolveSovUiTokens({
+		clientRank: displaySov.clientRank,
+		rankText: unranked ? t('unrankedBadge') : undefined,
+		currentSov,
+		thirdParty: thirdPartyShare,
+	});
+	const validation = useMemo(
+		() =>
+			validateSovLeaderboardData({
+				brandName: targetSiteName || clientName,
+				siteUrl,
+				currentSov,
+				targetSov,
+				potentialGain,
+				rank1: rank1Share,
+				rank2: rank2Share,
+				thirdParty: thirdPartyShare,
+				clientRank: displaySov.clientRank,
+				rankText: unranked ? t('unrankedBadge') : undefined,
+				keywords: isNineoneClinicTarget({ brandName: targetSiteName || clientName, siteUrl }) ? presets : undefined,
+			}),
+		[
+			targetSiteName,
+			clientName,
+			siteUrl,
+			currentSov,
+			targetSov,
+			potentialGain,
+			rank1Share,
+			rank2Share,
+			thirdPartyShare,
+			displaySov.clientRank,
+			unranked,
+			presets,
+			t,
+		],
+	);
+
+	useEffect(() => {
+		logSovValidationResult(validation);
+		if (!validation.valid || !isNineoneClinicTarget({ brandName: targetSiteName || clientName, siteUrl })) {
+			setValidationToast(null);
+			return;
+		}
+		setValidationToast(validation.message);
+		const timer = window.setTimeout(() => setValidationToast(null), 4200);
+		return () => window.clearTimeout(timer);
+	}, [validation, targetSiteName, clientName, siteUrl]);
+
 	const targetSiteNameLabel = targetSiteName || t('selfFallback');
 	const vulnerability =
 		displaySov.vulnerabilityInsight ||
@@ -213,8 +295,20 @@ export function CompetitorSovCard({
 	return (
 		<section
 			id="ai-sov-gap"
-			className="pdf-page-item audit-report-section scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:p-6"
+			className="relative pdf-page-item audit-report-section scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:p-6"
+			data-sov-validation={validation.valid ? 'pass' : 'fail'}
+			data-sov-query={activeQuery}
+			data-sov-own-tone={ownTone}
+			data-sov-third-party-majority={uiTokens.thirdPartyIsMajority ? 'true' : 'false'}
 		>
+			{validationToast ? (
+				<div
+					role="status"
+					className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/70 dark:text-emerald-300"
+				>
+					{validationToast}
+				</div>
+			) : null}
 			<div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 				<div>
 					<span className="text-xs font-semibold tracking-wide text-blue-600 dark:text-blue-400">
@@ -241,37 +335,59 @@ export function CompetitorSovCard({
 				</div>
 
 				<div
-					className="w-full min-w-0 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm dark:border-slate-700 dark:bg-slate-950/60 md:w-auto md:min-w-[300px]"
+					className="flex w-full min-w-0 items-start gap-3 rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm dark:border-slate-700 dark:bg-slate-950/60 md:w-auto md:min-w-[300px]"
 					aria-label={t('versus', { own: currentSov, toBe: targetSov, delta: potentialGain })}
 				>
-					<div className="mb-2.5 flex items-center justify-between gap-3">
-						<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{t('gapAnalysisLabel')}</span>
-						<span className="inline-flex items-center gap-1 rounded-md border border-emerald-200/60 bg-emerald-50 px-2 py-0.5 text-xs font-extrabold text-emerald-600 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-400">
-							<ArrowUp className="h-3 w-3" strokeWidth={3} aria-hidden />
-							{t('recaptureDeltaBadge', { delta: potentialGain })}
+					<div
+						className="relative h-14 w-14 shrink-0 rounded-full"
+						style={{ background: compositionDonutStyle(rank1Share, rank2Share, currentSov, thirdPartyShare) }}
+						aria-label={t('compositionAria', {
+							rank1: rank1Share,
+							rank2: rank2Share,
+							own: currentSov,
+							third: thirdPartyShare,
+						})}
+						data-sov-donut-majority={uiTokens.thirdPartyIsMajority ? 'true' : 'false'}
+					>
+						<div className="absolute inset-1.5 rounded-full bg-white dark:bg-slate-950" />
+						<span
+							className={`absolute inset-0 flex items-center justify-center text-[10px] font-black ${
+								uiTokens.thirdPartyIsMajority ? 'text-amber-700 dark:text-amber-400' : 'text-slate-600 dark:text-slate-300'
+							}`}
+						>
+							{thirdPartyShare}%
 						</span>
 					</div>
-
-					<div className="relative mb-2 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-						<div
-							className="absolute top-0 left-0 h-full rounded-full bg-blue-200 transition-all duration-500 dark:bg-blue-900/70"
-							style={{ width: `${targetSovWidth}%` }}
-						/>
-						<div
-							className="absolute top-0 left-0 h-full rounded-full bg-blue-600 transition-all duration-500"
-							style={{ width: `${currentSovWidth}%` }}
-						/>
-					</div>
-
-					<div className="flex items-center justify-between text-xs">
-						<div className="flex items-baseline gap-1">
-							<span className="text-[11px] text-slate-400">{t('asIsSummaryLabel')}</span>
-							<span className="font-bold text-slate-700 dark:text-slate-200">{currentSov}%</span>
+					<div className="min-w-0 flex-1">
+						<div className="mb-2.5 flex items-center justify-between gap-3">
+							<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{t('gapAnalysisLabel')}</span>
+							<span className="inline-flex items-center gap-1 rounded-md border border-emerald-200/60 bg-emerald-50 px-2 py-0.5 text-xs font-extrabold text-emerald-600 dark:border-emerald-800/60 dark:bg-emerald-950/50 dark:text-emerald-400">
+								<ArrowUp className="h-3 w-3" strokeWidth={3} aria-hidden />
+								{t('recaptureDeltaBadge', { delta: potentialGain })}
+							</span>
 						</div>
-						<ArrowRight className="h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600" aria-hidden />
-						<div className="flex items-baseline gap-1">
-							<span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{t('geoTargetLabel')}</span>
-							<span className="text-sm font-black text-blue-700 dark:text-blue-300">{targetSov}%</span>
+
+						<div className="relative mb-2 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+							<div
+								className="absolute top-0 left-0 h-full rounded-full bg-blue-200 transition-all duration-500 dark:bg-blue-900/70"
+								style={{ width: `${targetSovWidth}%` }}
+							/>
+							<div
+								className="absolute top-0 left-0 h-full rounded-full bg-blue-600 transition-all duration-500"
+								style={{ width: `${currentSovWidth}%` }}
+							/>
+						</div>
+
+						<div className="flex items-center justify-between text-xs">
+							<div className="flex items-baseline gap-1">
+								<span className="text-[11px] text-slate-400">{t('asIsSummaryLabel')}</span>
+								<span className="font-bold text-slate-700 dark:text-slate-200">{currentSov}%</span>
+							</div>
+							<ArrowRight className="h-3 w-3 shrink-0 text-slate-300 dark:text-slate-600" aria-hidden />
+							<div className="flex items-baseline gap-1">
+								<span className="text-[11px] font-medium text-blue-600 dark:text-blue-400">{t('geoTargetLabel')}</span>
+								<span className="text-sm font-black text-blue-700 dark:text-blue-300">{targetSov}%</span>
+							</div>
 						</div>
 					</div>
 				</div>
@@ -364,21 +480,23 @@ export function CompetitorSovCard({
 				className={`mt-5 space-y-4 transition-opacity duration-200 ${isLoading ? 'pointer-events-none opacity-40' : 'opacity-100'}`}
 				aria-busy={isLoading}
 				aria-label={t('chartAria')}
+				data-sov-active-query={activeQuery}
 			>
 				{rankingRows.map((row) => {
-					const unranked = row.isClient && displaySov.clientRank === 4;
+					const rowUnranked = row.isClient && unranked;
+					const rowTone = rowUnranked ? ownTone : row.isClient ? 'ok' : null;
 					return (
 						<div key={`${row.rank}-${row.name}`} className="space-y-3">
 							<div className="flex items-center justify-between text-xs">
 								<div className="flex flex-wrap items-center gap-1.5">
 									<span
-										className={`inline-flex h-5 min-w-5 items-center justify-center rounded-md px-1 text-[10px] font-black ${
-											row.isClient
-												? 'bg-indigo-600 text-white'
-												: 'bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200'
-										}`}
+										className={
+											rowTone
+												? SOV_OWN_RANK_TONE_CLASSES[rowTone]
+												: 'inline-flex h-5 min-w-5 items-center justify-center rounded-md bg-slate-200 px-1 text-[10px] font-black text-slate-700 dark:bg-slate-700 dark:text-slate-200'
+										}
 									>
-										{unranked ? t('unrankedMark') : t('rankLabel', { rank: row.rank })}
+										{rowUnranked ? t('unrankedMark') : t('rankLabel', { rank: row.rank })}
 									</span>
 									<span
 										className={`font-semibold ${
@@ -388,7 +506,13 @@ export function CompetitorSovCard({
 										{row.name}
 									</span>
 									{row.isClient ? (
-										<span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-400">
+										<span
+											className={
+												rowUnranked
+													? uiTokens.ownBadgeClassName
+													: 'rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950 dark:text-indigo-400'
+											}
+										>
 											{t('clientBadge')}
 										</span>
 									) : (
@@ -396,8 +520,8 @@ export function CompetitorSovCard({
 											{t('rankBadge')}
 										</span>
 									)}
-									{unranked ? (
-										<span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-[10px] font-semibold text-rose-600 dark:border-rose-900 dark:bg-rose-950 dark:text-rose-400">
+									{rowUnranked ? (
+										<span className={uiTokens.ownBadgeClassName} data-sov-own-badge="unranked">
 											{t('unrankedBadge')}
 										</span>
 									) : null}
@@ -408,9 +532,12 @@ export function CompetitorSovCard({
 									) : null}
 								</div>
 								<span
-									className={`font-extrabold ${
-										row.isClient ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-700 dark:text-slate-300'
-									}`}
+									className={
+										row.isClient
+											? uiTokens.ownShareClassName
+											: 'font-extrabold text-slate-700 dark:text-slate-300'
+									}
+									data-sov-own-share={row.isClient ? String(row.share) : undefined}
 								>
 									{row.share}%
 									{row.isClient ? (
@@ -419,7 +546,7 @@ export function CompetitorSovCard({
 								</span>
 							</div>
 							<div className="flex h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-								<div className={barClass(row)} style={{ width: `${row.share}%` }} />
+								<div className={barClass(row, rowUnranked)} style={{ width: `${row.share}%` }} />
 							</div>
 						</div>
 					);
@@ -433,24 +560,45 @@ export function CompetitorSovCard({
 								<span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-400">
 									{t('directoryBadge')}
 								</span>
+								{uiTokens.thirdPartyIsMajority ? (
+									<span className={uiTokens.thirdPartyMajorityClassName} data-sov-majority="true">
+										{t('majorityBadge')}
+									</span>
+								) : null}
 							</div>
 							<span className="font-bold text-amber-700 dark:text-amber-400">{directory.share}%</span>
 						</div>
-						<div className="h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-							<div className={barClass(directory)} style={{ width: `${directory.share}%` }} />
+						<div className="relative h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+							<div
+								className={barClass(directory)}
+								style={{ width: `${uiTokens.thirdPartyBarWidth}%` }}
+								data-sov-third-party-width={uiTokens.thirdPartyBarWidth}
+							/>
+							<div
+								className="absolute top-0 left-1/2 h-full w-px bg-slate-400/80 dark:bg-slate-500"
+								aria-hidden
+								title="50%"
+							/>
 						</div>
 					</div>
 				) : null}
 			</div>
 
-			<div className="mt-5 rounded-xl border border-rose-100 bg-rose-50/60 p-3.5 dark:border-rose-900/40 dark:bg-rose-950/20">
+			<div className="mt-5 rounded-xl border border-rose-100 bg-rose-50/60 p-3.5 dark:border-rose-500/30 dark:bg-rose-500/10">
 				<div className="flex items-start gap-2.5">
 					<AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-500 dark:text-rose-400" aria-hidden />
 					<div className="space-y-1 break-keep text-xs leading-relaxed">
-						<p className="font-semibold text-rose-900 dark:text-rose-300">{displaySov.lossInsight}</p>
+						<p className="font-semibold text-rose-900 dark:text-rose-400">{displaySov.lossInsight}</p>
 						<p className="text-slate-600 dark:text-slate-400">{vulnerability}</p>
 					</div>
 				</div>
+			</div>
+
+			<div className="mt-3 rounded-lg border-t-2 border-slate-200 bg-slate-50/80 px-3.5 py-2.5 dark:border-slate-700 dark:bg-slate-800/30">
+				<p className="break-keep text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 sm:text-xs">
+					<span className="font-semibold text-slate-500 dark:text-slate-400">{t('dataScopeNoteLabel')}</span>
+					<span>: {t('dataScopeNoteBody')}</span>
+				</p>
 			</div>
 		</section>
 	);

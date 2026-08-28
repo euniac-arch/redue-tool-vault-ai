@@ -7,7 +7,7 @@ interface FirebaseStatusIndicatorProps {
 export function FirebaseStatusIndicator({ configured }: FirebaseStatusIndicatorProps) {
 	return (
 		<div
-			className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600"
+			className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
 			title={configured ? 'Firebase Admin SDK configured' : 'Firebase Admin SDK not configured'}
 			role="status"
 			aria-label={configured ? 'Firebase DB 연결됨' : 'Firebase DB 미설정'}

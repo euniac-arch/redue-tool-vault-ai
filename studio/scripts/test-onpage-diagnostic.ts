@@ -57,9 +57,9 @@ const weightSum =
 	CATEGORY_MAX_SCORES.schema +
 	CATEGORY_MAX_SCORES.geo;
 
-assert('category max scores sum to 122', weightSum === ONPAGE_MAX_SCORE, String(weightSum));
+assert('category max scores sum to 125', weightSum === ONPAGE_MAX_SCORE, String(weightSum));
 assert(
-	'5-group max scores sum to 122',
+	'5-group max scores sum to 125',
 	GROUP_MAX_SCORES.security +
 		GROUP_MAX_SCORES.performance +
 		GROUP_MAX_SCORES.seo +
@@ -69,7 +69,7 @@ assert(
 );
 assert('security group is 15', GROUP_MAX_SCORES.security === 15);
 assert('performance/a11y group is 12', GROUP_MAX_SCORES.performance === 12);
-assert('SEO max is 29', CATEGORY_MAX_SCORES.seo === 29);
+assert('SEO max is 32', CATEGORY_MAX_SCORES.seo === 32);
 assert('schema max is 36', CATEGORY_MAX_SCORES.schema === 36);
 assert('GEO max is 30', CATEGORY_MAX_SCORES.geo === 30);
 
@@ -148,7 +148,7 @@ const exampleReport = {
 } as Pick<AuditReport, 'score' | 'maxScore' | 'categories' | 'lang' | 'url' | 'hasSsl'>;
 
 const diagnostic = buildOnPageDiagnostic(exampleReport);
-const seoEarned = 5 + 0 + 2.5 + 2;
+const seoEarned = 5 + 0 + 2.5 + 2 + 1.5;
 const securityEarned = 10 + 5;
 const perfEarned = 2.5 + 0;
 const schemaEarned = 0 + 3.5;
@@ -177,15 +177,15 @@ assert('performance max = 12', perf?.maxScore === 12);
 assert('performance raw = 2.5', perf?.rawScore === 2.5, String(perf?.rawScore));
 
 const seo = diagnostic.categories.find((c) => c.id === 'seo');
-assert('seo 9.5/29 (<50) is Fail even if stored PASS', seo?.status === 'fail', seo?.status);
-assert('seo defect/warning counts', seo?.defectCount === 1 && seo.warningCount === 1);
+assert('seo 11/32 (<50) is Fail even if stored PASS', seo?.status === 'fail', seo?.status);
+assert('seo defect/warning counts', seo?.defectCount === 1 && seo.warningCount === 2);
 assert(
 	'each category exposes measured checks',
 	diagnostic.categories.every((c) => Array.isArray(c.checks)),
 );
 assert('seo checks include fail and warning rows', (seo?.checks.length ?? 0) >= 2);
-assert('seo max is 29 not stored 37', seo?.maxScore === 29, String(seo?.maxScore));
-assert('seo earned clamped below max', (seo?.rawScore ?? 99) <= 29);
+assert('seo max is 32 not stored 37', seo?.maxScore === 32, String(seo?.maxScore));
+assert('seo earned clamped below max', (seo?.rawScore ?? 99) <= 32);
 
 const schemaCat = diagnostic.categories.find((c) => c.id === 'schema');
 assert('schema max is 36 not stored 35', schemaCat?.maxScore === 36, String(schemaCat?.maxScore));

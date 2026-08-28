@@ -1,9 +1,14 @@
-import { dedupeRepeatedPhrase } from '@/lib/audit/brand-name';
+import { resolveProjectSiteName } from '@/lib/audit/project-site-name';
 import type { AuditCheckItem, AuditReport } from '@/lib/site-auditor';
-import { pagesFromAuditPaths, sanitizeMainPageTitle } from '@/lib/solve/dynamic-php-schema';
+import { extractOrgContactFromFooter, pagesFromAuditPaths, sanitizeMainPageTitle } from '@/lib/solve/dynamic-php-schema';
+import { bindTelephone } from '@/lib/solve/core/telephone';
+import { ensureCitationMenuRows } from '@/lib/solve/core/eeat-citation';
+import { ensureRootDeployMenuRows } from '@/lib/solve/geo-root-assets';
+import { hydrateSolvePageMetas } from '@/lib/solve/page-meta-hydrate';
 import { generateAllCmsSnippets } from '@/lib/solve/cms-snippets';
 import { buildFileIssueTargetReport } from '@/lib/solve/file-issue-report';
 import { getIssueSolutionGuide } from '@/lib/solve/issue-solution-guide';
+import { resolveGnbCollectedPaths } from '@/lib/audit/extractors/gnb-pages';
 import { extractAuditUrlPaths } from '@/lib/solve/source-mapping';
 import { toSolveCmsDisplay, type IssueSeverity, type SolveAuditSnapshot, type SolveIssue } from '@/lib/solve/types';
 
@@ -54,6 +59,7 @@ const CHECK_ID_TO_ISSUE_CODE: Record<string, string | ((check: AuditCheckItem) =
 	'render-blocking': 'RENDER_BLOCKING',
 	'crawlable-text': 'GENERIC',
 	'eeat-author': 'SCHEMA_MISSING',
+	'rss-feed': 'RSS_NOT_FOUND',
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -105,20 +111,10 @@ export function collectFailedChecks(report: AuditReport): Array<AuditCheckItem &
 
 export function mapAuditReportToSolveSnapshot(
 	report: AuditReport,
-	opts?: { id?: string | null; cmsType?: string },
+	opts?: { id?: string | null; cmsType?: string; ceo_name?: string },
 ): SolveAuditSnapshot {
 	const cmsType = toSolveCmsDisplay(opts?.cmsType || report.cmsType || '');
-	const siteName = dedupeRepeatedPhrase(
-		report.siteMeta?.brandName ||
-			report.metrics?.pageTitle ||
-			(() => {
-				try {
-					return new URL(report.url).hostname.replace(/^www\./, '');
-				} catch {
-					return report.url;
-				}
-			})(),
-	);
+	const siteName = resolveProjectSiteName(report);
 
 	const payload = {
 		targetUrl: report.url,
@@ -173,12 +169,17 @@ export function mapAuditReportToSolveSnapshot(
 		if (check.evidence) evidenceUrls.push(check.evidence);
 	}
 
-	const collectedUrlPaths = extractAuditUrlPaths({
+	const fallbackUrlPaths = extractAuditUrlPaths({
 		url: report.url,
 		baseOrigin: report.url,
 		collectedUrls: [...(report.collectedUrls || []), ...evidenceUrls],
 		urls: (report as AuditReport & { urls?: string[] }).urls,
 		findings: report.findings,
+	});
+	const collectedUrlPaths = resolveGnbCollectedPaths({
+		navItems: report.navItems,
+		fallbackPaths: fallbackUrlPaths,
+		homePath: '/',
 	});
 
 	const mainTitle = sanitizeMainPageTitle(report.metrics?.pageTitle || siteName, siteName);
@@ -213,7 +214,18 @@ export function mapAuditReportToSolveSnapshot(
 		id: opts?.id || 'payload',
 		targetUrl: report.url,
 		collectedUrlPaths,
-		pageMetas,
+		pageMetas: hydrateSolvePageMetas(
+			ensureCitationMenuRows(ensureRootDeployMenuRows(pageMetas), {
+				siteName,
+			}),
+			{
+				siteName,
+				mainTitle,
+				mainDescription,
+				industryType,
+				navItems: report.navItems,
+			},
+		),
 		siteName,
 		mainTitle,
 		mainDescription,
@@ -221,19 +233,33 @@ export function mapAuditReportToSolveSnapshot(
 		industryType,
 		navItems: report.navItems,
 		footerText: report.footerText,
-		representativeName: report.siteMeta?.representativeName,
+		representativeName:
+			opts?.ceo_name ||
+			report.siteMeta?.ceoName ||
+			report.ceoName ||
+			report.siteMeta?.representativeName,
+		ceoName:
+			opts?.ceo_name ||
+			report.siteMeta?.ceoName ||
+			report.ceoName ||
+			report.siteMeta?.representativeName,
 		representativeTitle: report.siteMeta?.representativeJobTitle,
 		openingHoursOpens: report.siteMeta?.openingHours?.opens,
 		openingHoursCloses: report.siteMeta?.openingHours?.closes,
 		latitude: report.siteMeta?.geo?.latitude,
 		longitude: report.siteMeta?.geo?.longitude,
 		sameAs: report.siteMeta?.sameAs,
+		knowsAbout: report.siteMeta?.coreSpecialties || report.siteMeta?.schemaKnowsAbout,
 		medicalSpecialty: report.siteMeta?.medicalSpecialty,
 		isAcceptingNewPatients: report.siteMeta?.isAcceptingNewPatients ?? true,
 		postalCode: report.siteMeta?.postalCode,
 		streetAddress: report.siteMeta?.streetAddress,
 		addressLocality: report.siteMeta?.addressLocality,
 		addressRegion: report.siteMeta?.addressRegion,
+		telephone: bindTelephone(
+			report.siteMeta?.telephone || extractOrgContactFromFooter(report.footerText || '').telephone,
+		),
+		faqItems: report.siteMeta?.faqItems,
 		overallScore: Math.round(report.score),
 		schemaCoveragePercent,
 		cmsType,

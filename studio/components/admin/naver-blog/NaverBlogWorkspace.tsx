@@ -59,6 +59,7 @@ const FALLBACK_PROJECTS: ProjectListItem[] = [
 		latestAuditId: null,
 		auditCount: 3,
 		createdAt: '2026-07-01T00:00:00.000Z',
+		userType: 'admin',
 	},
 	{
 		id: 'demo-clinic',
@@ -76,6 +77,7 @@ const FALLBACK_PROJECTS: ProjectListItem[] = [
 		latestAuditId: null,
 		auditCount: 1,
 		createdAt: '2026-07-15T00:00:00.000Z',
+		userType: 'admin',
 	},
 ];
 
@@ -86,7 +88,7 @@ const STATUS_LABEL: Record<PublishStatus, string> = {
 };
 
 const STATUS_STYLE: Record<PublishStatus, string> = {
-	draft: 'bg-slate-100 text-slate-700 ring-slate-200',
+	draft: 'bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-700',
 	scheduled: 'bg-amber-50 text-amber-800 ring-amber-200',
 	published: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
 };
@@ -529,18 +531,18 @@ export function NaverBlogWorkspace() {
 			{toast ? (
 				<div
 					role="status"
-					className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border border-slate-200 bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-lg"
+					className="fixed bottom-6 right-6 z-50 max-w-sm rounded-lg border border-slate-200 bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-lg dark:border-slate-700"
 				>
 					{toast}
 				</div>
 			) : null}
 
-			<section className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+			<section className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div>
-					<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+					<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
 						해결 워크스페이스 · 콘텐츠
 					</p>
-					<p className="mt-0.5 text-sm text-slate-600">
+					<p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
 						대규모 클라이언트 프로젝트를 검색·선택한 뒤 네이버 블로그 원고와 GEO FAQ를 생성합니다.
 					</p>
 				</div>
@@ -553,12 +555,12 @@ export function NaverBlogWorkspace() {
 					].map((s) => (
 						<div
 							key={s.label}
-							className="min-w-[72px] rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-center"
+							className="min-w-[72px] rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-center dark:bg-slate-700/60 dark:border-slate-700"
 						>
-							<em className="block text-[10px] font-semibold not-italic text-slate-500">
+							<em className="block text-[10px] font-semibold not-italic text-slate-500 dark:text-slate-400">
 								{s.label}
 							</em>
-							<strong className="text-lg font-extrabold tabular-nums text-slate-900">
+							<strong className="text-lg font-extrabold tabular-nums text-slate-900 dark:text-slate-100">
 								{s.value}
 							</strong>
 						</div>
@@ -566,11 +568,11 @@ export function NaverBlogWorkspace() {
 				</div>
 			</section>
 
-			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-2">
 					<div>
-						<h2 className="text-base font-bold text-slate-900">포스팅 생성 설정</h2>
-						<p className="text-sm text-slate-500">
+						<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">포스팅 생성 설정</h2>
+						<p className="text-sm text-slate-500 dark:text-slate-400">
 							사이트 검색 → 치료법/주제 → 타겟 키워드 순으로 설정한 뒤 AI 원고를 생성합니다.
 						</p>
 					</div>
@@ -581,8 +583,8 @@ export function NaverBlogWorkspace() {
 
 				<form onSubmit={(e) => void handleGenerate(e)} className="flex flex-col gap-4">
 					{recentUsable.length > 0 ? (
-						<div className="w-full rounded-lg border border-slate-200 bg-slate-50 p-4">
-							<div className="mb-2 text-xs font-semibold text-slate-500">
+						<div className="w-full rounded-lg border border-slate-200 bg-slate-50 p-4 dark:bg-slate-700/60 dark:border-slate-700">
+							<div className="mb-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
 								📌 최근 작업 프로젝트
 							</div>
 							<div className="flex flex-wrap gap-2">
@@ -596,7 +598,7 @@ export function NaverBlogWorkspace() {
 											className={`rounded-md px-2.5 py-1.5 text-[11px] font-semibold ring-1 transition-colors ${
 												active
 													? 'bg-slate-900 text-white ring-slate-900'
-													: 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100'
+													: 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700'
 											}`}
 											title={chip.name}
 										>
@@ -617,18 +619,18 @@ export function NaverBlogWorkspace() {
 								loading={projectsLoading}
 							/>
 							{selectedProject ? (
-								<p className="mt-1.5 truncate text-[11px] text-slate-500">
+								<p className="mt-1.5 truncate text-[11px] text-slate-500 dark:text-slate-400">
 									대표 URL · {selectedProject.targetUrl}
 								</p>
 							) : null}
 						</div>
 
 						<label className="flex flex-col gap-1.5">
-							<span className="text-xs font-semibold text-slate-600">주요 치료법 / 주제</span>
+							<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">주요 치료법 / 주제</span>
 							<select
 								value={topic}
 								onChange={(e) => setTopic(e.target.value)}
-								className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+								className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 							>
 								{topics.map((t) => (
 									<option key={t} value={t}>
@@ -640,12 +642,12 @@ export function NaverBlogWorkspace() {
 
 						<div className="flex flex-col gap-1.5">
 							<label className="flex flex-col gap-1.5">
-								<span className="text-xs font-semibold text-slate-600">타겟 검색 키워드</span>
+								<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">타겟 검색 키워드</span>
 								<input
 									value={keyword}
 									onChange={(e) => setKeyword(e.target.value)}
 									placeholder="예: 일본 중입자 치료 비용"
-									className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-900/10"
+									className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-slate-400 focus:ring-2 focus:ring-slate-900/10 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700 dark:focus:border-slate-500"
 								/>
 							</label>
 							{keywordChips.length > 0 ? (
@@ -658,7 +660,7 @@ export function NaverBlogWorkspace() {
 											className={`rounded-md px-2 py-1 text-[11px] font-semibold ring-1 transition-colors ${
 												keyword === chip
 													? 'bg-slate-900 text-white ring-slate-900'
-													: 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100'
+													: 'bg-slate-50 text-slate-700 ring-slate-200 hover:bg-slate-100 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-700 dark:hover:bg-slate-700'
 											}`}
 										>
 											{chip}
@@ -681,18 +683,18 @@ export function NaverBlogWorkspace() {
 				</form>
 			</section>
 
-			<section className="w-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+			<section className="w-full rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-2">
 					<div>
-						<h2 className="text-base font-bold text-slate-900">생성 원고 미리보기 & 편집기</h2>
-						<p className="text-sm text-slate-500">
+						<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">생성 원고 미리보기 & 편집기</h2>
+						<p className="text-sm text-slate-500 dark:text-slate-400">
 							제목·본문·GEO FAQ·해시태그·대표 링크를 검토한 뒤 저장하거나 발행합니다.
 						</p>
 					</div>
 				</div>
 
 				{!active ? (
-					<div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
+					<div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500 dark:bg-slate-700/60 dark:text-slate-400 dark:border-slate-600">
 						선택된 원고가 없습니다. 상단에서 AI 원고를 생성하거나 아래 목록에서 항목을 선택하세요.
 					</div>
 				) : (
@@ -700,11 +702,11 @@ export function NaverBlogWorkspace() {
 						{/* 좌측: 제목 + Toast UI Editor + 태그 + 링크 (자연 높이가 그리드 기준) */}
 						<div className="flex min-w-0 w-full flex-col gap-4 lg:col-span-7 xl:col-span-8">
 							<label className="flex flex-col gap-1.5">
-								<span className="text-xs font-semibold text-slate-600">AI 생성 제목</span>
+								<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">AI 생성 제목</span>
 								<input
 									value={active.title}
 									onChange={(e) => updateActive({ title: e.target.value })}
-									className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900"
+									className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								/>
 							</label>
 
@@ -715,7 +717,7 @@ export function NaverBlogWorkspace() {
 							/>
 
 							<label className="flex flex-col gap-1.5">
-								<span className="text-xs font-semibold text-slate-600">추천 해시태그</span>
+								<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">추천 해시태그</span>
 								<input
 									value={active.hashtags.join(' ')}
 									onChange={(e) =>
@@ -727,13 +729,13 @@ export function NaverBlogWorkspace() {
 										})
 									}
 								placeholder="#중입자치료 #일본암치료"
-								className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+								className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								/>
 								<div className="flex flex-wrap gap-1.5">
 									{active.hashtags.map((tag) => (
 										<span
 											key={tag}
-											className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700"
+											className="rounded-md bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:bg-slate-700/60 dark:text-slate-200"
 										>
 											{tag.startsWith('#') ? tag : `#${tag}`}
 										</span>
@@ -742,12 +744,12 @@ export function NaverBlogWorkspace() {
 							</label>
 
 							<label className="flex flex-col gap-1.5">
-								<span className="text-xs font-semibold text-slate-600">대표 링크 미리보기</span>
+								<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">대표 링크 미리보기</span>
 								<input
 									value={active.canonicalUrl}
 									onChange={(e) => updateActive({ canonicalUrl: e.target.value })}
 									placeholder="https://example.com/treatment"
-									className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800"
+									className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								/>
 								{active.canonicalUrl ? (
 									<a
@@ -775,11 +777,11 @@ export function NaverBlogWorkspace() {
 								<div className="mb-1.5 h-4 shrink-0" aria-hidden />
 
 								<div className="mb-2 flex items-center justify-between gap-2">
-									<h3 className="text-base font-bold text-slate-900">GEO용 FAQ (Q&A)</h3>
+									<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">GEO용 FAQ (Q&A)</h3>
 									<button
 										type="button"
 										onClick={addFaq}
-										className="shrink-0 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+										className="shrink-0 rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
 									>
 										+ FAQ 추가
 									</button>
@@ -788,17 +790,17 @@ export function NaverBlogWorkspace() {
 								{/* 높이 고정 + 넘치면 내부 스크롤 */}
 								<div className="faq-list-container max-h-[600px] space-y-2 overflow-y-auto pr-1">
 									{active.faqs.length === 0 ? (
-										<p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500">
+										<p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-xs text-slate-500 dark:bg-slate-700/60 dark:text-slate-400 dark:border-slate-700">
 											FAQ가 없습니다. GEO 인용률을 위해 Q&A를 추가하세요.
 										</p>
 									) : (
 										active.faqs.map((faq, idx) => (
 											<article
 												key={faq.id}
-												className="faq-card w-full shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-2.5"
+												className="faq-card w-full shrink-0 rounded-lg border border-slate-200 bg-slate-50 p-2.5 dark:bg-slate-700/60 dark:border-slate-700"
 											>
 												<div className="mb-1 flex items-center justify-between gap-2">
-													<span className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+													<span className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
 														Q{idx + 1}
 													</span>
 													<button
@@ -812,13 +814,13 @@ export function NaverBlogWorkspace() {
 												<input
 													value={faq.question}
 													onChange={(e) => updateFaq(faq.id, { question: e.target.value })}
-													className="mb-1.5 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-900"
+													className="mb-1.5 w-full min-w-0 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-900 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 												/>
 												<textarea
 													value={faq.answer}
 													onChange={(e) => updateFaq(faq.id, { answer: e.target.value })}
 													rows={3}
-													className="w-full min-w-0 resize-y rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs leading-snug text-slate-700"
+													className="w-full min-w-0 resize-y rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-xs leading-snug text-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700"
 												/>
 											</article>
 										))
@@ -827,8 +829,8 @@ export function NaverBlogWorkspace() {
 							</div>
 
 							{/* 좌측 대표 링크 하단 라인에 바닥 밀착 */}
-							<div className="action-sidebar shrink-0 space-y-2 border-t border-slate-100 pt-3">
-								<div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+							<div className="action-sidebar shrink-0 space-y-2 border-t border-slate-100 pt-3 dark:border-slate-700">
+								<div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-slate-500">
 									<span
 										className={`rounded-md px-2 py-0.5 font-bold ring-1 ${STATUS_STYLE[active.status]}`}
 									>
@@ -842,7 +844,7 @@ export function NaverBlogWorkspace() {
 								<button
 									type="button"
 									onClick={handleSave}
-									className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50"
+									className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 								>
 									원고 저장
 								</button>
@@ -866,22 +868,22 @@ export function NaverBlogWorkspace() {
 				)}
 			</section>
 
-			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div className="mb-4 flex flex-wrap items-center justify-between gap-2">
 					<div>
-						<h2 className="text-base font-bold text-slate-900">포스팅 생성 이력</h2>
-						<p className="text-sm text-slate-500">
+						<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">포스팅 생성 이력</h2>
+						<p className="text-sm text-slate-500 dark:text-slate-400">
 							프로젝트·키워드·발행 상태를 확인하고 보기/삭제로 관리합니다.
 						</p>
 					</div>
-					<span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 ring-1 ring-slate-200">
+					<span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-200 dark:ring-slate-700">
 						{drafts.length}건
 					</span>
 				</div>
 
-				<div className="overflow-x-auto rounded-lg border border-slate-200">
+				<div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
 					<table className="min-w-full border-collapse text-left text-sm">
-						<thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+						<thead className="bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-700/60 dark:text-slate-400">
 							<tr>
 								<th className="px-3 py-2.5">프로젝트명</th>
 								<th className="px-3 py-2.5">타겟 키워드</th>
@@ -892,10 +894,10 @@ export function NaverBlogWorkspace() {
 								<th className="px-3 py-2.5 text-right">관리</th>
 							</tr>
 						</thead>
-						<tbody className="divide-y divide-slate-100">
+						<tbody className="divide-y divide-slate-100 dark:divide-slate-700">
 							{drafts.length === 0 ? (
 								<tr>
-									<td colSpan={7} className="px-3 py-10 text-center text-sm text-slate-500">
+									<td colSpan={7} className="px-3 py-10 text-center text-sm text-slate-500 dark:text-slate-400">
 										등록된 원고가 없습니다.
 									</td>
 								</tr>
@@ -905,17 +907,17 @@ export function NaverBlogWorkspace() {
 									return (
 										<tr
 											key={row.id}
-											className={selected ? 'bg-slate-50' : 'bg-white hover:bg-slate-50/80'}
+											className={selected ? 'bg-slate-50 dark:bg-slate-700/60' : 'bg-white hover:bg-slate-50/80 dark:bg-slate-800 dark:hover:bg-slate-700 dark:hover:bg-slate-700/50'}
 										>
 											<td className="px-3 py-3">
-												<div className="font-medium text-slate-800">{row.projectName}</div>
-												<div className="font-mono text-[10px] text-slate-400">
+												<div className="font-medium text-slate-800 dark:text-slate-100">{row.projectName}</div>
+												<div className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
 													[{row.projectCode}]
 												</div>
 											</td>
-											<td className="px-3 py-3 text-slate-600">{row.keyword}</td>
+											<td className="px-3 py-3 text-slate-600 dark:text-slate-300">{row.keyword}</td>
 											<td className="max-w-[240px] px-3 py-3">
-												<span className="line-clamp-2 font-semibold text-slate-900">
+												<span className="line-clamp-2 font-semibold text-slate-900 dark:text-slate-100">
 													{row.title}
 												</span>
 											</td>
@@ -925,7 +927,7 @@ export function NaverBlogWorkspace() {
 														포함
 													</span>
 												) : (
-													<span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-500 ring-1 ring-slate-200">
+													<span className="rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-slate-500 ring-1 ring-slate-200 dark:bg-slate-700/60 dark:text-slate-400 dark:ring-slate-700">
 														없음
 													</span>
 												)}
@@ -937,7 +939,7 @@ export function NaverBlogWorkspace() {
 													{STATUS_LABEL[row.status]}
 												</span>
 											</td>
-											<td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500">
+											<td className="whitespace-nowrap px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
 												{formatDate(row.createdAt)}
 											</td>
 											<td className="px-3 py-3">
@@ -945,14 +947,14 @@ export function NaverBlogWorkspace() {
 													<button
 														type="button"
 														onClick={() => setActiveId(row.id)}
-														className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50"
+														className="rounded border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
 													>
 														보기
 													</button>
 													<button
 														type="button"
 														onClick={() => handleDelete(row.id)}
-														className="rounded border border-rose-200 bg-white px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-50"
+														className="rounded border border-rose-200 bg-white px-2 py-1 text-[11px] font-bold text-rose-700 hover:bg-rose-50 dark:bg-slate-800"
 													>
 														삭제
 													</button>

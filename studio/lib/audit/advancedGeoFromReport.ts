@@ -11,7 +11,13 @@ import {
 	type AdvancedGeoMetricsReport,
 	type CompetitorSeed,
 } from '@/lib/audit/advancedGeoMetrics';
-import { extractRepresentative } from '@/lib/audit/extractors/entity';
+import { extractRepresentative, isNoiseRepresentativeName } from '@/lib/audit/extractors/entity';
+import {
+	collectOfficialSameAs,
+	detectPersonKnowledgeGraph,
+	extractPlaceIdentity,
+	extractTaxIdPrecise,
+} from '@/lib/audit/extractors/universal-entity';
 import { snapshotHasRealCompetitors } from '@/lib/audit/realCompetitors';
 import { resolveHasLlmsTxt } from '@/lib/audit/llms-txt-check';
 import { napFromAuditReport } from '@/lib/geo/prescription-patches';
@@ -52,7 +58,7 @@ export function advancedGeoInputFromReport(
 	const meta = report.siteMeta;
 	const metrics = report.metrics;
 	const lang: AdvancedGeoLang = report.lang === 'en' ? 'en' : 'ko';
-	const jsonLdCorpus = (metrics?.jsonLdSnippets ?? []).join('\n');
+	const jsonLdCorpus = metrics?.jsonLdFullCorpus || (metrics?.jsonLdSnippets ?? []).join('\n');
 	const entityCorpus = [jsonLdCorpus, report.footerText, ...(report.collectedUrls ?? [])].filter(Boolean).join('\n');
 	const textParts = [
 		metrics?.pageTitle,
@@ -68,10 +74,15 @@ export function advancedGeoInputFromReport(
 	const schemaTypes = metrics?.schemaTypes ?? meta?.schemaEntityTypes ?? [];
 	const hasSchema = (metrics?.jsonLdBlockCount ?? 0) > 0 || schemaTypes.length > 0;
 	const extractedRep = extractRepresentative(entityCorpus, lang);
+	const storedName = meta?.representativeName;
 	const representativeName =
-		meta?.representativeName || (extractedRep.isExtracted ? extractedRep.name : undefined);
+		(storedName && !isNoiseRepresentativeName(storedName) ? storedName : undefined) ||
+		(extractedRep.isExtracted ? extractedRep.name : undefined);
 	const representativeTitle =
 		meta?.representativeJobTitle || (extractedRep.isExtracted ? extractedRep.jobTitle : undefined);
+	const sameAs = collectOfficialSameAs(entityCorpus, meta?.sameAs);
+	const place = extractPlaceIdentity(entityCorpus, sameAs);
+	const personKg = detectPersonKnowledgeGraph(entityCorpus);
 	const nap = napFromAuditReport(report as AuditReport);
 	return {
 		lang,
@@ -100,8 +111,10 @@ export function advancedGeoInputFromReport(
 		jsonLdCorpus,
 		html: entityCorpus,
 		text: textParts.join('\n'),
-		taxId: extractTaxId(entityCorpus),
-		placeCid: extractPlaceCid(entityCorpus),
+		taxId: extractTaxIdPrecise(entityCorpus) || extractTaxId(entityCorpus),
+		placeCid: place.cid || extractPlaceCid(entityCorpus),
+		sameAs,
+		representativeKgLinked: personKg.linked,
 		htmlLength: report.pageSizeBytes || undefined,
 		textLength: metrics?.bodyTextLength || undefined,
 		hasArticle: schemaTypes.some((type) => /Article|Blog|WebPage|MedicalWebPage|AboutPage/i.test(type)),
@@ -110,6 +123,14 @@ export function advancedGeoInputFromReport(
 		hasSchema,
 		...competitorSeedsFromReport(report),
 	};
+}
+
+export function officialSameAsFromReport(
+	report: Pick<AuditReport, 'metrics' | 'footerText' | 'collectedUrls' | 'siteMeta'>,
+): string[] {
+	const jsonLdCorpus = report.metrics?.jsonLdFullCorpus || (report.metrics?.jsonLdSnippets ?? []).join('\n');
+	const entityCorpus = [jsonLdCorpus, report.footerText, ...(report.collectedUrls ?? [])].filter(Boolean).join('\n');
+	return collectOfficialSameAs(entityCorpus, report.siteMeta?.sameAs);
 }
 
 export function computeAdvancedGeoFromReport(

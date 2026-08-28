@@ -20,8 +20,10 @@ REDUE diagnoses and patches on-page SEO, GEO, Schema.org JSON-LD, NAP consistenc
 
 ## Key pages
 
-- Home / 10-second audit: /
-- GEO optimization: /geo-optimization
+- Home / Unified AI Search · Schema · Performance audit: /
+- Industry SEO · GEO · AEO strategy: /industry
+- AEO · GEO optimization: /aeo-geo
+- GEO optimization (archived): /geo-optimization
 - Pricing: /#pricing
 - FAQ: /#faq
 - Contact: /contact

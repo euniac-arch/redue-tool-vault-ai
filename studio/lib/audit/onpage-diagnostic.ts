@@ -5,7 +5,7 @@
  *   maxPossibleScore   = Σ checklist.maxScore  (never a hardcoded 122)
  *   normalizedScore100 = Math.round((totalRawScore / maxPossibleScore) * 100)
  *
- * Five standard categories (15 + 12 + 29 + 36 + 30 = 122) are classified by
+ * Five standard categories (15 + 12 + 32 + 36 + 30 = 125) are classified by
  * checklist item id via `categoryAggregator` — never by a stored bucket tag.
  */
 
@@ -40,6 +40,7 @@ import {
 } from '@/lib/audit/recommended-schemas';
 import { topPercentileFromScore } from '@/lib/audit/score-grade';
 import { ensureLlmsTxtChecklistItem } from '@/lib/audit/llms-txt-check';
+import { ensureRssFeedChecklistItem } from '@/lib/audit/rss-feed-check';
 import {
 	HTTPS_CHECK_ID,
 	applyHttpsRawPenalty,
@@ -370,7 +371,10 @@ export function normalizeChecklistItems(
 			normalizeNewsArticleCheck(check, { newsVertical, hasCoreEntity, vertical, lang }),
 		),
 	);
-	return ensureLlmsTxtChecklistItem(ensureHttpsChecklistItem(remapped, report), report);
+	return ensureRssFeedChecklistItem(
+		ensureLlmsTxtChecklistItem(ensureHttpsChecklistItem(remapped, report), report),
+		report,
+	);
 }
 
 export function countCheckVerdicts(checks: ReadonlyArray<Pick<AuditCheckItem, 'status' | 'passed'>>): {

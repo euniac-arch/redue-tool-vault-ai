@@ -6,7 +6,7 @@
  * verticals unless those terms are evidenced on-page.
  */
 
-import { extractRepresentative } from '@/lib/audit/extractors/entity';
+import { extractRepresentative, isNoiseRepresentativeName } from '@/lib/audit/extractors/entity';
 import { cleanMedicalEntities, looksLikePlasticSpecialty } from '@/lib/geo/clean-medical-entities';
 import { buildSchemaPropertyChecks, type PrecisionLang } from '@/lib/geo/precision-diagnostics';
 import type { EnginePlatformSignals } from '@/lib/audit/engine-analysis';
@@ -561,6 +561,9 @@ export interface BuildEeatAuditArgs {
 	schemaTypes?: readonly string[];
 	jsonLdCorpus?: string;
 	footerText?: string;
+	/** Official sameAs URLs already extracted for Entity Disambiguation. */
+	sameAs?: readonly string[];
+	collectedUrls?: readonly string[];
 	representativeName?: string;
 	representativeJobTitle?: string;
 	organizationMissing?: readonly string[];
@@ -633,6 +636,9 @@ export function buildEeatAuditData(args: BuildEeatAuditArgs): {
 		lang,
 		schemaTypes: args.schemaTypes,
 		jsonLdCorpus: args.jsonLdCorpus,
+		html: [args.jsonLdCorpus, args.footerText, ...(args.collectedUrls ?? [])].filter(Boolean).join('\n'),
+		sameAs: args.sameAs,
+		collectedUrls: args.collectedUrls,
 		organizationMissing: args.organizationMissing,
 		orgComplete: args.orgComplete,
 		industryType: args.industryType,
@@ -689,11 +695,12 @@ export function buildEeatAuditData(args: BuildEeatAuditArgs): {
 	});
 
 	const extractedPerson = extractRepresentative(
-		[args.footerText, args.jsonLdCorpus].filter(Boolean).join('\n'),
+		[args.jsonLdCorpus, args.footerText].filter(Boolean).join('\n'),
 		lang,
 	);
 	const storedName = compact(args.representativeName);
-	const personName = storedName || extractedPerson.name;
+	const personName =
+		storedName && !isNoiseRepresentativeName(storedName) ? storedName : extractedPerson.name;
 	const personJobTitle =
 		compact(args.representativeJobTitle) ||
 		(extractedPerson.isExtracted ? extractedPerson.jobTitle : '') ||

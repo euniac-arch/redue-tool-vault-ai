@@ -166,6 +166,63 @@ assert('legacy preset1 is category 추천', presets[0] === '안성 도수치료 
 assert('legacy preset2 is detail service', presets[1] === '안성 추나치료', presets);
 assert('legacy preset3 is 잘하는곳', presets[2] === '안성 추나치료 잘하는곳', presets);
 
+const vet = generateQueryMatrix({
+	lang: 'ko',
+	brandName: '마음반려동물의료원',
+	title: '마음반려동물의료원 | 수원 24시 동물병원',
+	metaDescription: '수원 영통 24시 응급 동물병원. 강아지 고양이 비뇨기, 슬개골, 건강검진 전문.',
+	ogDescription: '반려동물 비뇨기 질환과 건강검진을 진료합니다.',
+	metaKeywords: '수원 동물병원, 24시, 비뇨기, 건강검진, 슬개골',
+	schemaTypes: ['VeterinaryCare'],
+	location: '수원',
+	nap: { addressRegion: '경기', addressLocality: '수원' },
+	navMenuTexts: ['병원장 인사말', '병원 둘러보기', '운영 시스템 안내', '오시는 길', '공지사항', '비뇨기질환'],
+});
+const vetHay = `${vet.sovPresets.join(' ')} ${vet.slots.categoryNouns.join(' ')}`;
+assert(
+	'vet drops GNB chrome from queries',
+	!/인사말|둘러보기|운영 시스템|오시는|공지사항|병원장/.test(vetHay),
+	{ presets: vet.sovPresets, nouns: vet.slots.categoryNouns },
+);
+assert(
+	'vet queries stay 2-5 tokens',
+	vet.sovPresets.every((q) => {
+		const count = q.split(/\s+/).filter(Boolean).length;
+		return count >= 2 && count <= 5;
+	}),
+	vet.sovPresets,
+);
+assert(
+	'vet queries never repeat 병원',
+	vet.sovPresets.every((q) => (q.match(/병원/g) || []).length <= 1),
+	vet.sovPresets,
+);
+assert(
+	'vet main query is region + 24시 + industry + 추천',
+	/수원/.test(vet.sovPresets[0]) && /24시/.test(vet.sovPresets[0]) && /동물병원|병원/.test(vet.sovPresets[0]) && /추천$/.test(vet.sovPresets[0]),
+	vet.sovPresets,
+);
+assert(
+	'vet industry from brand/schema is 동물병원',
+	vet.slots.industryNoun === '동물병원' || vet.slots.categoryNouns.some((n) => /동물병원/.test(n)),
+	vet.slots,
+);
+
+const shop = generateQueryMatrix({
+	lang: 'ko',
+	brandName: '마포우드샵',
+	title: '마포우드샵 | 마포 아파트 인테리어',
+	metaDescription: '마포 아파트 리모델링과 인테리어 시공 전문.',
+	metaKeywords: '마포 인테리어, 아파트 리모델링',
+	location: '마포',
+	navMenuTexts: ['회사소개', '오시는 길', '갤러리', '이용약관'],
+});
+assert(
+	'shop queries ignore sitemap chrome',
+	shop.sovPresets.every((q) => !/회사소개|오시는|갤러리|이용약관/.test(q)) && shop.sovPresets.some((q) => /인테리어|리모델링/.test(q)),
+	shop.sovPresets,
+);
+
 const auditStub = {
 	lang: 'ko',
 	siteMeta: {

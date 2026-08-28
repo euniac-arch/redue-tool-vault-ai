@@ -2,6 +2,8 @@
 
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { GeoWeightCaption } from '@/components/audit/GeoWeightCaption';
+import { GEO_SCHEMA_ANCHOR_ID } from '@/lib/audit/geoScoreCalculator';
 import { schemaCompletenessScore } from '@/lib/geo/precision-diagnostics';
 import type { SchemaPropertyCheck, SchemaPropertyId } from '@/types/geo-diagnostic';
 
@@ -50,7 +52,10 @@ export function SchemaCompletenessChecklist({ properties }: SchemaCompletenessCh
 	const ordered = orderSchemaProperties(properties);
 
 	return (
-		<div className="space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/[0.08] dark:bg-black/20 sm:p-5">
+		<div
+			id={GEO_SCHEMA_ANCHOR_ID}
+			className="scroll-mt-24 space-y-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-white/[0.08] dark:bg-black/20 sm:p-5"
+		>
 			<div className="flex flex-col gap-3 border-b border-slate-200 pb-3 dark:border-white/[0.08] sm:flex-row sm:items-center sm:justify-between">
 				<div className="min-w-0">
 					<p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{t('kicker')}</p>
@@ -60,8 +65,11 @@ export function SchemaCompletenessChecklist({ properties }: SchemaCompletenessCh
 					</h4>
 					<p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{t('subtitle')}</p>
 				</div>
-				<div className="shrink-0 self-start rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 font-sans text-xs font-black text-amber-700 dark:text-amber-400 sm:self-auto">
-					{percent}% {t('scoreHint', { complete: completeCount, total })}
+				<div className="inline-flex shrink-0 flex-col self-start sm:self-auto">
+					<div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 font-sans text-xs font-black text-amber-700 dark:text-amber-400">
+						{percent}% {t('scoreHint', { complete: completeCount, total })}
+					</div>
+					<GeoWeightCaption score={completeCount} maxScore={total} />
 				</div>
 			</div>
 

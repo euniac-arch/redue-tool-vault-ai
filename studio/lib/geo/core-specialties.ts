@@ -46,6 +46,10 @@ type SpecialtyRule = {
 };
 
 const SPECIALTY_RULES: SpecialtyRule[] = [
+	{ test: /슬개골/i, ko: '슬개골', en: 'patella', cluster: 'vet', weight: 10 },
+	{ test: /비뇨기/i, ko: '비뇨기', en: 'urology', cluster: 'vet', weight: 10 },
+	{ test: /건강검진|헬스\s*체크|health\s*check/i, ko: '건강검진', en: 'checkup', cluster: 'clinic', weight: 8 },
+	{ test: /동물병원|반려동물\s*병원|veterinary|pet\s*hospital/i, ko: '동물병원', en: 'animal hospital', cluster: 'vet', weight: 8 },
 	{
 		test: /정형\s*[·・\/]?\s*통증|통증\s*[·・\/]?\s*정형/i,
 		ko: '정형·통증클리닉',

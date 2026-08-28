@@ -6,9 +6,22 @@
 		"tagline": "AI SEO & GEO Precision Audit",
 		"scanner": "Audit Engine",
 		"auditHistory": "Audit history",
+		"liveDiagnose": "Live audit",
 		"geoOptimization": "GEO Optimization",
+		"aeoGeo": "AEO · GEO",
+		"aeoGeoGuide": "AEO · GEO Guide",
+		"industry": "Industry Playbook",
+		"strategyStudio": "Search Strategy Design",
+		"aiHub": "AI Hub",
+		"globalAiTools": "Global AI Tools",
+		"aiPromptHub": "AI Prompt Hub",
+		"insights": "AI & GEO Insights",
+		"insightsHub": "Insights & AI Hub",
+		"insightsColumn": "Insight columns",
 		"portfolio": "Portfolio",
 		"contact": "Work Inquiry",
+		"openMenu": "Open menu",
+		"closeMenu": "Close menu",
 		"enterprise": "Enterprise",
 		"reseller": "Reseller",
 		"wpPlugin": "WP Plugin",
@@ -26,26 +39,226 @@
 		"themeToLight": "Switch to light mode",
 		"themeToDark": "Switch to dark mode"
 	},
+	"strategyStudio": {
+		"pageTitle": "Search Strategy Design",
+		"pageDescription": "Design the next search strategy from an existing REDUE audit — without re-entering the site URL.",
+		"eyebrow": "Search Strategy Design",
+		"ctaAria": "Open Search Strategy Design",
+		"ctaKicker": "Next step",
+		"ctaTitle": "Design the search strategy from this audit.",
+		"ctaHint": "You do not need to enter the site URL again.",
+		"ctaButton": "Search Strategy Design →",
+		"scoreStrategyCta": "Design keyword attack strategies for this site ➔",
+		"engineerCta": "Is implementation hard? Ask a REDUE engineer",
+		"siteSwitcherOpen": "Choose a recent audited site",
+		"siteSwitcherLoading": "Loading recent audits…",
+		"siteSwitcherEmpty": "No recent audits to switch to.",
+		"siteNewAudit": "Diagnose a new site",
+		"loading": "Loading the audit baseline…",
+		"kicker": "Strategy baseline",
+		"measuredLabel": "Measured total",
+		"metaIndustry": "Industry",
+		"metaSubIndustry": "Specialty",
+		"metaLocation": "Region",
+		"baselineNote": "Only scores the audit actually measured are shown. Missing axes are omitted.",
+		"pillarHint": "GEO pillar",
+		"seedKeyword": "Inferred query",
+		"schemaCoverage": "Schema coverage",
+		"issueCount": "{count} issues",
+		"competitorCount": "{count} competitors",
+		"backToResult": "← Back to audit result",
+		"handoffNote": "Loaded the existing audit. No URL re-entry.",
+		"heroLine1": "In the search market,",
+		"heroLine2": "what do you attack, and how?",
+		"heroBody": "Design an execution strategy for a target keyword from the audit and the industry’s search traits.",
+		"notExtracted": "Not extracted",
+		"scoreRow": "Current scores",
+		"scoreHint": "Only axes the audit actually measured are shown.",
+		"keywordHelp": "This version designs strategy for one target keyword.",
+		"keywordPlaceholder": "Enter the search query you want to win.",
+		"keywordPlaceholderExamples": "e.g. {examples}",
+		"analyze": "Analyze strategy",
+		"profileTitle": "Signals that matter in this industry",
+		"intentTitle": "Intents in this query",
+		"intentEmpty": "No intent signals were confirmed from this keyword.",
+		"intentHint": "Intents come from keyword normalization only. No probability scores are invented.",
+		"matchHigh": "The query’s industry signal matches this audit profile.",
+		"matchMedium": "No clear industry noun in the query, so relatedness stays medium.",
+		"matchLow": "The query’s industry signal does not match this audit. Recheck the target keyword.",
+		"parsedLocation": "Location",
+		"parsedIndustry": "Industry",
+		"parsedService": "Service",
+		"parsedProblem": "Problem",
+		"entityTitle": "Current entity graph",
+		"entityPresent": "PRESENT",
+		"entityPartial": "PARTIAL",
+		"entityMissing": "MISSING",
+		"surfaceTitle": "Related search environments",
+		"surfaceHint": "Environments that overlap this query shape. This is not a ranking guarantee on any platform.",
+		"surfaceRelated": "Related",
+		"surfaceIdle": "Secondary",
+		"impactLabel": "EXPECTED IMPACT",
+		"compareTitle": "Current state vs strategic target",
+		"compareHint": "TARGET is a recommended level — not a measured forecast.",
+		"gapTitle": "Gaps to close",
+		"gapCurrent": "Current",
+		"gapStrategy": "Strategy",
+		"priorityTitle": "Priority",
+		"moveTitle": "Strategy by gap",
+		"sampleTitle": "Execution sample",
+		"sampleDisclaimer": "This is a usable content structure, not a ranking guarantee.",
+		"sampleNextStep": "The blueprint below is the rule-engine output. File export connects in a later step.",
+		"planTitle": "Action plan",
+		"blueprintTitle": "Execution blueprint",
+		"blueprintDisclaimer": "Draft copy you can apply on the site. It does not promise rankings or platform placement.",
+		"blueprintRelatedServices": "Related services",
+		"blueprintNone": "None confirmed",
+		"blueprintInternalHint": "Only pages confirmed in the audit are recommended. Missing URLs are not invented.",
+		"blueprintNoUrl": "No confirmed URL",
+		"blueprintLocalEmpty": "No place tokens overlap the audited NAP.",
+		"blueprintP0": "Do first",
+		"blueprintP1": "High priority",
+		"blueprintP2": "Later improvements",
+		"nowTitle": "What to do now",
+		"nowHint": "P0 after this analysis. Not a ranking promise.",
+		"resultSectionEyebrow": "STRATEGY INTELLIGENCE",
+		"resultSectionTitle": "Strategy analysis results",
+		"resultSectionDesc": "Priority actions and attack direction derived from the target keyword and site audit data.",
+		"jumpBlueprint": "Execution sample",
+		"jumpAction": "Action order",
+		"jumpGap": "Gaps",
+		"flowNav": "Analysis flow",
+		"jumpMap": "Strategy map",
+		"mapTitle": "Search-market strategy for this query",
+		"mapSubtitle": "What matters for this query, what is missing now, and what to improve first.",
+		"summaryTitle": "One-screen summary",
+		"intentMapTitle": "Search intent map",
+		"intentMapHint": "Bars are Primary / Secondary / Idle weights. They are not probabilities or share percentages.",
+		"weightPrimary": "Primary",
+		"weightSecondary": "Secondary",
+		"weightIdle": "Idle",
+		"journeyTitle": "Search journey",
+		"entityMapTitle": "Entity map",
+		"entityStatusTitle": "Entity status",
+		"entityWhy": "Why it is needed",
+		"entityWhat": "What to add",
+		"surfaceMapTitle": "Search surfaces",
+		"surfaceSignals": "Relevant Signals",
+		"coverageTitle": "Current · strategic target · gap",
+		"coverageHint": "Numbers appear only on measured audit axes. TARGET is recommended coverage, not an engine-required score.",
+		"measuredShort": "Measured {value}",
+		"priorityEngineTitle": "Priority engine",
+		"whyFirst": "Why this first?",
+		"competitionTitle": "Search competition view",
+		"competitorGap": "Competitor gap axes",
+		"contentSampleTitle": "Apply-ready samples",
+		"clusterTitle": "Content architecture",
+		"clusterHint": "Pages confirmed in the audit are EXISTING. Missing pages are NEW. URLs are not invented.",
+		"clusterExisting": "EXISTING",
+		"clusterNew": "NEW",
+		"horizonTitle": "Action horizon",
+		"horizonToday": "TODAY",
+		"horizonWeek": "THIS WEEK",
+		"horizonNext": "NEXT",
+		"copilotImprove": "AI refine",
+		"copilotLoading": "Refining…",
+		"copilotDraft": "AI draft · not applied yet",
+		"copilotApply": "Apply this item only",
+		"copilotDiscard": "Discard",
+		"copilotError": "The AI refine step could not run.",
+		"ctaSample": "Jump to execution blueprint",
+		"ctaAnother": "Analyze another keyword",
+		"ctaBack": "Back to audit result",
+		"emptyTitle": "No audit result to load.",
+		"emptyBody": "Search Strategy Design starts from an existing audit. Run a scan first, or pick a result from history.",
+		"emptyNetwork": "The audit could not be loaded. Check the network and try again.",
+		"emptyHistory": "Choose from history",
+		"emptyScan": "Run a new audit",
+		"contextDesc": "Search strategy is designed from the current audit result.",
+		"keywordQuestion": "Which query do you want to compete for?",
+		"keywordCommandHint": "Search market you want to compete in.",
+		"recommendKeywords": "Suggested keywords",
+		"recommendGroupMetro": "Metro procedure",
+		"recommendGroupAeo": "Recommend / AEO",
+		"recommendGroupLocal": "Local / hub",
+		"analysisDesc": "We analyze the query’s intent and the structure of the search market.",
+		"gapSectionDesc": "These are the differences that most change how this market is served.",
+		"blueprintSectionDesc": "Connect the analysis to work you can apply on the website.",
+		"actionSectionDesc": "What to do now, this week, and next.",
+		"primaryLabel": "PRIMARY",
+		"secondaryLabel": "SECONDARY",
+		"currentAudit": "CURRENT AUDIT",
+		"currentStateLabel": "CURRENT STATE",
+		"strategicTargetLabel": "STRATEGIC TARGET",
+		"gapAxisLabel": "GAP",
+		"priorityCritical": "CRITICAL",
+		"priorityHighLabel": "HIGH",
+		"priorityOptimize": "OPTIMIZE",
+		"analyzingTitle": "ANALYZING SEARCH MARKET",
+		"analyzingNote": "Applying search-market analysis stages.",
+		"analyzingStep1": "Reading audit context",
+		"analyzingStep2": "Matching industry profile",
+		"analyzingStep3": "Analyzing search intent",
+		"analyzingStep4": "Mapping entities",
+		"analyzingStep5": "Finding strategic gaps",
+		"analyzingStep6": "Building execution plan",
+		"guidedEmpty": "Enter a query to start the search-market strategy analysis.",
+		"strategyRecommendation": "STRATEGY RECOMMENDATION",
+		"whyNeeded": "Why is this needed?",
+		"whatToDo": "What should be done?",
+		"howToExecute": "Execution example",
+		"recommendedStrategy": "Recommended strategy",
+		"contentSample": "CONTENT SAMPLE",
+		"viewStrategyDetail": "View strategy",
+		"hideStrategyDetail": "Hide strategy",
+		"executionOrder": "EXECUTION ORDER",
+		"actionContentSample": "Open content sample",
+		"actionFaq": "Open FAQ",
+		"actionEntitySentence": "Open entity sentence",
+		"actionBlueprint": "View blueprint",
+		"actionPlanJump": "Action Plan",
+		"actionRag": "Open RAG chunks",
+		"actionMatrix": "Open decision matrix",
+		"actionSafety": "Open safety filter",
+		"actionLlms": "Open llms.txt",
+		"blueprintAiCite": "AI CITE",
+		"blueprintRagTitle": "RAG chunks",
+		"blueprintRagHint": "Standalone citation units that name brand, clinician, place, and procedure or device — no vague pronouns. SearchGPT, Perplexity, Gemini, and Google AI Overviews can quote a paragraph without a prior sentence.",
+		"blueprintMatrixTitle": "Decision matrix",
+		"blueprintGainTitle": "Information gain",
+		"blueprintSafetyTitle": "Safety & non-recommendation",
+		"blueprintSafetyHint": "Name who the service is not for. This is an E-E-A-T trust signal, not a personal diagnosis.",
+		"blueprintLlmsTitle": "Export llms.txt",
+		"blueprintLlmsHint": "Markdown you can deploy at the site root ({path}).",
+		"blueprintCopyMarkdown": "Copy Markdown",
+		"blueprintCopyHtml": "Copy HTML",
+		"blueprintCopyAll": "Copy all",
+		"blueprintDownloadLlms": "Download llms.txt",
+		"blueprintDownloaded": "Saved",
+		"blueprintTokenEstimate": "≈ {count} tokens",
+		"blueprintSideEffects": "Side effects",
+		"blueprintContraindications": "Contraindications"
+	},
 	"hero": {
-		"badge": "Free · No sign-up · 10-second precision audit",
+		"badge": "Free · No sign-up · 3-track precision measurement",
 		"engines": "4 live-grounded engines | 2 portal index simulations",
 		"enginesLive": "4 live-grounded measurements",
 		"enginesProxy": "2 portal index simulations included",
 		"title": "Beyond being found, become the company AI recommends.",
 		"titleLine1": "Beyond being found,",
 		"titleLine2": "become the company AI recommends.",
-		"description": "From Google Search to ChatGPT, Gemini, and Perplexity, we precisely diagnose how search engines and AI understand your site. In 10 seconds, see the core SEO · GEO · Schema · E-E-A-T defects and what to fix first.",
+		"description": "From Google Search to ChatGPT, Gemini, and Perplexity, we precisely diagnose how search engines and AI understand your site. See the core SEO · GEO · Schema · E-E-A-T defects and what to fix first, in real time.",
 		"descriptionLine1": "From Google Search to ChatGPT, Gemini, and Perplexity,",
 		"descriptionLine2": "we create the reason you get chosen first in AI search.",
 		"placeholder": "https://your-domain.com",
-		"button": "Start free 10-second audit",
+		"button": "Unified AI Search · Schema · Performance Audit",
 		"buttonLoading": "Opening your audit...",
 		"invalidUrl": "Please enter a valid domain or URL.",
 		"launchError": "Could not start the audit. Check the domain and try again.",
 		"formHint": "No sign-up required. A unified 6-engine AI-search readiness report is generated instantly.",
 		"formDisclaimer": "ChatGPT, Perplexity, Gemini, and Claude are measured with live queries. Copilot and Naver Cue: are simulated from Bing and SmartPlace signal weights.",
 		"points": {
-			"speed": "10-second precision audit",
+			"speed": "3-track precision measurement",
 			"unified": "Unified AI · SEO · GEO analysis",
 			"actionable": "Actionable insights"
 		},
@@ -73,7 +286,7 @@
 		"title": "Precision SEO & GEO Audit Engine",
 		"description": "A developer-grade audit engine that parses HTML/JSON-LD directly — no external LLM calls.",
 		"engineBadge": "Precision Audit Engine",
-		"engineTitle": "We precisely analyze your site’s search competitiveness in 10 seconds",
+		"engineTitle": "We precisely analyze your site’s search competitiveness in real time",
 		"engineDescription": "We don’t just check whether HTML exists. We analyze the live DOM, metadata, JSON-LD, and SEO · GEO signals together to find the bottlenecks blocking search engines and AI citation.",
 		"engineHistoryCta": "View recent audits",
 		"enginePillars": {
@@ -101,7 +314,7 @@
 		"trustProof": {
 			"ariaLabel": "Trust metrics",
 			"items": {
-				"speed": { "title": "10s", "sub": "Precision audit" },
+				"speed": { "title": "Real-time", "sub": "Precision audit" },
 				"engines": { "title": "6 AIs", "sub": "4 live · 2 index" },
 				"sites": { "title": "100K+", "sub": "Websites analyzed" },
 				"security": { "title": "99.9%", "sub": "Security guaranteed" }
@@ -194,7 +407,7 @@
 					"line2": "2 portal index simulations"
 				},
 				"speed": {
-					"title": "10-second precision parse",
+					"title": "Real-time precision parse",
 					"line1": "Fast, accurate diagnosis",
 					"line2": "that saves time"
 				},
@@ -404,7 +617,7 @@
 					"status": "#1-recommendation entry target"
 				},
 				"cta": "⚡ Check my category AI SoV for free",
-				"ctaNote": "※ Enter a site URL to analyze live competitor share in 10 seconds."
+				"ctaNote": "※ Enter a site URL to precisely analyze live competitor share and AI citation dominance in real time."
 			},
 			"modules": {
 				"badge": "THE 5-PILLAR PRESCRIPTION",
@@ -417,7 +630,7 @@
 					"effect": "Effect"
 				},
 				"trust": "💡 No site rebuild needed. <strong>One engine injection activates all five prescriptions immediately.</strong>",
-				"cta": "Find my defects with a 10-second free audit ➔",
+				"cta": "Run a 3-track audit of my site ➔",
 				"items": {
 					"schema": {
 						"badge": "MODULE 01 · CORE FOUNDATION",
@@ -588,7 +801,8 @@
 								"title": "Secure baseline visibility share",
 								"desc": "Semantic tags and metadata cleanup complete the foundation for top placement on question-style searches"
 							}
-						}
+						},
+						"benefitsSummary": "With no recurring monthly fee, a single setup immediately prevents AI crawler collection gaps (404s) and registers your official entity."
 					},
 					"pro": {
 						"name": "GEO Pro",
@@ -603,8 +817,8 @@
 							"1": "✓ Naver SmartPlace / map alignment review",
 							"2": "✓ Stronger Entity / E-E-A-T director graph",
 							"3": "✓ 5 FAQPage types & speakable injection",
-							"4": "✓ 4 live re-audits",
-							"5": "📊 Before/after performance report"
+							"4": "✓ 4-week score-trend tracking & weekly live re-audit (4 total)",
+							"5": "📊 Final 4-week before/after performance report"
 						},
 						"benefits": {
 							"0": {
@@ -624,10 +838,11 @@
 							},
 							"3": {
 								"icon": "📊",
-								"title": "Results you can see",
-								"desc": "4 live re-audits plus a before/after report confirm the score lift"
+								"title": "4-week score trend & proof of results",
+								"desc": "A weekly live re-audit over 4 weeks (4 total) plus a final performance report confirm the upward score trend"
 							}
-						}
+						},
+						"benefitsSummary": "Builds a conversational #1 citation (FAQPage) and a director knowledge graph, then locks in the win with 4 weeks of trend tracking to fully stop the loss of high-intent prospects."
 					},
 					"enterprise": {
 						"name": "Enterprise",
@@ -660,7 +875,8 @@
 								"title": "3-month algorithm defense monitoring",
 								"desc": "Keep top share even when AI engines update"
 							}
-						}
+						},
+						"benefitsSummary": "Secures the industry's top-tier SoV share and completes an exclusive AI-citation footing with 3 months of close monitoring."
 					}
 				}
 			},
@@ -676,24 +892,24 @@
 					},
 					"timing": {
 						"q": "Will ChatGPT or Perplexity reflect the work immediately?",
-						"a": "On-page injection activates crawler index signals immediately. Citation scores and recommendations then refresh sequentially within about 3 business days to 2 weeks, depending on GPTBot, PerplexityBot, and Google AI crawl cycles."
+						"a": "Reflection typically follows within 3–7 business days depending on each AI crawler's collection cycle, and publishing /llms.txt maximizes AI indexing speed."
 					},
 					"builder": {
 						"q": "Does it work on Gnuboard, WordPress, and other sites?",
-						"a": "Yes, it is fully compatible. It works on Gnuboard, WordPress, Imweb, Cafe24, Sixshop, and custom PHP/Node/React sites wherever HTML edits or FTP/CMS admin access are available."
+						"a": "Yes. It is 100% compatible with Gnuboard, WordPress, Imweb, Cafe24, Shopify, and any custom React/Vue/HTML environment."
 					},
 					"rank": {
 						"q": "Is #1 AI recommendation 100% guaranteed?",
-						"a": "AI ranking also weighs query intent and off-site trust, so we do not permanently or mechanically guarantee a specific rank. We do build the highest technical and structural standard (Level 3) so AI can treat you as a trusted official source and adopt you as a first-rank answer card."
+						"a": "We build top-tier schema standards aligned with each AI engine's latest guidelines, but we never permanently guarantee a specific rank, to avoid exaggerated or false claims."
 					},
 					"diff": {
 						"q": "What is the difference between ₩190K (Speed Setup) and ₩490K (GEO Pro)?",
-						"a": "₩190K is the core on-page foundation: JSON-LD schema and /llms.txt, shipped fast. ₩490K adds Naver SmartPlace alignment, director E-E-A-T knowledge graph, 4 live re-audits, and a before/after comparison report — a full-stack share-management package."
+						"a": "Speed Setup covers entity/basic schema and baseline /llms.txt setup, while GEO Pro adds conversational FAQPage, a director knowledge graph, map alignment review, and 4 live re-audit reports."
 					}
 				}
 			},
 			"sticky": {
-				"badge": "10-second free audit",
+				"badge": "Unified AI Search · Schema · Performance Audit",
 				"title": "What score is <score>AI giving</score> your site?",
 				"button": "Free audit"
 			}
@@ -702,9 +918,9 @@
 			"badge": "⚡ REAL-TIME AI AUDIT",
 			"title": "What score is AI giving",
 			"titleLine2": "your site right now?",
-			"subtitle": "Enter one URL to analyze 4 live-grounded AI measurements plus 2 portal index simulations, and competitor leakage share, in 10 seconds.",
+			"subtitle": "Enter one URL to analyze 4 live-grounded AI measurements plus 2 portal index simulations, and competitor leakage share, in real time.",
 			"placeholder": "https://your-domain.com",
-			"button": "10-second precision audit ➔",
+			"button": "Unified AI Search · Schema · Performance Audit ➔",
 			"note": "✓ No sign-up · ✓ No credit card · ✓ Immediate 34-item precision report",
 			"disclaimer": "ChatGPT, Perplexity, Gemini, and Claude are measured with live queries. Copilot and Naver Cue: are simulated from Bing and SmartPlace signal weights."
 		},
@@ -715,7 +931,7 @@
 			"brandFull": "REDUE AI SEO GEO STUDIO",
 			"slogan": "Beyond being found in search — becoming the company AI recommends first.",
 			"llmsCta": "🤖 /llms.txt AI index",
-			"auditCta": "⚡ 10-second audit",
+			"auditCta": "⚡ 3-track precision audit",
 			"cols": {
 				"solutions": "GEO solutions",
 				"plans": "Pricing & plans",
@@ -723,7 +939,7 @@
 				"agents": "AI agent standards"
 			},
 			"solutions": {
-				"audit": "10-second AI audit",
+				"audit": "Unified AI Search · Schema · Performance Audit",
 				"prescription": "Five GEO prescriptions",
 				"schema": "Schema.org JSON-LD generator",
 				"faq": "Conversational FAQPage markup",
@@ -799,7 +1015,7 @@
 			"readTime": "About 3 minutes · Sales / marketing white paper",
 			"closeAria": "Close guidebook",
 			"cta": "🚀 Run a free GEO audit of our site now",
-			"ctaNote": "Enter a URL and see SEO, GEO, and Schema defects in about 10 seconds.",
+			"ctaNote": "Enter a URL and see SEO, GEO, and Schema defects in real time.",
 			"paradigm": {
 				"title": "1. Why get an AI search audit now? (A paradigm shift)",
 				"lead": "Search results are no longer ten blue links.",
@@ -935,16 +1151,29 @@
 	"audit": {
 		"quota": {
 			"remainingBadge": "Free audits today: {remaining}/{limit} left",
-			"devUnlimitedBadge": "[DEV] Unlimited audit mode",
+			"guestRemainingBadge": "Guest free audits ({remaining}/{limit} left)",
 			"buttonExhausted": "Today's limit reached",
+			"guestButtonExhausted": "Guest audits used up",
 			"kicker": "DAILY FREE LIMIT",
+			"guestKicker": "GUEST FREE LIMIT",
 			"modalTitle": "Today's free audits are used up",
 			"modalBody": "You have used all 3 free site audits today. The count resets at midnight. Upgrade to a paid plan for unlimited audits.",
+			"guestModalTitle": "You've used all 3 guest audits",
+			"guestModalBody": "Signed-out visitors get up to 3 free audits. Sign in or create an account to keep diagnosing.",
 			"modalLogin": "Sign in / Sign up",
 			"modalUpgrade": "View paid plans",
 			"modalContact": "Contact us",
 			"modalClose": "Close",
-			"limitReached": "You have used all 3 free site audits today. The count resets at midnight."
+			"limitReached": "You have used all 3 free audits. Sign in or create an account to keep diagnosing."
+		},
+		"engine": {
+			"kicker": "DIAGNOSTIC ENGINE",
+			"title": "Audit Engine",
+			"description": "Run a live SEO · GEO · AEO audit, or review previous diagnosis history.",
+			"tabsAria": "Audit engine views",
+			"liveTab": "Live audit",
+			"historyTab": "Audit history",
+			"presetApplied": "{industry} industry preset is applied."
 		},
 		"backToHome": "← Back to home",
 		"backToHistory": "← Back to audit history",
@@ -962,23 +1191,40 @@
 			"heroScoreSuffix": "/ 100",
 			"rawScoreLabel": "Measured raw score",
 			"rawScoreValue": "{score} / {max}",
-			"chartTitle": "Three core diagnosis scores",
-			"chartAriaLabel": "Comparison chart of composite measured, AI search trust, and technical SEO scores",
+			"weightCompositionTechLabel": "Tech",
+			"weightCompositionGeoLabel": "GEO",
+			"weightCompositionPerfLabel": "Perf",
+			"weightCompositionPerfPending": "Measuring...",
+			"weightCompositionPointSuffix": " pts",
+			"weightCompositionSecurityPenaltyStrip": "Security defect penalty −{penalty} pts applied ➔ Final {final} pts",
+			"weightCompositionSecurityOkStrip": "No security defects (0 pt penalty)",
+			"complianceScoreBadge": "Spec compliance {score} / {max} pts (converted {pct} pts)",
+			"cwvLoadingBadge": "Aggregating live performance...",
+			"cwvLoadingAria": "Loading live PageSpeed data",
+			"heroScorePending": "Calculating…",
+			"heroFormulaPending": "Tech {track1} + GEO {track2} + {perfPending} = {scorePending}",
+			"chartTitle": "Four core diagnosis scores",
+			"chartAriaLabel": "Comparison chart of the composite measured, technical integrity, AI search citation dominance, and web performance scores",
 			"chart": {
 				"overall": {
 					"short": "Overall",
 					"full": "Composite measured score",
-					"desc": "Weighted 100-point total across the five measured categories"
+					"desc": "Weighted blend of Track 1 (technical), Track 2 (GEO), and CWV (performance)"
 				},
-				"aiTrust": {
-					"short": "AI Trust",
-					"full": "AI search trust",
-					"desc": "GEO and AI citation / crawler trust"
+				"track1": {
+					"short": "Tech",
+					"full": "Technical integrity standard",
+					"desc": "Technical SEO infrastructure & schema-compliance rate (Track 1)"
 				},
-				"techSeo": {
-					"short": "Tech SEO",
-					"full": "Search technical optimization",
-					"desc": "SEO infrastructure, schema, and performance"
+				"track2": {
+					"short": "GEO",
+					"full": "AI search citation dominance",
+					"desc": "GEO and AI-engine citation / trust signals (Track 2)"
+				},
+				"track3": {
+					"short": "Perf",
+					"full": "Web performance (CWV)",
+					"desc": "Mobile/desktop average Core Web Vitals reading (Track 3)"
 				}
 			},
 			"chartScoreLabel": "{score}",
@@ -1099,6 +1345,8 @@
 		"pageSpeed": {
 			"cardsBadge": "PageSpeed Insights",
 			"cardsTitle": "Measured lighthouse category scores",
+			"unavailableFallback": "PageSpeed could not measure this page because it never painted content (NO_FCP). Check a blank render, delayed paint, or bot challenge, then retry.",
+			"estimatedNotice": "The live Google Lighthouse read didn't respond in time, so these are on-page performance estimates. Re-run the diagnosis in a moment to refresh with a real measurement.",
 			"cardsAriaLabel": "PageSpeed Insights performance, accessibility, best practices, and SEO scores",
 			"strategyLabel": "{strategy} lab data",
 			"strategyNames": {
@@ -1122,7 +1370,15 @@
 			},
 			"precisionBadge": "Web performance & accessibility · PageSpeed lab",
 			"precisionTitle": "Core Web Vitals & resource precision report",
-			"precisionSubtitle": "Category scores → Core Web Vitals → image, cache, LCP, JS diagnostics and tailored fix guides.",
+			"precisionSubtitle": "Compare desktop and mobile category scores and Core Web Vitals, then review image, cache, LCP, and JS diagnostics with tailored fix guides.",
+			"liveMeasuringBanner": "⚡ Running the Google Lighthouse mobile & desktop measurement engine... (about 10–15s)",
+			"refreshButton": "Re-check web performance only",
+			"refreshButtonLoading": "Re-checking...",
+			"scoresDesktop": "🖥️ Desktop category scores",
+			"scoresMobile": "📱 Mobile category scores",
+			"vitalsDesktop": "🖥️ Desktop Core Web Vitals",
+			"vitalsMobile": "📱 Mobile Core Web Vitals",
+			"resourcesStrategyHint": "Resource tables follow the selected desktop or mobile lab run.",
 			"measuring": "Measuring Google Core Web Vitals and performance lab data…",
 			"measuringHint": "PageSpeed Insights API · Performance · Accessibility · Best Practices · SEO · LCP · TBT/INP · CLS · typically 10–15s",
 			"progressStepLabel": "{current} / {total}",
@@ -1142,7 +1398,7 @@
 			"vitals": {
 				"lcp": "LCP · Largest Contentful Paint",
 				"fcp": "FCP · First Contentful Paint",
-				"tbt": "TBT / INP · Total Blocking Time",
+				"tbt": "TBT · Total Blocking Time",
 				"cls": "CLS · Cumulative Layout Shift"
 			},
 			"vitalThreshold": {
@@ -1161,7 +1417,7 @@
 				"mainThread": "Main-thread work breakdown",
 				"lcpWarningTitle": "LCP critical-path warning",
 				"colFile": "File",
-				"colSize": "Size",
+				"colSize": "Current size",
 				"colWasted": "Est. savings",
 				"colDelay": "Delay",
 				"colWebpSave": "WebP savings",
@@ -1213,14 +1469,39 @@
 				},
 				"htaccess": {
 					"title": "Server / security — HTTPS redirect & browser caching",
-					"desc": "Force HTTP→HTTPS 301 and set Expires/Cache-Control for static assets in .htaccess."
+					"desc": "Force HTTP→HTTPS 301 and set Expires/Cache-Control for static assets in .htaccess.",
+					"descMeasured": "{count} short-TTL assets · current size {size} · est. savings {savings} (typical TTL {ttl}). Force HTTP→HTTPS 301 and set Expires/Cache-Control for static assets in .htaccess."
 				}
 			}
+		},
+		"cwvHero": {
+			"badge": "Track 3 · Core Web Vitals (live)",
+			"title": "Web Performance & Core Web Vitals Overview",
+			"heroLabel": "Representative live performance score",
+			"heroScoreSuffix": "/ 100",
+			"sourceAverage": "📱🖥️ Averaged across mobile & desktop Lighthouse reads",
+			"sourceMobile": "📱 Based on mobile Lighthouse performance (desktop pending)",
+			"sourceDesktop": "🖥️ Based on desktop Lighthouse performance (mobile pending)",
+			"sourceFallback": "⏳ Provisionally using the on-page performance metric (PSI pending)",
+			"contributionCaption": "Composite score weight: {weight}% (converted {contribution} pts)",
+			"loadingLabel": "Aggregating live performance...",
+			"gradeGood": "Good",
+			"gradeNeedsImprovement": "Needs improvement",
+			"gradePoor": "Poor"
 		},
 		"findingsTitle": "Priority fixes",
 		"findingsSubtitle": "Ranks the most urgent AI-visibility and SEO deduction issues that should be fixed first.",
 		"findingsEmpty": "✅ No major defects found. Looking strong.",
 		"detectedSchemas": "Detected schemas",
+		"schemaShowcase": {
+			"kicker": "Structured Data",
+			"title": "Structured schema data",
+			"scoreLabel": "{score} / {max}",
+			"perfect": "Perfect score",
+			"partial": "{pct} pts (normalized)",
+			"detected": "{count} schema types detected",
+			"empty": "No schemas detected."
+		},
 		"loadingTitle": "Precision SEO & GEO audit engine running",
 		"loadingRescanTitle": "🔄 Live re-audit in progress...",
 		"loadingTerminalTitle": "redue-audit — precision parser",
@@ -1236,6 +1517,159 @@
 		"justRefreshedSuffix": " (just updated)",
 		"noUrl": "No URL to audit. Please enter a site URL on the home page.",
 		"printFooter": "This report was generated by the REDUE AI precision audit engine. Inquiries: contact@redue.ai",
+		"printFooterWatermark": "REDUE AI STUDIO Certified Diagnostic Report",
+		"printFooterDisclaimer": "This report is an official analysis based on the W3C Schema.org standard and major generative-AI search algorithm criteria.",
+		"pdfReport": {
+			"twoTrack": {
+				"eyebrow": "3-Track Composite"
+			},
+			"quickAxes": {
+				"eyebrow": "Core Diagnostic Axes",
+				"title": "4-Axis Core Diagnostic Summary",
+				"hint": "A single glance at AI citation readiness, structured-data completeness, on-page technical trust, and infra security.",
+				"geo": "AI Citation Readiness (GEO)",
+				"schema": "Structured Data Completeness",
+				"technical": "On-page Technical Trust",
+				"infra": "Infrastructure & Security",
+				"status": {
+					"pass": "Healthy",
+					"warning": "Needs work",
+					"fail": "At risk"
+				}
+			},
+			"engineTable": {
+				"eyebrow": "Stage 2 · GEO Citation",
+				"title": "Generative AI Search Engine Citation Score Table",
+				"hint": "Brand recognition/index readiness and crawler access status for ChatGPT, Perplexity, Gemini, Claude, and other major generative AIs.",
+				"colEngine": "AI Engine",
+				"colReadiness": "Recognition / KG Readiness",
+				"colLlmsTxt": "llms.txt Support",
+				"colCrawler": "AI Crawler Access",
+				"colLiveGrounding": "Live-Grounding Readiness",
+				"scoreLabel": "{score} pts",
+				"llmsTxtYes": "Supported",
+				"llmsTxtNo": "Not supported",
+				"crawlerAllowed": "Allowed",
+				"crawlerBlocked": "Blocked",
+				"crawlerNotTracked": "No dedicated bot tracked",
+				"liveGroundingEligible": "Eligible for live grounding",
+				"liveGroundingProxy": "Proxy-index based",
+				"footnote": "Note: recognition/knowledge-graph readiness is a rule-based estimate from crawled on-page signals (schema, FAQ, robots.txt, etc.) — not a live AI response measurement.",
+				"llmsTxtSectionTitle": "AI Context File (llms.txt) Analysis",
+				"llmsTxtSupported": "/llms.txt confirmed present",
+				"llmsTxtNotSupported": "/llms.txt not supported",
+				"botAccessTitle": "robots.txt access per AI crawler (User-Agent)",
+				"keywordSectionTitle": "AI Brand Visibility & Keyword Relevance",
+				"keywordDetectedTitle": "Keywords detected on this site",
+				"keywordEmpty": "No basic meta keywords detected.",
+				"keywordCategory": {
+					"geoPrompt": "AI question prompts",
+					"primary": "Primary target keywords",
+					"longTail": "Conversion long-tail",
+					"lsiLocal": "LSI & local"
+				}
+			},
+			"schemaTable": {
+				"eyebrow": "Stage 3 · Schema Graph",
+				"title": "JSON-LD Schema Knowledge Graph Status Table",
+				"hint": "Pass/fail status for the key structured-data nodes an AI search engine needs to correctly identify the brand entity.",
+				"colNode": "Schema Node",
+				"colStatus": "Status",
+				"colEvidence": "Evidence",
+				"medicalClinicNode": "Vertical Core Schema (e.g. MedicalClinic)",
+				"personNode": "Person (E-E-A-T)",
+				"medicalWebPageNode": "MedicalWebPage / AboutPage",
+				"websiteBreadcrumbNode": "WebSite / BreadcrumbList",
+				"videoObjectNote": "No VideoObject detected.",
+				"videoDetectedCount": "{count} detected",
+				"noEvidence": "No detailed evidence available.",
+				"status": {
+					"pass": "Pass",
+					"warning": "Needs work",
+					"fail": "Weak",
+					"neutral": "Not detected · verify"
+				},
+				"detectedTypesTitle": "All detected schema @types",
+				"attributesTitle": "Attribute-level pass / missing checklist",
+				"attrOrganizationTitle": "Organization — missing attributes",
+				"attrArticleTitle": "Article / page schema — missing attributes",
+				"attrPersonTitle": "Person — missing attributes",
+				"attributesAllPresent": "All required attributes present",
+				"videoSectionTitle": "Detected YouTube VideoObject list",
+				"videoEmpty": "No VideoObject was detected in the page's live JSON-LD. If the site has published YouTube videos, adding a VideoObject schema is recommended.",
+				"videoFieldEmbed": "Embed URL",
+				"videoFieldContent": "Content URL",
+				"videoFieldThumbnail": "Thumbnail",
+				"videoFieldUpload": "Upload date"
+			},
+			"cwv": {
+				"eyebrow": "Stage 4 · Core Web Vitals",
+				"title": "Mobile Responsiveness & Rendering Performance (Core Web Vitals)",
+				"hint": "Measured PC/mobile performance scores and core web vitals from Google PageSpeed Insights (Lighthouse).",
+				"mobileLabel": "Mobile",
+				"desktopLabel": "Desktop (PC)",
+				"performanceScoreLabel": "Performance {score}",
+				"notMeasured": "Not measured yet.",
+				"vitalLabels": {
+					"lcp": "LCP (Largest Contentful Paint)",
+					"fcp": "FCP (First Contentful Paint)",
+					"tbt": "TBT (Total Blocking Time)",
+					"cls": "CLS (Cumulative Layout Shift)",
+					"inp": "INP (Interaction to Next Paint)"
+				},
+				"tier": {
+					"good": "Good",
+					"needs-improvement": "Needs improvement",
+					"poor": "Poor"
+				},
+				"viewportLabel": "Mobile-responsive viewport",
+				"viewportOk": "OK",
+				"viewportNeedsWork": "Needs work"
+			},
+			"onpageGrid": {
+				"eyebrow": "Stage 5 · On-page & Infra",
+				"title": "On-page & Infrastructure Detailed Diagnosis Checklist (all 24 items)",
+				"hint": "The full 5-category checklist — Canonical, OpenGraph, heading structure (H1–H6), SSL/HTTPS — plus same-as binding status for key channels.",
+				"colItem": "Check item",
+				"colStatusHeader": "Status",
+				"colEvidenceHeader": "Evidence",
+				"categoryScoreLabel": "{score} / {max} pts",
+				"emptyCategory": "No measured items in this category.",
+				"noEvidence": "No detailed evidence available.",
+				"status": {
+					"pass": "OK",
+					"warning": "Needs work",
+					"fail": "Weak",
+					"neutral": "Verify"
+				},
+				"channelTitle": "Channel sameAs Binding Status",
+				"channelLinked": "Linked",
+				"channelMissing": "Not linked",
+				"channelNaverBlog": "Naver Blog/Cafe",
+				"channelNaverPlace": "Naver Place",
+				"channelGoogleMaps": "Google Maps",
+				"channelYoutube": "YouTube",
+				"channelInstagram": "Instagram",
+				"channelFacebook": "Facebook"
+			},
+			"roadmap": {
+				"eyebrow": "Stage 6 · Roadmap",
+				"title": "Prioritized Improvement Roadmap & Code Fix Guide",
+				"hint": "Detected defects regrouped into Critical (P0/P1), Warning (P2/P3), and Optimal (P4/P5) tiers, plus every ready-to-paste JSON-LD snippet.",
+				"allClear": "No improvement items detected — this is the best possible diagnostic state.",
+				"tier": {
+					"critical": "Critical",
+					"warning": "Warning",
+					"optimal": "Optimal"
+				},
+				"countLabel": "{count} item(s)",
+				"moreItems": "+{count} more item(s).",
+				"codeGuideTitle": "Ready-to-apply code guide",
+				"codeGuideHint": "JSON-LD snippets generated from the actual crawled data. Fill in any blank placeholder fields from the admin settings.",
+				"codeGuideEmpty": "No JSON-LD fix snippet needs to be generated right now.",
+				"snippetPasteHint": "Note: paste the <script type=\"application/ld+json\"> block above inside the <head> tag, or just before </body>, on most CMS platforms (WordPress, Gnuboard, etc.)."
+			}
+		},
 		"execBriefing": {
 			"badge": "Precision diagnosis briefing",
 			"title": "Personalized Executive Summary",
@@ -1251,12 +1685,17 @@
 			"disclaimer": "※ Scores and estimates in this brief are technical indicators based on public web standards and a simulation algorithm. Actual results may differ as individual AI engine policies change."
 		},
 		"tabs": {
-			"geo": "AI Search Trust · GEO Diagnosis Results",
-			"onpage": "SEO·GEO·Schema Diagnosis Results",
-			"geoTitle": "🌐 AI Search Trust & External Reputation Deep Diagnosis",
+			"trackBadge": "Track {n}",
+			"weightBadge": "Weight {pct}%",
+			"geo": "AI Search Trust & Citation Dominance (GEO)",
+			"onpage": "Technical Integrity & Schema Diagnosis",
+			"cwv": "Core Web Vitals & Live Performance",
+			"geoTitle": "🌐 Track 2 · AI Search Trust & Citation Dominance (GEO)",
 			"geoDescription": "External signals and reputation metrics that show whether major AI engines (ChatGPT, Perplexity, Gemini, and others) can trust, recommend, and cite the brand.",
-			"onpageTitle": "⚙️ Search Technology & On-Page (Schema) Deep Diagnosis",
-			"onpageDescription": "Technical foundation metrics that let search engines and AI crawlers fully collect and interpret website data."
+			"onpageTitle": "⚙️ Track 1 · Technical Integrity & Schema Diagnosis",
+			"onpageDescription": "Technical foundation metrics that let search engines and AI crawlers fully collect and interpret website data.",
+			"cwvTitle": "⚡ Track 3 · Core Web Vitals & Live Performance",
+			"cwvDescription": "Real-user-experience performance metrics measured via Google PageSpeed Insights (Lighthouse) — loading speed, responsiveness, and visual stability."
 		},
 		"geoScore": {
 			"badge": "GEO Score",
@@ -1295,7 +1734,8 @@
 			"pillarsHint": "Click a card to jump to the measured section below",
 			"pillarsSum": "Measured sum {score} / {max}",
 			"pillarJump": "Jump to the {name} measured card",
-			"pillarJumpHint": "Jump to the measured card below"
+			"pillarJumpHint": "Jump to the measured card below",
+			"weightCaption": "(weight {weight}% · converted {score} pts)"
 		},
 		"trackingStatus": {
 			"SYNCING": "Waiting for reflection (Syncing...)",
@@ -1554,6 +1994,43 @@
 			"savePdf": "Save PDF",
 			"saveHint": "Saves this brief card as an image or a one-page PDF.",
 			"saveError": "Could not save the brief. Please try again shortly."
+		},
+		"resultSummary": {
+			"kicker": "1-minute result summary",
+			"title": "Before / After score comparison",
+			"preview": "Preview result report",
+			"previewShort": "1-min summary",
+			"closeAria": "Close result summary",
+			"close": "Close",
+			"scoreKicker": "Overall score",
+			"before": "Before",
+			"after": "After",
+			"liftBadge": "+{n} pt lift",
+			"dropBadge": "-{n} pt drop",
+			"liftNone": "No score change",
+			"scoreUnit": "",
+			"metricsKicker": "Four core metrics",
+			"metric": {
+				"schema": "Schema.org structured data",
+				"llms": "AI discoverability (llms.txt)",
+				"metaOg": "Meta tags & Open Graph",
+				"geoLocal": "GEO locality / local target"
+			},
+			"schemaStatus": {
+				"missing": "Missing",
+				"incomplete": "Incomplete",
+				"complete": "Complete"
+			},
+			"llmsStatus": {
+				"missing": "Missing",
+				"present": "Published"
+			},
+			"actionsKicker": "Applied automations",
+			"actionsEmpty": "No applied automations recorded.",
+			"export": "Copy / download client report",
+			"exported": "Copied and downloaded",
+			"exportHint": "Copies to the clipboard and saves a text file.",
+			"exportError": "Could not export the report. Please try again shortly."
 		},
 		"aiEngineCards": {
 			"kicker": "Trigger keyword depth",
@@ -1826,6 +2303,8 @@
 			"googleLabel": "Google search mention documents",
 			"googleBenchmarkHint": "vs. regional average of {benchmark}",
 			"naverLabel": "Naver blog/cafe mentions",
+			"sameAsLinked": "Official channel sameAs signal linked",
+			"sameAsMissing": "No Naver Place or blog sameAs signal was found on the audited page.",
 			"bingLabel": "Bing Places profile",
 			"bingRegistered": "Registered",
 			"bingNotRegistered": "Not registered",
@@ -1863,8 +2342,12 @@
 			"naver": {
 				"statusDanger": "🚨 Status: No fresh reviews or new posts in the last 3 months (current {count})",
 				"statusOk": "✅ Status: Naver recency signals look healthy (current {count})",
+				"sameAsLinked": "Official channel sameAs signal linked",
+				"sameAsMissing": "No Naver Place or blog sameAs signal was found on the audited page.",
 				"statusBodyWarn": "Naver’s knowledge base and Korean search robots used by ChatGPT/Perplexity treat blog/cafe <strong>recency</strong> as a core signal.",
 				"statusBodyOk": "Naver blog/cafe mention volume is sufficient, so Korean AI search recency signals look relatively stable.",
+				"sameAsBodyOk": "Naver blog/cafe or Place channels are present in schema sameAs, matching the top-score channel signal.",
+				"sameAsBodyWarn": "No Naver Place or blog sameAs signal was found in the audited page JSON-LD. Add official channel URLs to Organization/LocalBusiness sameAs.",
 				"howto1Title": "Publish on a steady cadence:",
 				"howto1Body": "Keep publishing Naver blog posts at least 1–2 times per week that include the brand name and key treatment keywords",
 				"howto2Title": "Grow community mentions:",
@@ -2050,8 +2533,21 @@
 		},
 		"b2b": {
 			"execBadge": "Executive Summary",
-			"execTitle": "🎯 AI Search Competitiveness Diagnosis",
-			"execSubtitle": "Compressed for decision-makers who need to approve remediation in under 30 seconds.",
+			"execTitle": "AEO · GEO Unified Optimization Index",
+			"execTitleEn": "AI Citation & Recommendation Score",
+			"execSubtitle": "The likelihood that AI answer engines such as ChatGPT, Perplexity, and Gemini will cite and recommend your site as an official source.",
+			"aeoGeoStatus": {
+				"top": "🟢 AEO/GEO Top tier (citation-ready)",
+				"mid": "🟡 AEO/GEO Moderate (semantic structure needs work)",
+				"low": "🔴 AEO/GEO At risk (AI crawling & answer omission risk)"
+			},
+			"aeoGeoSummaryLabel": "🧭 AEO · GEO citation status analysis",
+			"aeoGeoSummary": {
+				"caseA": "Your site's <b>GEO (brand & entity) recognition</b> is solid, but the missing FAQPage markup is holding back <b>AEO (Perplexity/ChatGPT direct-answer citation)</b> odds. Injecting FAQ structured data is the priority.",
+				"caseB": "Major AI crawlers (GPTBot, PerplexityBot) currently cannot parse your site structure. Standard JSON-LD schema and an /llms.txt index are needed for both <b>AEO (answer adoption) and GEO (recommendation share)</b>.",
+				"caseC": "Congratulations! Your site is fully ready for <b>AEO (direct-answer citation)</b> and <b>GEO (AI recommendation optimization)</b>, giving it a very high chance of being adopted as a primary source in generative AI search.",
+				"caseDefault": "<b>AEO (direct-answer citation)</b> and <b>GEO (entity & trust signal)</b> optimization are partially in place. Completing the remaining checklist items will further strengthen AI search visibility."
+			},
 			"execInsight": {
 				"geo": "On-page technical optimization is {seoScore}, but AI external trust is {geoScore}. Improving external trust signals that AI engines can cite should come before further technical work.",
 				"seo": "AI external trust is {geoScore}, but on-page technical optimization is only {seoScore}. Search engines need clearer structure before citation competitiveness can grow.",
@@ -2059,8 +2555,23 @@
 				"bothWeak": "AI external trust ({geoScore}) and on-page technical optimization ({seoScore}) both sit below a competitive baseline. Raising technical structure and external trust together is the priority.",
 				"bothStrong": "AI external trust ({geoScore}) and on-page technical optimization ({seoScore}) already form a stable search-and-citation base. Remaining defects can still lift competitiveness further."
 			},
-			"execFormula": "📊 Formula: External trust ({geoWeight}%) + Technical score ({seoWeight}%) weighted blend",
+			"execFormula": "📊 Formula: Technical score ({seoWeight}%) + External trust ({geoWeight}%) + Performance ({cwvWeight}%) weighted blend − security penalty (when HTTPS is missing)",
 			"execFormulaAria": "Score formula",
+			"breakdownButtonLabel": "View breakdown",
+			"breakdownButtonAria": "View composite score breakdown",
+			"breakdownTitle": "Composite score breakdown",
+			"breakdownSubtitle": "Weighted blend of technical spec, AI citation dominance, and CWV (live performance).",
+			"breakdownTrack1Label": "Technical spec",
+			"breakdownTrack2Label": "AI citation dominance",
+			"breakdownCwvLabel": "Core Web Vitals (live)",
+			"breakdownCwvFallbackNote": "* Provisionally uses the on-page performance metric until PSI finishes loading.",
+			"breakdownScoreToContribution": "{score} pts → +{contribution} pts",
+			"breakdownSecurityPenaltyLabel": "Security penalty (HTTP)",
+			"breakdownSecurityPenaltyValue": "-{penalty} pts",
+			"breakdownSecurityOkLabel": "✅ HTTPS enabled · no security penalty",
+			"breakdownFinalLabel": "Final total",
+			"breakdownFinalValue": "{score} pts (Grade {grade})",
+			"breakdownCloseAria": "Close breakdown",
 			"execDiagnosisRxLabel": "Core diagnosis and treatment effect",
 			"execDiagnosisLabel": "Core diagnosis",
 			"execRxLabel": "Treatment effect",
@@ -2089,6 +2600,8 @@
 			"quickCtaButton": "⚡ Request a 3-day score recovery job (see quote)",
 			"quickCtaLossKicker": "Estimated opportunity cost",
 			"quickCtaValueKicker": "Estimated economic value",
+			"quickCtaSimEstimate": "Simulation estimate",
+			"exposureCompareKicker": "Optimization Potential",
 			"exposureCompareTitle": "Optimization Potential Simulator",
 			"exposureCompareHint": "Compare the composite measured score before and after the patch",
 			"exposureMeasuredFormula": "Composite measured score = External trust ({geoScore} × {geoWeight}%) + Technical score ({seoScore} × {seoWeight}%)",
@@ -2391,6 +2904,13 @@
 			"footnote": "The email includes a ‘Request 1:1 expert optimization’ CTA to continue the sales conversation."
 		},
 		"checklist": {
+			"aeoGeoTags": {
+				"faqHowtoSchema": { "tag": "AEO Core", "note": "The #1 direct-citation source for AI answer engines (e.g. Perplexity)" },
+				"organization": { "tag": "GEO", "note": "Lets AI models correctly identify your business/brand entity" },
+				"llmsTxt": { "tag": "AEO · GEO", "note": "Secures a dedicated collection path for GPTBot, PerplexityBot" },
+				"eeat": { "tag": "GEO", "note": "Verifies credibility and prevents AI hallucination (misinformation)" },
+				"semanticStructure": { "tag": "AEO · GEO", "note": "Supports parsing of textual context and hierarchy" }
+			},
 			"pass": "Pass",
 			"fail": "Fail",
 			"warning": "Warn",
@@ -2399,6 +2919,7 @@
 			"filterWarning": "Warn {count}",
 			"filterPass": "Pass {count}",
 			"evidence": "Detected evidence",
+			"imageAltTip": "💡 TIP: Check whether the missing images are key content images rather than purely decorative icons.",
 			"why": "Why this was flagged",
 			"impact": "Practical upside of fixing it",
 			"empty": "No checklist items.",
@@ -2409,7 +2930,35 @@
 			"impactPass": "Practical upside of keeping it",
 			"points": "{earned} / {weight} pts",
 			"totalRawLabel": "Precision total",
-			"totalRaw": "{score} / {max} pts"
+			"totalRaw": "{score} / {max} pts",
+			"detailScroll": {
+				"imageAltTitle": "Image alt coverage",
+				"imageAltEmpty": "No images with alt issues.",
+				"imageAltCoverage": "{coverage}% coverage · {missing} missing",
+				"issueMissing": "Alt missing",
+				"issueEmpty": "Empty value",
+				"issueStopword": "Stopword",
+				"suggestedAlt": "Suggested Alt",
+				"pageHome": "Home (/)",
+				"previewAlt": "Preview",
+				"copySrc": "Copy path",
+				"copied": "Copied",
+				"openSrc": "Open in new tab",
+				"copyTag": "Copy tag",
+				"pageUrl": "Found on",
+				"renderBlockingTitle": "Render-blocking scripts",
+				"renderBlockingSummary": "{count} sync scripts detected · recommended ≤{max}",
+				"renderBlockingEmpty": "No sync external scripts detected.",
+				"recDefer": "Add the defer attribute",
+				"recMoveToBody": "Move just before </body>",
+				"h1Title": "Multiple H1s",
+				"h1Count": "{count} H1 tags detected",
+				"h1Keep": "Keep as main H1",
+				"h1Demote": "Demote to H2",
+				"h1Empty": "(empty text)",
+				"headingSkipTitle": "Heading hierarchy skips",
+				"headingSkipWarn": "level skip (missing {missing})"
+			}
 		},
 		"history": {
 			"title": "Recent audits",
@@ -2643,11 +3192,8 @@
 			"line2Highlight": "rich results and AI citation signals",
 			"line2Post": "together.",
 			"buttonHistory": "Review in audit history",
+			"buttonStrategy": "Search Strategy Design →",
 			"buttonRescan": "Audit another URL",
-			"adminSolveTitle": "Admin · Expert workspace",
-			"adminSolveHint": "Passes this audit JSON into the solve workspace. After admin login you can apply CMS fix snippets immediately.",
-			"adminSolveButton": "🚀 Generate expert fix codes (admin login)",
-			"adminSolveButtonSub": "(admin login)",
 			"footnote": "Share the report link so teammates can open the same precision findings."
 		},
 		"businessConversion": {
@@ -2689,11 +3235,11 @@
 			"roiBasisGap": "Own share ({brand}%) vs competitor average ({competitor}%) — {gap}% gap applied",
 			"roiBasisDisclaimer": "※ This figure is a simulation based on industry-average CPC and AI search-share models.",
 			"roiLegalNote": "※ This figure is a simulation based on industry-average CPC and AI search-share models",
+			"aeoGeoCtaButton": "⚡ Activate AEO · GEO instantly with REDUE's ultra-light script",
+			"aeoGeoCtaSubtitle": "One line of injected script applies FAQPage, entity schema, and /llms.txt all at once.",
 			"ctaKicker": "1:1 expert delivery",
 			"ctaGuarantee": "Uncomfortable editing code? A REDUE specialist can apply the schema and AI-optimization patch within 24 hours — without breaking the site.",
 			"ctaPatch": "Ask an expert to apply this prescription to the site for you",
-			"ctaPatchLine1": "Ask an expert to apply this prescription",
-			"ctaPatchLine2": "to the site for you",
 			"ctaConsult": "Free live GEO optimization consult",
 			"inquiryTitle": "Request a full-site patch",
 			"inquiryClose": "Close request form",
@@ -2934,20 +3480,56 @@
 			"emailShort": "Email preview",
 			"contact": "Contact us",
 			"contactShort": "Contact",
-			"floatingAria": "Report quick actions"
+			"floatingAria": "Report quick actions",
+			"memberOnlyBadge": "Free member"
+		},
+		"authModal": {
+			"kicker": "MEMBERS ONLY",
+			"title": "This feature is for members",
+			"defaultMessage": "Create a free account to unlock this feature instantly.",
+			"pdfMessage": "Sign up free in 3 seconds to print the official A4 PDF audit report!",
+			"emailMessage": "Sign up free to get the one-click, in-depth email report!",
+			"benefit1": "A4 PDF / print-ready audit report",
+			"benefit2": "In-depth analysis delivered by email",
+			"benefit3": "Saved audit history you can revisit and compare",
+			"signupCta": "Free 3-second sign up",
+			"loginCta": "Already have an account? Sign in",
+			"close": "Close"
 		},
 		"pdfPreview": {
 			"title": "📄 REDUE AI - SEO & GEO Technical Audit Report (A4 Preview)",
 			"subtitle": "Check that text and charts are not clipped on the A4 pages.",
 			"close": "✕ Close preview",
 			"download": "📥 Download this PDF",
+			"print": "🖨 Quick print",
+			"minimize": "Minimize",
+			"maximize": "Maximize",
+			"restore": "Restore",
+			"minimizedLabel": "REDUE AI Audit Report",
+			"minimizedOpen": "Open",
+			"zoomFit": "Fit",
 			"saving": "Saving PDF...",
+			"savingHint": "Capturing and compressing each A4 page. This usually takes a few seconds.",
+			"savingProgress": "Page {current} / {total}",
 			"building": "Building A4 preview pages...",
 			"syncing": "Fully syncing report data...",
 			"syncingHint": "Preview opens only after PageSpeed Insights and AI engine simulations are ready.",
 			"error": "Could not build the preview. Please try again.",
+			"downloadError": "Could not generate the PDF. Please try again shortly.",
 			"empty": "There is no report content to export.",
-			"pageLabel": "{total} pages"
+			"pageLabel": "{total} pages",
+			"loader": {
+				"kicker": "Document Compile",
+				"title": "Compiling the A4 print report",
+				"hint": "Stacking Track 1, 2, and 3 diagnosis sheets into one document.",
+				"progressLabel": "Compile progress",
+				"sheetLabel": "Track {n}",
+				"stacked": "{count}/3 track sheets stacked",
+				"track1": "📄 [Track 1] Compiling baseline diagnosis metrics...",
+				"track2": "📊 [Track 2] Rendering detail solutions and charts...",
+				"track3": "📑 [Track 3] Merging the deep-dive report to A4 spec...",
+				"complete": "✨ A4 print report ready! Opening the preview."
+			}
 		},
 		"scrollspy": {
 			"ariaLabel": "Report table of contents",
@@ -2962,6 +3544,8 @@
 			"checklist": "Detailed checklist",
 			"actionable": "Actionable Solution",
 			"keywordRecommend": "GEO/SEO keyword recommendations",
+			"twoTrackDiagnosis": "Three-track diagnosis",
+			"sovLeaderboard": "Market ranking leaderboard (SoV)",
 			"geoScoreSummary": "GEO score & grade",
 			"aiEngineStatus": "AI engine exposure",
 			"triggerKeywordDepth": "AI engine trigger tests",
@@ -2971,12 +3555,18 @@
 			"digitalFootprint": "External data collection",
 			"actionPlan85": "Action Plan to reach 85",
 			"technicalScoreSummary": "SEO/GEO precision score",
+			"cwvScoreSummary": "CWV live score summary",
 			"pagespeedVitals": "PageSpeed & Core Web Vitals",
 			"technicalEvidenceJsonld": "Technical evidence & JSON-LD",
 			"liveCriteriaReport": "Six essential criteria",
 			"aiSearchSimulator": "AI search recommendation sim",
 			"detailedChecklist22": "Detailed checklist (22)",
 			"keywordPipeline": "Target keyword pipeline",
+			"schemaStructuredData": "Structured schema data",
+			"ragFactDensity": "RAG chunking & fact density",
+			"businessImpact": "Business impact summary",
+			"exposureSimulator": "Optimization potential",
+			"solutionPackages": "1:1 agency packages",
 			"officialTools": "Official SEO & schema tools",
 			"timelineForecast": "Actual trend · forecast",
 			"scrollToTop": "Back to top",
@@ -3030,7 +3620,79 @@
 			"filterAll": "All",
 			"loadMore": "Load earlier records",
 			"showingOf": "{shown} / {total}",
-			"listEmpty": "No audits in this period."
+			"listEmpty": "No audits in this period.",
+			"loadError": "Could not load the history chart. Please refresh the page."
+		},
+		"twoTrack": {
+			"title": "Three-track composite diagnosis",
+			"subtitle": "Compare technical-integrity specs, AI-search citation dominance, and measured Core Web Vitals performance side by side. After reaching 100, use the weekly guide to manage reflection cycles.",
+			"badgeAchieved": "Top 1% technical spec achieved",
+			"badgeTarget": "Top 1% technical spec achieved",
+			"openGuide": "Reflection timeline & guide",
+			"scoreSuffix": "/ 100",
+			"percentile": "Top {percentile}%",
+			"track1": {
+				"label": "Track 1",
+				"title": "Technical integrity spec",
+				"weightBadge": "Weight 40%",
+				"sslMissing": "Even at 85+, missing SSL (HTTPS) caps the top grade. Apply a certificate to complete the 100-point spec.",
+				"sslSafeLine": "You have passed the 85-point safety line. Close remaining defects to reach the 100-point technical spec.",
+				"sslBelow": "The technical-integrity safety line is 85. Prioritize SSL, schema, and performance defects.",
+				"sslComplete": "The 100-point technical spec is complete. Maintain AI-engine reflection cycles and the weekly checklist."
+			},
+			"track2": {
+				"label": "Track 2",
+				"title": "AI search citation dominance",
+				"weightBadge": "Weight 40%",
+				"body": "External trust and entity signals that let ChatGPT, Perplexity, Gemini, and other AI search engines cite the brand first."
+			},
+			"track3": {
+				"label": "Track 3",
+				"title": "Measured web performance (CWV)",
+				"weightBadge": "Weight 20%",
+				"body": "LCP, CLS, TBT and other Core Web Vitals from Google PageSpeed(Lighthouse) live measurement.",
+				"bodyFallback": "Shows an on-page performance proxy while the live read is in flight — it refreshes automatically once real data lands.",
+				"loadingLabel": "Analyzing with Google Lighthouse..."
+			},
+			"modal": {
+				"kicker": "POST-100 ROADMAP",
+				"title": "AI search reflection timeline & weekly management guide",
+				"desc": "AI engines do not cite immediately after a technical 100. Learn each engine’s reflection cycle and repeat the three weekly practices below.",
+				"closeAria": "Close guide modal",
+				"cyclesTitle": "Reflection cycles by AI engine",
+				"cycles": {
+					"realtime": {
+						"title": "Real-time search AI",
+						"window": "3 days – 2 weeks",
+						"body": "Search-style AIs that query the live web index can enter the citation pool within days after a recrawl.",
+						"engines": "Perplexity · Bing Copilot · Google AI Overviews"
+					},
+					"generative": {
+						"title": "Generative AI models",
+						"window": "2 weeks – 4 weeks",
+						"body": "Conversational models with longer grounding cycles typically enter the recommendation pool 2–4 weeks after schema and entity signals stabilize.",
+						"engines": "ChatGPT · Gemini · Claude"
+					}
+				},
+				"checklistTitle": "Three weekly operating checklists",
+				"checklistHint": "Running the same sequence every week shrinks the citation gap after a technical 100.",
+				"checklist": {
+					"index": {
+						"title": "Force search-portal index requests",
+						"body": "Resubmit URL inspection and index requests in Google Search Console, Bing Webmaster, and Naver Search Advisor to trigger crawler recrawl."
+					},
+					"qa": {
+						"title": "Publish high-density Q&A content",
+						"body": "Each week publish at least one 500–800 character piece in [question → one-line answer → three proofs] for the local + service queries customers ask AI."
+					},
+					"nap": {
+						"title": "Keep local NAP consistent",
+						"body": "Weekly-diff Google, Apple, Naver, and Kakao map name, address, and phone so not a single character drifts — fix mismatches immediately."
+					}
+				},
+				"disclaimer": "※ Reflection windows are an operating guide based on average crawler cycles. Timing varies by AI-engine policy and does not guarantee a rank or permanent visibility.",
+				"forecastCta": "View detailed forecast timeline"
+			}
 		},
 		"timelineForecast": {
 			"title": "📈 AI Search Engine Indexing Timeline & Exposure Forecast",
@@ -3165,6 +3827,8 @@
 				"rankLabel": "#{rank}",
 				"rankBadge": "Search-rank based",
 				"directoryBadge": "3rd-party leakage",
+				"majorityBadge": "Majority",
+				"compositionAria": "Market share mix: #1 {rank1}%, #2 {rank2}%, you {own}%, third-party {third}%",
 				"ownName": "You · {name}",
 				"asIsToBe": "{asIs}% → target {toBe}%",
 				"realBadge": "Live",
@@ -3181,7 +3845,9 @@
 				"vulnerabilityTitle": "Reversal strategy · Vulnerability Gap",
 				"leaderFallback": "local #1 listing",
 				"selfFallback": "This business",
-				"vulnerabilityBody": "Major competitors also have incomplete structured-data signals and remain around {comp1Share}%. Applying GEO prescriptions first can absorb traffic that was leaking to third-party blogs, with a goal of reaching about {toBeShare}% share."
+				"vulnerabilityBody": "Major competitors also have incomplete structured-data signals and remain around {comp1Share}%. Applying GEO prescriptions first can absorb traffic that was leaking to third-party blogs, with a goal of reaching about {toBeShare}% share.",
+				"dataScopeNoteLabel": "※ Data scope & methodology",
+				"dataScopeNoteBody": "This figure is not total portal-wide traffic. It is the real-time local and AI search Share of Voice (SoV) calculated for a designated core query set (the primary service keyword plus region-specific procedure/equipment keyword variants). It diagnoses how traffic is currently split between top-ranked competitors and third-party channels (blogs, forums, reviews), and shows the potential share range recoverable to your own official channel by applying GEO (generative-search optimization) prescriptions."
 			},
 			"entity": {
 				"kicker": "Entity Disambiguation",
@@ -3343,10 +4009,12 @@
 		},
 		"floatingTab": {
 			"ariaLabel": "Switch report tab and jump to top",
-			"reputation": "AI Search Trust · GEO Diagnosis",
-			"technical": "SEO·GEO·SCHEMA Diagnosis",
-			"reputationAria": "Jump to the AI Search Trust · GEO diagnosis tab",
-			"technicalAria": "Jump to the SEO·GEO·SCHEMA diagnosis tab"
+			"reputation": "Track 2 · AI Search Trust & Citation Dominance (GEO)",
+			"technical": "Track 1 · Technical Integrity & Schema Diagnosis",
+			"performance": "Track 3 · Core Web Vitals & Live Performance",
+			"reputationAria": "Jump to the Track 2 AI Search Trust & Citation Dominance tab",
+			"technicalAria": "Jump to the Track 1 Technical Integrity & Schema Diagnosis tab",
+			"performanceAria": "Jump to the Track 3 Core Web Vitals & Live Performance tab"
 		},
 		"onpageDiagnostic": {
 			"status": {

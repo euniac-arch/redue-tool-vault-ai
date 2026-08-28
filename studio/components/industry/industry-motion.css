@@ -1,0 +1,193 @@
+/* Industry page motion — CSS only. Easing matches CaseStudyCard / PSI (0.22, 1, 0.36, 1). */
+
+@keyframes industry-fade-up {
+	from {
+		opacity: 0;
+		transform: translateY(14px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes industry-glow-settle {
+	from {
+		opacity: 0.55;
+		transform: translate(-50%, 0) scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: translate(-50%, 10px) scale(1.04);
+	}
+}
+
+@keyframes industry-draw {
+	from {
+		stroke-dashoffset: 28;
+	}
+	to {
+		stroke-dashoffset: 0;
+	}
+}
+
+.industry-glow {
+	animation: industry-glow-settle 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.industry-hero-item {
+	animation: industry-fade-up 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+	animation-delay: calc(var(--ind-i, 0) * 72ms);
+}
+
+.industry-reveal.industry-armed:not(.is-in) {
+	opacity: 0;
+	transform: translateY(16px);
+}
+
+.industry-reveal.is-in {
+	animation: industry-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+	animation-delay: var(--ind-delay, 0ms);
+}
+
+.industry-stagger.industry-armed:not(.is-in) .industry-stagger-item {
+	opacity: 0;
+	transform: translateY(12px);
+}
+
+.industry-stagger.is-in .industry-stagger-item {
+	animation: industry-fade-up 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+	animation-delay: calc(var(--ind-i, 0) * 68ms);
+}
+
+.industry-card {
+	transition:
+		transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+		border-color 0.3s ease,
+		box-shadow 0.3s ease;
+}
+
+.industry-card-signals {
+	transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.industry-card:hover {
+		transform: translateY(-4px) scale(1.012);
+		border-color: #22d3ee;
+		box-shadow: 0 10px 28px -16px rgba(12, 154, 167, 0.45);
+	}
+
+	html.dark .industry-card:hover {
+		border-color: rgba(12, 154, 167, 0.45);
+		box-shadow: none;
+	}
+
+	.industry-card:hover .industry-card-signals {
+		transform: translateY(-2px);
+	}
+
+	.industry-card:hover .industry-card-signals > * {
+		border-color: rgba(34, 211, 238, 0.45);
+	}
+}
+
+.industry-connector {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	padding: 2px 0 4px;
+}
+
+.industry-connector-line {
+	stroke: #0c9aa7;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-dasharray: 28;
+	stroke-dashoffset: 28;
+	fill: none;
+}
+
+.industry-stagger.is-in .industry-connector-line,
+.industry-engine.is-in .industry-connector-line {
+	animation: industry-draw 0.42s ease-out both;
+	animation-delay: calc(var(--ind-i, 0) * 68ms + 80ms);
+}
+
+.industry-entity-flow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+}
+
+.industry-entity-arrow {
+	font-size: 11px;
+	font-weight: 800;
+	color: #0891b2;
+}
+
+html.dark .industry-entity-arrow {
+	color: #4fd1d9;
+}
+
+@media (max-width: 639px) {
+	.industry-entity-flow {
+		flex-direction: column;
+		align-items: stretch;
+	}
+
+	.industry-entity-node {
+		display: flex;
+		width: 100%;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.industry-entity-node > span:first-child {
+		width: 100%;
+		justify-content: center;
+	}
+
+	.industry-entity-arrow {
+		transform: rotate(90deg);
+		padding: 2px 0;
+	}
+
+	.industry-kicker {
+		letter-spacing: 0.12em;
+		font-size: 10px;
+		max-width: 100%;
+		white-space: normal;
+		text-align: center;
+		line-height: 1.4;
+	}
+
+	.industry-cta-row a {
+		width: 100%;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.industry-glow,
+	.industry-hero-item,
+	.industry-reveal,
+	.industry-stagger-item,
+	.industry-connector-line {
+		animation: none !important;
+		opacity: 1 !important;
+		transform: none !important;
+		stroke-dashoffset: 0 !important;
+	}
+
+	.industry-card,
+	.industry-card-signals,
+	.industry-card-signals > * {
+		transition: none !important;
+	}
+
+	.industry-card:hover {
+		transform: none;
+	}
+}

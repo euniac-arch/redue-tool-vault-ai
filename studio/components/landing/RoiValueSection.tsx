@@ -9,7 +9,7 @@ export function RoiValueSection() {
 
 	return (
 		<section className="mt-20 sm:mt-24">
-			<div className="mx-auto w-full max-w-[960px]">
+			<div className="mx-auto w-full max-w-5xl">
 				<div className="text-center">
 					<p className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold tracking-widest text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
 						{t('badge')}

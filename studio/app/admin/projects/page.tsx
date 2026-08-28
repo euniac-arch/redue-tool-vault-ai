@@ -7,8 +7,8 @@ export default function AdminProjectsPage() {
 	return (
 		<main className="flex flex-col gap-4">
 			<div>
-				<h1 className="text-2xl font-bold tracking-tight text-slate-900">진단 결과 프로젝트</h1>
-				<p className="mt-1 text-sm text-slate-600">진단이 완료된 프로젝트를 관리합니다.</p>
+				<h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">진단 결과 프로젝트</h1>
+				<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">진단이 완료된 프로젝트를 관리합니다.</p>
 			</div>
 
 			<ProjectWorkspace />

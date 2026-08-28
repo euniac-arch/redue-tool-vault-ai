@@ -55,15 +55,55 @@ const config: Config = {
 					light: '#8b85ff',
 				},
 				charcoal: '#0C0D0E',
+				background: 'hsl(var(--background) / <alpha-value>)',
+				foreground: 'hsl(var(--foreground) / <alpha-value>)',
+				card: {
+					DEFAULT: 'hsl(var(--card) / <alpha-value>)',
+					foreground: 'hsl(var(--card-foreground) / <alpha-value>)',
+				},
+				primary: {
+					DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
+					foreground: 'hsl(var(--primary-foreground) / <alpha-value>)',
+				},
+				secondary: {
+					DEFAULT: 'hsl(var(--secondary) / <alpha-value>)',
+					foreground: 'hsl(var(--secondary-foreground) / <alpha-value>)',
+				},
+				muted: {
+					DEFAULT: 'hsl(var(--muted) / <alpha-value>)',
+					foreground: 'hsl(var(--muted-foreground) / <alpha-value>)',
+				},
+				border: 'hsl(var(--border) / <alpha-value>)',
+				ring: 'hsl(var(--ring) / <alpha-value>)',
 			},
 			keyframes: {
 				'radar-hover-in': {
 					'0%': { opacity: '0', transform: 'scale(0.95)' },
 					'100%': { opacity: '1', transform: 'scale(1)' },
 				},
+				'strategy-fade-in': {
+					'0%': { opacity: '0', transform: 'translateY(8px)' },
+					'100%': { opacity: '1', transform: 'translateY(0)' },
+				},
+				'strategy-cta-glow': {
+					'0%, 100%': { boxShadow: '0 4px 14px 0 rgba(14, 165, 233, 0.28)' },
+					'50%': { boxShadow: '0 4px 22px 2px rgba(14, 165, 233, 0.08)' },
+				},
+				'strategy-progress': {
+					'0%': { transform: 'translateX(-120%)' },
+					'100%': { transform: 'translateX(280%)' },
+				},
+				'strategy-shimmer': {
+					'0%': { transform: 'translateX(-120%)' },
+					'100%': { transform: 'translateX(220%)' },
+				},
 			},
 			animation: {
 				'radar-hover-in': 'radar-hover-in 200ms ease-out',
+				'strategy-fade-in': 'strategy-fade-in 420ms ease-out both',
+				'strategy-cta-glow': 'strategy-cta-glow 1.6s ease-in-out infinite',
+				'strategy-progress': 'strategy-progress 1.35s ease-in-out infinite',
+				'strategy-shimmer': 'strategy-shimmer 1.6s ease-in-out infinite',
 			},
 		},
 	},

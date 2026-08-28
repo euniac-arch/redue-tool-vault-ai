@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import type { DetectedCmsDisplay } from '@/lib/solve/local-folder-scan';
 import {
@@ -10,13 +9,16 @@ import {
 	runRemoteAutoPatch,
 	type RemoteSchemaPayload,
 } from '@/lib/solve/remote-patch-engine';
+import { createRemotePatchNdjsonResponse } from '@/lib/solve/remote-patch-stream';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60;
 
 /**
  * POST /api/admin/remote-patch/execute
  * Backup remote target → inject v14 schema → overwrite via FTP/SFTP stream write.
+ * Streams NDJSON timeline events so the UI is not stuck at 35% during a hang.
  */
 export async function POST(req: Request) {
 	// TEMP: soft-gate — prefer admin session; allow when login pipeline is incomplete.
@@ -26,7 +28,7 @@ export async function POST(req: Request) {
 	try {
 		body = (await req.json()) as Record<string, unknown>;
 	} catch {
-		return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
+		return Response.json({ error: 'Invalid JSON body' }, { status: 400 });
 	}
 
 	try {
@@ -59,18 +61,18 @@ export async function POST(req: Request) {
 		const cmsDisplay =
 			typeof body.cmsDisplay === 'string' ? (body.cmsDisplay as DetectedCmsDisplay) : null;
 
-		const result = await runRemoteAutoPatch({
-			conn,
-			targetRelativePath,
-			schema,
-			diagnoseHint: primaryTarget
-				? { primaryTarget, cmsLabel, cmsDisplay }
-				: null,
+		return createRemotePatchNdjsonResponse(async (emit) => {
+			const result = await runRemoteAutoPatch({
+				conn,
+				targetRelativePath,
+				schema,
+				diagnoseHint: primaryTarget ? { primaryTarget, cmsLabel, cmsDisplay } : null,
+				onLog: (line, progress) => emit({ type: 'log', line, progress }),
+			});
+			emit({ type: 'result', ...result });
 		});
-
-		return NextResponse.json(result, { status: result.ok ? 200 : 422 });
 	} catch (err) {
 		const message = err instanceof Error ? err.message : String(err);
-		return NextResponse.json({ ok: false, error: message, message, logs: [] }, { status: 400 });
+		return Response.json({ ok: false, error: message, message, logs: [] }, { status: 400 });
 	}
 }

@@ -44,6 +44,7 @@ export type DetectedCmsDisplay =
 	| 'Gnuboard'
 	| 'Next.js'
 	| 'WordPress'
+	| 'Rhymix / XE'
 	| 'React'
 	| 'Laravel'
 	| 'Custom HTML/PHP';
@@ -201,6 +202,19 @@ export function detectCmsFromPaths(relativePaths: string[]): LocalFolderScanResu
 		!hasNextConfig && hasPackageJson && hasReactIndex ? 2 : !hasNextConfig && hasReactIndex ? 1 : 0;
 	if (reactScore > 0) signals.push('React entry');
 
+	const hasRhymixConfigInc = pathEndsWith(paths, 'config.inc.php');
+	const hasRhymixContext = pathIncludes(paths, 'classes/context/Context.class.php');
+	const hasRhymixModules = pathHasSegment(paths, 'modules') && pathHasSegment(paths, 'layouts');
+	const hasRhymixFilesConfig = pathIncludes(paths, 'files/config/');
+	const rhymixScore =
+		(hasRhymixConfigInc ? 2 : 0) +
+		(hasRhymixContext ? 2 : 0) +
+		(hasRhymixFilesConfig ? 2 : 0) +
+		(hasRhymixModules && !hasHeadSubPhp && gnuScore < 3 ? 2 : 0);
+	if (hasRhymixConfigInc) signals.push('config.inc.php');
+	if (hasRhymixContext) signals.push('Context.class.php');
+	if (hasRhymixFilesConfig) signals.push('files/config/');
+
 	const hasCafe24Layout =
 		pathIncludes(paths, '/layout/basic/layout.html') || pathIncludes(paths, 'layout.html');
 	const cafe24Score =
@@ -230,6 +244,12 @@ export function detectCmsFromPaths(relativePaths: string[]): LocalFolderScanResu
 			labelKo: '워드프레스(WordPress)',
 			score: wpScore,
 			confidence: wpScore >= 4 ? 'high' : wpScore >= 2 ? 'medium' : 'low',
+		},
+		{
+			display: 'Rhymix / XE',
+			labelKo: '라이믹스/XE (Rhymix)',
+			score: rhymixScore,
+			confidence: rhymixScore >= 4 ? 'high' : rhymixScore >= 2 ? 'medium' : 'low',
 		},
 		{
 			display: 'Gnuboard',
@@ -313,11 +333,20 @@ const PREFERRED_BY_CMS: Record<DetectedCmsDisplay, RegExp[]> = {
 		/\/index\.php$/i,
 	],
 	WordPress: [
+		/wp-content\/themes\/[^/]+\/functions\.php$/i,
+		/\/functions\.php$/i,
 		/wp-content\/themes\/[^/]+\/header\.php$/i,
 		/\/header\.php$/i,
 		/^header\.php$/i,
-		/\/functions\.php$/i,
 		/\/footer\.php$/i,
+		/\/index\.php$/i,
+	],
+	'Rhymix / XE': [
+		/\/common\/header\.php$/i,
+		/\/layouts\/[^/]+\/header\.php$/i,
+		/\/layouts\/[^/]+\/layout\.php$/i,
+		/\/header\.php$/i,
+		/\/head\.php$/i,
 		/\/index\.php$/i,
 	],
 	Cafe24: [/layout\.html$/i, /\/head\.html$/i, /index\.html$/i],

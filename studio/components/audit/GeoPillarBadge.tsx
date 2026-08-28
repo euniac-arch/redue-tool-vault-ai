@@ -1,6 +1,7 @@
 'use client';
 
 import { memo } from 'react';
+import { GeoWeightCaption } from '@/components/audit/GeoWeightCaption';
 
 const circleNumbers = {
 	1: '①',
@@ -35,17 +36,20 @@ export const GeoPillarBadge = memo(function GeoPillarBadge({
 	status,
 }: GeoPillarBadgeProps) {
 	return (
-		<div
-			data-geo-pillar-badge={pillarId}
-			data-geo-pillar-status={status}
-			className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-lg border text-xs font-black tracking-tight ${themeStyles[theme]}`}
-		>
-			<span className="text-sm font-normal">{circleNumbers[index]}</span>
-			<span className="font-extrabold tabular-nums">
-				{earned} / {max}
-			</span>
-			<span className="opacity-40 font-light">·</span>
-			<span className="font-bold">{statusText}</span>
+		<div className="inline-flex shrink-0 flex-col">
+			<div
+				data-geo-pillar-badge={pillarId}
+				data-geo-pillar-status={status}
+				className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3 py-1 rounded-lg border text-xs font-black tracking-tight ${themeStyles[theme]}`}
+			>
+				<span className="text-sm font-normal">{circleNumbers[index]}</span>
+				<span className="font-extrabold tabular-nums">
+					{earned} / {max}
+				</span>
+				<span className="opacity-40 font-light">·</span>
+				<span className="font-bold">{statusText}</span>
+			</div>
+			<GeoWeightCaption score={earned} maxScore={max} />
 		</div>
 	);
 });

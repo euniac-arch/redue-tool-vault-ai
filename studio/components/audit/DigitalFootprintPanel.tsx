@@ -36,16 +36,16 @@ export function DigitalFootprintPanel({
 			id: 'df-google',
 			body: (
 				<>
-					<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('googleLabel')}</p>
+					<p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('googleLabel')}</p>
 					<p
 						className={`mt-1 text-2xl font-extrabold tabular-nums ${
 							belowBenchmark ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'
 						}`}
 					>
 						{digitalFootprint.googleMentionCount}
-						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500">{unitLabel}</span>}
+						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{unitLabel}</span>}
 					</p>
-					<p className="text-[11px] text-slate-500">
+					<p className="text-[11px] text-slate-500 dark:text-slate-500">
 						{t('googleBenchmarkHint', { benchmark: digitalFootprint.googleMentionBenchmark })}
 					</p>
 				</>
@@ -55,17 +55,23 @@ export function DigitalFootprintPanel({
 			id: 'df-naver',
 			body: (
 				<>
-					<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('naverLabel')}</p>
+					<p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('naverLabel')}</p>
 					<p
 						className={`mt-1 text-2xl font-extrabold tabular-nums ${
 							digitalFootprint.naverMentionIssue ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400'
 						}`}
 					>
 						{digitalFootprint.naverMentionCount}
-						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500">{unitLabel}</span>}
+						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{unitLabel}</span>}
 					</p>
-					{digitalFootprint.naverMentionIssue && (
-						<p className="text-[11px] text-rose-700 dark:text-rose-400">{digitalFootprint.naverMentionIssue}</p>
+					{digitalFootprint.naverMentionIssue ? (
+						<p className="text-[11px] text-rose-700 dark:text-rose-400">
+							{digitalFootprint.naverMentionIssue || t('sameAsMissing')}
+						</p>
+					) : (
+						<p className="text-[11px] text-emerald-700 dark:text-emerald-400">
+							{digitalFootprint.naverSameAsMessage || t('sameAsLinked')}
+						</p>
 					)}
 				</>
 			),
@@ -74,16 +80,16 @@ export function DigitalFootprintPanel({
 			id: 'df-total',
 			body: (
 				<>
-					<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('totalLabel')}</p>
+					<p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('totalLabel')}</p>
 					<p
 						className={`mt-1 text-2xl font-extrabold tabular-nums ${
 							belowBenchmark ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'
 						}`}
 					>
 						{totalCount}
-						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500">{unitLabel}</span>}
+						{unitLabel && <span className="ml-1 text-xs font-semibold text-slate-500 dark:text-slate-400">{unitLabel}</span>}
 					</p>
-					<p className="text-[11px] text-slate-500">{t('totalHint')}</p>
+					<p className="text-[11px] text-slate-500 dark:text-slate-500">{t('totalHint')}</p>
 				</>
 			),
 		},
@@ -110,8 +116,8 @@ export function DigitalFootprintPanel({
 							data-target={box.id}
 							aria-pressed={isActive}
 							onClick={() => onTabChange?.(box.id)}
-							className={`df-summary-box rounded-xl border bg-slate-50 dark:bg-black/20 px-4 py-3 text-left ${
-								isActive ? 'active-box' : 'border-slate-200 dark:border-white/[0.08]'
+							className={`df-summary-box rounded-xl border bg-white dark:bg-slate-800/40 px-4 py-3 text-left ${
+								isActive ? 'active-box' : 'border-slate-200 dark:border-slate-800/60'
 							}`}
 						>
 							{box.body}

@@ -1,18 +1,17 @@
 'use client';
 
-import { memo, useMemo, type ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import { AuditScoreHeader } from '@/components/AuditScoreHeader';
 import { MetricImpactCard } from '@/components/audit/MetricImpactCard';
 import { combinedRagFactScore } from '@/lib/audit/metric-benefit';
-import { computeAdvancedGeoFromReport } from '@/lib/audit/advancedGeoFromReport';
 import {
 	FACT_DENSITY_TARGET,
 	RAG_TEXT_TO_HTML_RECOMMENDED,
 	type FactDensityResult,
 	type RagChunkingResult,
 } from '@/lib/audit/advancedGeoMetrics';
-import type { OnPageDiagnosticProps } from '@/lib/audit/onpage-diagnostic';
+import { formatRawScore, type OnPageDiagnosticProps } from '@/lib/audit/onpage-diagnostic';
 import type { AuditScores } from '@/lib/audit/scoreCalculator';
 import type { IndustryConfig } from '@/lib/registry/universalIndustryRegistry';
 import type { AuditReport } from '@/lib/site-auditor';
@@ -87,7 +86,7 @@ function Gauge({
 	);
 }
 
-function RagFactDensityCard({
+export function RagFactDensityCard({
 	rag,
 	fact,
 	industryConfig,
@@ -142,9 +141,69 @@ function RagFactDensityCard({
 	);
 }
 
+function SchemaStructuredDataCard({
+	diagnostic,
+	schemaTypes,
+}: {
+	diagnostic: OnPageDiagnosticProps;
+	schemaTypes?: string[] | null;
+}) {
+	const t = useTranslations('audit.schemaShowcase');
+	const schema = diagnostic.categories.find((category) => category.id === 'schema');
+	const types = schemaTypes?.filter(Boolean) ?? [];
+	const raw = schema?.rawScore ?? 0;
+	const max = schema?.maxScore ?? 36;
+	const perfect = max > 0 && raw >= max;
+
+	return (
+		<section
+			id="schema-structured-data"
+			className="pdf-page-item audit-report-section scroll-mt-24 flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-white/[0.08] dark:bg-white/[0.03] sm:p-6"
+		>
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+				<div>
+					<p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#D4AF37]">{t('kicker')}</p>
+					<h3 className="mt-1 text-lg font-extrabold text-slate-900 dark:text-white">{t('title')}</h3>
+					<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+						{t('detected', { count: types.length })}
+					</p>
+				</div>
+				<div className="flex flex-wrap items-baseline gap-2">
+					<span className="text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">
+						{t('scoreLabel', { score: formatRawScore(raw), max })}
+					</span>
+					<span
+						className={`rounded-full px-2.5 py-1 text-[11px] font-extrabold ${
+							perfect
+								? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+								: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
+						}`}
+					>
+						{perfect ? t('perfect') : t('partial', { pct: schema?.score100 ?? 0 })}
+					</span>
+				</div>
+			</div>
+			{types.length ? (
+				<div className="flex flex-wrap gap-1.5">
+					{types.map((type) => (
+						<span
+							key={type}
+							className="rounded-md border border-cyan-200 bg-cyan-50 px-2 py-0.5 font-mono text-[11px] text-cyan-800 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-300 print:border-slate-300 print:bg-slate-100 print:text-slate-700"
+						>
+							{type}
+						</span>
+					))}
+				</div>
+			) : (
+				<p className="text-xs text-slate-500">{t('empty')}</p>
+			)}
+		</section>
+	);
+}
+
 /**
- * Tab 2 — SEO · GEO · Schema diagnosis.
- * Position A: RAG chunk + fact-density gauges sit directly under the 122-point header.
+ * Track 1 tab — technical integrity & Schema diagnosis.
+ * Header → schema inventory → fact-check / RAG / CWV (children).
  */
 function Tab2TechnicalSectionInner({
 	report,
@@ -152,15 +211,12 @@ function Tab2TechnicalSectionInner({
 	scores,
 	children,
 }: Tab2TechnicalSectionProps) {
-	const metrics = useMemo(() => computeAdvancedGeoFromReport(report), [report]);
-
 	return (
 		<>
 			<AuditScoreHeader diagnostic={diagnostic} scores={scores} />
-			<RagFactDensityCard
-				rag={metrics.ragChunking}
-				fact={metrics.factDensity}
-				industryConfig={metrics.industry}
+			<SchemaStructuredDataCard
+				diagnostic={diagnostic}
+				schemaTypes={report.metrics?.schemaTypes}
 			/>
 			{children}
 		</>

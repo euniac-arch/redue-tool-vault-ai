@@ -1,5 +1,10 @@
 import type { CheerioAPI } from 'cheerio';
-import { dedupeRepeatedPhrase, extractOfficialBrandName } from '@/lib/audit/brand-name';
+import {
+	dedupeRepeatedPhrase,
+	extractOfficialBrandName,
+	looksLikeDomainBrand,
+	titleBrandHead,
+} from '@/lib/audit/brand-name';
 import { classifyMetaKeywords } from '@/lib/geo/brand-entities';
 import {
 	extractFooterLegalText,
@@ -9,14 +14,16 @@ import {
 	sanitizeJsonLdRaw,
 } from '@/lib/audit/parser';
 import { extractSiteLogoUrl } from '@/lib/audit/extract-site-logo';
-import { extractRepresentative } from '@/lib/audit/extractors/entity';
+import { extractRepresentativeName, isNoiseRepresentativeName } from '@/lib/audit/extractors/universal-entity';
+import { extractCeoFromFooter } from '@/lib/audit/extractors/ceo-name';
+import { extractFaqItemsFromHtml } from '@/lib/audit/extractors/faq-howto';
 import { extractOnpageNap } from '@/lib/audit/extractors/nap';
 import {
 	extractGeoAeoSiteData,
 	type GeoCoordinates,
 	type OpeningHoursSpec,
 } from '@/lib/audit/extractors/geo-aeo-site-data';
-import { cleanMedicalEntities } from '@/lib/geo/clean-medical-entities';
+import { cleanMedicalEntities, stripUiStopwords } from '@/lib/geo/clean-medical-entities';
 import { extractCoreSpecialties, filterNavMenuTexts } from '@/lib/geo/core-specialties';
 import { formatColloquialLocation } from '@/lib/geo/query-location';
 import { buildMedicalSimulatorQuery } from '@/lib/audit/recommended-schemas';
@@ -63,6 +70,10 @@ export interface SiteMetadata {
 	metaDescription?: string;
 	/** Raw `og:title` for As-Is source audit (P4). */
 	ogTitle?: string;
+	/** Raw `og:site_name` — official brand when it is not a domain slug. */
+	ogSiteName?: string;
+	/** JSON-LD Organization / LocalBusiness `name`. */
+	organizationName?: string;
 	/** Raw `og:description` for As-Is source audit (P4). */
 	ogDescription?: string;
 	/** Raw `og:image` used as the MedicalClinic / Organization logo fallback. */
@@ -81,6 +92,10 @@ export interface SiteMetadata {
 	coreSpecialties?: string[];
 	/** Footer / Person-schema representative legal name (홍길동). */
 	representativeName?: string;
+	/** Shared CEO bind (`audit_payload.ceo_name`) from 4-step sequential search (footer → greeting/img → doctor/img → fallback). */
+	ceoName?: string;
+	/** schema | footer | greeting | doctor | fallback */
+	ceoNameSource?: 'schema' | 'footer' | 'greeting' | 'doctor' | 'fallback';
 	/** Footer / Person-schema jobTitle (대표 / 대표이사 / 원장). */
 	representativeJobTitle?: string;
 	/** On-page / JSON-LD telephone, hyphenated (e.g. 02-1234-5678). */
@@ -101,6 +116,8 @@ export interface SiteMetadata {
 	streetAddress?: string;
 	addressLocality?: string;
 	addressRegion?: string;
+	/** Parsed on-page Q&A for FAQPage compile. */
+	faqItems?: Array<{ q: string; a: string }>;
 }
 
 type AuditLang = 'ko' | 'en';
@@ -456,7 +473,7 @@ function uniqDetectedKeywords(items: Array<string | undefined | null>, limit = 1
 	const seen = new Set<string>();
 	const out: string[] = [];
 	for (const raw of items) {
-		const v = cleanText(raw, 40);
+		const v = stripUiStopwords(cleanText(raw, 40));
 		if (!v || v.length < 2) continue;
 		const key = v.toLowerCase();
 		if (seen.has(key) || GENERIC_KEYWORDS.has(key)) continue;
@@ -515,6 +532,21 @@ function hasType(node: Record<string, unknown>, type: string): boolean {
 function cleanText(value: unknown, max = 120): string {
 	if (typeof value !== 'string') return '';
 	return value.replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+/** `property` or `name` — some CMS emit og:* on name only. */
+function firstOgMeta($: CheerioAPI, keys: readonly string[], max: number): string {
+	const want = new Set(keys.map((k) => k.toLowerCase()));
+	let found = '';
+	$('meta').each((_, el) => {
+		if (found) return;
+		const property = ($(el).attr('property') || '').trim().toLowerCase();
+		const name = ($(el).attr('name') || '').trim().toLowerCase();
+		if (!want.has(property) && !want.has(name)) return;
+		const content = cleanText($(el).attr('content'), max);
+		if (content) found = content;
+	});
+	return found;
 }
 
 function domainFromUrl(raw: string): string {
@@ -808,10 +840,10 @@ export function extractSiteMetadata(
 	const title = cleanText($('title').first().text(), 160);
 	const metaDescription = cleanText($('meta[name="description"]').attr('content'), 240);
 	const metaKeywords = cleanText($('meta[name="keywords"]').attr('content'), 200);
-	const ogTitle = cleanText($('meta[property="og:title"]').attr('content'), 160);
-	const ogSiteName = cleanText($('meta[property="og:site_name"]').attr('content'), 80);
-	const ogDescription = cleanText($('meta[property="og:description"]').attr('content'), 240);
-	const ogImage = cleanText($('meta[property="og:image"]').attr('content'), 400);
+	const ogTitle = firstOgMeta($, ['og:title', 'twitter:title'], 160);
+	const ogSiteName = firstOgMeta($, ['og:site_name'], 80);
+	const ogDescription = firstOgMeta($, ['og:description', 'twitter:description'], 240);
+	const ogImage = firstOgMeta($, ['og:image', 'twitter:image'], 400);
 	const h1List = collectHeadings($, 'h1', 3);
 	const h2List = collectHeadings($, 'h2', 8);
 	const bodySnippets = collectHeadings($, 'p, li', 12);
@@ -867,11 +899,10 @@ export function extractSiteMetadata(
 		pageUrl,
 	].join(' ');
 
-	// Unique brand candidates first — joining identical schema/og/title values then
-	// stripping separators was producing "Brand Brand" site names.
+	// Title / og:title first — schema `name` is often the English domain slug.
 	const brandSourceParts: string[] = [];
 	const seenBrandNorm = new Set<string>();
-	for (const part of [schemaNames[0], ogSiteName, ogTitle, title, h1]) {
+	for (const part of [ogTitle, title, h1, ogSiteName, schemaNames[0]]) {
 		const cleaned = cleanText(part, 80);
 		if (!cleaned) continue;
 		const norm = cleaned.replace(/\s+/g, '').toLowerCase();
@@ -879,14 +910,17 @@ export function extractSiteMetadata(
 		seenBrandNorm.add(norm);
 		brandSourceParts.push(cleaned);
 	}
+	const titleHint =
+		titleBrandHead(ogTitle) ||
+		titleBrandHead(title) ||
+		titleBrandHead(h1);
+	const schemaHint = cleanBrandCandidate(schemaNames[0] || '', domain);
+	const siteNameHint = cleanBrandCandidate(ogSiteName, domain);
+	const brandHint = [siteNameHint, schemaHint, titleHint].find(
+		(candidate) => candidate && !looksLikeDomainBrand(candidate, domain),
+	);
 	const brandName = dedupeRepeatedPhrase(
-		extractOfficialBrandName(
-			brandSourceParts.join(' | '),
-			domain,
-			cleanBrandCandidate(schemaNames[0] || '', domain) ||
-				cleanBrandCandidate(ogSiteName, domain) ||
-				undefined,
-		),
+		extractOfficialBrandName(brandSourceParts.join(' | '), domain, brandHint),
 	);
 
 	const textRule = matchKeywordRule(corpus);
@@ -1011,16 +1045,33 @@ export function extractSiteMetadata(
 	const schemaJobTitle = personNodes.map((n) => cleanText(n.jobTitle, 40)).find(Boolean);
 	const footerText = extractFooterLegalText($, 2500);
 	const onpageNap = extractOnpageNap($, rawHtml ?? '', pageUrl);
-	const extractedRep = extractRepresentative(
-		[footerText, rawHtml ?? '', schemaPersonName ? `"@type":"Person","name":"${schemaPersonName}","jobTitle":"${schemaJobTitle || ''}"` : '']
-			.filter(Boolean)
-			.join('\n'),
+	const footerCeo = extractCeoFromFooter({ html: rawHtml ?? '', footerText, $ });
+	const extractedRep = extractRepresentativeName(
+		[rawHtml ?? '', footerText].filter(Boolean).join('\n'),
 		lang === 'en' ? 'en' : 'ko',
 	);
-	const representativeName = extractedRep.isExtracted ? extractedRep.name : schemaPersonName || undefined;
-	const representativeJobTitle = extractedRep.isExtracted
-		? extractedRep.jobTitle
-		: schemaJobTitle || undefined;
+	const schemaName =
+		extractedRep.source === 'schema' && extractedRep.isExtracted
+			? extractedRep.name
+			: schemaPersonName && !isNoiseRepresentativeName(schemaPersonName)
+				? schemaPersonName
+				: '';
+	const representativeName = schemaName || (extractedRep.isExtracted ? extractedRep.name : '') || footerCeo?.name;
+	const representativeJobTitle =
+		(extractedRep.isExtracted ? extractedRep.jobTitle : '') ||
+		schemaJobTitle ||
+		footerCeo?.jobTitle ||
+		undefined;
+	const ceoName = representativeName;
+	const ceoNameSource =
+		schemaName
+			? 'schema'
+			: extractedRep.source === 'footer' && extractedRep.isExtracted
+				? 'footer'
+				: footerCeo
+					? 'footer'
+					: undefined;
+	const faqItems = extractFaqItemsFromHtml($, rawHtml ?? '');
 	const telephone = onpageNap.telephone || undefined;
 	const address =
 		onpageNap.address ||
@@ -1090,6 +1141,8 @@ export function extractSiteMetadata(
 		brandEntities: classifiedKeywords.brandEntities,
 		serviceKeywords: classifiedKeywords.categoryNouns,
 		representativeName,
+		ceoName,
+		ceoNameSource,
 		representativeJobTitle,
 		telephone,
 		address,
@@ -1102,9 +1155,12 @@ export function extractSiteMetadata(
 		streetAddress: onpageNap.streetAddress || geoAeo.streetAddress || undefined,
 		addressLocality: onpageNap.addressLocality || geoAeo.addressLocality || undefined,
 		addressRegion: onpageNap.addressRegion || geoAeo.addressRegion || undefined,
+		faqItems: faqItems.length ? faqItems : undefined,
 		title,
 		metaDescription,
 		ogTitle: ogTitle || undefined,
+		ogSiteName: ogSiteName || undefined,
+		organizationName: schemaNames[0] || undefined,
 		ogDescription: ogDescription || undefined,
 		ogImage: ogImage || undefined,
 		logoUrl: logoUrl || undefined,

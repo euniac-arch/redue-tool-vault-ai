@@ -1,5 +1,7 @@
-import type { AuditReport } from '@/lib/site-auditor';
+import { preferProjectName, resolveProjectSiteName } from '@/lib/audit/project-site-name';
+import type { DiagnosisUserType } from '@/lib/firebase/audit-projects-types';
 import { prisma } from '@/lib/prisma';
+import type { AuditReport } from '@/lib/site-auditor';
 
 function normalizeTargetUrl(raw: string): string {
 	try {
@@ -12,11 +14,11 @@ function normalizeTargetUrl(raw: string): string {
 	}
 }
 
-function projectNameFromUrl(url: string): string {
+function hostKey(raw: string): string {
 	try {
-		return new URL(url).hostname.replace(/^www\./, '') || url;
+		return new URL(raw).hostname.replace(/^www\./, '').toLowerCase();
 	} catch {
-		return url;
+		return raw.trim().toLowerCase();
 	}
 }
 
@@ -47,19 +49,29 @@ function categoryScores(report: AuditReport) {
 export async function syncProjectFromAuditLead(args: {
 	auditLeadId: string;
 	report: AuditReport;
+	userType?: DiagnosisUserType;
+	diagnosedAt?: Date;
 }): Promise<{ projectId: string } | null> {
 	const targetUrl = normalizeTargetUrl(args.report.url);
 	if (!targetUrl) return null;
 
 	const { seoScore, schemaScore, geoScore } = categoryScores(args.report);
 	const overall = Math.round(args.report.score);
+	const latestUserType = args.userType || 'guest';
+	const host = hostKey(targetUrl);
+	const siteName = resolveProjectSiteName(args.report);
 
-	const existing = await prisma.project.findFirst({
-		where: {
-			OR: [{ targetUrl }, { targetUrl: args.report.url }, { latestAuditId: args.auditLeadId }],
-		},
-		orderBy: { updatedAt: 'desc' },
-	});
+	const existing =
+		(await prisma.project.findFirst({
+			where: {
+				OR: [{ targetUrl }, { targetUrl: args.report.url }, { latestAuditId: args.auditLeadId }],
+			},
+			orderBy: { updatedAt: 'desc' },
+		})) ||
+		(await prisma.project.findFirst({
+			where: { targetUrl: { contains: host } },
+			orderBy: { updatedAt: 'desc' },
+		}).then((row) => (row && hostKey(row.targetUrl) === host ? row : null)));
 
 	let projectId: string;
 
@@ -67,13 +79,15 @@ export async function syncProjectFromAuditLead(args: {
 		const updated = await prisma.project.update({
 			where: { id: existing.id },
 			data: {
+				name: preferProjectName(siteName, existing.name, targetUrl),
 				targetUrl,
 				latestScore: overall,
 				latestSeoScore: seoScore,
 				latestGeoScore: geoScore,
 				latestSchemaScore: schemaScore,
 				latestAuditId: args.auditLeadId,
-				auditCount: { increment: 1 },
+				latestUserType,
+				auditCount: existing.latestAuditId === args.auditLeadId ? existing.auditCount : { increment: 1 },
 				status: 'ACTIVE',
 			},
 		});
@@ -81,7 +95,7 @@ export async function syncProjectFromAuditLead(args: {
 	} else {
 		const created = await prisma.project.create({
 			data: {
-				name: projectNameFromUrl(targetUrl),
+				name: siteName,
 				targetUrl,
 				cmsType: 'UNKNOWN',
 				category: 'SOLUTIONS',
@@ -91,6 +105,7 @@ export async function syncProjectFromAuditLead(args: {
 				latestGeoScore: geoScore,
 				latestSchemaScore: schemaScore,
 				latestAuditId: args.auditLeadId,
+				latestUserType,
 				auditCount: 1,
 			},
 		});
@@ -121,7 +136,8 @@ export async function backfillOrphanAuditLeads(limit = 50): Promise<number> {
 		try {
 			const report = JSON.parse(lead.reportJson) as AuditReport;
 			if (!report?.url) continue;
-			const result = await syncProjectFromAuditLead({ auditLeadId: lead.id, report });
+			const userType = (lead.userType as DiagnosisUserType) || (lead.userId ? 'user' : 'guest');
+			const result = await syncProjectFromAuditLead({ auditLeadId: lead.id, report, userType });
 			if (result) linked += 1;
 		} catch {
 			// skip corrupt rows

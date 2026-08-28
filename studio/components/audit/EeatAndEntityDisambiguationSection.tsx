@@ -24,18 +24,18 @@ function EeatActionGuideCard() {
 	const t = useTranslations('audit.brandTrust');
 
 	return (
-		<div className="flex h-full flex-col justify-between space-y-2 rounded-xl border border-indigo-500/30 bg-indigo-950/60 p-4">
+		<div className="flex h-full flex-col justify-between space-y-2 rounded-xl border border-indigo-100 bg-indigo-50/50 p-4 dark:border-slate-700/80 dark:bg-slate-800/70">
 			<div className="flex items-center justify-between gap-2">
-				<span className="flex items-center gap-1.5 text-xs font-bold text-indigo-300">
+				<span className="flex items-center gap-1.5 text-xs font-bold text-indigo-700 dark:text-cyan-400">
 					<span aria-hidden>💡</span>
 					<span>{t('actionGuideTitle')}</span>
 				</span>
-				<span className="rounded border border-indigo-500/30 bg-indigo-500/20 px-2 py-0.5 text-[10px] font-extrabold text-indigo-300">
+				<span className="rounded border border-indigo-200 bg-indigo-100 px-2 py-0.5 text-[10px] font-extrabold text-indigo-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
 					{t('actionGuideBadge')}
 				</span>
 			</div>
-			<p className="break-keep pt-1 text-xs leading-relaxed text-slate-300">{t('actionGuideBody')}</p>
-			<div className="flex items-center gap-1 font-mono text-[11px] text-indigo-400">
+			<p className="break-keep pt-1 text-xs leading-relaxed text-indigo-950 dark:text-slate-200">{t('actionGuideBody')}</p>
+			<div className="flex items-center gap-1 font-mono text-[11px] text-indigo-700 dark:text-amber-400">
 				<span aria-hidden>➔</span>
 				<span>{t('actionGuideHint')}</span>
 			</div>
@@ -58,29 +58,24 @@ function EntityMetadataBars({
 
 	return (
 		<div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-3">
-			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-white/[0.08] dark:bg-black/25">
-				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{t('personLabel')}</div>
+			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-slate-800/60 dark:bg-slate-950/50">
+				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('personLabel')}</div>
 				<div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
-					<span>{personName}</span>
-					{personJobTitle ? (
-						<span className="rounded border border-indigo-500/30 bg-indigo-500/20 px-1.5 py-0.5 text-[10px] font-extrabold text-indigo-700 dark:text-indigo-300">
-							{personJobTitle}
-						</span>
-					) : null}
+					<span>{personJobTitle ? `${personName} (${personJobTitle})` : personName}</span>
 				</div>
-				<p className="truncate text-[10px] leading-tight text-slate-500">{t('personHint')}</p>
+				<p className="truncate text-[10px] leading-tight text-slate-500 dark:text-slate-500">{t('personHint')}</p>
 			</div>
 
-			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-white/[0.08] dark:bg-black/25">
-				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{t('recommendedSchema')}</div>
+			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-slate-800/60 dark:bg-slate-950/50">
+				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('recommendedSchema')}</div>
 				<div className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-300">{recommendedSchema}</div>
-				<p className="text-[10px] leading-tight text-slate-500">
+				<p className="text-[10px] leading-tight text-slate-500 dark:text-slate-500">
 					{t('recommendedSchemaHint', { category: industryCategory })}
 				</p>
 			</div>
 
-			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-white/[0.08] dark:bg-black/25">
-				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{t('keywordsLabel')}</div>
+			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-slate-800/60 dark:bg-slate-950/50">
+				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('keywordsLabel')}</div>
 				<div className="flex flex-wrap gap-1">
 					{keywords.map((kw) => (
 						<span

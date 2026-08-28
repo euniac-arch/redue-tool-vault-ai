@@ -1,6 +1,6 @@
 /**
  * QuickJumpToFail — scroll from a 5-category card to the matching
- * detailed-checklist section (Tab 2).
+ * detailed-checklist section (Track 1 · onpage).
  */
 
 export const SWITCH_AUDIT_RESULT_TAB_EVENT = 'redue:switch-audit-result-tab';
@@ -61,7 +61,7 @@ export function checklistCategoryAnchorId(categoryId: string): string {
 }
 
 export interface SwitchAuditResultTabDetail {
-	tab: 'geo' | 'onpage';
+	tab: 'geo' | 'onpage' | 'cwv';
 }
 
 export interface JumpToChecklistCategoryDetail {
@@ -119,8 +119,8 @@ function dispatchJumpEvents(categoryId: string) {
 }
 
 /**
- * Switch to Tab 2 if needed, expand the detailed checklist, then smooth-scroll
- * to `#audit-section-${categoryId}`.
+ * Switch to Track 1 (onpage) if needed, expand the detailed checklist, then
+ * smooth-scroll to `#audit-section-${categoryId}`.
  */
 export function scrollToCategory(categoryId: string) {
 	if (typeof window === 'undefined' || !categoryId) return;

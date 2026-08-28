@@ -4,9 +4,17 @@
  * HTTP / no-SSL sites must not land in S/A. The on-page table treats HTTPS
  * as a regular security slot (0 when missing). The 100-point technical
  * headline is a pure proportion — `round(raw / max * 100)` — with no extra
- * −15 after that slot. Security risk is a composite hard cap at 78 (B) plus
- * a UI warning badge. Per-engine AI Readiness Scores still take −18 and
- * cap at 64 (준비도 양호 이하).
+ * −15 after that slot.
+ *
+ * 종합 실측 점수(measuredScore) = Track1(기술 점수)*0.4 + Track2(외부 신뢰도/GEO)*0.4
+ *   + CoreWebVitals(성능 실측)*0.2 − 보안 페널티(HTTPS 미적용 시 고정 −15).
+ * A fixed subtractive penalty replaces the old "clamp everything above 78
+ * down to 78" hard cap — that hard cap made every HTTP site whose blend
+ * exceeded 78 collapse onto the exact same visible number, which is the
+ * "항상 78점" symptom this file now avoids. Letter-grade S/A blocking for
+ * HTTP still comes from `gradeForHttps`/`capGradeAtB`, independent of the
+ * numeric score. Per-engine AI Readiness Scores still take −18 and cap at
+ * 64 (준비도 양호 이하).
  *
  * Every dashboard surface (hero, dual cards, radar, checklist table) must
  * read `DetailedAuditScore` — never recompute penalties or percentiles.
@@ -33,18 +41,33 @@ export const HTTPS_RAW_POINTS = checklistWeightForEngineId('https') ?? 10;
 /**
  * @deprecated No longer applied to the 100-point technical headline.
  * HTTPS fail is already 0 / 10 in the raw checklist; a second −15 caused
- * 100/122 (82) to display as 67. Security is now a 78-point / B-grade cap.
+ * 100/122 (82) to display as 67. Security is now a fixed composite penalty
+ * (`HTTPS_SECURITY_PENALTY`), not a second hit on the technical axis.
  */
 export const HTTPS_TECHNICAL_PENALTY = 15 as const;
 
 /**
  * @deprecated No longer applied as an extra GEO deduction.
- * HTTP origins are limited by `HTTPS_GRADE_HARD_CAP` on the composite.
+ * HTTP origins are penalized once on the composite via `HTTPS_SECURITY_PENALTY`.
  */
 export const HTTPS_GEO_PENALTY = 10 as const;
 
-/** Composite hard cap — B grade ceiling (S/A and “상위 6%” blocked). */
+/**
+ * @deprecated Replaced by `HTTPS_SECURITY_PENALTY`. Clamping every blend above
+ * 78 down to exactly 78 made unrelated sites with different Track1/Track2
+ * scores render an identical composite (the "항상 78점" bug). Kept only so
+ * older imports don't break the build; no longer read by the calculator.
+ */
 export const HTTPS_GRADE_HARD_CAP = 78 as const;
+
+/**
+ * Fixed composite penalty subtracted from the Track1/Track2/CWV weighted sum
+ * when the origin is not HTTPS. Unlike the old hard cap, this never collapses
+ * different weighted sums onto the same output — it just shifts them down by
+ * a constant amount, so Site A and Site B with different Track scores keep
+ * producing different `measuredScore` results.
+ */
+export const HTTPS_SECURITY_PENALTY = 15 as const;
 
 /** HTTP origins cannot claim a tighter top-percentile than this. */
 export const HTTPS_PERCENTILE_FLOOR = 25 as const;
@@ -77,7 +100,20 @@ export interface AuditScoreInput {
 	hasSsl?: boolean | null;
 	technicalScore: number;
 	geoScore: number;
+	/** Track 3 axis — real Core Web Vitals / PSI performance read (0–100). Falls back to `technicalScore` when omitted. */
+	coreWebVitalsScore?: number | null;
 	lang?: AuditLang | string | null;
+}
+
+/** Detailed breakdown of the Track1/Track2/CWV blend — for logging & QA, never recomputed downstream. */
+export interface MeasuredScoreBreakdown {
+	track1: number;
+	track2: number;
+	coreWebVitals: number;
+	weights: { track1: number; track2: number; coreWebVitals: number };
+	weightedSum: number;
+	securityPenalty: number;
+	totalScore: number;
 }
 
 export interface AuditScoreResult {
@@ -89,10 +125,12 @@ export interface AuditScoreResult {
 	percentile: number;
 	isHttps: boolean;
 	securityPenaltyApplied: boolean;
-	/** True when the composite was lowered to the B-grade hard cap. */
+	/** True when HTTPS is missing — the fixed security penalty was applied. */
 	securityCapped: boolean;
 	securityCriticalAlert: string | null;
 	securityAlertMessage?: string;
+	/** Track1 / Track2 / CWV blend detail — same numbers as the console log. */
+	scoreBreakdown: MeasuredScoreBreakdown;
 }
 
 /** 0–100 radar axes — 1:1 with the five standard categories. */
@@ -145,7 +183,7 @@ export interface ComprehensiveScoreInput {
 	maxRawScore?: number;
 	/** 100-point on-page reading (pure raw/max proportion; no extra HTTPS hit). */
 	technicalScore: number;
-	/** 100-point GEO / external-trust reading (composite hard-cap is applied later). */
+	/** 100-point GEO / external-trust reading (fixed security penalty is applied later). */
 	geoScore: number;
 	url?: string | null;
 	hasSsl?: boolean | null;
@@ -162,6 +200,13 @@ export interface ComprehensiveScoreInput {
 	ragFact?: number;
 	/** Category 5 (GEO & AI 인용 신호) 100-point — radar AI 인용 신호. */
 	aiCitation?: number;
+	/**
+	 * Track 3 axis for measuredScore — real Google PageSpeed(Lighthouse)
+	 * `performance` category read (0–100) when available. Omit when PSI
+	 * hasn't loaded yet (history, PDF, server snapshots); the calculator
+	 * falls back to `webPerf ?? ragFact ?? ragScore ?? technicalScore`.
+	 */
+	coreWebVitalsScore100?: number | null;
 	/** Fully resolved radar packet — preferred over the individual axis fields. */
 	radarScores?: RadarScores;
 	/** Raw 0–100 engine indexes BEFORE the HTTPS −18 / 64-cap. */
@@ -192,10 +237,53 @@ export function applyHttpsRawPenalty(rawScore: number, isHttps: boolean): number
 	return Math.max(0, rawScore - HTTPS_RAW_POINTS);
 }
 
-export function applySecurityGradeCap(totalScore: number, isHttps: boolean): number {
-	const n = clamp100(totalScore);
-	if (!isHttps && n > HTTPS_GRADE_HARD_CAP) return HTTPS_GRADE_HARD_CAP;
-	return n;
+/**
+ * @deprecated Replaced by `blendMeasuredScore`'s fixed `HTTPS_SECURITY_PENALTY`.
+ * Kept as a no-op passthrough (clamp only) so any stale import doesn't throw.
+ */
+export function applySecurityGradeCap(totalScore: number, _isHttps: boolean): number {
+	return clamp100(totalScore);
+}
+
+/** 종합 실측 점수 가중치 — Track1(기술) 40% + Track2(외부 신뢰도/GEO) 40% + CWV(성능 실측) 20%. */
+export const MEASURED_SCORE_WEIGHTS = {
+	track1: 0.4,
+	track2: 0.4,
+	coreWebVitals: 0.2,
+} as const;
+
+/**
+ * Single source of truth for the "종합 실측 점수" blend.
+ * `measuredScore = round(track1*0.4 + track2*0.4 + coreWebVitals*0.2) − securityPenalty`,
+ * clamped 0–100. Unlike the old hard cap, this never maps two different
+ * weighted sums onto the same output — it only shifts the whole curve down
+ * by a constant amount for HTTP origins.
+ */
+export function blendMeasuredScore(input: {
+	track1: number;
+	track2: number;
+	coreWebVitals?: number | null;
+	isHttps: boolean;
+}): MeasuredScoreBreakdown {
+	const track1 = clamp100(input.track1);
+	const track2 = clamp100(input.track2);
+	const coreWebVitals = Number.isFinite(input.coreWebVitals) ? clamp100(Number(input.coreWebVitals)) : track1;
+	const weightedSum = Math.round(
+		track1 * MEASURED_SCORE_WEIGHTS.track1 +
+			track2 * MEASURED_SCORE_WEIGHTS.track2 +
+			coreWebVitals * MEASURED_SCORE_WEIGHTS.coreWebVitals,
+	);
+	const securityPenalty = input.isHttps ? 0 : HTTPS_SECURITY_PENALTY;
+	const totalScore = clamp100(weightedSum - securityPenalty);
+	return {
+		track1,
+		track2,
+		coreWebVitals,
+		weights: { ...MEASURED_SCORE_WEIGHTS },
+		weightedSum,
+		securityPenalty,
+		totalScore,
+	};
 }
 
 /** −18 then clamp to 30–64 so HTTP origins cannot show readiness “매우 양호”. */
@@ -293,19 +381,40 @@ export function percentileForHttps(totalScore: number, isHttps: boolean): number
 	return percentile;
 }
 
+/** Dev-console breadcrumb for the measuredScore blend — never runs in production. */
+function logMeasuredScoreBreakdown(context: { url?: string | null; isHttps: boolean }, breakdown: MeasuredScoreBreakdown, grade: ScoreGrade): void {
+	if (process.env.NODE_ENV === 'production') return;
+	// eslint-disable-next-line no-console
+	console.info('[measuredScore]', {
+		url: context.url ?? null,
+		isHttps: context.isHttps,
+		track1: breakdown.track1,
+		track2: breakdown.track2,
+		coreWebVitals: breakdown.coreWebVitals,
+		weights: breakdown.weights,
+		weightedSum: breakdown.weightedSum,
+		securityPenalty: breakdown.securityPenalty,
+		totalScore: breakdown.totalScore,
+		grade,
+	});
+}
+
 export function calculateAuditScores(rawData: AuditScoreInput): AuditScoreResult {
 	const isHttps = resolveIsHttps(rawData);
 	const lang: AuditLang = rawData.lang === 'en' ? 'en' : 'ko';
 
-	const technicalScore = clamp100(rawData.technicalScore);
-	const geoScore = clamp100(rawData.geoScore);
-
-	const baseTotal = clamp100(technicalScore * 0.5 + geoScore * 0.5);
-	const totalScore = applySecurityGradeCap(baseTotal, isHttps);
-	const securityCapped = !isHttps && baseTotal > HTTPS_GRADE_HARD_CAP;
+	const breakdown = blendMeasuredScore({
+		track1: rawData.technicalScore,
+		track2: rawData.geoScore,
+		coreWebVitals: rawData.coreWebVitalsScore,
+		isHttps,
+	});
+	const { track1: technicalScore, track2: geoScore, totalScore } = breakdown;
 	const grade = gradeForHttps(totalScore, isHttps);
 	const securityPenaltyApplied = !isHttps;
 	const securityAlertMessage = securityPenaltyApplied ? HTTPS_SECURITY_ALERT[lang] : undefined;
+
+	logMeasuredScoreBreakdown({ url: rawData.url, isHttps }, breakdown, grade);
 
 	return {
 		technicalScore,
@@ -316,14 +425,15 @@ export function calculateAuditScores(rawData: AuditScoreInput): AuditScoreResult
 		percentile: percentileForHttps(totalScore, isHttps),
 		isHttps,
 		securityPenaltyApplied,
-		securityCapped,
+		securityCapped: securityPenaltyApplied,
 		securityCriticalAlert: securityAlertMessage ?? null,
 		securityAlertMessage,
+		scoreBreakdown: breakdown,
 	};
 }
 
 /**
- * Dynamic raw max → 100-point technical → GEO blend → hard cap.
+ * Dynamic raw max → 100-point technical → Track1/Track2/CWV blend → security penalty.
  * `technicalScore` is `round(earnedRaw / maxRaw * 100)` with no extra HTTPS hit.
  */
 export function calculateMaxRawScore(
@@ -332,7 +442,7 @@ export function calculateMaxRawScore(
 	return resolveMaxRawScore(checklist);
 }
 
-/** Alias matching the 100/122 proportion + B-grade security-cap packet. */
+/** Alias matching the 100/122 proportion + Track1/Track2/CWV blend packet. */
 export type ComprehensiveScoreResult = AuditScores;
 
 export function calculateComprehensiveScores(input: ComprehensiveScoreInput): AuditScores {
@@ -342,11 +452,18 @@ export function calculateComprehensiveScores(input: ComprehensiveScoreInput): Au
 	const hasRaw = Number.isFinite(input.rawTechnicalScore);
 	const rawTechnicalScore = clampEarned(hasRaw ? Number(input.rawTechnicalScore) : 0, maxRawScore);
 	const fromRaw = clamp100((rawTechnicalScore / maxRawScore) * 100);
+	const technicalScore = hasRaw ? fromRaw : Number.isFinite(input.technicalScore) ? input.technicalScore : fromRaw;
+	// CWV axis: prefer a real PSI/Lighthouse performance read; otherwise reuse the
+	// already-computed on-page performance proxy so the axis is never a hidden constant.
+	const coreWebVitalsScore = Number.isFinite(input.coreWebVitalsScore100)
+		? Number(input.coreWebVitalsScore100)
+		: input.webPerf ?? input.ragFact ?? input.ragScore ?? technicalScore;
 	const scored = calculateAuditScores({
 		url: input.url,
 		hasSsl: input.hasSsl,
-		technicalScore: hasRaw ? fromRaw : Number.isFinite(input.technicalScore) ? input.technicalScore : fromRaw,
+		technicalScore,
 		geoScore: input.geoScore,
+		coreWebVitalsScore,
 		lang: input.lang,
 	});
 	const detailed: DetailedAuditScore = {

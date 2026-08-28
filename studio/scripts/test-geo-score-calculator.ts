@@ -10,6 +10,8 @@ import {
 	GEO_TOTAL_MAX,
 	calculateGeoComprehensiveFromReport,
 	calculateGeoComprehensiveScores,
+	formatWeightedContribution,
+	toWeightedContribution,
 	resolveGeoPillarBadgeCopy,
 	resolveGeoPillarBadgeTheme,
 	resolveGeoPillarStatus,
@@ -17,7 +19,6 @@ import {
 	scoreEntityAxisItems,
 	type GeoRawSignals,
 } from '../lib/audit/geoScoreCalculator';
-import { HTTPS_GEO_PENALTY, HTTPS_GRADE_HARD_CAP } from '../lib/audit/scoreCalculator';
 import type { AuditCategory, AuditCheckItem, AuditReport } from '../lib/site-auditor';
 
 let failed = 0;
@@ -71,13 +72,11 @@ assert(
 	GEO_PILLAR_IDS.every((id) => full.pillars[id].targetAnchorId === GEO_PILLAR_ANCHOR_IDS[id]),
 );
 
+// finalGeoScore/isCapped are deprecated no-ops now — the composite applies a single
+// security penalty via `blendMeasuredScore` in scoreCalculator.ts, not here.
 const httpFull = calculateGeoComprehensiveScores(fullPass, false, 'ko');
-assert('HTTP full is capped', httpFull.isCapped === true);
-assert(
-	'HTTP final is min(78, 100-10)',
-	httpFull.finalGeoScore === Math.min(HTTPS_GRADE_HARD_CAP, 100 - HTTPS_GEO_PENALTY),
-	String(httpFull.finalGeoScore),
-);
+assert('HTTP full is no longer capped here (deprecated no-op)', httpFull.isCapped === false);
+assert('HTTP final equals raw (deprecated no-op)', httpFull.finalGeoScore === httpFull.rawGeoScore);
 assert('HTTP raw stays the 4-pillar sum', httpFull.rawGeoScore === 100);
 
 const empty = calculateGeoComprehensiveScores(
@@ -282,6 +281,12 @@ assert(
 	'pillar badges stay 1:1 with the headline',
 	snapshot.geoComprehensive.pillarList.reduce((sum, pillar) => sum + pillar.earned, 0) === snapshot.externalTrustScore,
 );
+
+assert('20/25 converts to 16.0', toWeightedContribution(20, 25) === 16 && formatWeightedContribution(20, 25) === '16.0');
+assert('14/25 converts to 11.2', toWeightedContribution(14, 25) === 11.2 && formatWeightedContribution(14, 25) === '11.2');
+assert('25/25 converts to 20.0', toWeightedContribution(25, 25) === 20 && formatWeightedContribution(25, 25) === '20.0');
+assert('4/5 schema converts to 16.0', toWeightedContribution(4, 5) === 16 && formatWeightedContribution(4, 5) === '16.0');
+assert('empty domain converts to 0.0', toWeightedContribution(0, 25) === 0 && formatWeightedContribution(0, 5) === '0.0');
 
 if (failed) {
 	console.error(`\n${failed} assertion(s) failed`);

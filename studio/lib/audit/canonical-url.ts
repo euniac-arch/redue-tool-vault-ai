@@ -1,8 +1,32 @@
 /**
  * Canonical URL extraction & coherence helpers.
- * Mirrors the diagnostic PHP `evaluate_canonical_accuracy` rules:
- * strip markdown/HTML wrappers, unify protocol + trailing slash, then compare.
+ * Compare after stripping markdown/HTML wrappers, cache-bust/tracking query
+ * params, a trailing `/index.php`, and unifying protocol + trailing slash.
  */
+
+/** Cache-bust and click-tracking keys that must not affect Canonical match. */
+const IGNORED_CANONICAL_QUERY_KEYS = new Set([
+	'_redue_nocache',
+	'_nocache',
+	'utm_source',
+	'utm_medium',
+	'utm_campaign',
+	'utm_content',
+	'utm_term',
+	'fbclid',
+	'gclid',
+]);
+
+function isIgnoredCanonicalQueryKey(key: string): boolean {
+	const lower = key.toLowerCase();
+	return IGNORED_CANONICAL_QUERY_KEYS.has(lower) || lower.startsWith('utm_');
+}
+
+function stripIgnoredCanonicalParams(url: URL): void {
+	for (const key of [...url.searchParams.keys()]) {
+		if (isIgnoredCanonicalQueryKey(key)) url.searchParams.delete(key);
+	}
+}
 
 /** Pull a bare http(s) URL out of markdown / HTML / noise wrappers. */
 export function extractPureUrl(raw: string): string {
@@ -38,24 +62,33 @@ export function extractPureUrl(raw: string): string {
 	return extracted.trim();
 }
 
-/** Normalize protocol (http→https) and trailing slash for apples-to-apples compare. */
+/**
+ * Canonical comparison sanitizer: drop cache-bust / tracking params, collapse
+ * trailing `/index.php`, force https, and unify a trailing slash.
+ */
 export function normalizeCanonicalCompareUrl(
 	url: string,
-	targetUrl: string,
+	targetUrl?: string,
 ): string {
-	let cleaned = extractPureUrl(url).replace(/^http:\/\//i, 'https://');
-	cleaned = cleaned.replace(/\/+$/, '');
+	const extracted = extractPureUrl(url);
+	if (!extracted) return '';
 
 	try {
-		const path = new URL(targetUrl).pathname;
-		if (path === '/' || path === '') {
-			cleaned += '/';
-		}
-	} catch {
-		// keep slash-stripped form
-	}
+		const parsed = new URL(extracted, targetUrl || undefined);
+		if (parsed.protocol === 'http:') parsed.protocol = 'https:';
+		parsed.hash = '';
+		stripIgnoredCanonicalParams(parsed);
 
-	return cleaned;
+		let cleanPath = parsed.pathname.replace(/\/+$/, '') || '/';
+		cleanPath = cleanPath.replace(/\/index\.php$/i, '') || '/';
+		if (!cleanPath.endsWith('/')) cleanPath += '/';
+		parsed.pathname = cleanPath;
+
+		const query = parsed.searchParams.toString();
+		return `${parsed.origin}${parsed.pathname}${query ? `?${query}` : ''}`;
+	} catch {
+		return extracted.replace(/^http:\/\//i, 'https://').replace(/\/+$/, '');
+	}
 }
 
 export type CanonicalAccuracyResult =

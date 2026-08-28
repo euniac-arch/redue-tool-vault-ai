@@ -112,23 +112,23 @@ export function GeoLocalNapCard({
 			</div>
 
 			<div>
-				<p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500">{t('platformGridLabel')}</p>
+				<p className="mb-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('platformGridLabel')}</p>
 				<div className="grid gap-3 sm:grid-cols-3">
-					<div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/25">
-						<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('naverLabel')}</p>
+					<div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800/60 dark:bg-slate-800/40">
+						<p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('naverLabel')}</p>
 						<p
 							className={`mt-1 text-sm font-extrabold ${
-								naverPassed ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
+								naverPassed ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-700 dark:text-rose-400'
 							}`}
 						>
 							{naverPassed ? t('naverGridOk') : t('naverMissing')}
 						</p>
 					</div>
-					<div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/25">
-						<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('googleLabel')}</p>
+					<div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 dark:border-slate-800/60 dark:bg-slate-800/40">
+						<p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('googleLabel')}</p>
 						<p
 							className={`mt-1 text-sm font-extrabold ${
-								googlePassed ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'
+								googlePassed ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-300'
 							}`}
 						>
 							{googlePassed ? t('googleLinked') : t('googleGridWeak')}
@@ -137,14 +137,14 @@ export function GeoLocalNapCard({
 					<div
 						className={`rounded-xl border px-3 py-2.5 ${
 							bingRegistered
-								? 'border-slate-200 bg-slate-50 dark:border-white/[0.08] dark:bg-black/25'
-								: 'border-rose-300/70 bg-rose-50/80 dark:border-rose-900/40 dark:bg-rose-950/20'
+								? 'border-slate-200 bg-white dark:border-slate-800/60 dark:bg-slate-800/40'
+								: 'border-rose-200 bg-rose-50/40 dark:border-rose-500/30 dark:bg-rose-500/10'
 						}`}
 					>
-						<p className="text-[10px] uppercase tracking-wide text-slate-500">{t('bingLabel')}</p>
+						<p className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('bingLabel')}</p>
 						<p
 							className={`mt-1 text-sm font-extrabold ${
-								bingRegistered ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
+								bingRegistered ? 'text-emerald-700 dark:text-emerald-400' : 'text-rose-900 dark:text-rose-400'
 							}`}
 						>
 							{bingRegistered ? t('bingRegistered') : t('bingGridMissing')}

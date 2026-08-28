@@ -57,7 +57,7 @@ export function Footer({ clearFloatingBar = false }: { clearFloatingBar?: boolea
 			}`}
 			aria-label={t('ariaLabel')}
 		>
-			<div className="mx-auto max-w-[960px] px-4 sm:px-6">
+			<div className="mx-auto w-full max-w-5xl px-6">
 				<div className="mb-8 flex flex-col items-start justify-between gap-4 border-b border-slate-200 pb-8 sm:flex-row sm:items-center dark:border-slate-800/70">
 					<div>
 						<p className="text-base font-black tracking-tight text-slate-900 sm:text-lg dark:text-white">{t('brandFull')}</p>

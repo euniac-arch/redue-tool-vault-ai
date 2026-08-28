@@ -58,18 +58,18 @@ export function ProposalEditModal({
 	return (
 		<div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
 			<button type="button" className="absolute inset-0 bg-slate-900/40" aria-label="닫기" onClick={onClose} />
-			<div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl">
+			<div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:bg-slate-800 dark:border-slate-700">
 				<button
 					type="button"
 					onClick={onClose}
-					className="absolute right-3 top-3 rounded-md px-2 py-1 text-lg leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+					className="absolute right-3 top-3 rounded-md px-2 py-1 text-lg leading-none text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-slate-700 dark:hover:text-slate-200"
 					aria-label="닫기"
 				>
 					×
 				</button>
-				<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">Hybrid · Token Saver</p>
-				<h2 className="mt-1 text-lg font-bold text-slate-900">제안서 내용 / 견적 직접 편집</h2>
-				<p className="mt-1 text-sm text-slate-600">
+				<p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Hybrid · Token Saver</p>
+				<h2 className="mt-1 text-lg font-bold text-slate-900 dark:text-slate-100">제안서 내용 / 견적 직접 편집</h2>
+				<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 					직접 입력한 문구·견적으로 렌더링만 수행합니다. Claude 대량 카피 생성을 건너뛰어 토큰을 절감합니다.
 				</p>
 
@@ -81,63 +81,63 @@ export function ProposalEditModal({
 					}}
 				>
 					<label className="flex flex-col gap-1">
-						<span className="text-xs font-bold text-slate-500">클라이언트 / 병원명</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">클라이언트 / 병원명</span>
 						<input
 							required
 							value={values.clientName}
 							onChange={(e) => update('clientName', e.target.value)}
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 					<label className="flex flex-col gap-1">
-						<span className="text-xs font-bold text-slate-500">담당자 / 원장님 성함</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">담당자 / 원장님 성함</span>
 						<input
 							value={values.contactName}
 							onChange={(e) => update('contactName', e.target.value)}
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 					<div className="grid grid-cols-2 gap-3">
 						<label className="flex flex-col gap-1">
-							<span className="text-xs font-bold text-slate-500">특별 할인율 (%)</span>
+							<span className="text-xs font-bold text-slate-500 dark:text-slate-400">특별 할인율 (%)</span>
 							<input
 								type="number"
 								min={0}
 								max={90}
 								value={values.discountRatePct}
 								onChange={(e) => update('discountRatePct', Number(e.target.value) || 0)}
-								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 							/>
 						</label>
 						<label className="flex flex-col gap-1">
-							<span className="text-xs font-bold text-slate-500">최종 적용 견적 (₩)</span>
+							<span className="text-xs font-bold text-slate-500 dark:text-slate-400">최종 적용 견적 (₩)</span>
 							<input
 								type="number"
 								min={0}
 								step={10000}
 								value={values.finalQuoteKRW}
 								onChange={(e) => update('finalQuoteKRW', Number(e.target.value) || 0)}
-								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+								className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 							/>
-							<span className="text-[11px] text-slate-500">자동 계산: {formatKrw(autoQuoteKRW)}</span>
+							<span className="text-[11px] text-slate-500 dark:text-slate-400">자동 계산: {formatKrw(autoQuoteKRW)}</span>
 						</label>
 					</div>
 					<label className="flex flex-col gap-1">
-						<span className="text-xs font-bold text-slate-500">강조할 핵심 키워드</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">강조할 핵심 키워드</span>
 						<input
 							value={values.focusKeywords}
 							onChange={(e) => update('focusKeywords', e.target.value)}
 							placeholder="예: 임플란트, 교정"
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 					<label className="flex flex-col gap-1">
-						<span className="text-xs font-bold text-slate-500">추가 전달 메시지</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">추가 전달 메시지</span>
 						<textarea
 							rows={3}
 							value={values.customMessage}
 							onChange={(e) => update('customMessage', e.target.value)}
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 
@@ -145,7 +145,7 @@ export function ProposalEditModal({
 						<button
 							type="button"
 							onClick={() => onGeneratePptx(values)}
-							className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50"
+							className="rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-xs font-bold text-slate-800 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 						>
 							수정 내용으로 PPTX 생성
 						</button>
@@ -158,7 +158,7 @@ export function ProposalEditModal({
 						</button>
 						<button
 							type="submit"
-							className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+							className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-100 dark:bg-slate-700/60 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
 						>
 							편집 내용만 저장
 						</button>

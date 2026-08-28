@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
-import { CheckCircle2, Loader2 } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { useAuditPayload } from '@/components/audit/AuditPayloadProvider';
 import {
@@ -18,6 +17,10 @@ import { AIEngineCardList } from '@/components/geo/AIEngineCardList';
 import { AIEngineSummaryHeader } from '@/components/geo/AIEngineSummaryHeader';
 import { CompetitorLeakageRoiBanner } from '@/components/geo/CompetitorLeakageRoiBanner';
 import { ApplyPrescriptionButton } from '@/components/geo/ApplyPrescriptionButton';
+import {
+	ApplyPrescriptionProgress,
+	PRESCRIPTION_LOADING_STEPS,
+} from '@/components/geo/ApplyPrescriptionProgress';
 import { BeforeAfterTabNav, type PrescriptionViewMode } from '@/components/geo/BeforeAfterTabNav';
 import { GEOPrescriptionCopyCenter } from '@/components/geo/GEOPrescriptionCopyCenter';
 import { GEOResultReport } from '@/components/geo/GEOResultReport';
@@ -87,9 +90,9 @@ interface GeoDiagnosticTabFromAuditProps {
 }
 
 const FILTERS: GeoEngineExposureFilter[] = ['all', 'excellent', 'needs_work'];
-const LOADING_STEPS = [1, 2, 3] as const;
 const STEP_MS = 850;
 const MIN_WAIT_MS = 2600;
+const COMPLETE_HOLD_MS = 480;
 const VIEW_EASE = [0.22, 1, 0.36, 1] as const;
 
 function beforeLevelsFromReport(report: GeoDiagnosticReport): Record<AIEngineId, number | null> {
@@ -432,6 +435,14 @@ export function GeoDiagnosticTab({
 		if (controller.signal.aborted) return;
 		clearTimers();
 		setProgress(100);
+		setCurrentStep(PRESCRIPTION_LOADING_STEPS.length + 1);
+		if (!reduceMotion) {
+			await new Promise((resolve) => {
+				const id = setTimeout(resolve, COMPLETE_HOLD_MS);
+				timersRef.current.push(id);
+			});
+		}
+		if (controller.signal.aborted) return;
 		setAfterReport(payload.afterReport);
 		setAppliedPatches(payload.appliedPatches);
 		setQueryCoverage(payload.expandedQueryCoverage);
@@ -532,8 +543,6 @@ export function GeoDiagnosticTab({
 		needs_work: counts.needsWork,
 	};
 
-	const stepLabel = (step: number) => t(`steps.${step}`, { url: report.targetUrl, brand: report.brandName });
-
 	const viewSlideX = viewMode === 'after' ? 28 : -28;
 
 	const showPrescriptionExtras = isApplied && showAfterView && Boolean(afterReport);
@@ -571,11 +580,15 @@ export function GeoDiagnosticTab({
 				</AnimatePresence>
 
 				<div className="flex flex-col gap-3 rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-white/[0.03] p-3 sm:px-4 sm:py-3">
-					<div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+					<div
+						className={`flex flex-col gap-3 sm:flex-row sm:justify-between ${
+							isLoading ? 'sm:items-start' : 'sm:items-center'
+						}`}
+					>
 						<div
 							role="radiogroup"
 							aria-label={t('filterAria')}
-							className="flex flex-wrap gap-1.5"
+							className="flex shrink-0 flex-nowrap items-center gap-1.5 overflow-x-auto"
 						>
 							{FILTERS.map((id) => {
 								const active = filter === id;
@@ -586,7 +599,7 @@ export function GeoDiagnosticTab({
 										role="radio"
 										aria-checked={active}
 										onClick={() => setFilter(id)}
-										className={`rounded-full px-3 py-1.5 text-[11px] font-extrabold transition ${
+										className={`shrink-0 whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-extrabold transition ${
 											active
 												? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white shadow-sm shadow-indigo-500/30'
 												: 'bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-white/[0.14]'
@@ -601,12 +614,24 @@ export function GeoDiagnosticTab({
 							})}
 						</div>
 
-						<div id="geo-apply-prescription" className="scroll-mt-24">
+						<div
+							id="geo-apply-prescription"
+							className={`scroll-mt-24 flex min-w-0 flex-col ${
+								isLoading ? 'w-full sm:w-[min(100%,36rem)]' : 'w-full sm:w-auto'
+							}`}
+						>
 							<ApplyPrescriptionButton
 								isApplied={isApplied}
 								isLoading={isLoading}
 								onApply={handleApplyClick}
 								onReapply={handleReapplyClick}
+							/>
+							<ApplyPrescriptionProgress
+								visible={isLoading}
+								progress={progress}
+								currentStep={currentStep}
+								targetUrl={report.targetUrl}
+								brandName={report.brandName}
 							/>
 						</div>
 					</div>
@@ -618,71 +643,6 @@ export function GeoDiagnosticTab({
 
 				<CompetitorLeakageRoiBanner model={conversionModel} applied={isApplied && showAfterView} />
 			</div>
-
-			<AnimatePresence initial={false}>
-				{isLoading ? (
-					<motion.div
-						key="prescription-steps"
-						initial={reduceMotion ? false : { opacity: 0, height: 0 }}
-						animate={{ opacity: 1, height: 'auto' }}
-						exit={reduceMotion ? undefined : { opacity: 0, height: 0 }}
-						transition={{ duration: reduceMotion ? 0 : 0.22 }}
-						className="print:hidden overflow-hidden"
-						aria-live="polite"
-					>
-						<ol className="flex flex-col gap-1.5 rounded-xl border border-indigo-200/80 dark:border-indigo-400/20 bg-indigo-50/70 dark:bg-indigo-500/[0.08] px-3.5 py-3">
-							<li className="mb-1">
-								<div className="mb-1.5 flex items-center justify-between gap-2">
-									<p className="text-[11px] font-extrabold text-indigo-800 dark:text-indigo-200">
-										{t('progressLabel')}
-									</p>
-									<span className="tabular-nums text-[11px] font-bold text-indigo-700 dark:text-indigo-300">
-										{Math.round(progress)}%
-									</span>
-								</div>
-								<div
-									className="h-1.5 overflow-hidden rounded-full bg-indigo-100 dark:bg-white/10"
-									role="progressbar"
-									aria-valuemin={0}
-									aria-valuemax={100}
-									aria-valuenow={Math.round(progress)}
-								>
-									<div
-										className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-indigo-500 transition-[width] duration-150"
-										style={{ width: `${Math.max(8, Math.min(100, progress))}%` }}
-									/>
-								</div>
-							</li>
-							{LOADING_STEPS.map((step) => {
-								const done = currentStep > step;
-								const active = currentStep === step;
-								return (
-									<li key={step} className="flex items-center gap-2 text-[12px] font-semibold">
-										{done ? (
-											<CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
-										) : active ? (
-											<Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-indigo-600 dark:text-indigo-300" aria-hidden />
-										) : (
-											<span className="h-3.5 w-3.5 shrink-0 rounded-full border border-slate-300 dark:border-white/20" aria-hidden />
-										)}
-										<span
-											className={
-												active
-													? 'animate-pulse text-indigo-800 dark:text-indigo-200'
-													: done
-														? 'text-emerald-800 dark:text-emerald-300'
-														: 'text-slate-400'
-											}
-										>
-											{stepLabel(step)}
-										</span>
-									</li>
-								);
-							})}
-						</ol>
-					</motion.div>
-				) : null}
-			</AnimatePresence>
 
 			<div className={isLoading ? 'pointer-events-none opacity-60' : undefined}>
 				<AIEngineCardList

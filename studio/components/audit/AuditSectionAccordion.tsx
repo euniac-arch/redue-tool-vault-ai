@@ -72,7 +72,7 @@ export function AuditSectionAccordion({
 				className={`pdf-expand-in-print grid transition-[grid-template-rows] duration-300 ease-out print:grid-rows-[1fr] ${
 					isOpen ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
 				}`}
-				inert={!isOpen ? true : undefined}
+				inert={(!isOpen ? '' : undefined) as unknown as boolean | undefined}
 			>
 				<div className="pdf-expand-in-print min-h-0 overflow-hidden">
 					<div className="pt-4">{showChildren ? children : null}</div>

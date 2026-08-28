@@ -5,18 +5,45 @@ import { useLocale, useTranslations } from 'next-intl';
 import { AUDIT_PARSER_STEPS } from '@/lib/audit/parser-steps';
 
 const TOTAL_STEPS = AUDIT_PARSER_STEPS.length;
-/** Pace while waiting on the network / parser. */
-const SLOW_INTERVAL_MS = 450;
-/** Pace once backend payload is ready — fast-forward remaining checks. */
-const FAST_INTERVAL_MS = 180;
-/** Hold 6/6 + full bar so the user can see completion before reveal. */
-const COMPLETE_HOLD_MS = 300;
+/** Steps 1–5 (DOM/온페이지/GEO/SoV) animate through instantly — no real gate. */
+const FAST_STEPS_COUNT = TOTAL_STEPS - 1;
+/** Gauge % for 0..5 fast steps completed — index 0 is the starting 0%. */
+const FAST_STEP_TARGET_PCT = [0, 12, 24, 36, 48, 60];
+/** Pace for the fast steps while nothing is gating them. */
+const FAST_STEP_INTERVAL_MS = 260;
+/** Pace for the fast steps if the real API already resolved before we got here. */
+const CATCHUP_STEP_INTERVAL_MS = 90;
+/**
+ * Single settle point for the final row — the gauge eases here once (one-directional,
+ * never oscillates) and then holds perfectly still for the (usually brief) moment Track
+ * 1/2's own HTML crawl is still finishing. A shimmer sweep across the filled bar (see
+ * `.audit-loading-shimmer` in globals.css) communicates "still computing" instead of
+ * moving the number.
+ */
+const WAIT_SETTLE_PCT = 90;
+/** Hard ceiling — the gauge may NEVER cross this until `isDataReady` is true. */
+const WAIT_PCT_CAP = 95;
+/**
+ * Brief beat before flipping the final row → 100% once real data lands (feels
+ * intentional, not instant-cut) + a short hold at 100% so the checkmark is visible
+ * before the reveal. Kept to a 150–300ms *total* transition budget — this is purely
+ * a perceptual polish delay now that `isDataReady` itself resolves promptly (the
+ * `/api/audit/scan` response no longer waits on background history/DB writes), so
+ * it must never grow into a multi-second "Dashboard Ready" stall again.
+ */
+const DATA_READY_SETTLE_MS = 100;
+/** Hold 100% so the user can see completion before reveal. */
+const COMPLETE_HOLD_MS = 150;
 
 interface AuditLoadingProps {
 	url: string;
-	/** True when the audit API / cache payload is already available. */
+	/**
+	 * True once the real `/api/audit/scan` response (Track 1 + 2 only — Track 3
+	 * PageSpeed is fired in the background and never gates this modal) has actually
+	 * resolved. The gauge is NEVER allowed to reach 100% before this flips true.
+	 */
 	isDataReady?: boolean;
-	/** Fires after 6/6 UI completion (+ short hold). */
+	/** Fires after the final row completes (+ short hold). */
 	onComplete?: () => void;
 	/** Force-refresh re-audit copy ("🔄 실시간 재진단 중..."). */
 	forceRefresh?: boolean;
@@ -24,8 +51,14 @@ interface AuditLoadingProps {
 
 /**
  * Step runner for the precision-scan terminal.
- * Backend readiness and UI step progress are independent — the UI always
- * walks 1/6 → 6/6 before calling onComplete (fast-forward if data is ready).
+ *
+ * Covers only Track 1/2 (DOM/온페이지/GEO/SoV), which resolve from a single HTML crawl in
+ * a couple of seconds — so this modal typically completes in ~2-3s. Track 3
+ * (PageSpeed/Lighthouse) is deliberately absent here; it renders progressively on the
+ * result dashboard instead (see `Tab3CoreWebVitalsSection`). All steps are cosmetic and
+ * fast-forward on their own timer; the only real gate is `isDataReady`, which the gauge
+ * waits on (holding at a fixed point, never oscillating) if the actual crawl happens to
+ * outlast the animation.
  */
 export function AuditLoading({
 	url,
@@ -36,45 +69,88 @@ export function AuditLoading({
 	const t = useTranslations('audit');
 	const locale = useLocale();
 	const steps = AUDIT_PARSER_STEPS;
-	/** Number of checks fully activated (0–6). */
-	const [completedSteps, setCompletedSteps] = useState(0);
+
+	/** How many of the fast steps have fully completed. */
+	const [fastStepsDone, setFastStepsDone] = useState(0);
+	/** True once real data landed AND the settle beat has passed — triggers 100%. */
+	const [finished, setFinished] = useState(false);
+	/** Elapsed time (ms) since this scan session started — drives the header timer badge. */
+	const [elapsedMs, setElapsedMs] = useState(0);
+
 	const completedRef = useRef(false);
 	const onCompleteRef = useRef(onComplete);
 	onCompleteRef.current = onComplete;
+	const startTimeRef = useRef(Date.now());
 
 	// Reset runner when URL changes (new scan session).
 	useEffect(() => {
-		setCompletedSteps(0);
+		setFastStepsDone(0);
+		setFinished(false);
 		completedRef.current = false;
+		startTimeRef.current = Date.now();
+		setElapsedMs(0);
 	}, [url]);
 
-	// Sequential step timer — slow until data ready, then fast-forward.
+	// Elapsed timer: ticks every 100ms so the seconds counter reads smoothly,
+	// stops the instant the scan finishes (or this component unmounts) so it
+	// never keeps a stray interval alive.
 	useEffect(() => {
-		if (completedSteps >= TOTAL_STEPS) return;
+		if (finished) return;
+		const interval = window.setInterval(() => {
+			setElapsedMs(Date.now() - startTimeRef.current);
+		}, 100);
+		return () => window.clearInterval(interval);
+	}, [finished, url]);
 
-		const interval = isDataReady ? FAST_INTERVAL_MS : SLOW_INTERVAL_MS;
+	// Fast steps: always advance to completion regardless of API state. If the
+	// real response already landed early, catch up faster instead of jumping —
+	// the terminal-typing feel is intentional, it just never blocks on it.
+	useEffect(() => {
+		if (fastStepsDone >= FAST_STEPS_COUNT) return;
+		const interval = isDataReady ? CATCHUP_STEP_INTERVAL_MS : FAST_STEP_INTERVAL_MS;
 		const timer = window.setTimeout(() => {
-			setCompletedSteps((prev) => Math.min(prev + 1, TOTAL_STEPS));
+			setFastStepsDone((prev) => Math.min(prev + 1, FAST_STEPS_COUNT));
 		}, interval);
-
 		return () => window.clearTimeout(timer);
-	}, [completedSteps, isDataReady]);
+	}, [fastStepsDone, isDataReady]);
 
-	// Reveal only after 6/6 + data ready + short hold.
+	// The only path to 100%: real data must have landed AND the fast steps must
+	// have finished animating. This can never fire from the timer alone.
 	useEffect(() => {
-		if (completedSteps < TOTAL_STEPS || !isDataReady || completedRef.current) return;
+		if (fastStepsDone < FAST_STEPS_COUNT || !isDataReady || finished) return;
+		const timer = window.setTimeout(() => setFinished(true), DATA_READY_SETTLE_MS);
+		return () => window.clearTimeout(timer);
+	}, [fastStepsDone, isDataReady, finished]);
 
+	// Reveal only after the final row completes (`finished`) + short hold.
+	useEffect(() => {
+		if (!finished || completedRef.current) return;
 		const timer = window.setTimeout(() => {
 			if (completedRef.current) return;
 			completedRef.current = true;
 			onCompleteRef.current?.();
 		}, COMPLETE_HOLD_MS);
-
 		return () => window.clearTimeout(timer);
-	}, [completedSteps, isDataReady]);
+	}, [finished]);
 
-	const progressPct = (completedSteps / TOTAL_STEPS) * 100;
-	const activeIndex = completedSteps >= TOTAL_STEPS ? TOTAL_STEPS - 1 : completedSteps;
+	/** True the instant fast steps are done but Track 1/2's real crawl hasn't landed yet. */
+	const isWaitingOnData = !finished && fastStepsDone >= FAST_STEPS_COUNT;
+
+	/** Rows counted as fully done (checkmarked). */
+	const completedRowCount = finished ? TOTAL_STEPS : fastStepsDone;
+	/** Row currently pulsing — null once fully finished. */
+	const activeIndex = finished ? null : isWaitingOnData ? FAST_STEPS_COUNT : fastStepsDone;
+
+	// Gauge width: 0–60% while the fast steps animate, eases once to a fixed 90%
+	// while genuinely waiting on the real Track 1/2 response (no oscillation), 100% only
+	// once `finished`. The `Math.min(..., WAIT_PCT_CAP)` is a hard safety net — even if a
+	// future edit changes the branches above, the gauge still cannot cross 95% before
+	// `finished` is true.
+	const progressPct = finished
+		? 100
+		: fastStepsDone < FAST_STEPS_COUNT
+			? FAST_STEP_TARGET_PCT[fastStepsDone] ?? 0
+			: Math.min(WAIT_SETTLE_PCT, WAIT_PCT_CAP);
 
 	return (
 		<div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#07090d] shadow-2xl shadow-slate-200/60 dark:shadow-black/40">
@@ -87,18 +163,27 @@ export function AuditLoading({
 
 			<div className="px-5 py-6 sm:px-7">
 				<div className="mb-5 flex flex-col gap-1">
-					<p className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">
-						{forceRefresh ? t('loadingRescanTitle') : t('loadingTitle')}
-					</p>
+					<div className="flex items-center justify-between gap-3">
+						<p className="text-base font-bold text-slate-900 dark:text-white sm:text-lg">
+							{forceRefresh ? t('loadingRescanTitle') : t('loadingTitle')}
+						</p>
+						<span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-mono text-slate-500 dark:border-slate-700/50 dark:bg-slate-800/60 dark:text-slate-400">
+							<span aria-hidden>⏱️</span>
+							<span className="tabular-nums">
+								{(elapsedMs / 1000).toFixed(1)}
+								{locale === 'en' ? 's' : '초'}
+							</span>
+						</span>
+					</div>
 					<p className="truncate font-mono text-xs text-cyan-400/90">{url || '—'}</p>
 				</div>
 
 				<div className="space-y-2 font-mono text-[12px] leading-relaxed sm:text-[13px]">
 					{steps.map((step, index) => {
-						const done = index < completedSteps;
-						const active = index === activeIndex && completedSteps < TOTAL_STEPS;
-						const allDone = completedSteps >= TOTAL_STEPS && index < TOTAL_STEPS;
-						const isCompleteRow = done || (allDone && index === TOTAL_STEPS - 1);
+						const done = index < completedRowCount;
+						const active = index === activeIndex;
+						const isCompleteRow = done;
+						const descText = locale === 'en' ? step.descEn : step.desc;
 						return (
 							<div
 								key={step.tag}
@@ -133,7 +218,7 @@ export function AuditLoading({
 										active ? 'text-slate-900 dark:text-slate-100' : isCompleteRow ? 'text-slate-600 dark:text-slate-400' : 'text-slate-600'
 									}`}
 								>
-									{locale === 'en' ? step.descEn : step.desc}
+									{descText}
 								</span>
 								{active && <span className="ml-1 inline-block h-3.5 w-1.5 animate-pulse bg-accent-light" />}
 							</div>
@@ -145,14 +230,25 @@ export function AuditLoading({
 					<div className="mb-1.5 flex justify-between text-[10px] uppercase tracking-wider text-slate-500">
 						<span>{t('loadingProgress')}</span>
 						<span className="tabular-nums">
-							{completedSteps}/{TOTAL_STEPS}
+							{completedRowCount}/{TOTAL_STEPS} · {Math.round(progressPct)}%
 						</span>
 					</div>
 					<div className="h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-white/[0.06]">
 						<div
-							className="h-full rounded-full bg-gradient-to-r from-accent to-cyan-400 transition-all duration-300 ease-out"
+							className={`relative h-full overflow-hidden rounded-full ease-out ${
+								isWaitingOnData
+									? 'bg-gradient-to-r from-emerald-500/80 via-teal-300 to-emerald-500/80 transition-[width] duration-700'
+									: 'bg-gradient-to-r from-accent to-cyan-400 transition-[width] duration-300'
+							}`}
 							style={{ width: `${progressPct}%` }}
-						/>
+						>
+							{isWaitingOnData ? (
+								<span
+									aria-hidden
+									className="audit-loading-shimmer absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/80 to-transparent dark:via-white/50"
+								/>
+							) : null}
+						</div>
 					</div>
 				</div>
 			</div>

@@ -48,7 +48,7 @@ const report = {
 			check('render-blocking', 'warning', 3),
 			check('image-alt', 'pass', 4),
 		]),
-		category('seo', 20, 29, [
+		category('seo', 20, 32, [
 			check('title', 'pass', 5),
 			check('meta-description', 'pass', 5),
 			check('og-tags', 'fail', 5),
@@ -56,6 +56,7 @@ const report = {
 			check('single-h1', 'pass', 4),
 			check('heading-skip', 'warning', 3),
 			check('html-lang', 'pass', 2),
+			check('rss-feed', 'pass', 3),
 		]),
 		category('schema', 18, 36, [
 			check('jsonld-present', 'pass', 8),
@@ -100,12 +101,12 @@ const fromReport = resolveAuditScoreFromReport(report);
 const fromHistory = resolveAuditScoreFromHistory({ score: report.score, maxScore: report.maxScore, report });
 const fromOnpage = calculateComprehensiveAuditScoreFromOnpage(onpage, { isHttps: true, lang: 'ko' });
 
-assert('category maxes are 15+12+29+36+30', onpage.categories.map((c) => c.maxScore).join('+') === '15+12+29+36+30');
-assert('category max sum is 122', onpage.categories.reduce((sum, cat) => sum + cat.maxScore, 0) === 122);
+assert('category maxes are 15+12+32+36+30', onpage.categories.map((c) => c.maxScore).join('+') === '15+12+32+36+30');
+assert('category max sum is 125', onpage.categories.reduce((sum, cat) => sum + cat.maxScore, 0) === 125);
 assert('category raw sum === onpage total', categorySum === onpage.totalRawScore, `${categorySum} vs ${onpage.totalRawScore}`);
 assert('headline raw === category sum', snapshot.rawTechnicalScore === categorySum);
-assert('122→100 is Math.round(raw/122*100)', snapshot.technicalScore === Math.round((categorySum / 122) * 100));
-assert('normalizeTo100 matches', snapshot.technicalScore === normalizeTo100(categorySum, 122));
+assert('125→100 is Math.round(raw/max*100)', snapshot.technicalScore === Math.round((categorySum / 125) * 100));
+assert('normalizeTo100 matches', snapshot.technicalScore === normalizeTo100(categorySum, 125));
 
 const geoCat = onpage.categories.find((c) => c.id === 'geo')!;
 assert('GEO category max is 30', geoCat.maxScore === 30);

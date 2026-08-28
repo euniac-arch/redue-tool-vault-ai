@@ -85,7 +85,7 @@ export function classifySovQueryIntent(keyword: string | null | undefined): SovQ
 	if (!query) return 'recommend';
 	if (/추천$/.test(query) || /recommended$/i.test(query)) return 'recommend';
 	if (/잘하는곳$/.test(query) || /진료 시스템 및 위치 안내$/.test(query) || /^best\b/i.test(query)) return 'best';
-	if (/추천|잘하는|recommended|best\b|진료 시스템|위치 안내/i.test(query)) return 'custom';
+	if (/추천|잘하는|recommended|best\b|진료 시스템|위치 안내|운영 시스템 안내/i.test(query)) return 'custom';
 	return 'base';
 }
 

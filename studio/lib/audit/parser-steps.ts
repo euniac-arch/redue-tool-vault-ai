@@ -5,7 +5,15 @@ export type AuditParserStep = {
 	descEn: string;
 };
 
-/** Precision-parser terminal sequence — industry-neutral, no vertical schema names. */
+/**
+ * Precision-parser terminal sequence — industry-neutral, no vertical schema names.
+ *
+ * Only covers Track 1 (technical/schema) and Track 2 (GEO/AI citation signal) — both
+ * resolve from a single HTML crawl in a couple of seconds. Track 3 (PageSpeed/Lighthouse)
+ * intentionally has no step here: it's fired in the background by `/api/audit/scan` and
+ * renders progressively on the result dashboard instead of holding this modal open for the
+ * 10-40s a real Lighthouse read can take — see `AuditLoading` and `Tab3CoreWebVitalsSection`.
+ */
 export const AUDIT_PARSER_STEPS: readonly AuditParserStep[] = [
 	{
 		step: 1,
@@ -39,8 +47,8 @@ export const AUDIT_PARSER_STEPS: readonly AuditParserStep[] = [
 	},
 	{
 		step: 6,
-		tag: 'GEO Report Engine',
-		desc: 'Perplexity / ChatGPT 인용 지수 종합 평가 및 처방전 빌드 완료',
-		descEn: 'Scoring Perplexity / ChatGPT citation index and building the report',
+		tag: 'Dashboard Ready',
+		desc: '기술/GEO 분석 완료 — 대시보드 진입, 성능(Track 3) 실측은 화면에서 실시간 진행됩니다.',
+		descEn: 'Technical/GEO analysis complete — entering the dashboard; performance (Track 3) keeps measuring live on-screen.',
 	},
 ];

@@ -2,6 +2,9 @@ import {
 	parsePageSpeedPayload,
 	formatImageInsight,
 	formatKiB,
+	formatKiBDistinct,
+	readCacheLifetimeMs,
+	estimateCacheWastedBytes,
 	estimateFontCdnSavingsBytes,
 } from '../lib/audit/pagespeed.ts';
 import { buildPageSpeedPrescription } from '../lib/audit/pagespeed-prescription.ts';
@@ -241,6 +244,10 @@ const checks = [
 	),
 	(snap.cacheResources?.length ?? 0) === 3,
 	snap.cacheResources?.[0]?.ttlLabel === 'None',
+	snap.cacheResources?.[0]?.totalBytes === 120_000,
+	snap.cacheResources?.[0]?.wastedBytes !== 120_000,
+	formatKiBDistinct(snap.cacheResources?.[0]?.totalBytes, snap.cacheResources?.[0]?.wastedBytes) !==
+		formatKiBDistinct(snap.cacheResources?.[0]?.wastedBytes, snap.cacheResources?.[0]?.totalBytes),
 	formatKiB(snap.cacheTotalWastedBytes) === '9,768 KiB',
 	snap.lcpElement?.hasLazyLoading === true,
 	snap.lcpElement?.missingFetchPriority === true,
@@ -297,4 +304,70 @@ console.log(
 	),
 );
 
-if (!checks.every(Boolean)) process.exit(1);
+const insightOnly = parsePageSpeedPayload(
+	{
+		lighthouseResult: {
+			lighthouseVersion: '13.0.0',
+			categories: { performance: { score: 0.5 } },
+			audits: {
+				'use-cache-insight': {
+					details: {
+						type: 'list',
+						items: [
+							{
+								type: 'table',
+								items: [
+									{
+										url: 'https://ex.com/css/theme.css',
+										ttl: 14_400,
+										totalBytes: 80_000,
+										wastedBytes: 80_000,
+									},
+									{
+										url: 'https://ex.com/js/vendor.js',
+										cacheLifetimeMs: 0,
+										cacheControl: { 'max-age': 3600 },
+										totalBytes: 200_000,
+										wastedBytes: 200_000,
+									},
+									{
+										url: 'https://ex.com/img/hero.jpg',
+										debugData: { maxAge: 86_400 },
+										encodedDataLength: 64_000,
+									},
+								],
+							},
+						],
+					},
+				},
+			},
+		},
+	},
+	{ url: 'https://ex.com/', strategy: 'desktop' },
+);
+
+const extra = [
+	readCacheLifetimeMs({ ttl: 14_400 }) === 14_400_000,
+	readCacheLifetimeMs({ cacheLifetimeMs: 0, cacheControl: { 'max-age': 3600 } }) === 3_600_000,
+	readCacheLifetimeMs({ debugData: { maxAge: 86_400 } }) === 86_400_000,
+	insightOnly.cacheResources.some((r) => r.fileName === 'theme.css' && r.ttlLabel === '4h'),
+	insightOnly.cacheResources.some((r) => r.fileName === 'vendor.js' && r.ttlLabel === '1h'),
+	insightOnly.cacheResources.some((r) => r.fileName === 'hero.jpg' && r.ttlLabel === '1d'),
+	insightOnly.cacheResources.every((r) => r.totalBytes !== r.wastedBytes),
+	(estimateCacheWastedBytes(120_000, 0) ?? 0) < 120_000,
+	(estimateCacheWastedBytes(120_000, 0) ?? 0) > 119_000,
+];
+
+console.log(
+	JSON.stringify(
+		{
+			extraOk: extra.every(Boolean),
+			extra,
+			insightCache: insightOnly.cacheResources,
+		},
+		null,
+		2,
+	),
+);
+
+if (!checks.every(Boolean) || !extra.every(Boolean)) process.exit(1);

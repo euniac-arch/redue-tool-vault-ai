@@ -14,6 +14,11 @@
  *  - Clova      Naver Place sameAs · Naver blog/content · entity keywords
  */
 
+import {
+	extractUniversalSameAs,
+	harvestHttpUrls,
+	validateChannelSignals,
+} from '@/lib/audit/extractors/universal-same-as';
 import { applyHttpsEngineScoreCap } from '@/lib/audit/scoreCalculator';
 import {
 	buildEngineCauseAnalysis,
@@ -154,30 +159,18 @@ function hasType(types: readonly string[], ...needles: string[]): boolean {
 	return needles.some((needle) => types.includes(needle.toLowerCase()));
 }
 
-function countSameAsLinks(corpus: string): number {
-	const lower = corpus.toLowerCase();
-	const urls = new Set<string>();
-	let from = 0;
-	while (from < lower.length) {
-		const idx = lower.indexOf('sameas', from);
-		if (idx < 0) break;
-		const window = corpus.slice(idx, idx + 1400);
-		for (const match of window.match(/https?:\/\/[^\s"'\\<>]+/gi) ?? []) {
-			urls.add(match.replace(/[.,);]+$/g, '').toLowerCase());
-		}
-		from = idx + 6;
-	}
-	return urls.size;
-}
-
 export function detectEnginePlatformSignals(input: {
 	schemaTypes?: readonly string[];
 	jsonLdCorpus?: string;
 	extraCorpus?: string;
+	sameAs?: readonly string[];
 }): EnginePlatformSignals {
 	const types = normalizeTypes(input.schemaTypes);
 	const corpus = `${input.jsonLdCorpus ?? ''}\n${input.extraCorpus ?? ''}`;
 	const hay = corpus.toLowerCase();
+	const sameAsUrls = extractUniversalSameAs(corpus, input.sameAs);
+	const harvested = harvestHttpUrls(corpus);
+	const channels = validateChannelSignals([...sameAsUrls, ...harvested, ...(input.sameAs ?? [])]);
 
 	const hasFaq = hasType(types, 'faqpage') || /"@type"\s*:\s*"faqpage"|faqpage/.test(hay);
 	const hasHowTo = hasType(types, 'howto') || /"@type"\s*:\s*"howto"/.test(hay);
@@ -195,10 +188,11 @@ export function detectEnginePlatformSignals(input: {
 	const hasTelephone = /"telephone"\s*:/.test(hay);
 	const hasAddress = /"address"\s*:|postaladdress|streetaddress/.test(hay);
 
-	const googleMapsLinked = /maps\.google|google\.com\/maps|goo\.gl\/maps|g\.page\/|plus\.codes/.test(hay);
+	const googleMapsLinked =
+		channels.isGoogleMapsLinked || /maps\.google|google\.com\/maps|goo\.gl\/maps|g\.page\/|plus\.codes/.test(hay);
 	const bingPlacesLinked = /bing\.com\/maps|bingplaces|bing\.com\/local|www\.bing\.com\/maps/.test(hay);
-	const naverPlaceLinked = /place\.naver\.com|map\.naver\.com|m\.place\.naver|naver\.me\//.test(hay);
-	const naverBlogLinked = /blog\.naver\.com|cafe\.naver\.com|post\.naver\.com|in\.naver\.com/.test(hay);
+	const naverPlaceLinked = channels.isNaverPlaceLinked;
+	const naverBlogLinked = channels.isNaverBlogLinked || /in\.naver\.com/.test(hay);
 
 	const officialDocCount = [hasFaq, hasHowTo, hasArticle, hasNewsArticle, hasPerson].filter(Boolean).length;
 
@@ -218,7 +212,7 @@ export function detectEnginePlatformSignals(input: {
 		bingPlacesLinked,
 		naverPlaceLinked,
 		naverBlogLinked,
-		sameAsCount: countSameAsLinks(corpus),
+		sameAsCount: sameAsUrls.length,
 		officialDocCount,
 	};
 }

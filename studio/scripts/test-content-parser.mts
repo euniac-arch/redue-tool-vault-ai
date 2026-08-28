@@ -145,8 +145,10 @@ const therapy = pages.find((p) => sanitizePageFileKey(p.urlPath) === '301.php');
 assert(intro?.title === '연구소 소개' && intro?.h1 === '연구소 소개', '101 mapped');
 assert(notice?.title === '공지사항' && notice?.h1 === '공지사항', 'notice mapped');
 assert(therapy?.title === '중입자치료' && therapy?.h1 === '중입자치료', '301 h1 mapped over shared title');
-assert(therapy?.description === '중입자치료 상세 안내', '301 keeps own description');
+assert(therapy?.description?.includes('중입자치료'), '301 keeps unique 중입자치료 description');
 assert(intro?.description !== sharedMainDesc, '101 does not copy main description verbatim');
+assert(intro?.description !== therapy?.description, 'intro and therapy descriptions stay unique');
+assert(notice?.description && notice.description.includes('공지'), 'notice gets unique category description');
 
 // JSON-LD collection: charset suffix, @graph types, comment/CDATA wrappers
 const ldHtml = `<!DOCTYPE html><html><head>

@@ -1,0 +1,85 @@
+# ==========================================================================
+# REDUE Performance — browser cache (TTL) + Gzip
+# Keep this block OUTSIDE `# BEGIN WordPress` so permalink flushes
+# do not overwrite cache / compression rules.
+# ==========================================================================
+
+# BEGIN REDUE Performance
+
+<IfModule mod_expires.c>
+	ExpiresActive On
+	ExpiresDefault "access plus 0 seconds"
+
+	# Images — 1 year
+	ExpiresByType image/jpeg "access plus 1 year"
+	ExpiresByType image/jpg "access plus 1 year"
+	ExpiresByType image/png "access plus 1 year"
+	ExpiresByType image/webp "access plus 1 year"
+	ExpiresByType image/svg+xml "access plus 1 year"
+	ExpiresByType image/gif "access plus 1 year"
+	ExpiresByType image/x-icon "access plus 1 year"
+	ExpiresByType image/vnd.microsoft.icon "access plus 1 year"
+
+	# Fonts — 1 year
+	ExpiresByType font/woff2 "access plus 1 year"
+	ExpiresByType font/ttf "access plus 1 year"
+	ExpiresByType font/woff "access plus 1 year"
+	ExpiresByType font/otf "access plus 1 year"
+	ExpiresByType application/font-woff2 "access plus 1 year"
+	ExpiresByType application/font-woff "access plus 1 year"
+	ExpiresByType application/x-font-ttf "access plus 1 year"
+	ExpiresByType application/x-font-truetype "access plus 1 year"
+
+	# CSS / JS — 1 month (cache-busted via ?v=filemtime)
+	ExpiresByType text/css "access plus 1 month"
+	ExpiresByType text/javascript "access plus 1 month"
+	ExpiresByType application/javascript "access plus 1 month"
+	ExpiresByType application/x-javascript "access plus 1 month"
+</IfModule>
+
+<IfModule mod_headers.c>
+	# Images + fonts: long-lived, immutable (URL changes when the file changes)
+	<FilesMatch "\.(?i:jpe?g|png|webp|svg|gif|ico|woff2|woff|ttf|otf)$">
+		Header set Cache-Control "public, max-age=31536000, immutable"
+	</FilesMatch>
+
+	# CSS / JS: 1 month — paired with filemtime query-string busting
+	<FilesMatch "\.(?i:css|js)$">
+		Header set Cache-Control "public, max-age=2592000"
+	</FilesMatch>
+</IfModule>
+
+<IfModule mod_deflate.c>
+	AddOutputFilterByType DEFLATE text/html
+	AddOutputFilterByType DEFLATE text/plain
+	AddOutputFilterByType DEFLATE text/css
+	AddOutputFilterByType DEFLATE text/javascript
+	AddOutputFilterByType DEFLATE text/xml
+	AddOutputFilterByType DEFLATE application/javascript
+	AddOutputFilterByType DEFLATE application/x-javascript
+	AddOutputFilterByType DEFLATE application/json
+	AddOutputFilterByType DEFLATE application/ld+json
+	AddOutputFilterByType DEFLATE application/xml
+	AddOutputFilterByType DEFLATE application/xhtml+xml
+	AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# END REDUE Performance
+
+# ==========================================================================
+# WordPress permalinks — do not edit between these markers.
+# Static files still hit the filesystem first (RewriteCond !-f),
+# so cache / Gzip above apply to real assets and never break routing.
+# ==========================================================================
+
+# BEGIN WordPress
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
+</IfModule>
+# END WordPress

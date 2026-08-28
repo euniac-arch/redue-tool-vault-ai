@@ -19,7 +19,8 @@ export const THIRD_PARTY_SHARE = 52;
 export const SOV_LEADER_RESIDUAL_RATIO = 0.62;
 /** #2 takes the remainder (~38%) so integer percents always sum with brand + 3rd-party to 100. */
 export const SOV_RUNNER_RESIDUAL_RATIO = 0.38;
-export const REAL_COMPETITOR_FETCH_TIMEOUT_MS = 7_000;
+/** [Real-Time SoV] external search API budget — bounded per requirement (#4). */
+export const REAL_COMPETITOR_FETCH_TIMEOUT_MS = 4_000;
 
 const NAVER_LOCAL_ENDPOINT = 'https://openapi.naver.com/v1/search/local.json';
 const GOOGLE_TEXT_SEARCH_ENDPOINT = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
@@ -335,15 +336,34 @@ export async function fetchGoogleCompetitors(query: string): Promise<string[]> {
 	return fetchGoogleSearchRankings(query);
 }
 
+/**
+ * Naver and Google are fetched concurrently (`Promise.allSettled`) rather than
+ * sequentially — previously Google was only called *after* Naver resolved,
+ * so a slow/failing Naver call added its full timeout on top of Google's.
+ * Firing both together bounds the combined wall time to
+ * `REAL_COMPETITOR_FETCH_TIMEOUT_MS` instead of up to 2x that. Naver is still
+ * preferred when it alone has enough listings (>=3); Google's result is
+ * always awaited so it's available as a fallback/merge without a second hop.
+ */
 export async function resolveLiveSearchRankings(
 	query: string,
 ): Promise<{ names: string[]; source: Exclude<RealCompetitorSource, 'fallback'> | 'fallback' }> {
-	const naverNames = await fetchNaverSearchRankings(query);
+	const [naverSettled, googleSettled] = await Promise.allSettled([
+		fetchNaverSearchRankings(query),
+		fetchGoogleSearchRankings(query),
+	]);
+	const naverNames = naverSettled.status === 'fulfilled' ? naverSettled.value : [];
+	if (naverSettled.status === 'rejected') {
+		console.error('[realCompetitors] Naver search rejected:', naverSettled.reason);
+	}
 	if (naverNames.length >= 3) {
 		return { names: naverNames.slice(0, 5), source: 'naver' };
 	}
 
-	const googleNames = await fetchGoogleSearchRankings(query);
+	const googleNames = googleSettled.status === 'fulfilled' ? googleSettled.value : [];
+	if (googleSettled.status === 'rejected') {
+		console.error('[realCompetitors] Google search rejected:', googleSettled.reason);
+	}
 	const merged = uniqueCompetitorNames([...naverNames, ...googleNames]).slice(0, 5);
 	if (merged.length === 0) return { names: [], source: 'fallback' };
 	if (naverNames.length > 0 && googleNames.length > 0) {

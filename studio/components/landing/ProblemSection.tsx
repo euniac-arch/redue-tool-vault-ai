@@ -13,7 +13,7 @@ export function ProblemSection() {
 
 	return (
 		<section className="mt-20 sm:mt-24">
-			<div className="mx-auto w-full max-w-[960px]">
+			<div className="mx-auto w-full max-w-5xl">
 				<div className="text-center">
 					<p className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-bold tracking-[0.16em] text-cyan-700 dark:border-cyan-400/25 dark:bg-cyan-400/10 dark:text-cyan-300">
 						{t('badge')}

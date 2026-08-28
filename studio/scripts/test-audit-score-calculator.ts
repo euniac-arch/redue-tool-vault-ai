@@ -47,10 +47,10 @@ function category(
 
 assert('config maxes match checklist definitions', AUDIT_CATEGORY_CONFIG.security.maxScore === CHECKLIST_CATEGORY_MAX.security_infra);
 assert('performance max is 12', AUDIT_CATEGORY_CONFIG.performance.maxScore === 12);
-assert('seoBasic max is 29', AUDIT_CATEGORY_CONFIG.seoBasic.maxScore === 29);
+assert('seoBasic max is 32', AUDIT_CATEGORY_CONFIG.seoBasic.maxScore === 32);
 assert('schema max is 36', AUDIT_CATEGORY_CONFIG.schema.maxScore === 36);
 assert('geoAi max is 30', AUDIT_CATEGORY_CONFIG.geoAi.maxScore === 30);
-assert('total max is 122', AUDIT_TOTAL_MAX_SCORE === 122 && AUDIT_TOTAL_MAX_SCORE === CHECKLIST_TOTAL_MAX);
+assert('total max is 125', AUDIT_TOTAL_MAX_SCORE === 125 && AUDIT_TOTAL_MAX_SCORE === CHECKLIST_TOTAL_MAX);
 assert('five category keys', CATEGORY_KEYS.length === 5);
 
 assert('69.5 / 122 → 57', normalizeTo100(69.5, 122) === 57, String(normalizeTo100(69.5, 122)));
@@ -114,11 +114,11 @@ const userExample = evaluateAuditData({
 	schema: { score: 7.5, defectCount: 2 },
 	geoAi: { score: 18, defectCount: 1 },
 });
-assert('user example raw is 65.5 / 122', userExample.totalEarnedScore === 65.5 && userExample.totalMaxScore === 122);
-assert('user example headline is 54', userExample.normalizedTotalScore === 54, String(userExample.normalizedTotalScore));
+assert('user example raw is 65.5 / 125', userExample.totalEarnedScore === 65.5 && userExample.totalMaxScore === 125);
+assert('user example headline is 52', userExample.normalizedTotalScore === 52, String(userExample.normalizedTotalScore));
 assert(
-	'user example percents are 100/54/64/21/60',
-	userExample.categories.map((c) => c.percentage).join(',') === '100,54,64,21,60',
+	'user example percents are 100/54/58/21/60',
+	userExample.categories.map((c) => c.percentage).join(',') === '100,54,58,21,60',
 	userExample.categories.map((c) => `${c.id}:${c.percentage}`).join(','),
 );
 assert(
@@ -126,7 +126,7 @@ assert(
 	userExample.categories.map((c) => c.statusLabel).join(',') === '양호,주의,주의,미흡,주의',
 	userExample.categories.map((c) => `${c.id}:${c.statusLabel}`).join(','),
 );
-assert('CATEGORY_DEFINITIONS max sum is 122', Object.values(CATEGORY_DEFINITIONS).reduce((sum, def) => sum + def.maxScore, 0) === 122);
+assert('CATEGORY_DEFINITIONS max sum is 125', Object.values(CATEGORY_DEFINITIONS).reduce((sum, def) => sum + def.maxScore, 0) === 125);
 
 assert('alias seo → seoBasic', resolveCategoryKey('seo') === 'seoBasic');
 assert('alias geo_ai_signals → geoAi', resolveCategoryKey('geo_ai_signals') === 'geoAi');
@@ -145,7 +145,7 @@ const report = {
 			check('render-blocking', 'warning', 3),
 			check('image-alt', 'pass', 4),
 		]),
-		category('seo', 20, 29, [
+		category('seo', 20, 32, [
 			check('title', 'pass', 5),
 			check('meta-description', 'pass', 5),
 			check('og-tags', 'fail', 5),
@@ -153,6 +153,7 @@ const report = {
 			check('single-h1', 'pass', 4),
 			check('heading-skip', 'warning', 3),
 			check('html-lang', 'pass', 2),
+			check('rss-feed', 'pass', 3),
 		]),
 		category('schema', 18, 36, [
 			check('jsonld-present', 'pass', 8),

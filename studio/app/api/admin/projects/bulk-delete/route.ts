@@ -1,94 +1,8 @@
 import { revalidatePath } from 'next/cache';
 import { NextResponse } from 'next/server';
-import {
-	deleteAllAuditProjects,
-	deleteAuditProjectsByIds,
-} from '@/lib/firebase/audit-projects';
-import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
-import { prisma } from '@/lib/prisma';
+import { cascadeDeleteAllAudits, cascadeDeleteAudits } from '@/lib/audit/delete-audit-cascade';
 
 export const runtime = 'nodejs';
-
-function normalizeUrl(raw: string): string {
-	try {
-		const u = new URL(raw);
-		u.hash = '';
-		const path = u.pathname.replace(/\/+$/, '') || '/';
-		return `${u.protocol}//${u.host.toLowerCase()}${path}${u.search}`;
-	} catch {
-		return raw.trim();
-	}
-}
-
-/**
- * Remove Prisma Project + AuditLead rows that correspond to deleted Firestore
- * audit_projects (ids may be Firestore doc ids, Prisma Project ids, or AuditLead ids).
- */
-async function deletePrismaRecordsForIds(ids: string[], urls: string[]) {
-	const uniqueIds = [...new Set(ids.map((id) => String(id || '').trim()).filter(Boolean))];
-	const uniqueUrls = [...new Set(urls.map(normalizeUrl).filter(Boolean))];
-
-	const leadWhere =
-		uniqueIds.length || uniqueUrls.length
-			? {
-					OR: [
-						...(uniqueIds.length
-							? [{ id: { in: uniqueIds } }, { projectId: { in: uniqueIds } }]
-							: []),
-						...(uniqueUrls.length ? [{ url: { in: uniqueUrls } }] : []),
-					],
-				}
-			: null;
-
-	const projectWhere =
-		uniqueIds.length || uniqueUrls.length
-			? {
-					OR: [
-						...(uniqueIds.length
-							? [{ id: { in: uniqueIds } }, { latestAuditId: { in: uniqueIds } }]
-							: []),
-						...(uniqueUrls.length ? [{ targetUrl: { in: uniqueUrls } }] : []),
-					],
-				}
-			: null;
-
-	const [leadsResult, projectsResult] = await Promise.all([
-		leadWhere ? prisma.auditLead.deleteMany({ where: leadWhere }) : Promise.resolve({ count: 0 }),
-		projectWhere ? prisma.project.deleteMany({ where: projectWhere }) : Promise.resolve({ count: 0 }),
-	]);
-
-	// URL matching in SQLite is exact; also sweep leads whose url normalizes to a deleted url.
-	if (uniqueUrls.length > 0) {
-		const urlSet = new Set(uniqueUrls);
-		const leftoverLeads = await prisma.auditLead.findMany({
-			select: { id: true, url: true },
-			take: 500,
-			orderBy: { createdAt: 'desc' },
-		});
-		const orphanLeadIds = leftoverLeads
-			.filter((lead) => urlSet.has(normalizeUrl(lead.url)))
-			.map((lead) => lead.id);
-		if (orphanLeadIds.length) {
-			const extra = await prisma.auditLead.deleteMany({ where: { id: { in: orphanLeadIds } } });
-			leadsResult.count += extra.count;
-		}
-
-		const leftoverProjects = await prisma.project.findMany({
-			select: { id: true, targetUrl: true },
-			take: 500,
-			orderBy: { createdAt: 'desc' },
-		});
-		const orphanProjectIds = leftoverProjects
-			.filter((project) => urlSet.has(normalizeUrl(project.targetUrl)))
-			.map((project) => project.id);
-		if (orphanProjectIds.length) {
-			const extra = await prisma.project.deleteMany({ where: { id: { in: orphanProjectIds } } });
-			projectsResult.count += extra.count;
-		}
-	}
-
-	return { auditLeadsDeleted: leadsResult.count, projectsDeleted: projectsResult.count };
-}
 
 function revalidateAuditViews() {
 	revalidatePath('/audit/history');
@@ -109,24 +23,21 @@ export async function POST(request: Request) {
 
 	try {
 		if (body?.all === true) {
-			let firestoreDeleted = 0;
-			if (isFirebaseAdminConfigured()) {
-				const fsResult = await deleteAllAuditProjects();
-				firestoreDeleted = fsResult.deleted;
-			}
-			const [leadsResult, projectsResult] = await Promise.all([
-				prisma.auditLead.deleteMany(),
-				prisma.project.deleteMany(),
-			]);
-			const deleted = Math.max(firestoreDeleted, projectsResult.count, leadsResult.count);
+			const result = await cascadeDeleteAllAudits();
 			revalidateAuditViews();
 			return NextResponse.json({
 				ok: true,
-				deleted,
+				deleted: Math.max(
+					result.firestoreDeleted,
+					result.projectsDeleted,
+					result.auditLeadsDeleted,
+					result.auditReportsDeleted,
+				),
 				all: true,
-				firestoreDeleted,
-				prismaDeleted: projectsResult.count,
-				auditLeadsDeleted: leadsResult.count,
+				firestoreDeleted: result.firestoreDeleted,
+				prismaDeleted: result.projectsDeleted,
+				auditLeadsDeleted: result.auditLeadsDeleted,
+				auditReportsDeleted: result.auditReportsDeleted,
 			});
 		}
 
@@ -141,49 +52,22 @@ export async function POST(request: Request) {
 			);
 		}
 
-		let firestoreDeleted = 0;
-		let urls: string[] = [];
-		if (isFirebaseAdminConfigured()) {
-			const fsResult = await deleteAuditProjectsByIds(list);
-			firestoreDeleted = fsResult.deleted;
-			urls = fsResult.urls;
-		}
-
-		// Also resolve URLs from Prisma leads/projects when Firestore ids miss or Admin is off.
-		const [leadsForUrls, projectsForUrls] = await Promise.all([
-			prisma.auditLead.findMany({
-				where: { OR: [{ id: { in: list } }, { projectId: { in: list } }] },
-				select: { url: true },
-			}),
-			prisma.project.findMany({
-				where: { OR: [{ id: { in: list } }, { latestAuditId: { in: list } }] },
-				select: { targetUrl: true },
-			}),
-		]);
-		urls = [
-			...new Set([
-				...urls,
-				...leadsForUrls.map((l) => l.url),
-				...projectsForUrls.map((p) => p.targetUrl),
-			]),
-		];
-
-		const prismaCleanup = await deletePrismaRecordsForIds(list, urls);
-		const deleted = Math.max(
-			firestoreDeleted,
-			prismaCleanup.projectsDeleted,
-			prismaCleanup.auditLeadsDeleted,
-		);
-
+		const result = await cascadeDeleteAudits(list);
 		revalidateAuditViews();
 		return NextResponse.json({
 			ok: true,
-			deleted,
+			deleted: Math.max(
+				result.firestoreDeleted,
+				result.projectsDeleted,
+				result.auditLeadsDeleted,
+				result.auditReportsDeleted,
+			),
 			ids: list,
 			all: false,
-			firestoreDeleted,
-			prismaDeleted: prismaCleanup.projectsDeleted,
-			auditLeadsDeleted: prismaCleanup.auditLeadsDeleted,
+			firestoreDeleted: result.firestoreDeleted,
+			prismaDeleted: result.projectsDeleted,
+			auditLeadsDeleted: result.auditLeadsDeleted,
+			auditReportsDeleted: result.auditReportsDeleted,
 		});
 	} catch (err) {
 		console.error('[admin/projects/bulk-delete] failed:', err);

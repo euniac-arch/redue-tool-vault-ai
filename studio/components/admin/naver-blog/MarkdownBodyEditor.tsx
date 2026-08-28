@@ -159,14 +159,14 @@ export function MarkdownBodyEditor({ value, onChange, disabled }: Props) {
 	return (
 		<div className="flex w-full min-w-0 max-w-full flex-col gap-1.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<span className="text-xs font-semibold text-slate-600">본문 (TOAST UI Editor)</span>
-				<span className="text-[10px] font-medium text-slate-400">
+				<span className="text-xs font-semibold text-slate-600 dark:text-slate-300">본문 (TOAST UI Editor)</span>
+				<span className="text-[10px] font-medium text-slate-400 dark:text-slate-500">
 					WYSIWYG · Markdown 탭 · 이미지 드래그/Ctrl+V
 				</span>
 			</div>
 			<div
 				ref={containerRef}
-				className="naver-blog-toast-editor w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white"
+				className="naver-blog-toast-editor w-full min-w-0 max-w-full overflow-hidden rounded-lg border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700"
 			/>
 			{error ? (
 				<p className="text-[12px] font-medium text-rose-600" role="alert">

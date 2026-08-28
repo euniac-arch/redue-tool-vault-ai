@@ -26,7 +26,7 @@ export function ApplyPrescriptionButton({
 				type="button"
 				disabled
 				aria-busy="true"
-				className="print:hidden inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/35 disabled:cursor-wait disabled:opacity-90"
+				className="print:hidden inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/35 disabled:cursor-wait disabled:opacity-90"
 			>
 				<Loader2 className="h-4 w-4 animate-spin" aria-hidden />
 				{t('applying')}
@@ -36,7 +36,7 @@ export function ApplyPrescriptionButton({
 
 	if (isApplied) {
 		return (
-			<div className="print:hidden flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+			<div className="print:hidden flex min-w-0 w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center">
 				<p
 					role="status"
 					className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-sm font-extrabold text-emerald-800 ring-1 ring-emerald-400/50 dark:bg-emerald-500/15 dark:text-emerald-200 dark:ring-emerald-400/35"
@@ -61,7 +61,7 @@ export function ApplyPrescriptionButton({
 		<button
 			type="button"
 			onClick={onApply}
-			className={`print:hidden relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/40 transition hover:from-indigo-500 hover:via-blue-500 hover:to-cyan-400 ${
+			className={`print:hidden relative inline-flex w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-r from-indigo-600 via-blue-600 to-cyan-500 px-4 py-2.5 text-sm font-extrabold text-white shadow-lg shadow-indigo-500/40 transition hover:from-indigo-500 hover:via-blue-500 hover:to-cyan-400 sm:w-auto ${
 				reduceMotion ? '' : 'geo-apply-pulse'
 			}`}
 		>

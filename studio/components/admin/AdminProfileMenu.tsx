@@ -36,14 +36,14 @@ export function AdminProfileMenu() {
 	}, [status]);
 
 	if (status === 'loading' && !signedIn) {
-		return <div className="h-8 w-28 animate-pulse rounded-lg bg-slate-200" />;
+		return <div className="h-8 w-28 animate-pulse rounded-lg bg-slate-200 dark:bg-slate-700/60" />;
 	}
 
 	if (!signedIn) {
 		return (
 			<a
 				href="/login"
-				className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+				className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
 			>
 				로그인
 			</a>
@@ -61,21 +61,21 @@ export function AdminProfileMenu() {
 			<button
 				type="button"
 				onClick={() => setOpen((v) => !v)}
-				className="inline-flex max-w-[10rem] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left hover:bg-slate-50"
+				className="inline-flex max-w-[10rem] items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
 				aria-expanded={open}
 				aria-haspopup="menu"
 			>
 				<span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
 					{initial}
 				</span>
-				<span className="hidden min-w-0 truncate text-xs font-semibold text-slate-800 sm:block">
+				<span className="hidden min-w-0 truncate text-xs font-semibold text-slate-800 dark:text-slate-100 sm:block">
 					{label}
 				</span>
 			</button>
 			<button
 				type="button"
-				onClick={() => signOut({ callbackUrl: '/' })}
-				className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50"
+				onClick={() => signOut({ callbackUrl: '/login' })}
+				className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 dark:border-slate-600 dark:bg-slate-800 dark:text-rose-400 dark:hover:bg-rose-950/40"
 			>
 				로그아웃
 			</button>
@@ -84,14 +84,14 @@ export function AdminProfileMenu() {
 					<div className="fixed inset-0 z-40" onClick={() => setOpen(false)} aria-hidden />
 					<div
 						role="menu"
-						className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg"
+						className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-800"
 					>
-						<div className="border-b border-slate-100 px-3 py-2">
-							<p className="truncate text-sm font-semibold text-slate-900">{label}</p>
+						<div className="border-b border-slate-100 px-3 py-2 dark:border-slate-700">
+							<p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{label}</p>
 							{email && name && (
-								<p className="mt-0.5 truncate text-xs text-slate-500">{email}</p>
+								<p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{email}</p>
 							)}
-							<p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+							<p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-400 dark:text-slate-500">
 								{typeof role === 'string' && role.toLowerCase() === 'admin' ? 'Administrator' : 'User'}
 							</p>
 						</div>
@@ -100,9 +100,9 @@ export function AdminProfileMenu() {
 							role="menuitem"
 							onClick={() => {
 								setOpen(false);
-								signOut({ callbackUrl: '/' });
+								signOut({ callbackUrl: '/login' });
 							}}
-							className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50"
+							className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
 						>
 							로그아웃
 						</button>

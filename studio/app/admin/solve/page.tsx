@@ -24,6 +24,7 @@ async function loadAuditFromFirestore(docId: string): Promise<SolveAuditSnapshot
 	return mapAuditReportToSolveSnapshot(doc.auditPayload.report, {
 		id: doc.id,
 		cmsType,
+		ceo_name: doc.auditPayload.ceo_name,
 	});
 }
 
@@ -66,10 +67,10 @@ export default async function AdminSolvePage({ searchParams }: PageProps) {
 	}
 
 	return (
-		<main className="flex flex-col gap-4">
+		<div className="flex flex-col gap-4">
 			<div>
-				<h1 className="text-2xl font-bold tracking-tight text-slate-900">해결 및 코드 주입</h1>
-				<p className="mt-1 text-sm text-slate-600">
+				<h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">해결 및 코드 주입</h1>
+				<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 					진단 결과를 바탕으로 AI 해결안 · 파일 패치 · 제안서/견적을 진행합니다.
 				</p>
 			</div>
@@ -79,6 +80,6 @@ export default async function AdminSolvePage({ searchParams }: PageProps) {
 				initialTab={initialTab}
 				firestoreDocId={docId || null}
 			/>
-		</main>
+		</div>
 	);
 }

@@ -27,9 +27,9 @@ function assert(label: string, condition: boolean, detail?: string) {
 	console.error(`FAIL ${label}${detail ? ` — ${detail}` : ''}`);
 }
 
-assert('24 items', AUDIT_CHECKLIST_DEFINITIONS.length === 24);
+assert('25 items', AUDIT_CHECKLIST_DEFINITIONS.length === 25);
 assert(
-	'5 category maxes sum to 122',
+	'5 category maxes sum to definition total',
 	STANDARD_CATEGORY_MAX.security_infra +
 		STANDARD_CATEGORY_MAX.web_perf_access +
 		STANDARD_CATEGORY_MAX.basic_seo +
@@ -38,15 +38,16 @@ assert(
 		CHECKLIST_TOTAL_MAX,
 	JSON.stringify(STANDARD_CATEGORY_MAX),
 );
-assert('total max is 122', STANDARD_CATEGORY_TOTAL_MAX === 122);
-assert('item counts are 2+3+7+6+6', STANDARD_CATEGORY_ITEM_COUNT.security_infra === 2);
+assert('total max is 125', STANDARD_CATEGORY_TOTAL_MAX === 125);
+assert('item counts are 2+3+8+6+6', STANDARD_CATEGORY_ITEM_COUNT.security_infra === 2);
 assert('web_perf_access has 3 items', STANDARD_CATEGORY_ITEM_COUNT.web_perf_access === 3);
-assert('basic_seo has 7 items', STANDARD_CATEGORY_ITEM_COUNT.basic_seo === 7);
+assert('basic_seo has 8 items', STANDARD_CATEGORY_ITEM_COUNT.basic_seo === 8);
 assert('schema_data has 6 items', STANDARD_CATEGORY_ITEM_COUNT.schema_data === 6);
 assert('geo_ai_signals has 6 items', STANDARD_CATEGORY_ITEM_COUNT.geo_ai_signals === 6);
 
 assert('https → security_infra', resolveItemCategory({ id: 'https' }) === 'security_infra');
 assert('html-lang → basic_seo', resolveItemCategory({ id: 'html-lang' }) === 'basic_seo');
+assert('rss-feed → basic_seo', resolveItemCategory({ id: 'rss-feed' }) === 'basic_seo');
 assert('person-eeat → geo_ai_signals', resolveItemCategory({ id: 'person-eeat' }) === 'geo_ai_signals');
 assert('faq-howto-schema → schema_data', resolveItemCategory({ id: 'faq-howto-schema' }) === 'schema_data');
 assert('image-alt → web_perf_access', resolveItemCategory({ id: 'image-alt' }) === 'web_perf_access');
@@ -106,7 +107,7 @@ const httpRadar = buildSyncedRadarScores(
 	false,
 );
 assert('HTTP radar security is 5/15 = 33', httpRadar.security === Math.round((5 / 15) * 100));
-assert('radar seo matches SEO category', httpRadar.seo === Math.round((5 / 29) * 100));
+assert('radar seo matches SEO category', httpRadar.seo === Math.round((5 / 32) * 100));
 assert('radar schema matches schema category', httpRadar.schema === Math.round((14 / 36) * 100));
 assert('radar performance is HTML+render+alt', httpRadar.performance === 100);
 assert('radar AI citation is llms+bots', httpRadar.geoSignal === Math.round((12 / 30) * 100));
@@ -135,7 +136,7 @@ assert(
 	'radar scores 1:1 with category percentages',
 	synced.radarData.every((axis, i) => axis.score === synced.categories[i].percentage),
 );
-assert('totalMax is 122', synced.totalMax === 122);
+assert('totalMax is 125', synced.totalMax === 125);
 
 assert('88% 0 defects → Warning', resolveCategoryVerdict(88, 0) === 'Warning');
 assert('88% 1 warning → Warning', resolveCategoryVerdict(88, 0, 1) === 'Warning');
@@ -161,6 +162,7 @@ const badgeCases = calculate5CategoryScores(
 		{ id: 'single-h1', passed: true, status: 'pass', weight: 4 },
 		{ id: 'heading-skip', passed: false, status: 'warning', weight: 3 },
 		{ id: 'html-lang', passed: true, status: 'pass', weight: 2 },
+		{ id: 'rss-feed', passed: true, status: 'pass', weight: 3 },
 	],
 	true,
 );
@@ -172,8 +174,8 @@ assert(
 	`${perfBadge?.percentage} ${perfBadge?.status}`,
 );
 assert(
-	'SEO 22.5/29 (78, 결함 1) is Warning',
-	seoBadge?.percentage === 78 && seoBadge.status === 'Warning',
+	'SEO 25.5/32 (80, 결함 1) is Warning',
+	seoBadge?.percentage === 80 && seoBadge.status === 'Warning',
 	`${seoBadge?.percentage} ${seoBadge?.status} earned=${seoBadge?.earned}`,
 );
 

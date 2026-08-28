@@ -341,14 +341,26 @@ export function TargetEntityBanner({
 							<h2 className="break-words text-2xl font-extrabold tracking-tight text-slate-900 sm:text-3xl dark:text-white">
 								{brandName}
 							</h2>
-							<a
-								href={report.url}
-								target="_blank"
-								rel="noopener noreferrer"
-								className="mt-1.5 block min-w-0 break-all text-sm font-medium leading-relaxed text-slate-600 underline-offset-2 transition hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
-							>
-								{urlLabel}
-							</a>
+							<p className="mt-1.5">
+								<a
+									href={report.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									className="break-all text-sm font-medium leading-relaxed text-slate-600 underline-offset-2 transition hover:text-slate-900 hover:underline dark:text-slate-400 dark:hover:text-slate-300"
+								>
+									{urlLabel}
+								</a>
+							</p>
+							{report.fullAudit?.progressMessage ? (
+								<p className="mt-1.5 inline-flex max-w-full flex-wrap items-baseline gap-x-1.5 self-start rounded-md border border-slate-200/80 bg-slate-50 px-3 py-1.5 text-xs leading-[1.4] text-slate-500 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-500">
+									<span>{report.fullAudit.progressMessage}</span>
+									{report.fullAudit.verificationLog ? (
+										<span className="font-medium tabular-nums text-slate-500">
+											{report.fullAudit.pagesFound}/{report.fullAudit.pagesParsed}
+										</span>
+									) : null}
+								</p>
+							) : null}
 						</div>
 					</div>
 				</div>

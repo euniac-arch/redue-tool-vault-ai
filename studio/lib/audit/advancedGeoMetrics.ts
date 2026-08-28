@@ -8,6 +8,7 @@
  */
 
 import { anonymizedCompetitorLabel } from '@/lib/audit/anonymize-competitor';
+import { composeSearchQuery, dedupeQueryTokens } from '@/lib/geo/search-query-normalize';
 import { buildSovMarketAnalysis, industryCategoryLabel, resolveIndustryVoice } from '@/lib/audit/universal-compliant-engine';
 import { matchCompetitorRoster } from '@/lib/audit/competitor-match';
 import {
@@ -32,6 +33,13 @@ import {
 	type ResolveIndustryConfigInput,
 } from '@/lib/registry/universalIndustryRegistry';
 import { generateLlmsTxt, type SiteDiagnosticResult } from '@/lib/audit/llms-txt';
+import {
+	collectOfficialSameAs,
+	detectPersonKnowledgeGraph,
+	extractPlaceCidPrecise,
+	extractTaxIdPrecise,
+	normalizeTaxId as normalizeTaxIdPrecise,
+} from '@/lib/audit/extractors/universal-entity';
 
 export type AdvancedGeoLang = RegistryLang;
 
@@ -300,7 +308,7 @@ export interface EntitySignalScore {
 export interface EntityDisambiguationBreakdown {
 	taxId: EntitySignalScore & { valid: boolean; value: string };
 	placeCid: EntitySignalScore & { value: string };
-	sameAs: EntitySignalScore & { count: number };
+	sameAs: EntitySignalScore & { count: number; urls: string[] };
 	representativeKg: EntitySignalScore & { linked: boolean };
 }
 
@@ -422,7 +430,7 @@ const MID_COMPETITION_REGION =
 	/부산|대구|인천|광주|대전|울산|수원|성남|용인|고양|제주|busan|incheon|daegu|daejeon/i;
 
 const SOCIAL_SAME_AS =
-	/instagram|facebook|youtube|twitter|linkedin|threads|tiktok|blog\.naver|cafe\.naver|post\.naver|story\.kakao|pf\.kakao|plus\.kakao|maps\.google|place\.naver|bing\.com\/maps|g\.page|goo\.gl\/maps/i;
+	/instagram|facebook|youtube|twitter|linkedin|threads|tiktok|blog\.naver|cafe\.naver|post\.naver|story\.kakao|pf\.kakao|plus\.kakao|maps\.google|map\.naver|place\.naver|place\.map\.kakao|map\.kakao|bing\.com\/maps|g\.page|goo\.gl\/maps/i;
 
 const UNIT_RE =
 	/\d+(?:\.\d+)?\s*(?:kg|g|mg|ml|l|cm|mm|km|m²|㎡|평|원|만원|억원|달러|회|분|시간|일|주|개월|년|명|세|%|℃|°c|kcal|\$|€)|(?:kg|g|mg|ml|cm|mm|km|평|만원|억원|회|명|세)\b/gi;
@@ -638,11 +646,21 @@ function clientOutsideLabel(clientName: string, lang: AdvancedGeoLang, foundInde
 	return lang === 'en' ? `You · ${clientName} (outside top 3)` : `자사 · ${clientName} (순위 밖)`;
 }
 
+/**
+ * Strips GNB/admin chrome (병원장 인사말, 병원 둘러보기…) and collapses duplicate
+ * tokens (병원 병원) from a raw primaryKeyword / category phrase before it is
+ * ever shown as a search query. Never returns more than `maxTokens` words.
+ */
+function sanitizeServicePhrase(value: string, maxTokens = 3): string {
+	if (!value) return '';
+	return dedupeQueryTokens([value]).slice(0, maxTokens).join(' ');
+}
+
 function buildUnifiedTargetQuery(region: string, mainService: string, lang: AdvancedGeoLang): string {
 	const loc = cleanPhrase(region);
-	const service = cleanPhrase(mainService);
-	if (lang === 'en') return [loc, service].filter(Boolean).join(' ');
-	return [loc, service, '추천'].filter(Boolean).join(' ');
+	const service = sanitizeServicePhrase(mainService);
+	if (lang === 'en') return composeSearchQuery([loc, service], { maxTokens: 5 });
+	return composeSearchQuery([loc, service], { trailingIntent: '추천', maxTokens: 5 });
 }
 
 function buildUnifiedLossInsight(input: {
@@ -689,7 +707,7 @@ export function calculateUnifiedMarketSov(
 ): UnifiedSovResult {
 	const lang = langOf(options?.lang ?? options?.industryConfig?.lang);
 	const loc = cleanPhrase(region);
-	const service = cleanPhrase(mainService);
+	const service = sanitizeServicePhrase(mainService);
 	const brand = cleanPhrase(clientName);
 	const targetQuery = cleanPhrase(options?.targetQuery) || buildUnifiedTargetQuery(loc, service, lang);
 	// Bottom summary must echo the *selected* keyword chip, not the site's
@@ -1158,67 +1176,42 @@ export function isValidKoreanTaxId(value: string | null | undefined): boolean {
 }
 
 export function normalizeTaxId(value: string | null | undefined): string {
-	const digits = (value || '').replace(/\D/g, '');
-	if (digits.length !== 10) return cleanPhrase(value);
-	return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+	return normalizeTaxIdPrecise(value) || cleanPhrase(value);
 }
 
 export function extractTaxId(corpus: string): string {
-	const labeled = corpus.match(
-		/(?:taxID|vatID|leiCode|사업자(?:등록)?번호|사업자번호)\s*[:："'\s=]*["']?(\d{3}-?\d{2}-?\d{5})/i,
-	);
-	if (labeled?.[1]) return normalizeTaxId(labeled[1]);
-	const loose = corpus.match(/\b(\d{3}-\d{2}-\d{5})\b/);
-	return loose?.[1] ? normalizeTaxId(loose[1]) : '';
+	return extractTaxIdPrecise(corpus);
 }
 
 export function extractPlaceCid(value: string | null | undefined): string {
-	const raw = cleanPhrase(value);
-	if (!raw) return '';
-	const fromQuery = raw.match(/(?:cid|ludocid)=(\d{8,})/i);
-	if (fromQuery?.[1]) return fromQuery[1];
-	const fromNaver = raw.match(
-		/(?:place\.naver\.com|map\.naver\.com|m\.place\.naver\.com)\/[^\s"'<>]*?\/(\d{8,})/i,
-	);
-	if (fromNaver?.[1]) return fromNaver[1];
-	if (/^\d{8,}$/.test(raw)) return raw;
-	return '';
+	return extractPlaceCidPrecise(value);
 }
 
-function countSameAs(input: EntityDisambiguationInput): number {
+function resolveSameAs(input: EntityDisambiguationInput): { count: number; urls: string[] } {
 	if (typeof input.sameAs === 'number' && Number.isFinite(input.sameAs)) {
-		return Math.max(0, Math.round(input.sameAs));
+		return { count: Math.max(0, Math.round(input.sameAs)), urls: [] };
 	}
-	const urls = new Set<string>();
 	const listed = Array.isArray(input.sameAs) ? input.sameAs : [];
+	const corpus = `${input.jsonLdCorpus || ''}\n${input.html || ''}`;
+	const official = collectOfficialSameAs(corpus, listed);
+	if (official.length) return { count: official.length, urls: official };
+	const urls = new Set<string>();
 	for (const item of listed) {
 		const url = cleanPhrase(item).toLowerCase();
 		if (url) urls.add(url.replace(/[.,);]+$/g, ''));
 	}
-	const corpus = `${input.jsonLdCorpus || ''}\n${input.html || ''}`;
-	const sameAsBlocks = corpus.matchAll(/sameAs["'\s:]*(\[[^\]]*\]|"https?:[^"]+")/gi);
-	for (const match of sameAsBlocks) {
-		const block = match[1] || '';
-		for (const url of block.match(/https?:\/\/[^\s"'\\<>]+/gi) ?? []) {
-			urls.add(url.replace(/[.,);]+$/g, '').toLowerCase());
-		}
+	for (const url of corpus.match(/https?:\/\/[^\s"'\\<>]+/gi) ?? []) {
+		if (SOCIAL_SAME_AS.test(url)) urls.add(url.replace(/[.,);]+$/g, '').toLowerCase());
 	}
-	if (!urls.size) {
-		for (const url of corpus.match(/https?:\/\/[^\s"'\\<>]+/gi) ?? []) {
-			if (SOCIAL_SAME_AS.test(url)) urls.add(url.replace(/[.,);]+$/g, '').toLowerCase());
-		}
-	}
-	return urls.size;
+	return { count: urls.size, urls: [...urls] };
 }
 
 function detectRepresentativeKg(input: EntityDisambiguationInput): boolean {
 	if (input.representativeKgLinked === true) return true;
 	if (input.representativeKgLinked === false) return false;
 	const corpus = `${input.jsonLdCorpus || ''}\n${input.html || ''}`;
-	if (!corpus.trim()) return Boolean(cleanPhrase(input.representativeName));
-	const hasPerson = /"@type"\s*:\s*"Person"|<[^>]*itemtype=["'][^"']*Person/i.test(corpus);
-	const hasLink = /"sameAs"|"worksFor"|"knowsAbout"|"jobTitle"|sameAs/i.test(corpus);
-	return hasPerson && hasLink;
+	if (!corpus.trim()) return false;
+	return detectPersonKnowledgeGraph(corpus).linked;
 }
 
 function sameAsScore(count: number): number {
@@ -1247,7 +1240,8 @@ export function computeEntityDisambiguation(input: EntityDisambiguationInput = {
 	const cidPresent = Boolean(cid);
 	const cidScore = cidPresent ? ENTITY_DISAMBIGUATION_WEIGHTS.placeCid : 0;
 
-	const sameAsCount = countSameAs(input);
+	const resolvedSameAs = resolveSameAs(input);
+	const sameAsCount = resolvedSameAs.count;
 	const sameScore = sameAsScore(sameAsCount);
 
 	const kgLinked = detectRepresentativeKg(input);
@@ -1272,6 +1266,7 @@ export function computeEntityDisambiguation(input: EntityDisambiguationInput = {
 			sameAs: {
 				present: sameAsCount > 0,
 				count: sameAsCount,
+				urls: resolvedSameAs.urls,
 				score: sameScore,
 				max: ENTITY_DISAMBIGUATION_WEIGHTS.sameAs,
 			},
@@ -1530,6 +1525,14 @@ export {
 	resolveKeywordSovShares,
 } from '@/lib/audit/sovLeaderboardData';
 export type { SovLeaderboardItem, SovShareTable } from '@/lib/audit/sovLeaderboardData';
+export {
+	validateSovLeaderboardData,
+	validateNineoneClinicSovDiagnostic,
+	buildNineoneClinicSovDiagnosticDataset,
+	resolveDiagnosticSovPresets,
+	logSovValidationResult,
+	SOV_VALIDATION_PASS_MESSAGE,
+} from '@/lib/audit/sovDiagnosticValidation';
 export { detectIndustry, getIndustryProfile, resolveIndustryConfig };
 export type { FaqItem, IndustryConfig, IndustryType };
 export { extractSiteDiagnostic, generateLlmsTxt } from '@/lib/audit/llms-txt';

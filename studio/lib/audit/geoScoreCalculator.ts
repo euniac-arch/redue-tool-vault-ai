@@ -17,11 +17,36 @@ import {
 } from '@/lib/audit/eeat-audit';
 import { detectEnginePlatformSignals, type EnginePlatformSignals } from '@/lib/audit/engine-analysis';
 import { resolveAiBotsAllowed } from '@/lib/audit/robots-ai-bots';
-import { HTTPS_GEO_PENALTY, HTTPS_GRADE_HARD_CAP, resolveIsHttps } from '@/lib/audit/scoreCalculator';
+import { resolveIsHttps } from '@/lib/audit/scoreCalculator';
 import type { AuditCheckItem, AuditLang, AuditReport } from '@/lib/site-auditor';
 
 export const GEO_PILLAR_MAX = 25 as const;
 export const GEO_TOTAL_MAX = 100 as const;
+/** Equal weight of each of the 5 GEO domain scores on the 100-point report. */
+export const GEO_DOMAIN_WEIGHT = 20 as const;
+export const GEO_SCHEMA_ITEM_MAX = 5 as const;
+export const GEO_SCHEMA_ANCHOR_ID = 'geo-section-schema' as const;
+
+/**
+ * Convert a raw domain score onto the equal 20-point contribution scale.
+ * 25-point pillars: `(score / 25) * 20`. Schema fidelity: `(complete / 5) * 20`.
+ */
+export function toWeightedContribution(
+	score: number,
+	maxScore: number,
+	weight: number = GEO_DOMAIN_WEIGHT,
+): number {
+	if (!Number.isFinite(score) || !Number.isFinite(maxScore) || maxScore <= 0) return 0;
+	return Math.round((Math.max(0, score) / maxScore) * weight * 10) / 10;
+}
+
+export function formatWeightedContribution(
+	score: number,
+	maxScore: number,
+	weight: number = GEO_DOMAIN_WEIGHT,
+): string {
+	return toWeightedContribution(score, maxScore, weight).toFixed(1);
+}
 
 export const GEO_PILLAR_IDS = ['entity', 'bot_index', 'local_nap', 'rag_authority'] as const;
 export type GeoPillarId = (typeof GEO_PILLAR_IDS)[number];
@@ -85,8 +110,15 @@ export interface GeoPillarScore {
 export interface ComprehensiveGeoResult {
 	/** 100-point measured total (sum of 4 pillars). */
 	rawGeoScore: number;
-	/** Security deduction + B-grade cap when HTTPS is missing. */
+	/**
+	 * @deprecated Unused — kept only so old imports don't break the build.
+	 * Always equals `rawGeoScore`. The composite (`measuredScore`) applies its
+	 * own single security penalty via `blendMeasuredScore` in `scoreCalculator.ts`;
+	 * this field previously duplicated that penalty + a hard cap at 78, which
+	 * contributed to unrelated sites rendering an identical composite score.
+	 */
 	finalGeoScore: number;
+	/** @deprecated Always `false` now — see `finalGeoScore`. */
 	isCapped: boolean;
 	pillars: Record<GeoPillarId, GeoPillarScore>;
 	pillarList: GeoPillarScore[];
@@ -446,17 +478,12 @@ export function calculateGeoComprehensiveScores(
 		GEO_TOTAL_MAX,
 	);
 
-	let finalGeoScore = rawGeoScore;
-	let isCapped = false;
-	if (!isHttps) {
-		finalGeoScore = Math.min(HTTPS_GRADE_HARD_CAP, Math.max(0, rawGeoScore - HTTPS_GEO_PENALTY));
-		isCapped = true;
-	}
-
+	// finalGeoScore/isCapped are deprecated no-ops — the composite applies its
+	// own single security penalty (see `blendMeasuredScore` in scoreCalculator.ts).
 	return {
 		rawGeoScore,
-		finalGeoScore,
-		isCapped,
+		finalGeoScore: rawGeoScore,
+		isCapped: false,
 		pillars,
 		pillarList,
 	};
@@ -472,6 +499,7 @@ export interface GeoReputationSignalSlice {
 	geoPct?: number;
 	schemaTypes?: readonly string[];
 	jsonLdCorpus?: string;
+	sameAs?: readonly string[];
 	platform?: EnginePlatformSignals;
 	isHttps?: boolean;
 	industryType?: string;
@@ -489,6 +517,7 @@ export function geoRawSignalsFromReputation(signals: GeoReputationSignalSlice): 
 		detectEnginePlatformSignals({
 			schemaTypes: signals.schemaTypes,
 			jsonLdCorpus: signals.jsonLdCorpus,
+			sameAs: signals.sameAs,
 		});
 	const allowAiBots = resolveAiBotsAllowed(signals.aiBotAccess, signals.aiBotsOk);
 	const vertical = resolveEeatVertical({
@@ -556,12 +585,13 @@ function checkPassed(checks: AuditCheckItem[], id: string): boolean {
 /** Precise path — bind crawl evidence from a full `AuditReport`. */
 export function extractGeoRawSignalsFromReport(report: AuditReport): GeoRawSignals {
 	const checks = report.checklist?.length ? report.checklist : report.categories.flatMap((category) => category.checks);
-	const jsonLdCorpus = (report.metrics?.jsonLdSnippets ?? []).join('\n');
-	const extraCorpus = [...(report.collectedUrls ?? []), report.footerText ?? ''].join('\n');
+	const jsonLdCorpus = report.metrics?.jsonLdFullCorpus || (report.metrics?.jsonLdSnippets ?? []).join('\n');
+	const extraCorpus = [...(report.collectedUrls ?? []), report.footerText ?? '', ...(report.siteMeta?.sameAs ?? [])].join('\n');
 	const platform = detectEnginePlatformSignals({
 		schemaTypes: report.metrics?.schemaTypes ?? report.siteMeta?.schemaEntityTypes,
 		jsonLdCorpus,
 		extraCorpus,
+		sameAs: report.siteMeta?.sameAs,
 	});
 	const advanced = computeAdvancedGeoFromReport(report);
 	const entity = advanced.entityDisambiguation;

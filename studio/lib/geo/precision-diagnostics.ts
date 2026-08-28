@@ -8,6 +8,13 @@
 
 import type { AuditLang, AuditReport } from '@/lib/site-auditor';
 import { resolveIndustryConfigFromSite } from '@/lib/registry/universalIndustryRegistry';
+import {
+	evaluateSchemaFiveProperties,
+	formatSameAsCheckDetail,
+	sameAsFidelityFromUrls,
+	schemaFiveToChecks,
+} from '@/lib/audit/extractors/universal-entity';
+import { buildJsonLdEntityPool, detectGeoCoordinates, detectOpeningHoursSpecification, detectServiceCatalog } from '@/lib/audit/schemaAnalyzer';
 import type {
 	AiCrawlerBotId,
 	AiCrawlerBotStatus,
@@ -64,6 +71,10 @@ export interface SchemaPropertyInput {
 	lang: PrecisionLang;
 	schemaTypes?: readonly string[];
 	jsonLdCorpus?: string;
+	html?: string;
+	/** Official sameAs URLs already extracted for the entity gauge — shared source of truth. */
+	sameAs?: readonly string[];
+	collectedUrls?: readonly string[];
 	organizationMissing?: readonly string[];
 	orgComplete?: boolean;
 	industryType?: string;
@@ -91,11 +102,6 @@ export interface EngineTagInput {
 	attributeLabels?: readonly string[];
 	/** Central HTTPS gate — false prepends security-warning chips. */
 	isHttps?: boolean;
-}
-
-function hasToken(corpus: string, ...needles: string[]): boolean {
-	if (!corpus) return false;
-	return needles.some((n) => corpus.toLowerCase().includes(n.toLowerCase()));
 }
 
 function claudeBlockedWarning(lang: PrecisionLang): string {
@@ -160,66 +166,86 @@ function expectedEntityType(input: SchemaPropertyInput): string {
 	return config.schemaType;
 }
 
+export function applySharedSameAsToSchemaChecks(
+	properties: readonly SchemaPropertyCheck[],
+	sameAsUrls: readonly string[],
+	lang: PrecisionLang = 'ko',
+): SchemaPropertyCheck[] {
+	const fidelity = sameAsFidelityFromUrls(sameAsUrls);
+	const detail = formatSameAsCheckDetail(fidelity, lang);
+	return properties.map((item) =>
+		item.id === 'sameAs' ? { ...item, complete: fidelity.complete, detail } : item,
+	);
+}
+
 export function buildSchemaPropertyChecks(input: SchemaPropertyInput): SchemaPropertyCheck[] {
 	const lang = input.lang;
 	const types = input.schemaTypes ?? [];
-	const corpus = `${types.join(' ')} ${input.jsonLdCorpus ?? ''}`;
-	const missing = input.organizationMissing ?? [];
+	const corpus = [input.jsonLdCorpus ?? '', input.html ?? '', ...(input.collectedUrls ?? [])]
+		.filter(Boolean)
+		.join('\n');
 	const expectedType = expectedEntityType(input);
-	const entityType = findEntityType(types);
-	const entityComplete = Boolean(entityType);
-	const geoComplete =
-		types.some((t) => /GeoCoordinates/i.test(t)) ||
-		hasToken(corpus, 'GeoCoordinates', '"latitude"', '"longitude"', '"geo"');
-	const hoursComplete =
-		types.some((t) => /OpeningHoursSpecification/i.test(t)) ||
-		hasToken(corpus, 'OpeningHoursSpecification', 'openingHours');
-	const catalogComplete =
-		types.some((t) => /OfferCatalog/i.test(t)) ||
-		hasToken(corpus, 'hasOfferCatalog', 'OfferCatalog', 'availableService');
-	const sameAsComplete =
-		!missing.includes('sameAs') && (input.orgComplete || hasToken(corpus, 'sameAs'));
+	const parsed = evaluateSchemaFiveProperties(corpus, {
+		schemaTypes: types,
+		expectedType,
+		sameAs: input.sameAs,
+	});
+	if (types.some((t) => /GeoCoordinates/i.test(t))) parsed.geo.complete = true;
+	if (types.some((t) => /OpeningHoursSpecification/i.test(t))) parsed.openingHours.complete = true;
+	if (types.some((t) => /OfferCatalog/i.test(t))) parsed.availableService.complete = true;
 
-	return [
-		{
-			id: 'entityType',
-			label: '@type',
-			complete: entityComplete,
-			detail: entityComplete ? String(entityType) : expectedType,
-		},
-		{
-			id: 'geoCoordinates',
-			label: 'geo',
-			complete: geoComplete,
-			detail: lang === 'en' ? 'GeoCoordinates latitude/longitude' : 'GeoCoordinates 위도/경도',
-		},
-		{
-			id: 'openingHours',
-			label: 'openingHoursSpecification',
-			complete: hoursComplete,
-			detail: lang === 'en' ? 'Weekday / evening hours' : '요일/야간 영업시간',
-		},
-		{
-			id: 'hasOfferCatalog',
-			label: 'hasOfferCatalog / availableService',
-			complete: catalogComplete,
-			detail: lang === 'en' ? 'Service / specialty catalog' : '서비스·진료과목 목록',
-		},
-		{
-			id: 'sameAs',
-			label: 'sameAs',
-			complete: sameAsComplete,
-			detail: lang === 'en' ? 'Naver Place / SNS proof links' : '네이버 플레이스·SNS 입증 링크',
-		},
-	];
+	// Defense-in-depth: `schemaAnalyzer.ts` independently re-flattens the same
+	// `@graph` into an entity pool and re-checks geo / openingHours /
+	// hasOfferCatalog from scratch. Its result can only turn a false
+	// "missing" into a correct "present" (never the reverse), so it's safe
+	// to OR into `evaluateSchemaFiveProperties`'s read without risking a
+	// regression if the two implementations ever diverge.
+	const entityPool = buildJsonLdEntityPool(corpus);
+	if (entityPool.length) {
+		if (!parsed.geo.complete) {
+			const geo = detectGeoCoordinates(entityPool);
+			if (geo.found) {
+				parsed.geo = { complete: true, latitude: geo.latitude, longitude: geo.longitude };
+			}
+		}
+		if (!parsed.openingHours.complete && detectOpeningHoursSpecification(entityPool).found) {
+			parsed.openingHours.complete = true;
+		}
+		if (!parsed.availableService.complete) {
+			const catalog = detectServiceCatalog(entityPool);
+			if (catalog.found) {
+				parsed.availableService = {
+					complete: true,
+					count: Math.max(parsed.availableService.count, catalog.itemCount),
+					categoryCount: parsed.availableService.categoryCount,
+				};
+			}
+		}
+	}
+	if (!parsed.entityType.complete) {
+		const fromTypes = findEntityType(types);
+		if (fromTypes) {
+			parsed.entityType.complete = true;
+			parsed.entityType.value = fromTypes;
+		}
+	}
+	if (!parsed.entityType.value) parsed.entityType.value = expectedType;
+	return schemaFiveToChecks(parsed, lang);
 }
 
 export function buildSchemaPropertyChecksFromAudit(report: AuditReport, lang: PrecisionLang): SchemaPropertyCheck[] {
 	const orgMissing = report.metrics?.organizationMissing;
+	// `jsonLdFullCorpus` is untruncated and safe to re-parse as JSON; `jsonLdSnippets`
+	// is a 1200-char display preview that corrupts multi-entity `@graph` documents
+	// (geo / openingHoursSpecification / hasOfferCatalog silently read as "missing").
+	const jsonLdCorpus = report.metrics?.jsonLdFullCorpus || (report.metrics?.jsonLdSnippets ?? []).join('\n');
 	return buildSchemaPropertyChecks({
 		lang,
 		schemaTypes: report.metrics?.schemaTypes,
-		jsonLdCorpus: (report.metrics?.jsonLdSnippets ?? []).join('\n'),
+		jsonLdCorpus,
+		html: [jsonLdCorpus, report.footerText, ...(report.collectedUrls ?? [])].filter(Boolean).join('\n'),
+		sameAs: report.siteMeta?.sameAs,
+		collectedUrls: report.collectedUrls,
 		organizationMissing: orgMissing,
 		orgComplete: Boolean(orgMissing && orgMissing.length === 0),
 		industryType: report.siteMeta?.industryType,

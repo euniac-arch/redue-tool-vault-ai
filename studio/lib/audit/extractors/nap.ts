@@ -15,6 +15,9 @@ import {
 } from '@/lib/audit/parser';
 import { extractCoreSpecialties, filterNavMenuTexts } from '@/lib/geo/core-specialties';
 import { isUiStopword } from '@/lib/geo/clean-medical-entities';
+import { formatKoreanTelephone } from '@/lib/solve/core/telephone';
+
+export { formatKoreanTelephone };
 
 export const KR_PHONE_RE =
 	/(?:02|0[3-6][1-5]|010|050[0-9]|070|080|15[0-9]{2}|16[0-9]{2}|18[0-9]{2})[ -\.]?[0-9]{3,4}[ -\.]?[0-9]{4}/g;
@@ -58,7 +61,17 @@ const NAP_REGION_SELECTORS = [
 	'[class*="문의"]',
 ].join(', ');
 
-const PERSON_LINK_KEYS = ['founder', 'employee', 'employees', 'physician', 'alumni', 'member', 'director'] as const;
+const PERSON_LINK_KEYS = [
+	'founder',
+	'employee',
+	'employees',
+	'physician',
+	'alumni',
+	'member',
+	'director',
+	'worksFor',
+	'affiliation',
+] as const;
 
 export interface ExtractedPostalAddress {
 	full: string;
@@ -132,58 +145,10 @@ export function collectJsonLdNodesFromHtml(html: string): Record<string, unknown
 	return nodes;
 }
 
-function digitsOnly(raw: string): string {
-	let digits = raw.replace(/\D/g, '');
-	if (digits.startsWith('82') && digits.length >= 11) {
-		digits = `0${digits.slice(2)}`;
-	}
-	return digits;
-}
-
-/**
- * Normalize a Korean telephone number to hyphenated form (e.g. `02-1234-5678`).
- */
-export function formatKoreanTelephone(raw: string | null | undefined): string {
-	const trimmed = compact(raw)
-		.replace(/^tel:/i, '')
-		.split(/[?,;]/)[0]
-		?.trim();
-	if (!trimmed) return '';
-	let digits = digitsOnly(trimmed);
-	if (digits.startsWith('82') && digits.length >= 10) digits = `0${digits.slice(2)}`;
-	if (!digits || digits.length < 8 || digits.length > 12) return '';
-	if (/^(\d)\1+$/.test(digits)) return '';
-
-	if (digits.startsWith('02')) {
-		const rest = digits.slice(2);
-		if (rest.length === 8) return `02-${rest.slice(0, 4)}-${rest.slice(4)}`;
-		if (rest.length === 7) return `02-${rest.slice(0, 3)}-${rest.slice(3)}`;
-	}
-	if (/^050\d/.test(digits) && digits.length >= 11) {
-		return `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 12)}`;
-	}
-	if (/^01[016789]/.test(digits) && digits.length === 11) {
-		return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-	}
-	if (/^(15|16|18)\d{2}/.test(digits) && digits.length === 8) {
-		return `${digits.slice(0, 4)}-${digits.slice(4)}`;
-	}
-	if (digits.length === 11) {
-		return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-	}
-	if (digits.length === 10) {
-		return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
-	}
-	if (digits.length === 9 && digits.startsWith('02') === false) {
-		return `${digits.slice(0, 2)}-${digits.slice(2, 5)}-${digits.slice(5)}`;
-	}
-	return trimmed.replace(/\s+/g, '-').replace(/\.+/g, '-').replace(/-+/g, '-');
-}
-
 function isPlausibleKoreanPhone(raw: string): boolean {
 	const formatted = formatKoreanTelephone(raw);
 	if (!formatted) return false;
-	const digits = digitsOnly(formatted);
+	const digits = formatted.replace(/\D/g, '');
 	KR_PHONE_RE.lastIndex = 0;
 	return KR_PHONE_RE.test(formatted) || KR_PHONE_RE.test(digits) || /^(02|0[3-6]|01|050|070|080|15|16|18)/.test(digits);
 }

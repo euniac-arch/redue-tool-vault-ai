@@ -52,9 +52,11 @@ export default async function MypagePage() {
 				<p className="mt-1 text-sm text-slate-400">{t('description')}</p>
 			</section>
 
-			<section className="grid gap-4 sm:grid-cols-3">
+			<section className="grid gap-4 sm:grid-cols-2">
 				<SummaryCard label={t('currentPlan')} value={plan.name} accent="text-indigo-300" />
+				{/* [TEMP] 크레딧 과금/주입 비활성화 — 잔여 크레딧 카드
 				<SummaryCard label={t('remainingCredits')} value={`${user.creditsRemaining}`} accent="text-cyan-300" />
+				*/}
 				<SummaryCard label={t('totalInjections')} value={`${historyRecords.length}`} accent="text-emerald-400" />
 			</section>
 

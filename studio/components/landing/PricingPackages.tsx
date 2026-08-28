@@ -60,7 +60,7 @@ export function PricingPackages() {
 
 	return (
 		<section id="pricing" className="mt-20 scroll-mt-24 sm:mt-24">
-			<div className="mx-auto w-full max-w-[960px]">
+			<div className="mx-auto w-full max-w-5xl">
 				<div className="text-center">
 					<p className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-xs font-semibold tracking-widest text-cyan-700 dark:border-cyan-500/20 dark:bg-cyan-500/10 dark:text-cyan-400">
 						{t('badge')}
@@ -158,7 +158,7 @@ function PricingPlanCard({ plan }: { plan: PlanConfig }) {
 					className={`grid transition-all duration-300 ease-out ${
 						open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
 					}`}
-					inert={!open ? true : undefined}
+					inert={(!open ? '' : undefined) as unknown as boolean | undefined}
 				>
 					<div className="min-h-0 overflow-hidden">
 						<div className="mb-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
@@ -185,6 +185,9 @@ function PricingPlanCard({ plan }: { plan: PlanConfig }) {
 									</li>
 								))}
 							</ul>
+							<p className="mt-3 break-keep border-t border-slate-200 pt-3 text-[11px] font-medium leading-relaxed text-slate-600 dark:border-slate-700/60 dark:text-slate-300">
+								{t(`plans.${plan.key}.benefitsSummary`)}
+							</p>
 						</div>
 					</div>
 				</div>

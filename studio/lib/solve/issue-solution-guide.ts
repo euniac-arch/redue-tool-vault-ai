@@ -14,9 +14,10 @@ export const CMS_PLATFORM: Record<string, { label: string; file: string; injecti
   },
   gnuboard: {
     label: 'Gnuboard / YoungCart',
-    file: 'theme/{테마명}/head.sub.php',
-    injection: '첫 <?php 직후 — v30 Precision Canonical & Full-Document Defer Master Engine (exact canonical + head/body defer + Article/FAQ/Person)',
-    adminPath: 'FTP — head.sub.php에 주입 (head.php는 레이아웃, 일반 주입 주의)',
+    file: 'extend/redue.schema.php + theme/{테마명}/head.sub.php',
+    injection:
+      '엔진은 /extend/redue.schema.php (관리자·POST 가드)에 분리하고, head.sub.php에는 <meta charset> 직후 echo redue_render_full_schema(); 5줄만 삽입 — 관리자 CSRF/500 원천 차단',
+    adminPath: 'FTP — extend/redue.schema.php 생성 · head.sub.php 순정 복원 후 렌더 5줄만',
   },
   nextjs: {
     label: 'Next.js',
@@ -26,9 +27,22 @@ export const CMS_PLATFORM: Record<string, { label: string; file: string; injecti
   },
   wordpress: {
     label: 'WordPress',
-    file: 'wp-content/themes/{theme}/header.php',
-    injection: 'wp_head() 직전 또는 </head> 직전',
-    adminPath: '외모 → 테마 파일 편집 (header.php) 또는 Yoast/RankMath',
+    file: 'wp-content/mu-plugins/redue-schema.php',
+    injection:
+      'Must-Use 플러그인 — is_admin/ajax/cron/REST 가드 + add_action(wp_head, redue_wp_dynamic_schema_controller, 1) · Footer Scanner · 조건 태그 분기',
+    adminPath: 'wp-content/mu-plugins/ 업로드 (테마 수정 없음)',
+  },
+  rhymix: {
+    label: 'Rhymix / XE',
+    file: 'addons/redue_schema/redue_schema.addon.php',
+    injection: 'called_position === before_display_content 시점에 Context::addHtmlHeader',
+    adminPath: '라이믹스 관리자 → 애드온 활성화',
+  },
+  standalone: {
+    label: 'Standalone PHP / Laravel',
+    file: 'header.php / common/header.php',
+    injection: '공통 헤더 템플릿 최상단 안전 인클루드 (마커 블록만 덮어쓰기)',
+    adminPath: 'FTP — 레이아웃/스킨 header.php',
   },
   react: {
     label: 'React',
@@ -93,7 +107,7 @@ export const GUIDES: Record<string, any> = {
       {
         title: 'Crawler-Optimized Hardcoded Canonical (head.sub.php)',
         detail:
-          '<meta charset> 바로 직후에 canonical+og:url을 배치하세요. https://대표도메인 고정, REQUEST_URI+SCRIPT_NAME 이중 감지, bo_table/wr_id 등 허용 쿼리만 유지합니다.',
+          '<head> 바로 직후(First-Chunk)에 canonical+og:url을 배치하세요. 테마 중복 canonical은 정규식으로 제거합니다. https://대표도메인 고정, REQUEST_URI+SCRIPT_NAME 이중 감지, bo_table/wr_id 등 허용 쿼리만 유지합니다.',
       },
       {
         title: '서브페이지·게시판 고유 URL 보장',
@@ -270,9 +284,9 @@ export const GUIDES: Record<string, any> = {
     difficulty: 'easy',
     steps: [
       {
-        title: 'Crawler-Optimized Canonical & Schema Engine (head.sub.php)',
+        title: 'Crawler-Optimized Canonical & Schema Engine (/extend/redue.schema.php)',
         detail:
-          '그누보드/영카트 감지 시 head.sub.php 첫 <?php 직후에 Crawler-Optimized Canonical 엔진을 삽입합니다. REQUEST_URI+SCRIPT_NAME 이중 경로·HTTPS 강제·G5_URL·$config[cf_title]·$g5_head_title를 자동 감지하고, ob_start()로 중복 canonical/og:url을 청소한 뒤 <meta charset> 바로 직후(Charset-After First-Chunk)에 1쌍만 재주입하며(없으면 <head> 직후 → </head> 직전), redue_dynamic_schema_controller()는 static $executed로 1회만 실행됩니다. exact 서브페이지 canonical·script defer·Article/NewsArticle(보도·뉴스 게시판 자동 승격)·FAQ/Person은 유지됩니다.',
+          '그누보드/영카트 감지 시 24점 엔진은 /extend/redue.schema.php에 분리하고(관리자·POST 가드), head.sub.php에는 charset 직후 echo redue_render_full_schema(); 5줄만 남깁니다. $config·$g5_head_title·$board·$view·g5_menu를 실시간 참조하고, 메인은 Organization+WebSite+GNB ItemList+AboutPage 복합 스키마, 게시판은 CollectionPage, 게시글은 Article, 그 외는 홈→1차메뉴→현재 3단 BreadcrumbList+WebPage를 출력합니다.',
       },
       {
         title: '클라이언트 Defer 보강(선택)',
@@ -334,6 +348,27 @@ export const GUIDES: Record<string, any> = {
       },
     ],
     verify: ['Twitter Card Validator 테스트'],
+    hasCode: true,
+  },
+  RSS_NOT_FOUND: {
+    summary: '사이트 루트에 RSS 2.0 피드(/rss.php)가 없거나 RSS 링크 태그가 없습니다.',
+    impact: '네이버 서치어드바이저·다음 웹마스터가 최신 게시글을 구독하기 어렵고 신규 콘텐츠 색인이 늦어집니다.',
+    difficulty: 'easy',
+    steps: [
+      {
+        title: 'rss.php 업로드',
+        detail: '그누보드 5 / 영카트 루트(common.php와 같은 폴더)에 생성된 rss.php를 업로드하세요. 공개 게시글 최신 30건이 RSS 2.0으로 출력됩니다.',
+      },
+      {
+        title: 'Content-Type 확인',
+        detail: '브라우저에서 /rss.php 가 HTTP 200 이고 Content-Type 이 text/xml 또는 application/rss+xml 인지 확인하세요.',
+      },
+      {
+        title: '검색엔진 제출',
+        detail: '네이버 서치어드바이저 · 구글 서치콘솔 · 다음/카카오 웹마스터에 https://도메인/rss.php 를 제출하세요.',
+      },
+    ],
+    verify: ['https://도메인/rss.php 200 + text/xml', '<link rel="alternate" type="application/rss+xml"> 존재'],
     hasCode: true,
   },
   SITEMAP_NOT_FOUND: {
@@ -448,6 +483,8 @@ export function normalizeCmsKey(cmsType: string): string {
     'Next.js': 'nextjs',
     NextJS: 'nextjs',
     WordPress: 'wordpress',
+    'Rhymix / XE': 'rhymix',
+    'Rhymix / XE / Standalone PHP': 'rhymix',
     React: 'react',
     Laravel: 'laravel',
     'Custom HTML/PHP': 'custom',
@@ -459,6 +496,10 @@ export function normalizeCmsKey(cmsType: string): string {
     return 'gnuboard';
   }
   if (/wordpress|워드프레스/.test(lower) || cmsType.includes('워드프레스')) return 'wordpress';
+  if (/rhymix|라이믹스|xpressengine|\bxe\b/.test(lower) || cmsType.includes('라이믹스')) {
+    return 'rhymix';
+  }
+  if (/standalone/.test(lower)) return 'standalone';
   if (/cafe24|카페24/.test(lower)) return 'cafe24';
   if (/next/.test(lower)) return 'nextjs';
   if (/laravel/.test(lower)) return 'laravel';

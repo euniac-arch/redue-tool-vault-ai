@@ -16,7 +16,13 @@ import { isFirebaseClientConfigured } from '@/lib/firebase/client';
 import type { AuditReport } from '@/lib/site-auditor';
 import { mapAuditReportToSolveSnapshot } from '@/lib/solve/from-audit-report';
 import { resolveClientSolveTransfer } from '@/lib/solve/payload-bridge';
+import { excludeCitationVirtualFromSchemaPages } from '@/lib/solve/core/eeat-citation';
+import { ensureRootDeployMenuRows } from '@/lib/solve/geo-root-assets';
+import { hydrateSolvePageMetas } from '@/lib/solve/page-meta-hydrate';
+import { useSolvePageDescriptions } from '@/lib/solve/use-solve-page-descriptions';
+import { useSolvePageSelection } from '@/lib/solve/use-solve-page-selection';
 import type { SolveAuditSnapshot } from '@/lib/solve/types';
+import { scanSiteOnce } from '@/lib/audit-history-storage';
 
 interface SolveWorkspaceShellProps {
 	/** Server-resolved audit; null when `?id=` missing or document not found */
@@ -49,11 +55,13 @@ async function fetchAuditViaApi(id: string): Promise<AuditProjectDoc | null> {
 						titleLength: 0,
 						metaDescriptionLength: 0,
 					},
-					schema: { coverage: 0, types: [], jsonLdBlockCount: 0 },
-				},
+				schema: { coverage: 0, types: [], jsonLdBlockCount: 0 },
+			},
 				cmsType: undefined,
 			},
 			createdAt: data.createdAt || new Date().toISOString(),
+			userType: data.userType === 'admin' || data.userType === 'user' ? data.userType : 'guest',
+			userId: typeof data.userId === 'string' ? data.userId : null,
 		};
 	} catch {
 		return null;
@@ -107,6 +115,7 @@ export function SolveWorkspaceShell({
 							doc.auditPayload.cmsType ||
 							latest?.cmsType ||
 							'WordPress',
+						ceo_name: doc.auditPayload.ceo_name || latest?.ceo_name,
 					});
 					setAudit(fromFs);
 					setHydratedFromPayload(true);
@@ -127,12 +136,13 @@ export function SolveWorkspaceShell({
 				}
 			}
 
-			// 2) Optional session transfer (soft handoff from audit result CTA)
+			// 2) Optional client transfer (session leftover or latest_audit_payload)
 			const transfer = resolveClientSolveTransfer({ clearSession: true });
 			if (!cancelled && transfer?.report) {
 				const fromPayload = mapAuditReportToSolveSnapshot(transfer.report, {
 					id: transfer.auditId || firestoreDocId || 'session',
 					cmsType: transfer.cmsType || latest?.cmsType || 'WordPress',
+					ceo_name: latest?.ceo_name,
 				});
 				setAudit(fromPayload);
 				setHydratedFromPayload(true);
@@ -156,39 +166,51 @@ export function SolveWorkspaceShell({
 		[audit],
 	);
 
+	const menuPages = useMemo(
+		() =>
+			hydrateSolvePageMetas(
+				excludeCitationVirtualFromSchemaPages(ensureRootDeployMenuRows(audit?.pageMetas || [])),
+				{
+					siteName: audit?.siteName || '',
+					mainTitle: audit?.mainTitle,
+					mainDescription: audit?.mainDescription,
+					industryType: audit?.industryType,
+					navItems: audit?.navItems,
+				},
+			),
+		[audit?.pageMetas, audit?.siteName, audit?.mainTitle, audit?.mainDescription, audit?.industryType, audit?.navItems],
+	);
+
+	const pageDescriptions = useSolvePageDescriptions({
+		pages: menuPages,
+		auditId: audit?.id || 'unknown',
+		targetUrl: audit?.targetUrl || '',
+	});
+
+	const pageSelection = useSolvePageSelection({
+		pages: pageDescriptions.pages,
+		auditId: audit?.id || 'unknown',
+		targetUrl: audit?.targetUrl || '',
+	});
+
 	async function handleReanalyzeMenu() {
 		if (!audit?.targetUrl || reanalyzing) return;
 		setReanalyzing(true);
 		setReanalyzeError(null);
 		try {
-			const res = await fetch(`/api/audit/scan?t=${Date.now()}`, {
-				method: 'POST',
-				cache: 'no-store',
-				headers: {
-					'Content-Type': 'application/json',
-					'Cache-Control': 'no-cache, no-store, must-revalidate',
-					Pragma: 'no-cache',
-				},
-				body: JSON.stringify({
-					url: audit.targetUrl,
-					lang: 'ko',
-					forceRefresh: true,
-					t: Date.now(),
-					...(firestoreDocId ? { replaceId: firestoreDocId } : {}),
-				}),
+			const data = await scanSiteOnce(audit.targetUrl, 'ko', {
+				forceRefresh: true,
+				replaceId: firestoreDocId,
 			});
-			const data = (await res.json().catch(() => ({}))) as AuditReport & {
-				id?: string | null;
-				error?: string;
-			};
-			if (!res.ok || !data?.url || !Array.isArray(data.categories)) {
-				throw new Error(data?.error || '메뉴구조 재분석에 실패했습니다. URL을 확인해 주세요.');
+			if (!data?.url || !Array.isArray(data.categories)) {
+				throw new Error('메뉴구조 재분석에 실패했습니다. URL을 확인해 주세요.');
 			}
 
 			const nextId = (data.id && String(data.id).trim()) || audit.id;
 			const snapshot = mapAuditReportToSolveSnapshot(data, {
 				id: nextId,
 				cmsType: audit.cmsType || latest?.cmsType || 'WordPress',
+				ceo_name: data.ceoName || data.siteMeta?.ceoName,
 			});
 			setAudit(snapshot);
 			setHydratedFromPayload(true);
@@ -211,7 +233,7 @@ export function SolveWorkspaceShell({
 
 	if (phase === 'hydrating' && !audit) {
 		return (
-			<p className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm">
+			<p className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 shadow-sm dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
 				진단 데이터를 확인하는 중…
 			</p>
 		);
@@ -246,15 +268,23 @@ export function SolveWorkspaceShell({
 				/>
 
 				<MenuStructurePanel
-					pageMetas={audit.pageMetas || []}
+					pageMetas={pageDescriptions.pages}
 					targetUrl={audit.targetUrl}
 					reanalyzing={reanalyzing}
 					onReanalyze={() => void handleReanalyzeMenu()}
 					lastRefreshedAt={lastMenuRefreshedAt}
+					selectedKeys={pageSelection.selectedKeys}
+					onTogglePage={pageSelection.toggle}
+					onSetAllPages={pageSelection.setAll}
+					onChangeDescription={pageDescriptions.setDescription}
 				/>
 			</div>
 
-			<SolveWorkspaceTabs audit={audit} initialTab={initialTab} />
+			<SolveWorkspaceTabs
+				audit={audit}
+				initialTab={initialTab}
+				schemaPageMetas={pageSelection.selectedPages}
+			/>
 
 			{/* 진단 요약 리포트 맨 하단 — 공식 검증 툴 퀵링크 */}
 			<ExternalVerificationLinks url={audit.targetUrl} variant="light" className="mt-3" />

@@ -1,7 +1,8 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getFirestore, type Firestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 
 let cachedApp: FirebaseApp | null = null;
+let cachedFirestore: Firestore | null = null;
 
 export function isFirebaseClientConfigured(): boolean {
 	return Boolean(
@@ -42,5 +43,17 @@ export function getFirebaseClientApp(): FirebaseApp {
 }
 
 export function getClientFirestore(): Firestore {
-	return getFirestore(getFirebaseClientApp());
+	if (cachedFirestore) return cachedFirestore;
+	const app = getFirebaseClientApp();
+	try {
+		// Must run before any other Firestore call on this app instance (SDK
+		// requirement) — drops `undefined` field values instead of throwing
+		// ("Cannot use 'undefined' as a Firestore value"), matching JSON.stringify semantics.
+		cachedFirestore = initializeFirestore(app, { ignoreUndefinedProperties: true });
+	} catch {
+		// Firestore was already initialized elsewhere for this app (e.g. HMR
+		// re-import) — fall back to the existing instance rather than throwing.
+		cachedFirestore = getFirestore(app);
+	}
+	return cachedFirestore;
 }

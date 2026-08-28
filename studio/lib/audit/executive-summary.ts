@@ -151,15 +151,25 @@ export function liftCategoryScoresAfterGeoPrescription(
 	});
 }
 
+/**
+ * @param currentOverride When set (e.g. the dashboard's real 3-track composite
+ * `measuredScore`), used as the baseline instead of the raw category
+ * score/maxScore ratio — the projected gain is still derived from the raw
+ * category lift so the +N point delta stays proportional, but both the
+ * "current" and "projected" numbers line up with what the user sees on screen.
+ */
 export function projectAfterGeoPrescription(
 	scores: ExecutiveSummaryScores,
 	weakestId: string,
+	currentOverride?: number,
 ): { current: number; projected: number; gain: number; categories: ExecutiveSummaryScoreCategory[] } {
-	const current = overallPct(scores.score, scores.maxScore);
+	const rawCurrent = overallPct(scores.score, scores.maxScore);
+	const current = Number.isFinite(currentOverride) ? clampPct(currentOverride as number) : rawCurrent;
 	const categories = liftCategoryScoresAfterGeoPrescription(scores, weakestId);
 	const patchedRaw = categories.reduce((sum, cat) => sum + (Number.isFinite(cat.score) ? cat.score : 0), 0);
-	const projected = overallPct(patchedRaw, scores.maxScore);
-	const capped = resolvePatchedTargetScore(current, projected);
+	const rawProjected = overallPct(patchedRaw, scores.maxScore);
+	const rawGain = Math.max(0, rawProjected - rawCurrent);
+	const capped = resolvePatchedTargetScore(current, current + rawGain);
 	return { current, projected: capped, gain: Math.max(0, capped - current), categories };
 }
 
@@ -244,19 +254,32 @@ function briefingBlock(
 /**
  * Compose a personalized executive briefing from live category scores and
  * geo/industry keywords. Used by the diagnosis API and PDF/result UI.
+ *
+ * @param overallScoreOverride When supplied, the headline `overallScore` (and
+ * every downstream number derived from it — threshold check, risk copy,
+ * expected-result baseline) uses this value instead of the raw
+ * `scores.score / scores.maxScore` ratio. Callers that already have the
+ * dashboard's real 3-track composite (`measuredScore` from
+ * `buildDiagnosisScoreSnapshot`) must pass it here so the PDF/print report
+ * never shows a different "overall score" than the result screen. Category
+ * scores (used to find the weakest item) are unaffected — they're real
+ * per-check data either way.
  */
 export function generateExecutiveSummary(
 	scores: ExecutiveSummaryScores,
 	keywords: ExecutiveSummaryKeywords,
 	lang: AuditLang = 'ko',
+	overallScoreOverride?: number,
 ): ExecutiveSummary {
-	const overallScore = overallPct(scores.score, scores.maxScore);
+	const overallScore = Number.isFinite(overallScoreOverride)
+		? clampPct(overallScoreOverride as number)
+		: overallPct(scores.score, scores.maxScore);
 	const weakest = findWeakestCategory(scores.categories);
 	const ratioPct = clampPct(categoryRatio(weakest) * 100);
 	const location = resolveLocation(keywords, lang);
 	const industry = resolveIndustry(keywords, lang);
 	const belowThreshold = overallScore < AI_RECOMMEND_THRESHOLD;
-	const projection = projectAfterGeoPrescription(scores, weakest.id);
+	const projection = projectAfterGeoPrescription(scores, weakest.id, overallScore);
 	const remainingToAGrade = Math.max(0, AI_RECOMMEND_THRESHOLD - projection.projected);
 	const reachesAGrade = projection.projected >= AI_RECOMMEND_THRESHOLD;
 
@@ -304,7 +327,10 @@ export function generateExecutiveSummary(
 	};
 }
 
-export function executiveSummaryFromReport(report: ExecutiveSummaryReportInput): ExecutiveSummary {
+export function executiveSummaryFromReport(
+	report: ExecutiveSummaryReportInput,
+	overallScoreOverride?: number,
+): ExecutiveSummary {
 	const lang: AuditLang = report.lang === 'en' ? 'en' : 'ko';
 	return generateExecutiveSummary(
 		{
@@ -325,6 +351,7 @@ export function executiveSummaryFromReport(report: ExecutiveSummaryReportInput):
 			brandName: report.siteMeta?.brandName,
 		},
 		lang,
+		overallScoreOverride,
 	);
 }
 
@@ -334,4 +361,19 @@ export function ensureExecutiveSummary<T extends ExecutiveSummaryReportInput>(re
 		return report;
 	}
 	return { ...report, executiveSummary: executiveSummaryFromReport(report) };
+}
+
+/**
+ * Rebind a report's executive briefing to the dashboard's real composite
+ * `measuredScore` (Track1×40% + Track2×40% + CWV×20%) instead of the raw
+ * on-page `score/maxScore` the crawler stored it with. Always recomputes —
+ * unlike `ensureExecutiveSummary` this is not a "fill in if missing" helper —
+ * so the PDF/print report's headline number can never drift from the result
+ * screen's headline number.
+ */
+export function executiveSummaryWithMeasuredScore<T extends ExecutiveSummaryReportInput>(
+	report: T,
+	measuredScore: number,
+): ExecutiveSummary {
+	return executiveSummaryFromReport(report, measuredScore);
 }

@@ -148,6 +148,52 @@ export interface PageSpeedSnapshot {
 	lighthouseVersion: string | null;
 	/** Lighthouse `audits.viewport` — used to cross-validate mobile readability. */
 	viewport: PsiViewportAudit | null;
+	/** Set when PSI/Lighthouse could not paint the page (NO_FCP, bot wall, blank render). */
+	unavailableReason?: string;
+	unavailableMessage?: string;
+	/**
+	 * True when this snapshot was synthesized from on-page performance heuristics
+	 * because the real Lighthouse/PSI read did not resolve before the scan
+	 * orchestrator's timeout — not an actual Google PageSpeed measurement.
+	 */
+	estimated?: boolean;
+}
+
+export function emptyPageSpeedSnapshot(
+	url: string,
+	strategy: 'mobile' | 'desktop',
+	reason?: { code?: string; message?: string },
+): PageSpeedSnapshot {
+	const categories: PsiCategoryScore[] = CATEGORY_KEYS.map(({ id }) => ({
+		id,
+		score: null,
+		tier: 'poor' as const,
+	}));
+	return {
+		url,
+		strategy,
+		fetchedAt: new Date().toISOString(),
+		categories,
+		vitals: [],
+		renderBlocking: [],
+		images: [],
+		fonts: [],
+		cacheResources: [],
+		cacheTotalWastedBytes: null,
+		lcpElement: null,
+		scriptExecution: [],
+		mainThreadWork: [],
+		hasWarnings: true,
+		lighthouseVersion: null,
+		viewport: null,
+		unavailableReason: reason?.code || 'UNAVAILABLE',
+		unavailableMessage:
+			reason?.message ||
+			'PageSpeed Insights가 이 페이지의 첫 페인트(FCP)를 측정하지 못했습니다.',
+		// This IS a real Lighthouse response (it just couldn't paint the page) — not the
+		// on-page heuristic fallback, so `estimated` stays false, not true.
+		estimated: false,
+	};
 }
 
 export interface PageSpeedApiErrorBody {
@@ -191,6 +237,40 @@ export function clsTier(value: number | null): PsiScoreTier {
 	if (value <= 0.1) return 'good';
 	if (value <= 0.25) return 'needs-improvement';
 	return 'poor';
+}
+
+/**
+ * Track 3 canonical representative score (single source of truth).
+ * Averages the mobile and desktop Lighthouse performance reads 50:50 once both
+ * have landed — real users split across both, so neither strategy alone should
+ * carry the composite. Falls back to whichever single strategy has resolved
+ * while the other is still in flight, and to `null` when neither has resolved
+ * yet (callers fall back to the on-page performance proxy — see
+ * `blendMeasuredScore`). Every surface that shows a Track 3 number (top summary
+ * card, composite score formula, Tab 3 hero/gauge) must derive it from this one
+ * function so they can never drift apart.
+ */
+export function resolveTrack3PerformanceScore(input: {
+	mobile?: PageSpeedSnapshot | null;
+	desktop?: PageSpeedSnapshot | null;
+}): number | null {
+	const mobileScore = input.mobile?.categories.find((c) => c.id === 'performance')?.score ?? null;
+	const desktopScore = input.desktop?.categories.find((c) => c.id === 'performance')?.score ?? null;
+	if (mobileScore != null && desktopScore != null) {
+		return Math.round((mobileScore + desktopScore) / 2);
+	}
+	return mobileScore ?? desktopScore;
+}
+
+/** Track 3 score stored on a persisted `AuditReport` after the PSI backfill lands. */
+export function resolveReportTrack3Score(report: {
+	pageSpeedMobile?: PageSpeedSnapshot | null;
+	pageSpeedDesktop?: PageSpeedSnapshot | null;
+}): number | null {
+	return resolveTrack3PerformanceScore({
+		mobile: report.pageSpeedMobile,
+		desktop: report.pageSpeedDesktop,
+	});
 }
 
 /** True when a Lighthouse item field looks like real resource URL (not CSS/JS snippet). */
@@ -292,9 +372,15 @@ export function getCleanFileName(url: string | null | undefined): string {
 
 function asNumber(v: unknown): number | null {
 	if (typeof v === 'number' && Number.isFinite(v)) return v;
+	if (typeof v === 'number' && v === Infinity) return Infinity;
 	if (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) return Number(v);
+	if (v && typeof v === 'object' && 'value' in v) {
+		return asNumber((v as { value?: unknown }).value);
+	}
 	return null;
 }
+
+const CACHE_AUDIT_KEYS = ['uses-long-cache-ttl', 'cache-insight', 'use-cache-insight'] as const;
 
 function scoreFromCategory(cat: unknown): number | null {
 	if (!cat || typeof cat !== 'object') return null;
@@ -320,14 +406,25 @@ function auditMap(raw: unknown): Record<string, LhAudit> {
 	return raw as Record<string, LhAudit>;
 }
 
-/** Flatten LH12 insight list/table nesting into leaf resource rows. */
+/** Flatten LH12 insight list/table / entity-group nesting into leaf resource rows. */
 function flattenAuditItems(items: Array<Record<string, unknown>> | undefined): Array<Record<string, unknown>> {
 	if (!items?.length) return [];
 	const out: Array<Record<string, unknown>> = [];
 	for (const item of items) {
 		if (!item || typeof item !== 'object') continue;
 		const nested = item.items;
-		if ((item.type === 'table' || item.type === 'list') && Array.isArray(nested)) {
+		const isGroup =
+			item.type === 'table' ||
+			item.type === 'list' ||
+			item.type === 'list-section' ||
+			item.type === 'opportunity';
+		const groupedWithoutUrl =
+			Array.isArray(nested) &&
+			nested.length > 0 &&
+			!itemUrl(item) &&
+			asNumber(item.totalBytes) == null &&
+			asNumber(item.cacheLifetimeMs) == null;
+		if ((isGroup || groupedWithoutUrl) && Array.isArray(nested)) {
 			out.push(...flattenAuditItems(nested as Array<Record<string, unknown>>));
 			continue;
 		}
@@ -453,7 +550,7 @@ function resourceSizeIndex(audits: Record<string, LhAudit>): ResourceSizeIndex {
 	const byName = new Map<string, number>();
 	const sources = [
 		...collectAuditItems(audits, ['network-requests']),
-		...collectAuditItems(audits, ['uses-long-cache-ttl', 'cache-insight']),
+		...collectAuditItems(audits, [...CACHE_AUDIT_KEYS]),
 		...collectAuditItems(audits, ['render-blocking-resources', 'render-blocking-insight']),
 		...collectAuditItems(audits, [
 			'unused-css-rules',
@@ -775,17 +872,153 @@ export function formatKiB(bytes: number | null | undefined): string {
 	return `${kib.toLocaleString('en-US', { maximumFractionDigits: 1, minimumFractionDigits: 0 })} KiB`;
 }
 
+/** Avoid showing the same rounded KiB for current size vs modeled savings. */
+export function formatKiBDistinct(
+	bytes: number | null | undefined,
+	otherBytes?: number | null,
+): string {
+	const label = formatKiB(bytes);
+	if (!label || bytes == null || otherBytes == null || bytes === otherBytes) return label;
+	if (label !== formatKiB(otherBytes)) return label;
+	const kib = bytes / 1024;
+	const precise = `${kib.toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} KiB`;
+	const otherPrecise = `${(otherBytes / 1024).toLocaleString('en-US', { maximumFractionDigits: 2, minimumFractionDigits: 2 })} KiB`;
+	if (precise !== otherPrecise) return precise;
+	return `${bytes.toLocaleString('en-US')} B`;
+}
+
 function formatCacheTtl(ms: number | null): string {
-	if (ms == null || !Number.isFinite(ms) || ms <= 0) return 'None';
+	if (ms == null || ms < 0) return 'None';
+	if (ms === Infinity) return '∞';
+	if (!Number.isFinite(ms) || ms <= 0) return 'None';
 	const sec = ms / 1000;
 	if (sec < 60) return `${Math.round(sec)}s`;
 	const min = sec / 60;
 	if (min < 60) return `${Math.round(min)}m`;
 	const hr = min / 60;
-	if (hr < 48) return `${Math.round(hr)}h`;
+	if (hr < 24) return `${Math.round(hr)}h`;
 	const day = hr / 24;
 	if (day < 60) return `${Math.round(day)}d`;
 	return `${Math.round(day / 30)}mo`;
+}
+
+/** Lighthouse cache-hit model — 30-day half-life (uses-long-cache-ttl). */
+export function cacheHitProbability(maxAgeSeconds: number): number {
+	const days = Math.max(0, maxAgeSeconds) / 86_400;
+	return 1 - Math.pow(0.5, days / 30);
+}
+
+const RECOMMENDED_CACHE_TTL_SEC = 365 * 86_400;
+
+/**
+ * Repeat-visit byte savings if the resource used a 1-year cache vs the current TTL.
+ * Never copies `totalBytes` blindly — a 1-year hit rate is ~99.98%, so uncached
+ * files still show a distinct KiB value from the current transfer size.
+ */
+export function estimateCacheWastedBytes(
+	totalBytes: number | null,
+	cacheLifetimeMs: number | null,
+): number | null {
+	if (totalBytes == null || !Number.isFinite(totalBytes) || totalBytes <= 0) return null;
+	const currentSec = (cacheLifetimeMs ?? 0) / 1000;
+	const delta = cacheHitProbability(RECOMMENDED_CACHE_TTL_SEC) - cacheHitProbability(currentSec);
+	if (delta <= 0) return 0;
+	return Math.max(0, Math.round(totalBytes * delta));
+}
+
+function readDebugNumber(debug: unknown, keys: string[]): number | null {
+	if (!debug || typeof debug !== 'object') return null;
+	const rec = debug as Record<string, unknown>;
+	for (const key of keys) {
+		const n = asNumber(rec[key]);
+		if (n != null) return n;
+	}
+	return null;
+}
+
+/**
+ * Lighthouse 10–13 cache rows use mixed units/keys:
+ * `cacheLifetimeMs`, insight `ttl` (seconds), `debugData.max-age` (ms or s).
+ */
+function readCacheControlMaxAgeMs(item: Record<string, unknown>): number | null {
+	const cc = item.cacheControl ?? item.cacheHeaders;
+	if (cc && typeof cc === 'object') {
+		const rec = cc as Record<string, unknown>;
+		const maxAge = asNumber(rec['max-age'] ?? rec.maxAge ?? rec.max_age);
+		if (maxAge != null && maxAge >= 0 && maxAge !== Infinity) return maxAge * 1000;
+		if (maxAge === Infinity) return Infinity;
+	}
+	if (typeof cc === 'string') {
+		if (/no-store|no-cache|max-age\s*=\s*0\b/i.test(cc) && !/max-age\s*=\s*[1-9]/i.test(cc)) {
+			return 0;
+		}
+		const m = cc.match(/max-age\s*=\s*(\d+)/i);
+		if (m?.[1]) return Number(m[1]) * 1000;
+	}
+	return null;
+}
+
+function parseDurationToMs(raw: unknown): number | null {
+	if (typeof raw !== 'string') return null;
+	const s = raw.trim().toLowerCase();
+	if (!s || s === 'none' || s === 'n/a' || s === '—') return 0;
+	if (s === '∞' || s === 'infinity' || s === 'immutable') return Infinity;
+	const m = s.match(/^([\d.]+)\s*(ms|s|m|min|h|d|mo|w)?$/);
+	if (!m?.[1]) return null;
+	const n = Number(m[1]);
+	if (!Number.isFinite(n) || n < 0) return null;
+	const unit = m[2] ?? 'ms';
+	if (unit === 'ms') return n;
+	if (unit === 's') return n * 1000;
+	if (unit === 'm' || unit === 'min') return n * 60_000;
+	if (unit === 'h') return n * 3_600_000;
+	if (unit === 'd') return n * 86_400_000;
+	if (unit === 'w') return n * 604_800_000;
+	if (unit === 'mo') return n * 2_592_000_000;
+	return null;
+}
+
+/**
+ * Lighthouse 10–13 cache rows use mixed units/keys:
+ * `cacheLifetimeMs`, insight `ttl` (seconds), `debugData.max-age`, `cacheControl`.
+ */
+export function readCacheLifetimeMs(item: Record<string, unknown>): number | null {
+	const fromHeaders = readCacheControlMaxAgeMs(item);
+	const directMs =
+		asNumber(item.cacheLifetimeMs) ??
+		asNumber(item.cacheTtlMs) ??
+		asNumber(item.maxAgeMs) ??
+		parseDurationToMs(item.cacheLifetimeMs) ??
+		parseDurationToMs(item.ttl);
+
+	// Explicit 0 often means "no cache" — but honor a real Cache-Control max-age when present.
+	if (directMs != null && directMs > 0) return directMs;
+	if (fromHeaders != null && fromHeaders > 0) return fromHeaders;
+	if (directMs === 0 || fromHeaders === 0) {
+		// Still check seconds/debug in case 0 was a missing-field placeholder.
+	}
+
+	const debugMs = readDebugNumber(item.debugData, ['cacheLifetimeMs', 'maxAgeMs', 'ttlMs']);
+	if (debugMs != null && debugMs > 0) return debugMs;
+	const debugSec = readDebugNumber(item.debugData, ['max-age', 'maxAge', 'ttl', 'maxAgeInSeconds']);
+	if (debugSec != null && debugSec > 0) {
+		return debugSec >= 10_000_000 ? debugSec : debugSec * 1000;
+	}
+
+	const seconds =
+		asNumber(item.ttl) ??
+		asNumber(item.cacheTtl) ??
+		asNumber(item.cacheLifetime) ??
+		asNumber(item.maxAge) ??
+		readDebugNumber(item.debugData, ['ttl', 'maxAgeInSeconds']);
+	if (seconds != null && seconds > 0) {
+		// Values ≥ 10_000_000 (~116 days in ms) are already milliseconds.
+		return seconds >= 10_000_000 ? seconds : seconds * 1000;
+	}
+	if (directMs != null && directMs >= 0) return directMs;
+	if (fromHeaders != null) return fromHeaders;
+	if (debugMs === 0 || seconds === 0) return 0;
+	return null;
 }
 
 /**
@@ -797,33 +1030,39 @@ function pickCacheResources(audits: Record<string, LhAudit>): {
 	totalWastedBytes: number | null;
 } {
 	const legacy = audits['uses-long-cache-ttl'];
-	const insight = audits['cache-insight'];
+	const insight = audits['cache-insight'] ?? audits['use-cache-insight'];
 	const primary =
 		(legacy?.details?.items?.length ? legacy : null) ??
 		(insight?.details?.items?.length ? insight : null) ??
 		legacy ??
 		insight;
 
-	const rawItems = collectAuditItems(audits, ['uses-long-cache-ttl', 'cache-insight'], 'first-nonempty');
-	const overall =
-		asNumber(primary?.details?.overallSavingsBytes) ??
-		asNumber(legacy?.details?.overallSavingsBytes) ??
-		asNumber(insight?.details?.overallSavingsBytes) ??
-		parseSavingsBytesFromDisplay(primary?.displayValue) ??
-		parseSavingsBytesFromDisplay(insight?.displayValue) ??
-		rawItems.reduce((sum, it) => sum + (asNumber(it.wastedBytes) ?? 0), 0);
-
+	const rawItems = collectAuditItems(audits, [...CACHE_AUDIT_KEYS], 'merge');
+	const sizes = resourceSizeIndex(audits);
 	const out: PsiCacheResource[] = [];
 	const seen = new Set<string>();
 	for (const item of rawItems) {
 		if (!item || typeof item !== 'object') continue;
 		const url = itemUrl(item);
 		if (!url || seen.has(url)) continue;
-		const totalBytes = asNumber(item.totalBytes) ?? asNumber(item.transferSize);
-		const wastedBytes = asNumber(item.wastedBytes);
+		const cacheLifetimeMs = readCacheLifetimeMs(item);
+		const totalBytes =
+			asNumber(item.totalBytes) ??
+			asNumber(item.transferSize) ??
+			asNumber(item.encodedDataLength) ??
+			lookupResourceBytes(url, sizes);
+		const reportedWaste = asNumber(item.wastedBytes);
+		const modeledWaste = estimateCacheWastedBytes(totalBytes, cacheLifetimeMs);
+		// Prefer a modeled / reported value that is not a 1:1 copy of current size.
+		const wastedBytes =
+			reportedWaste != null &&
+			totalBytes != null &&
+			reportedWaste > 0 &&
+			reportedWaste !== totalBytes
+				? reportedWaste
+				: modeledWaste ?? reportedWaste;
 		if (totalBytes == null && wastedBytes == null) continue;
 		seen.add(url);
-		const cacheLifetimeMs = asNumber(item.cacheLifetimeMs);
 		out.push({
 			url,
 			fileName: getCleanFileName(url),
@@ -834,6 +1073,15 @@ function pickCacheResources(audits: Record<string, LhAudit>): {
 		});
 		if (out.length >= 24) break;
 	}
+
+	const itemWaste = out.reduce((sum, it) => sum + (it.wastedBytes ?? 0), 0);
+	const overall =
+		asNumber(primary?.details?.overallSavingsBytes) ??
+		asNumber(legacy?.details?.overallSavingsBytes) ??
+		asNumber(insight?.details?.overallSavingsBytes) ??
+		parseSavingsBytesFromDisplay(primary?.displayValue) ??
+		parseSavingsBytesFromDisplay(insight?.displayValue) ??
+		itemWaste;
 
 	// Shortest TTL / largest waste first
 	out.sort((a, b) => {
@@ -1036,7 +1284,7 @@ function pickFonts(audits: Record<string, LhAudit>): PsiFontOpportunity[] {
 	const sizes = resourceSizeIndex(audits);
 	const fontDisplay = collectAuditItems(audits, ['font-display', 'font-display-insight']);
 	const network = flattenAuditItems(audits['network-requests']?.details?.items);
-	const cache = collectAuditItems(audits, ['uses-long-cache-ttl', 'cache-insight']);
+	const cache = collectAuditItems(audits, [...CACHE_AUDIT_KEYS]);
 
 	const byUrl = new Map<string, { url: string; bytes: number | null; wastedBytes: number | null }>();
 	for (const item of fontDisplay) {
@@ -1106,13 +1354,14 @@ export function parsePageSpeedPayload(
 	const lcpSec = lcpMs != null ? lcpMs / 1000 : null;
 	const fcpMs = asNumber(audits['first-contentful-paint']?.numericValue);
 	const fcpSec = fcpMs != null ? fcpMs / 1000 : null;
+	// TBT MUST come from `total-blocking-time` (ms, integer) — never substitute
+	// INP here. INP is a different metric (field/lab interaction latency) and
+	// silently swapping it in under the "TBT" label used to produce a value
+	// that didn't match the official PSI report's Total Blocking Time figure.
 	const tbtMs = asNumber(audits['total-blocking-time']?.numericValue);
-	const inpMs =
-		asNumber(audits['interaction-to-next-paint']?.numericValue) ??
-		asNumber(audits['experimental-interaction-to-next-paint']?.numericValue);
 	const clsVal = asNumber(audits['cumulative-layout-shift']?.numericValue);
 
-	const blockingMs = inpMs ?? tbtMs;
+	const blockingMs = tbtMs;
 
 	const vitals: PsiCoreVital[] = [
 		{
@@ -1137,10 +1386,7 @@ export function parsePageSpeedPayload(
 			id: 'tbt',
 			value: blockingMs != null ? Math.round(blockingMs) : null,
 			displayValue:
-				(inpMs != null
-					? audits['interaction-to-next-paint']?.displayValue ||
-						audits['experimental-interaction-to-next-paint']?.displayValue
-					: audits['total-blocking-time']?.displayValue) ||
+				audits['total-blocking-time']?.displayValue ||
 				(blockingMs != null ? `${Math.round(blockingMs)}\u00a0ms` : 'N/A'),
 			tier: tbtTier(blockingMs),
 			goodThreshold: 200,
@@ -1203,6 +1449,9 @@ export function parsePageSpeedPayload(
 		hasWarnings,
 		lighthouseVersion: typeof lh.lighthouseVersion === 'string' ? lh.lighthouseVersion : null,
 		viewport,
+		// Explicit real-data flag (isFallback === false) — only `estimatePageSpeedSnapshot`
+		// (on-page heuristic fallback) ever sets this true.
+		estimated: false,
 	};
 }
 

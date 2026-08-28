@@ -1,6 +1,20 @@
 import * as cheerio from 'cheerio';
 import type { CheerioAPI } from 'cheerio';
-import { crawlCollectedPageMetas, crawlGreetingPagesHtml, type CrawledPageMeta } from '@/lib/audit/crawl-page-metas';
+import {
+	crawlCollectedPageMetas,
+	crawlDoctorPagesHtml,
+	crawlGreetingPagesHtml,
+	crawlLocationPagesHtml,
+	type CrawledPageMeta,
+} from '@/lib/audit/crawl-page-metas';
+import {
+	runFullAudit,
+	toFullAuditReportSlice,
+	type FullAuditProgress,
+	type FullAuditReportSlice,
+} from '@/lib/audit/full-audit-engine';
+import { applyCeoNameToSiteMeta, resolveCeoNameSequential } from '@/lib/audit/extractors/ceo-name';
+import type { PageSpeedSnapshot } from '@/lib/audit/pagespeed';
 import {
 	computeSchemaCoverage,
 	emptyPageParseResult,
@@ -9,9 +23,16 @@ import {
 	hasAriaLandmarks,
 	parsePageHtml,
 	splitPageTitle,
+	type H1ElementDetail,
+	type HeadingOutlineNode,
+	type HeadingSkipDetail,
+	type ImageAltIssue,
+	type MissingImageRow,
 	type NavLinkItem,
 	type PageParseResult,
+	type RenderBlockingScript,
 } from '@/lib/audit/parser';
+import { mergeSiteResourceTrackers } from '@/lib/audit/extractors/page-resource-trackers';
 import { resolveSiteLogo } from '@/lib/audit/resolve-site-logo';
 import { fetchPageResource } from '@/lib/audit/fetch-page';
 import { fetchSitemapCheck, type SitemapCheckResult } from '@/lib/audit/sitemap';
@@ -42,6 +63,12 @@ import { detectViewportInHtml } from '@/lib/audit/viewport';
 import { detectCmsFromHtml, toAuditCmsLabel } from '@/lib/crawling/cms-from-html';
 import { generateExecutiveSummary, type ExecutiveSummary } from '@/lib/audit/executive-summary';
 import { buildLlmsTxtCheckItem, isLlmsTxtDocument } from '@/lib/audit/llms-txt-check';
+import {
+	buildRssFeedCheckItem,
+	extractRssAlternateHrefs,
+	isRssFeedDocument,
+	isRssXmlContentType,
+} from '@/lib/audit/rss-feed-check';
 import { parseAiBotAccessFromRobots, resolveAiBotsAllowed } from '@/lib/audit/robots-ai-bots';
 import { sanitizeMainPageTitle } from '@/lib/solve/dynamic-php-schema';
 import {
@@ -65,7 +92,61 @@ import {
 } from '@/lib/audit/onpage-diagnostic';
 import { assertPublicHttpUrl } from './ssrf-guard';
 
-const FETCH_TIMEOUT_MS = 10_000;
+/** [CONNECT] main DOM fetch — hard cap so slow/hung hosts (e.g. Cafe24) never stall the pipeline. */
+const FETCH_TIMEOUT_MS = 6_000;
+/** `/robots.txt`, `/llms.txt` and other auxiliary same-origin resources. */
+const AUX_FETCH_TIMEOUT_MS = 3_000;
+
+type FetchedPageResult = Awaited<ReturnType<typeof fetchPageResource>>;
+
+/** Fail-safe stand-in when an auxiliary fetch rejects instead of resolving with its own empty result. */
+function emptyFetchedPageFallback(requestedUrl: string): FetchedPageResult {
+	return {
+		ok: false,
+		status: null,
+		text: '',
+		elapsedMs: 0,
+		bytes: 0,
+		requestedUrl,
+		finalUrl: requestedUrl,
+		redirectChain: [],
+		headers: {},
+		security: {
+			hsts: null,
+			csp: null,
+			xContentTypeOptions: null,
+			xFrameOptions: null,
+			referrerPolicy: null,
+			permissionsPolicy: null,
+			xRobotsTag: null,
+			contentType: null,
+			server: null,
+			extra: {},
+		},
+		unsafeRedirect: false,
+		hasHsts: false,
+		hasCsp: false,
+		botChallenge: false,
+		error: 'timeout_or_failed',
+	};
+}
+
+/** Fail-safe stand-in when the sitemap check task rejects instead of resolving with its own not-found result. */
+function emptySitemapResultFallback(origin: string): SitemapCheckResult {
+	const url = `${origin.replace(/\/+$/, '')}/sitemap.xml`;
+	return {
+		ok: false,
+		status: null,
+		url,
+		urlCount: 0,
+		isIndex: false,
+		fromRobots: false,
+		exists: false,
+		urls: [],
+		error: 'timeout_or_failed',
+		evidence: 'GET sitemap — timeout_or_failed',
+	};
+}
 
 export type AuditLang = 'ko' | 'en';
 export type AuditCheckStatus = 'pass' | 'fail' | 'warning';
@@ -83,6 +164,24 @@ export interface AuditCheckItem {
 	evidence?: string;
 	why?: string;
 	impact?: string;
+	/** `image-alt` pinpoint rows (missing / empty / stopword). */
+	imageAltIssues?: ImageAltIssue[];
+	/** Report-facing missing-alt rows (`details.missing_images`). */
+	missing_images?: MissingImageRow[];
+	missing_alt_list?: MissingImageRow[];
+	details?: { missing_images?: MissingImageRow[] };
+	/** Site-wide image totals for the alt coverage summary. */
+	imagesTotal?: number;
+	imagesMissingAlt?: number;
+	imageAltCoveragePct?: number;
+	/** `render-blocking` pinpoint rows (page URL + original <script> tag). */
+	renderBlockingScriptItems?: RenderBlockingScript[];
+	/** `single-h1` raw DOM H1 nodes. */
+	h1Elements?: H1ElementDetail[];
+	/** `heading-skip` jump events. */
+	headingSkips?: HeadingSkipDetail[];
+	/** Full H1–H6 outline for the hierarchy view. */
+	headingOutline?: HeadingOutlineNode[];
 }
 
 export interface AuditCategory {
@@ -116,6 +215,17 @@ export interface AuditMetrics {
 	/** Sync <script src> tags without async/defer — render-blocking risk. */
 	renderBlockingScripts: number;
 	jsonLdSnippets?: string[];
+	/**
+	 * Untruncated JSON-LD corpus (every script/microdata/hydration block, no
+	 * 1200-char cap), joined for regex/text-corpus consumers — the safe input
+	 * for programmatic `@graph` re-parsing. `jsonLdSnippets` is a display-truncated
+	 * preview; feeding it into a JSON re-parser silently drops geo /
+	 * openingHoursSpecification / hasOfferCatalog whenever the graph is large
+	 * enough to get cut mid-object.
+	 */
+	jsonLdFullCorpus?: string;
+	/** Same untruncated data as `jsonLdFullCorpus`, kept as separate per-block strings for `JSON.parse`-per-block consumers (a single joined string is invalid JSON when a page emits 2+ `<script>` blocks). */
+	jsonLdFullBlocks?: string[];
 	organizationMissing?: string[];
 	articleMissing?: string[];
 	personMissing?: string[];
@@ -123,6 +233,19 @@ export interface AuditMetrics {
 	/** Content-scoped H2 phrases for As-Is source audit (P5). */
 	h2Texts?: string[];
 	headingSkipExamples?: string[];
+	/** Pinpoint alt defects for the detailed checklist scroll box. */
+	imageAltIssues?: ImageAltIssue[];
+	missing_images?: MissingImageRow[];
+	missing_alt_list?: MissingImageRow[];
+	details?: { missing_images?: MissingImageRow[] };
+	/** Sync scripts in <head> / early <body> mapped to the page they were found on. */
+	renderBlockingScriptItems?: RenderBlockingScript[];
+	/** Raw DOM H1 nodes (text + CSS path). */
+	h1Elements?: H1ElementDetail[];
+	/** Heading hierarchy skips (from/to + text + selector). */
+	headingSkips?: HeadingSkipDetail[];
+	/** Sequential H1–H6 outline used to render skip positions. */
+	headingOutline?: HeadingOutlineNode[];
 	/** Page-specific title (site/brand suffix stripped) for GEO / $page_meta binding. */
 	pageTitle?: string;
 	/** Full document `<title>` before site-name split. */
@@ -142,6 +265,10 @@ export interface AuditMetrics {
 	hasLlmsTxt?: boolean;
 	/** Evidence line for the `/llms.txt` checklist row. */
 	llmsTxtEvidence?: string;
+	/** Live `/rss.php` or RSS/Atom alternate link (search-engine subscription). */
+	hasRssFeed?: boolean;
+	/** Evidence line for the RSS checklist row. */
+	rssFeedEvidence?: string;
 	/** Final URL after redirect tracking (Punycode ASCII href). */
 	finalUrl?: string;
 	/** HSTS present on the final response. */
@@ -214,12 +341,14 @@ export interface AuditReport {
 	/** Flat checklist (all category checks) for the detailed report grid. */
 	checklist?: AuditCheckItem[];
 	findings: AuditFinding[];
-	/** Same-origin internal links (path + query) from the crawled page. */
+	/** GNB 주·서브메뉴 href 목록 (폴백: 본문 내부 링크). */
 	collectedUrls?: string[];
 	/** GNB / header nav labels discovered on the audited page. */
 	navItems?: NavLinkItem[];
 	/** Footer / 사업자 정보 corpus for Organization.legalName (상호·법인명·(주)). */
 	footerText?: string;
+	/** Shared CEO bind — same value as siteMeta.ceoName / audit_payload.ceo_name. */
+	ceoName?: string;
 	/** Content-scoped Title/H1 for collected subpages (incl. board.php?bo_table=*). */
 	pageMetas?: CrawledPageMeta[];
 	/** Personalized C-level briefing from live scores + geo/industry keywords. */
@@ -243,6 +372,19 @@ export interface AuditReport {
 	redirectChain?: Array<{ from: string; to: string; status: number }>;
 	/** Live sitemap.xml check against the final origin. */
 	sitemap?: SitemapCheckResult;
+	/** Full-site census + incremental delta-cache coverage. */
+	fullAudit?: FullAuditReportSlice;
+	/** True when the crawler only received a bot/WAF challenge interstitial (Vercel Attack Challenge Mode, Cloudflare, etc.) instead of the real page — siteMeta/keywords fell back to domain-only values. */
+	crawlBlocked?: boolean;
+	/**
+	 * Track 3 — live Google PageSpeed(Lighthouse) reads collected in parallel with
+	 * Track 1/2 by the `/api/audit/scan` orchestrator (falls back to an on-page
+	 * estimate — see `estimatePageSpeedSnapshot` — if Lighthouse doesn't resolve
+	 * within the orchestrator timeout). Absent on reports saved before this field
+	 * existed; the result page re-fetches Track 3 client-side in that case only.
+	 */
+	pageSpeedDesktop?: PageSpeedSnapshot | null;
+	pageSpeedMobile?: PageSpeedSnapshot | null;
 }
 
 type Strings = typeof STRINGS.ko | typeof STRINGS.en;
@@ -394,7 +536,7 @@ const STRINGS = {
 			website: 'WebSite 또는 BreadcrumbList가 확인되어 보조 스키마 기준을 충족, 정상 통과되었습니다.',
 			person: 'Person 저자/대표 프로필 식별자가 확인되어 정상 통과되었습니다.',
 			htmlLang: 'html lang 속성이 명시되어 정상 통과되었습니다.',
-			imageAlt: '이미지 alt 커버리지 기준(80% 이상)을 충족하여 정상 통과되었습니다.',
+			imageAlt: '이미지 alt 커버리지 기준(90% 이상)을 충족하여 정상 통과되었습니다.',
 			headingStructure: 'H1–H3 제목 구조가 존재하여 정상 통과되었습니다.',
 			faq: 'FAQPage/HowTo 스키마가 확인되어 GEO 인용 기준을 충족, 정상 통과되었습니다.',
 			robots: 'GPTBot/PerplexityBot 등 AI 크롤러가 차단되지 않아 정상 통과되었습니다.',
@@ -549,7 +691,7 @@ const STRINGS = {
 			website: 'WebSite or BreadcrumbList is present, so the support-schema bar is met and passed.',
 			person: 'Person author/director identifiers are present and passed.',
 			htmlLang: 'The html lang attribute is present and passed.',
-			imageAlt: 'Image alt coverage meets the threshold (80%+) and passed.',
+			imageAlt: 'Image alt coverage meets the threshold (90%+) and passed.',
 			headingStructure: 'H1–H3 heading structure is present and passed.',
 			faq: 'FAQPage/HowTo schema is present, so the GEO citation bar is met and passed.',
 			robots: 'AI crawlers such as GPTBot/PerplexityBot are not blocked and passed.',
@@ -569,7 +711,23 @@ function check(
 	label: string,
 	status: AuditCheckStatus,
 	weight: number,
-	extra?: Pick<AuditCheckItem, 'evidence' | 'why' | 'impact'> & { passWhy?: string },
+	extra?: Pick<
+		AuditCheckItem,
+		| 'evidence'
+		| 'why'
+		| 'impact'
+		| 'imageAltIssues'
+		| 'missing_images'
+		| 'missing_alt_list'
+		| 'details'
+		| 'imagesTotal'
+		| 'imagesMissingAlt'
+		| 'imageAltCoveragePct'
+		| 'renderBlockingScriptItems'
+		| 'h1Elements'
+		| 'headingSkips'
+		| 'headingOutline'
+	> & { passWhy?: string },
 ): AuditCheckItem {
 	const { passWhy, why, ...rest } = extra ?? {};
 	return {
@@ -772,6 +930,12 @@ function resolveIndexStatus(args: {
 export interface AuditSiteOptions {
 	/** Bypass CDN/proxy & prior HTML caches; append `?_redue_nocache=` on fetches. */
 	forceRefresh?: boolean;
+	/** Enumerate every public page (sitemap/GNB/CMS) instead of the 60-URL hop. Default true. */
+	fullAudit?: boolean;
+	/** Reuse unchanged pages via content_hash. Default true. */
+	useDeltaCache?: boolean;
+	/** Live census/analyze progress (NDJSON stream or server logs). */
+	onProgress?: (progress: FullAuditProgress) => void;
 }
 
 function truncate(value: string, max = 96): string {
@@ -885,10 +1049,14 @@ function buildSeoChecks(
 				evidence:
 					headings.h1Count === 0
 						? '— no <h1> detected'
-						: headings.h1Texts.map((t, i) => `H1#${i + 1}: "${truncate(t, 48)}"`).join(' · '),
+						: headings.h1Texts.map((t, i) => `H1#${i + 1}: "${truncate(t, 48)}"`).join(' · ') ||
+							headings.h1Elements
+								.map((el, i) => `H1#${i + 1}: "${truncate(el.text, 48)}"`)
+								.join(' · '),
 				why: S.why.singleH1,
 				passWhy: S.passWhy.singleH1,
 				impact: S.impact.singleH1,
+				h1Elements: headings.h1Elements,
 			},
 		),
 		check(
@@ -903,6 +1071,8 @@ function buildSeoChecks(
 				why: S.why.headingSkip,
 				passWhy: S.passWhy.headingSkip,
 				impact: S.impact.headingSkip,
+				headingSkips: headings.headingSkips,
+				headingOutline: headings.headingOutline,
 			},
 		),
 		check('html-lang', S.accessibility.htmlLang, parsed.meta.htmlLang ? 'pass' : 'fail', checklistWeight('html-lang', 2), {
@@ -1057,6 +1227,68 @@ function buildSchemaChecks(
 }
 
 /**
+ * Last-resort report when the pipeline throws after URL validation.
+ * Always a complete `AuditReport` so `/api/audit/scan` can still return 200.
+ */
+export function buildDegradedAuditReport(
+	targetUrl: string,
+	lang: AuditLang = 'ko',
+	err?: unknown,
+): AuditReport {
+	let url = targetUrl;
+	try {
+		url = new URL(targetUrl).toString();
+	} catch {
+		/* keep raw */
+	}
+	const { status, statusLabel } = overallStatus(lang, 0);
+	const reason = err instanceof Error ? err.message : err != null ? String(err) : 'timeout_or_failed';
+	return {
+		url,
+		finalUrl: url,
+		lang,
+		fetchedAt: new Date().toISOString(),
+		httpStatus: null,
+		responseTimeMs: 0,
+		pageSizeBytes: 0,
+		score: 0,
+		maxScore: 0,
+		status,
+		statusLabel,
+		schemaCoverage: 0,
+		geoCitationScore: 0,
+		siteMeta: fallbackSiteMetadata(url, lang),
+		categories: [],
+		checklist: [],
+		findings: [],
+		sitemap: emptySitemapResultFallback(url),
+		metrics: {
+			titleLength: 0,
+			metaDescriptionLength: 0,
+			h1Count: 0,
+			headingSkipDetected: false,
+			imagesTotal: 0,
+			imagesMissingAlt: 0,
+			imageAltCoveragePct: 0,
+			jsonLdBlockCount: 0,
+			schemaTypes: [],
+			bodyTextLength: 0,
+			renderBlockingScripts: 0,
+			hasLlmsTxt: false,
+			llmsTxtEvidence: 'GET /llms.txt — timeout_or_failed',
+			hasRssFeed: false,
+			rssFeedEvidence: 'GET /rss.php — timeout_or_failed',
+			hasSitemap: false,
+			sitemapEvidence: `GET sitemap — ${reason.slice(0, 120)}`,
+			httpStatus: null,
+		},
+		collectedUrls: [],
+		navItems: [],
+		pageMetas: [],
+	};
+}
+
+/**
  * Fetches live HTML + robots.txt and runs a precision, LLM-free SEO/GEO audit.
  * When `forceRefresh` is set, outbound fetches append `?_redue_nocache=` and send no-cache headers.
  */
@@ -1068,12 +1300,28 @@ export async function auditSite(
 	const S = STRINGS[lang];
 	const url = await assertPublicHttpUrl(targetUrl);
 	const forceRefresh = options?.forceRefresh === true;
+	const useFullAudit = options?.fullAudit !== false;
+	const useDeltaCache = options?.useDeltaCache !== false;
 	const fetchOpts = { forceRefresh };
+	const pipelineStart = Date.now();
 
-	const page = await fetchPageResource(url.toString(), {
-		timeoutMs: FETCH_TIMEOUT_MS,
-		forceRefresh,
-	});
+	try {
+	// [CONNECT] — main DOM fetch. Bounded to FETCH_TIMEOUT_MS so a slow/hung
+	// host (e.g. Cafe24, expired cert, WAF challenge loop) never stalls the
+	// whole pipeline indefinitely.
+	console.time('[Audit Timer] 1. Connect & DOM Fetch');
+	let page: FetchedPageResult;
+	try {
+		page = await fetchPageResource(url.toString(), {
+			timeoutMs: FETCH_TIMEOUT_MS,
+			forceRefresh,
+		});
+	} catch (err) {
+		console.error('[auditSite] main page fetch threw:', err);
+		page = emptyFetchedPageFallback(url.toString());
+	}
+	console.timeEnd('[Audit Timer] 1. Connect & DOM Fetch');
+
 	let finalUrl = url;
 	try {
 		finalUrl = new URL(page.finalUrl || url.toString());
@@ -1081,29 +1329,67 @@ export async function auditSite(
 		finalUrl = url;
 	}
 	const origin = finalUrl.origin;
-	const [robots, llms] = await Promise.all([
-		fetchPageResource(new URL('/robots.txt', origin).toString(), {
-			timeoutMs: 5000,
-			forceRefresh,
-			accept: 'text/plain,text/*;q=0.8,*/*;q=0.4',
-			skipSsrf: true,
-			maxChars: 200_000,
-		}),
-		fetchPageResource(new URL('/llms.txt', origin).toString(), {
-			timeoutMs: 4000,
-			forceRefresh,
-			accept: 'text/plain,text/*;q=0.8,*/*;q=0.4',
-			skipSsrf: true,
-			maxChars: 80_000,
-		}),
-	]);
-	const sitemapResult = await fetchSitemapCheck(origin, robots.text, fetchOpts);
-	const hasLlmsTxt = isLlmsTxtDocument(llms.text, llms.status);
-	const llmsTxtEvidence = hasLlmsTxt
-		? `GET /llms.txt — ${llms.status ?? '200'} · ${llms.bytes}B`
-		: `GET /llms.txt — ${llms.status ?? 'unreachable'}`;
 
-	const html = page.text || '<html></html>';
+	if (page.botChallenge) {
+		// Vercel Attack Challenge Mode / Cloudflare "Just a moment…" etc. — the
+		// fetched body is the WAF's interstitial, not the real page. Never let
+		// its <title>/OG feed brandName/keyword extraction (cross-site "Vercel
+		// Security Checkpoint" style contamination).
+		console.warn('[auditSite] bot/WAF challenge page detected, discarding body:', finalUrl.toString());
+	}
+	const html = !page.botChallenge && page.text ? page.text : '<html></html>';
+
+	console.time('[Audit Timer] 2. Parallel Analysis (Semantic + Schema + llms.txt)');
+	// [Schema & /llms.txt] — fire the independent auxiliary I/O immediately.
+	// None of these depend on the DOM parse below, so they run concurrently
+	// with it instead of blocking it (sitemap only depends on robots.txt, so
+	// it's chained off that one promise rather than the whole group).
+	const robotsPromise = fetchPageResource(new URL('/robots.txt', origin).toString(), {
+		timeoutMs: AUX_FETCH_TIMEOUT_MS,
+		forceRefresh,
+		accept: 'text/plain,text/*;q=0.8,*/*;q=0.4',
+		skipSsrf: true,
+		skipProtocolUpgrade: true,
+		skipUaRetry: true,
+		maxChars: 200_000,
+	}).catch((err) => {
+		console.error('[auditSite] robots.txt fetch threw:', err);
+		return emptyFetchedPageFallback(new URL('/robots.txt', origin).toString());
+	});
+	const llmsPromise = fetchPageResource(new URL('/llms.txt', origin).toString(), {
+		timeoutMs: AUX_FETCH_TIMEOUT_MS,
+		forceRefresh,
+		accept: 'text/plain,text/*;q=0.8,*/*;q=0.4',
+		skipSsrf: true,
+		skipProtocolUpgrade: true,
+		skipUaRetry: true,
+		maxChars: 80_000,
+	}).catch((err) => {
+		console.error('[auditSite] llms.txt fetch threw:', err);
+		return emptyFetchedPageFallback(new URL('/llms.txt', origin).toString());
+	});
+	const rssPromise = fetchPageResource(new URL('/rss.php', origin).toString(), {
+		timeoutMs: AUX_FETCH_TIMEOUT_MS,
+		forceRefresh,
+		accept: 'application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.5',
+		skipSsrf: true,
+		skipProtocolUpgrade: true,
+		skipUaRetry: true,
+		maxChars: 200_000,
+	}).catch((err) => {
+		console.error('[auditSite] rss.php fetch threw:', err);
+		return emptyFetchedPageFallback(new URL('/rss.php', origin).toString());
+	});
+	const sitemapPromise = robotsPromise
+		.then((r) => fetchSitemapCheck(origin, r.text, fetchOpts))
+		.catch((err) => {
+			console.error('[auditSite] sitemap check threw:', err);
+			return emptySitemapResultFallback(origin);
+		});
+
+	// [Semantic Engine] + [Entity & RAG] — CPU-bound cheerio/regex parsing runs
+	// on the main thread while the auxiliary fetches above are in flight on
+	// the network, instead of waiting for them to resolve first.
 	let $: CheerioAPI;
 	try {
 		$ = cheerio.load(html);
@@ -1125,6 +1411,57 @@ export async function auditSite(
 		console.error('[auditSite] site metadata extract failed:', error);
 		siteMeta = fallbackSiteMetadata(finalUrl.toString(), lang);
 	}
+
+	// Gather the auxiliary fetches now that the synchronous parse above has
+	// already run — `allSettled` means one hung/erroring resource (robots
+	// 500, llms.txt 404, sitemap timeout) never sinks the other two.
+	const [robotsSettled, llmsSettled, sitemapSettled, rssSettled] = await Promise.allSettled([
+		robotsPromise,
+		llmsPromise,
+		sitemapPromise,
+		rssPromise,
+	]);
+	if (robotsSettled.status === 'rejected') {
+		console.error('[auditSite] robots.txt fetch failed:', robotsSettled.reason);
+	}
+	if (llmsSettled.status === 'rejected') {
+		console.error('[auditSite] llms.txt fetch failed:', llmsSettled.reason);
+	}
+	if (sitemapSettled.status === 'rejected') {
+		console.error('[auditSite] sitemap check failed:', sitemapSettled.reason);
+	}
+	if (rssSettled.status === 'rejected') {
+		console.error('[auditSite] rss.php fetch failed:', rssSettled.reason);
+	}
+	const robots =
+		robotsSettled.status === 'fulfilled'
+			? robotsSettled.value
+			: emptyFetchedPageFallback(new URL('/robots.txt', origin).toString());
+	const llms =
+		llmsSettled.status === 'fulfilled'
+			? llmsSettled.value
+			: emptyFetchedPageFallback(new URL('/llms.txt', origin).toString());
+	const sitemapResult =
+		sitemapSettled.status === 'fulfilled' ? sitemapSettled.value : emptySitemapResultFallback(origin);
+	const rssPage =
+		rssSettled.status === 'fulfilled'
+			? rssSettled.value
+			: emptyFetchedPageFallback(new URL('/rss.php', origin).toString());
+	const rssContentType = rssPage.security?.contentType || rssPage.headers['content-type'] || null;
+	const rssFileOk = isRssFeedDocument(rssPage.text, rssPage.status, rssContentType);
+	const rssLinkHrefs = extractRssAlternateHrefs(html, finalUrl.toString());
+	const hasRssFeed = rssFileOk || rssLinkHrefs.length > 0;
+	const rssFeedEvidence = rssFileOk
+		? `GET /rss.php — ${rssPage.status ?? '200'} · ${rssContentType || 'text/xml'}${isRssXmlContentType(rssContentType) ? '' : ' · XML body'}`
+		: rssLinkHrefs.length > 0
+			? `RSS link rel=alternate href="${rssLinkHrefs[0]}"`
+			: `GET /rss.php — ${rssPage.status ?? 'unreachable'} · Content-Type ${rssContentType || 'n/a'}`;
+	const hasLlmsTxt = isLlmsTxtDocument(llms.text, llms.status);
+	const llmsTxtEvidence = hasLlmsTxt
+		? `GET /llms.txt — ${llms.status ?? '200'} · ${llms.bytes}B`
+		: `GET /llms.txt — ${llms.status ?? 'unreachable'}`;
+	console.timeEnd('[Audit Timer] 2. Parallel Analysis (Semantic + Schema + llms.txt)');
+
 	const logoTask = resolveSiteLogo(html, finalUrl.toString(), siteMeta.domain, {
 		$,
 		ogImage: siteMeta.ogImage,
@@ -1143,6 +1480,7 @@ export async function auditSite(
 		siteMeta.brandName || pageSpecificTitle,
 	);
 	const navItems = extractNavItems($, finalUrl.toString());
+	const gnbCollectedUrls = navItems.map((item) => item.url).filter(Boolean);
 	const footerText = extractFooterLegalText($, 2500);
 	const competitorRegion = siteMeta.location || siteMeta.broadLocation;
 	const competitorIndustry = resolveIndustryConfigFromSite({
@@ -1185,6 +1523,11 @@ export async function auditSite(
 	} catch (error) {
 		console.error('[auditSite] query matrix failed:', error);
 	}
+	// [Real-Time SoV] — fired here (as early as possible) but only awaited
+	// near the end, alongside the page-metas/greeting/doctor/location crawls,
+	// so its ~4s external-API budget overlaps with that work instead of
+	// adding to the critical path.
+	const sovStart = Date.now();
 	const competitorTask = fetchRealCompetitorSnapshot({
 		clientName: siteMeta.brandName,
 		region: competitorRegion,
@@ -1192,22 +1535,79 @@ export async function auditSite(
 		categoryName: siteMeta.category,
 		lang,
 		query: competitorPresets[0] || competitorPresets[1],
-	}).catch((error) => {
-		console.error('[auditSite] live competitor fetch failed:', error);
-		return undefined;
-	});
-	const pageMetasTask = crawlCollectedPageMetas({
-		origin: finalUrl.origin,
-		mainUrl: finalUrl.toString(),
-		collectedUrls: parsed.internalLinks,
-		siteName: siteMeta.brandName,
-		mainTitle: pageSpecificTitle,
-		mainDescription: parsed.meta.metaDescription,
-		navItems,
-		forceRefresh,
-	}).catch((error) => {
+	})
+		.then((result) => {
+			console.log(`[Audit Timer] 3. External SoV Search API: ${Date.now() - sovStart}ms`);
+			return result;
+		})
+		.catch((error) => {
+			console.error('[auditSite] live competitor fetch failed:', error);
+			console.log(`[Audit Timer] 3. External SoV Search API (failed): ${Date.now() - sovStart}ms`);
+			return undefined;
+		});
+	const pageMetasTask = (
+		useFullAudit
+			? runFullAudit({
+					origin: finalUrl.origin,
+					mainUrl: finalUrl.toString(),
+					homepageHtml: html,
+					robotsText: robots.text,
+					navItems,
+					siteName: siteMeta.brandName,
+					mainTitle: pageSpecificTitle,
+					mainDescription: parsed.meta.metaDescription,
+					industryType: siteMeta.industryType,
+					cmsHint: detectCmsFromHtml(html),
+					forceRefresh,
+					useDeltaCache,
+					lang,
+					onProgress: options?.onProgress,
+				})
+					.then((result) => ({
+						pageMetas: result.pageMetas,
+						collectedUrls: result.discoveredUrls,
+						fullAudit: toFullAuditReportSlice(result),
+					}))
+					.catch((error) => {
+						console.error('[auditSite] full audit failed, falling back to shallow crawl:', error);
+						return crawlCollectedPageMetas({
+							origin: finalUrl.origin,
+							mainUrl: finalUrl.toString(),
+							collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+							siteName: siteMeta.brandName,
+							mainTitle: pageSpecificTitle,
+							mainDescription: parsed.meta.metaDescription,
+							navItems,
+							industryType: siteMeta.industryType,
+							forceRefresh,
+						}).then((pageMetas) => ({
+							pageMetas,
+							collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+							fullAudit: undefined as FullAuditReportSlice | undefined,
+						}));
+					})
+			: crawlCollectedPageMetas({
+					origin: finalUrl.origin,
+					mainUrl: finalUrl.toString(),
+					collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+					siteName: siteMeta.brandName,
+					mainTitle: pageSpecificTitle,
+					mainDescription: parsed.meta.metaDescription,
+					navItems,
+					industryType: siteMeta.industryType,
+					forceRefresh,
+				}).then((pageMetas) => ({
+					pageMetas,
+					collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+					fullAudit: undefined as FullAuditReportSlice | undefined,
+				}))
+	).catch((error) => {
 		console.error('[auditSite] subpage crawl failed:', error);
-		return [] as CrawledPageMeta[];
+		return {
+			pageMetas: [] as CrawledPageMeta[],
+			collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+			fullAudit: undefined as FullAuditReportSlice | undefined,
+		};
 	});
 	const greetingTask = crawlGreetingPagesHtml({
 		origin: finalUrl.origin,
@@ -1216,29 +1616,63 @@ export async function auditSite(
 		forceRefresh,
 	}).catch((error) => {
 		console.error('[auditSite] greeting crawl failed:', error);
-		return { html: '', urls: [] };
+		return { html: '', urls: [], pages: [] };
 	});
-	const [pageMetas, greetingPages] = await Promise.all([pageMetasTask, greetingTask]);
+	const doctorTask = crawlDoctorPagesHtml({
+		origin: finalUrl.origin,
+		collectedUrls: parsed.internalLinks,
+		navItems,
+		forceRefresh,
+	}).catch((error) => {
+		console.error('[auditSite] doctor crawl failed:', error);
+		return { html: '', urls: [], pages: [] };
+	});
+	const locationTask = crawlLocationPagesHtml({
+		origin: finalUrl.origin,
+		collectedUrls: parsed.internalLinks,
+		navItems,
+		forceRefresh,
+	}).catch((error) => {
+		console.error('[auditSite] location crawl failed:', error);
+		return { html: '', urls: [], pages: [] };
+	});
+	const [pageMetaPack, greetingPages, doctorPages, locationPages] = await Promise.all([
+		pageMetasTask,
+		greetingTask,
+		doctorTask,
+		locationTask,
+	]);
+	const pageMetas = pageMetaPack.pageMetas;
+	const censusUrls = pageMetaPack.collectedUrls;
+	const fullAuditSlice = pageMetaPack.fullAudit;
 
-	if (!siteMeta.representativeName && greetingPages.html) {
-		try {
-			const greetingRep = extractRepresentative(
-				[footerText, html, greetingPages.html].filter(Boolean).join('\n'),
-				lang === 'en' ? 'en' : 'ko',
-			);
-			if (greetingRep.isExtracted) {
-				siteMeta.representativeName = greetingRep.name;
-				siteMeta.representativeJobTitle = greetingRep.jobTitle || siteMeta.representativeJobTitle;
+	try {
+		const ceoHit = resolveCeoNameSequential({
+			html,
+			footerText,
+			$,
+			greetingPages: greetingPages.pages,
+			greetingHtml: greetingPages.html,
+			doctorPages: doctorPages.pages,
+			doctorHtml: doctorPages.html,
+		});
+		applyCeoNameToSiteMeta(siteMeta, ceoHit);
+	} catch (error) {
+		console.error('[auditSite] sequential CEO extract failed:', error);
+		if (!siteMeta.representativeName) {
+			try {
+				const greetingRep = extractRepresentative(
+					[footerText, html, greetingPages.html].filter(Boolean).join('\n'),
+					lang === 'en' ? 'en' : 'ko',
+				);
+				if (greetingRep.isExtracted) {
+					siteMeta.representativeName = greetingRep.name;
+					siteMeta.ceoName = greetingRep.name;
+					siteMeta.representativeJobTitle = greetingRep.jobTitle || siteMeta.representativeJobTitle;
+				}
+			} catch (fallbackError) {
+				console.error('[auditSite] greeting representative extract failed:', fallbackError);
 			}
-		} catch (error) {
-			console.error('[auditSite] greeting representative extract failed:', error);
-		}
-	} else if (siteMeta.representativeName && !siteMeta.representativeJobTitle && greetingPages.html) {
-		try {
-			const greetingRep = extractRepresentative(greetingPages.html, lang === 'en' ? 'en' : 'ko');
-			if (greetingRep.jobTitle) siteMeta.representativeJobTitle = greetingRep.jobTitle;
-		} catch (error) {
-			console.error('[auditSite] greeting jobTitle extract failed:', error);
 		}
 	}
 
@@ -1280,6 +1714,45 @@ export async function auditSite(
 		}
 	}
 
+	if (locationPages.html) {
+		try {
+			const locationGeo = extractGeoAeoSiteData({
+				html: locationPages.html,
+				industryType: siteMeta.industryType,
+				keywords: [
+					...(siteMeta.coreSpecialties || []),
+					siteMeta.primaryKeyword,
+					siteMeta.title || '',
+				],
+				addressText: siteMeta.address,
+				location: siteMeta.location || siteMeta.broadLocation,
+			});
+			const merged = mergeGeoAeoSiteData(
+				{
+					openingHours: siteMeta.openingHours || locationGeo.openingHours,
+					geo: siteMeta.geo || locationGeo.geo,
+					sameAs: siteMeta.sameAs || [],
+					medicalSpecialty: siteMeta.medicalSpecialty || [],
+					isAcceptingNewPatients: siteMeta.isAcceptingNewPatients ?? true,
+					postalCode: siteMeta.postalCode,
+					streetAddress: siteMeta.streetAddress,
+					addressLocality: siteMeta.addressLocality,
+					addressRegion: siteMeta.addressRegion,
+				},
+				locationGeo,
+			);
+			siteMeta.openingHours = merged.openingHours;
+			siteMeta.geo = merged.geo;
+			siteMeta.sameAs = merged.sameAs.length ? merged.sameAs : siteMeta.sameAs;
+			siteMeta.medicalSpecialty = merged.medicalSpecialty.length
+				? merged.medicalSpecialty
+				: siteMeta.medicalSpecialty;
+			siteMeta.postalCode = merged.postalCode || siteMeta.postalCode;
+		} catch (error) {
+			console.error('[auditSite] location GEO/AEO merge failed:', error);
+		}
+	}
+
 	const aiBotAccess = parseAiBotAccessFromRobots(robots.text);
 	const aiBotsBlocked = !resolveAiBotsAllowed(aiBotAccess);
 	const serverLocation = resolveServerLocation({
@@ -1310,12 +1783,35 @@ export async function auditSite(
 	const ariaLandmarks = hasAriaLandmarks($);
 	const statusOk = page.status != null && page.status >= 200 && page.status < 400;
 	const statusPass = page.status != null && page.status >= 200 && page.status < 300;
-
-	const seoChecks = buildSeoChecks(S, parsed, finalUrl.toString(), {
-		sitemapOk: sitemapResult.ok,
-		robotsOk: robots.ok,
-		robotsBlocksAll: robotsTxtBlocksAll(robots.text),
+	const siteResources = mergeSiteResourceTrackers({
+		homepageUrl: finalUrl.toString(),
+		homepageScripts: parsed.renderBlockingScriptItems || [],
+		homepageAltIssues: parsed.images.imageAltIssues || [],
+		homepageImagesTotal: parsed.images.total,
+		homepageMissingAlt: parsed.images.missingAlt,
+		homepageImageSrcs: parsed.images.imageSrcs,
+		pageMetas,
+		frontPagePaths: [
+			...navItems.map((item) => item.url).filter(Boolean),
+			...gnbCollectedUrls,
+		],
 	});
+	const imageAltCoveragePct = siteResources.coveragePct;
+	const imagesTotal = siteResources.imagesTotal;
+	const imagesMissingAlt = siteResources.imagesMissingAlt;
+	const renderBlockingCount = Math.max(
+		parsed.renderBlockingScripts,
+		siteResources.uniqueScriptSrcCount,
+	);
+
+	const seoChecks = [
+		...buildSeoChecks(S, parsed, finalUrl.toString(), {
+			sitemapOk: sitemapResult.ok,
+			robotsOk: robots.ok,
+			robotsBlocksAll: robotsTxtBlocksAll(robots.text),
+		}),
+		buildRssFeedCheckItem({ lang, present: hasRssFeed, evidence: rssFeedEvidence }),
+	];
 	const httpsOk = resolveIsHttps({ url: finalUrl.toString() }) && !page.unsafeRedirect;
 	const hops = page.redirectChain.length;
 	const securityChecks: AuditCheckItem[] = [
@@ -1370,32 +1866,40 @@ export async function auditSite(
 		),
 		check(
 			'render-blocking',
-			S.performance.renderBlocking(parsed.renderBlockingScripts),
-			parsed.renderBlockingScripts <= 5 ? 'pass' : 'warning',
+			S.performance.renderBlocking(renderBlockingCount),
+			renderBlockingCount <= 5 ? 'pass' : 'warning',
 			checklistWeight('render-blocking', 3),
 			{
-				evidence: `${parsed.renderBlockingScripts} sync <script src> without async/defer`,
+				evidence: `${siteResources.renderBlockingScriptItems.length} sync <script src> without async/defer across crawled pages`,
 				why: S.why.renderBlocking,
 				passWhy: S.passWhy.renderBlocking,
 				impact: S.impact.renderBlocking,
+				renderBlockingScriptItems: siteResources.renderBlockingScriptItems,
 			},
 		),
 		check(
 			'image-alt',
-			S.accessibility.imageAlt(parsed.images.coveragePct, parsed.images.total, parsed.images.missingAlt),
-			parsed.images.coveragePct >= 80
-				? ariaLandmarks || parsed.images.total === 0
+			S.accessibility.imageAlt(imageAltCoveragePct, imagesTotal, imagesMissingAlt),
+			imageAltCoveragePct >= 90
+				? ariaLandmarks || imagesTotal === 0
 					? 'pass'
 					: 'warning'
-				: parsed.images.coveragePct >= 50
+				: imageAltCoveragePct >= 70
 					? 'warning'
 					: 'fail',
 			checklistWeight('image-alt', 4),
 			{
-				evidence: `${parsed.images.total - parsed.images.missingAlt}/${parsed.images.total} images have alt · landmarks=${ariaLandmarks ? '✓' : '✗'}`,
+				evidence: `${imagesTotal - imagesMissingAlt}/${imagesTotal} images have alt · landmarks=${ariaLandmarks ? '✓' : '✗'}`,
 				why: S.why.imageAlt,
 				passWhy: S.passWhy.imageAlt,
 				impact: S.impact.imageAlt,
+				imageAltIssues: siteResources.imageAltIssues,
+				missing_images: siteResources.missing_images,
+				missing_alt_list: siteResources.missing_images,
+				details: { missing_images: siteResources.missing_images },
+				imagesTotal,
+				imagesMissingAlt,
+				imageAltCoveragePct,
 			},
 		),
 	];
@@ -1578,11 +2082,14 @@ export async function auditSite(
 		siteMeta.logoUrl = resolvedLogo;
 	}
 
+	console.log(`[Audit Timer] Total Pre-Dashboard Pipeline: ${Date.now() - pipelineStart}ms`);
+
 	return {
 		url: finalUrl.toString(),
 		finalUrl: finalUrl.toString(),
 		redirectChain: page.redirectChain,
 		sitemap: sitemapResult,
+		crawlBlocked: page.botChallenge,
 		lang,
 		fetchedAt: new Date().toISOString(),
 		httpStatus: page.status,
@@ -1607,14 +2114,16 @@ export async function auditSite(
 			metaDescriptionLength: parsed.meta.metaDescriptionLength,
 			h1Count: parsed.headings.h1Count,
 			headingSkipDetected: parsed.headings.hasSkip,
-			imagesTotal: parsed.images.total,
-			imagesMissingAlt: parsed.images.missingAlt,
-			imageAltCoveragePct: parsed.images.coveragePct,
+			imagesTotal,
+			imagesMissingAlt,
+			imageAltCoveragePct,
 			jsonLdBlockCount: parsed.schema.rawBlockCount,
 			schemaTypes: parsed.schema.types,
 			bodyTextLength: parsed.bodyTextLength,
-			renderBlockingScripts: parsed.renderBlockingScripts,
+			renderBlockingScripts: renderBlockingCount,
 			jsonLdSnippets: parsed.schema.snippets,
+			jsonLdFullCorpus: parsed.schema.fullSnippets.join('\n'),
+			jsonLdFullBlocks: parsed.schema.fullSnippets,
 			organizationMissing: parsed.schema.organizationMissing,
 			articleMissing: parsed.schema.articleMissing,
 			personMissing: parsed.schema.personMissing,
@@ -1625,6 +2134,14 @@ export async function auditSite(
 					: [],
 			h2Texts: parsed.headings.h2Texts?.length ? parsed.headings.h2Texts : undefined,
 			headingSkipExamples: parsed.headings.skipExamples,
+			imageAltIssues: siteResources.imageAltIssues,
+			missing_images: siteResources.missing_images,
+			missing_alt_list: siteResources.missing_images,
+			details: { missing_images: siteResources.missing_images },
+			renderBlockingScriptItems: siteResources.renderBlockingScriptItems,
+			h1Elements: parsed.headings.h1Elements,
+			headingSkips: parsed.headings.headingSkips,
+			headingOutline: parsed.headings.headingOutline,
 			pageTitle: pageSpecificTitle || undefined,
 			documentTitle: parsed.meta.title || undefined,
 			metaDescription: parsed.meta.metaDescription || undefined,
@@ -1633,6 +2150,8 @@ export async function auditSite(
 			aiBotAccess,
 			hasLlmsTxt,
 			llmsTxtEvidence,
+			hasRssFeed,
+			rssFeedEvidence,
 			finalUrl: finalUrl.toString(),
 			hasHsts: page.hasHsts,
 			hasSitemap: sitemapResult.ok,
@@ -1644,10 +2163,12 @@ export async function auditSite(
 		categories,
 		checklist,
 		findings,
-		collectedUrls: parsed.internalLinks,
+		collectedUrls: censusUrls.length > 0 ? censusUrls : gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
 		navItems,
 		footerText: footerText || undefined,
+		ceoName: siteMeta.ceoName || siteMeta.representativeName,
 		pageMetas,
+		fullAudit: fullAuditSlice,
 		executiveSummary: (() => {
 			try {
 				return generateExecutiveSummary(
@@ -1677,4 +2198,8 @@ export async function auditSite(
 		})(),
 		realCompetitors,
 	};
+	} catch (error) {
+		console.error('[auditSite] pipeline failed, returning degraded report:', error);
+		return buildDegradedAuditReport(url.toString(), lang, error);
+	}
 }

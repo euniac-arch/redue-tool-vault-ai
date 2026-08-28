@@ -3,6 +3,8 @@
  * Shared by the metatag parser, SoV query generator, and competitor matcher.
  */
 
+import { isUiStopword, stripUiStopwords } from '@/lib/geo/clean-medical-entities';
+
 export type BrandEntityLang = 'ko' | 'en';
 
 export interface BrandEntitySeed {
@@ -62,7 +64,7 @@ const GENERIC_CATEGORY = new Set([
 ]);
 
 const SERVICE_NOUN_RE =
-	/섭외|행사|에이전시|기획|대행|운영|연예인|현장|이벤트|상담|치료|의원|병원|치과|피부과|클리닉|학원|법률|세무|마케팅|제조|임플란트|중입자|정형|재활|도수|추나|통증|암치료|피부|교정|agency|event|booking|clinic|dental|therapy|implant|ortho|rehab/i;
+	/섭외|행사|에이전시|기획|대행|운영|연예인|현장|이벤트|상담|치료|의원|동물병원|반려동물|병원|치과|피부과|클리닉|학원|법률|세무|마케팅|제조|임플란트|중입자|정형|재활|도수|추나|통증|암치료|피부|교정|비뇨|슬개|검진|응급|agency|event|booking|clinic|dental|therapy|implant|ortho|rehab/i;
 
 const KOREAN_SURNAMES =
 	'김이박최정강조윤장임한오서신권황안송전홍유고문양손배백허남심노하곽성차주우구신임나전민유진엄채원천방공현함변염여추도소석선설마길위표명기반왕금옥육인맹제탁국';
@@ -407,6 +409,10 @@ const SERVICE_PHRASE_RES: RegExp[] = [
 	/이벤트\s*대행/g,
 	/섭외\s*에이전시/g,
 	/행사\s*에이전시/g,
+	/비뇨기\s*질환/g,
+	/슬개골\s*탈구/g,
+	/24\s*시\s*응급/g,
+	/건강검진/g,
 ];
 
 export function extractServicePhrases(text: string | undefined | null): string[] {
@@ -450,8 +456,8 @@ export function classifyMetaKeywords(seed: BrandEntitySeed | null | undefined): 
 	const categoryNouns: string[] = [];
 	const seen = new Set<string>();
 	for (const raw of rawTokens) {
-		const token = cleanEntityPhrase(raw, 40);
-		if (!token || token.length < 2 || isGenericCategory(token)) continue;
+		const token = stripUiStopwords(cleanEntityPhrase(raw, 40));
+		if (!token || token.length < 2 || isGenericCategory(token) || isUiStopword(token)) continue;
 		if (isBrandStopword(token, entities)) continue;
 		if (!/[가-힣]{2,}/.test(token) && !/^[A-Za-z][A-Za-z0-9 &\-/]{2,30}$/.test(token)) continue;
 		if (/추천|잘하는|베스트|best|official|welcome/i.test(token) && !SERVICE_NOUN_RE.test(token)) continue;

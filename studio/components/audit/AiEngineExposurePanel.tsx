@@ -648,8 +648,9 @@ export function AiEngineExposurePanel({
 	const insightSignals = useMemo((): EngineInsightSignals => {
 		const platform = detectEnginePlatformSignals({
 			schemaTypes: report.metrics?.schemaTypes ?? report.siteMeta?.schemaEntityTypes,
-			jsonLdCorpus: (report.metrics?.jsonLdSnippets ?? []).join('\n'),
-			extraCorpus: [...(report.collectedUrls ?? []), report.footerText ?? ''].join('\n'),
+			jsonLdCorpus: report.metrics?.jsonLdFullCorpus || (report.metrics?.jsonLdSnippets ?? []).join('\n'),
+			extraCorpus: [...(report.collectedUrls ?? []), report.footerText ?? '', ...(report.siteMeta?.sameAs ?? [])].join('\n'),
+			sameAs: report.siteMeta?.sameAs,
 		});
 		const schemaTypes = report.metrics?.schemaTypes ?? report.siteMeta?.schemaEntityTypes ?? [];
 		const jsonLdCount = report.metrics?.jsonLdBlockCount ?? 0;

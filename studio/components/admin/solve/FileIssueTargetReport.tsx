@@ -22,11 +22,11 @@ export function FileIssueTargetReport({ audit, rows }: FileIssueTargetReportProp
 
 	if (list.length === 0) {
 		return (
-			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-				<h3 className="text-base font-bold text-slate-900">
+			<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+				<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
 					📄 개별 파일별 이슈 타겟 리포트
 				</h3>
-				<p className="mt-2 text-sm text-slate-500">
+				<p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
 					스캔에서 파일 단위 Fail/Warn 이슈가 감지되지 않았습니다.
 				</p>
 			</section>
@@ -37,13 +37,13 @@ export function FileIssueTargetReport({ audit, rows }: FileIssueTargetReportProp
 	const manualCount = list.filter((r) => r.fixStatus === 'manual').length;
 
 	return (
-		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+		<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div>
-					<h3 className="text-base font-bold text-slate-900">
+					<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
 						📄 개별 파일별 이슈 타겟 리포트
 					</h3>
-					<p className="mt-1 text-sm text-slate-600">
+					<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 						스캔 시 발견된 오류를 파일 경로별로 식별합니다. v14 주입 후 스키마·alt는 JS/스키마
 						엔진으로 자동 보완됩니다.
 					</p>
@@ -58,7 +58,7 @@ export function FileIssueTargetReport({ audit, rows }: FileIssueTargetReportProp
 				</div>
 			</div>
 
-			<ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100">
+			<ul className="mt-4 divide-y divide-slate-100 rounded-lg border border-slate-100 dark:border-slate-700 dark:divide-slate-700">
 				{list.map((row) => {
 					const auto = row.fixStatus === 'auto';
 					return (
@@ -67,14 +67,14 @@ export function FileIssueTargetReport({ audit, rows }: FileIssueTargetReportProp
 							className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
 						>
 							<div className="min-w-0 flex-1">
-								<code className="break-all font-mono text-sm font-semibold text-slate-900">
+								<code className="break-all font-mono text-sm font-semibold text-slate-900 dark:text-slate-100">
 									{row.filePath}
 								</code>
 								<ul className="mt-1.5 flex flex-wrap gap-1.5">
 									{row.issues.map((issue) => (
 										<li
 											key={issue}
-											className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700"
+											className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:bg-slate-700/60 dark:text-slate-200"
 										>
 											{issue}
 										</li>

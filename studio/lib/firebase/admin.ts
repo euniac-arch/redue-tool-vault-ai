@@ -4,7 +4,23 @@ import { cert, getApps, initializeApp, type App, type ServiceAccount } from 'fir
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getStorage, type Storage } from 'firebase-admin/storage';
 
+/**
+ * Process-wide singleton slots. Next.js HMR and multi-chunk imports reset
+ * module-level `let` caches while the Admin SDK app (and its Firestore
+ * settings) stay alive on `globalThis` — calling `settings()` again then
+ * throws "Firestore has already been initialized".
+ */
+type FirebaseAdminGlobals = {
+	__redueFirebaseAdminApp?: App;
+	__redueFirebaseAdminFirestore?: Firestore;
+};
+
+function adminGlobals(): FirebaseAdminGlobals {
+	return globalThis as typeof globalThis & FirebaseAdminGlobals;
+}
+
 let cachedApp: App | null = null;
+let cachedFirestore: Firestore | null = null;
 
 function readPrivateKey(): string | null {
 	const raw = process.env.FIREBASE_PRIVATE_KEY?.trim();
@@ -57,8 +73,16 @@ export function isFirebaseAdminConfigured(): boolean {
 
 export function getFirebaseAdminApp(): App {
 	if (cachedApp) return cachedApp;
+
+	const g = adminGlobals();
+	if (g.__redueFirebaseAdminApp) {
+		cachedApp = g.__redueFirebaseAdminApp;
+		return cachedApp;
+	}
+
 	if (getApps().length > 0) {
 		cachedApp = getApps()[0]!;
+		g.__redueFirebaseAdminApp = cachedApp;
 		return cachedApp;
 	}
 
@@ -82,11 +106,38 @@ export function getFirebaseAdminApp(): App {
 		projectId: account.projectId,
 		storageBucket,
 	});
+	g.__redueFirebaseAdminApp = cachedApp;
 	return cachedApp;
 }
 
+/**
+ * Process-wide Firestore singleton. Callers (including API routes) must use
+ * this helper — never `initializeApp()` / `settings()` / `initializeFirestore()`
+ * inside a request handler.
+ */
 export function getAdminFirestore(): Firestore {
-	return getFirestore(getFirebaseAdminApp());
+	if (cachedFirestore) return cachedFirestore;
+
+	const g = adminGlobals();
+	if (g.__redueFirebaseAdminFirestore) {
+		cachedFirestore = g.__redueFirebaseAdminFirestore;
+		return cachedFirestore;
+	}
+
+	const firestore = getFirestore(getFirebaseAdminApp());
+
+	try {
+		// First init only. `settings()` may run once per app, and only before
+		// any other Firestore method — a second call throws
+		// "Firestore has already been initialized".
+		firestore.settings({ ignoreUndefinedProperties: true });
+	} catch {
+		// HMR / another chunk already applied settings on this instance.
+	}
+
+	cachedFirestore = firestore;
+	g.__redueFirebaseAdminFirestore = firestore;
+	return cachedFirestore;
 }
 
 export function getAdminStorage(): Storage {

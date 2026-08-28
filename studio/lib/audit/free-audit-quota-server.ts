@@ -7,10 +7,9 @@ import {
 	FREE_AUDIT_LIMIT,
 	SEO_AUDIT_COOKIE,
 	buildAuditQuota,
-	isDevUnlimitedAuditQuota,
 	isUnlimitedAuditAccess,
-	parseGuestDailyCount,
-	serializeGuestDailyCount,
+	parseGuestAuditCount,
+	serializeGuestAuditCount,
 	todayStamp,
 	type AuditQuotaSnapshot,
 } from '@/lib/audit/free-audit-quota';
@@ -65,46 +64,153 @@ function sessionLooksAdmin(session: QuotaSession | null | undefined): boolean {
 	);
 }
 
-export async function readGuestAuditCookie(date = todayStamp()): Promise<number> {
+/**
+ * Guest audits are capped for the lifetime of the cookie (no daily reset) — see
+ * `parseGuestAuditCount` for the rationale. `maxAge` is long-lived on purpose so the cap
+ * survives across days and nudges anonymous visitors toward creating an account.
+ */
+export async function readGuestAuditCookie(): Promise<number> {
 	try {
 		const store = await cookies();
-		return parseGuestDailyCount(store.get(SEO_AUDIT_COOKIE)?.value, date).count;
+		return parseGuestAuditCount(store.get(SEO_AUDIT_COOKIE)?.value);
 	} catch {
 		return 0;
 	}
 }
 
-export function applyGuestAuditCookie(response: NextResponse, used: number, date = todayStamp()): void {
-	response.cookies.set(SEO_AUDIT_COOKIE, serializeGuestDailyCount({ date, count: Math.max(0, used) }), {
+export function applyGuestAuditCookie(response: NextResponse, used: number): void {
+	response.cookies.set(SEO_AUDIT_COOKIE, serializeGuestAuditCount(used), {
 		path: '/',
 		maxAge: 60 * 60 * 24 * 365,
 		sameSite: 'lax',
 		httpOnly: false,
 	});
+	response.cookies.set('seo_audit_count', '', { path: '/', maxAge: 0 });
 }
 
-async function readStoredDailyUsage(userId: string, date: string): Promise<number> {
+type StoredDailyUsage = {
+	used: number;
+	recordedToday: boolean;
+};
+
+let quotaColumnsReady = false;
+
+/** Adds User.dailyAuditCount / lastAuditResetDate when the live SQLite file predates those columns. */
+export async function ensureDailyQuotaColumns(): Promise<void> {
+	if (quotaColumnsReady) return;
+	try {
+		const cols = await prisma.$queryRawUnsafe<Array<{ name: string }>>('PRAGMA table_info(User)');
+		const names = new Set(cols.map((col) => col.name));
+		if (!names.has('dailyAuditCount')) {
+			await prisma.$executeRawUnsafe('ALTER TABLE User ADD COLUMN dailyAuditCount INTEGER NOT NULL DEFAULT 0');
+		}
+		if (!names.has('lastAuditResetDate')) {
+			await prisma.$executeRawUnsafe('ALTER TABLE User ADD COLUMN lastAuditResetDate TEXT');
+		}
+		if (!names.has('freeAuditsUsed')) {
+			await prisma.$executeRawUnsafe('ALTER TABLE User ADD COLUMN freeAuditsUsed INTEGER NOT NULL DEFAULT 0');
+		}
+		quotaColumnsReady = true;
+	} catch (err) {
+		console.error('[audit-quota] ensureDailyQuotaColumns failed:', err);
+	}
+}
+
+async function readStoredDailyUsageState(userId: string, date: string): Promise<StoredDailyUsage> {
+	await ensureDailyQuotaColumns();
 	try {
 		const rows = await prisma.$queryRawUnsafe<Array<{ dailyAuditCount: number | null; lastAuditResetDate: string | null }>>(
 			'SELECT dailyAuditCount, lastAuditResetDate FROM User WHERE id = ? LIMIT 1',
 			userId,
 		);
 		const row = rows[0];
-		if (!row) return 0;
-		if ((row.lastAuditResetDate || '') !== date) return 0;
-		return Math.max(0, Number(row.dailyAuditCount) || 0);
+		if (!row) return { used: 0, recordedToday: false };
+		const recordedToday = (row.lastAuditResetDate || '') === date;
+		return {
+			used: recordedToday ? Math.max(0, Number(row.dailyAuditCount) || 0) : 0,
+			recordedToday,
+		};
 	} catch {
-		return 0;
+		return { used: 0, recordedToday: false };
 	}
 }
 
 async function writeStoredDailyUsage(userId: string, used: number, date: string): Promise<void> {
+	await ensureDailyQuotaColumns();
 	await prisma.$executeRawUnsafe(
 		'UPDATE User SET dailyAuditCount = ?, lastAuditResetDate = ? WHERE id = ?',
 		used,
 		date,
 		userId,
 	);
+}
+
+export type ResetAuditUsageResult = {
+	date: string;
+	resetCount: number;
+	userIds: string[];
+	emails: string[];
+};
+
+export async function resetStoredDailyUsage(options?: {
+	userId?: string | null;
+	email?: string | null;
+	all?: boolean;
+}): Promise<ResetAuditUsageResult> {
+	await ensureDailyQuotaColumns();
+	const date = todayStamp();
+	const empty: ResetAuditUsageResult = { date, resetCount: 0, userIds: [], emails: [] };
+
+	try {
+		if (options?.all) {
+			const users = await prisma.user.findMany({ select: { id: true, email: true } });
+			const resetCount = await prisma.$executeRawUnsafe(
+				'UPDATE User SET dailyAuditCount = 0, lastAuditResetDate = ?',
+				date,
+			);
+			return {
+				date,
+				resetCount: Number(resetCount) || users.length,
+				userIds: users.map((user) => user.id),
+				emails: users.map((user) => user.email || ''),
+			};
+		}
+
+		const email = options?.email?.trim().toLowerCase() || '';
+		if (email) {
+			const users = await prisma.user.findMany({
+				where: { email },
+				select: { id: true, email: true },
+			});
+			if (users.length === 0) return empty;
+			for (const user of users) {
+				await writeStoredDailyUsage(user.id, 0, date);
+			}
+			return {
+				date,
+				resetCount: users.length,
+				userIds: users.map((user) => user.id),
+				emails: users.map((user) => user.email || email),
+			};
+		}
+
+		const userId = options?.userId?.trim() || '';
+		if (!userId) return empty;
+		const user = await prisma.user.findUnique({
+			where: { id: userId },
+			select: { id: true, email: true },
+		});
+		if (!user) return empty;
+		await writeStoredDailyUsage(user.id, 0, date);
+		return { date, resetCount: 1, userIds: [user.id], emails: [user.email || ''] };
+	} catch (err) {
+		console.error('[audit-quota] resetStoredDailyUsage failed:', err);
+		return empty;
+	}
+}
+
+export function applyClearedGuestAuditCookie(response: NextResponse): void {
+	applyGuestAuditCookie(response, 0);
 }
 
 export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
@@ -117,16 +223,7 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 	}
 
 	const userId = sessionUserId(session);
-	const guestUsed = await readGuestAuditCookie(date);
-
-	if (isDevUnlimitedAuditQuota()) {
-		return {
-			...buildAuditQuota(0, true, date, true),
-			userId,
-			planId: null,
-			role: null,
-		};
-	}
+	const guestUsed = await readGuestAuditCookie();
 
 	if (sessionLooksAdmin(session)) {
 		return {
@@ -139,6 +236,7 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 
 	if (userId) {
 		try {
+			await ensureDailyQuotaColumns();
 			const user = await prisma.user.findUnique({
 				where: { id: userId },
 				select: { planId: true, role: true, email: true },
@@ -148,9 +246,15 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 					isUnlimitedAuditAccess(user.planId, user.role) ||
 					isAdminEmail(user.email || '') ||
 					isMasterAdminLoginId(user.email || '');
-				const storedUsed = await readStoredDailyUsage(userId, date);
-				const mergedUsed = unlimited ? storedUsed : Math.max(storedUsed, guestUsed);
-				if (!unlimited && mergedUsed > storedUsed) {
+				const stored = await readStoredDailyUsageState(userId, date);
+				// Same-day DB rows (including an explicit reset to 0) win over the
+				// leftover guest cookie so a quota reset is not immediately overwritten.
+				const mergedUsed = unlimited
+					? stored.used
+					: stored.recordedToday
+						? stored.used
+						: Math.max(stored.used, guestUsed);
+				if (!unlimited && !stored.recordedToday && mergedUsed > stored.used) {
 					await writeStoredDailyUsage(userId, mergedUsed, date);
 				}
 				return {
@@ -163,6 +267,12 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 		} catch (err) {
 			console.error('[audit-quota] user lookup failed:', err);
 		}
+		return {
+			...buildAuditQuota(guestUsed, false, date),
+			userId,
+			planId: null,
+			role: session?.user?.role || null,
+		};
 	}
 
 	return {
@@ -186,7 +296,7 @@ export function limitReachedPayload(quota: AuditQuotaSnapshot, message: string) 
 }
 
 export async function incrementAuditUsage(quota: ResolvedAuditQuota): Promise<AuditQuotaSnapshot> {
-	if (quota.unlimited || isDevUnlimitedAuditQuota()) return quota;
+	if (quota.unlimited) return quota;
 	const date = todayStamp();
 	const nextUsed = Math.min(FREE_AUDIT_LIMIT, quota.used + 1);
 	if (quota.userId) {

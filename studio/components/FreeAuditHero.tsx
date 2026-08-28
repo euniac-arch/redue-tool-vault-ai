@@ -48,8 +48,8 @@ export function FreeAuditHero({
 				<div className="absolute inset-0 bg-white/55 dark:bg-[#050714]/30" />
 			</div>
 
-			<div className="relative z-10 mx-auto w-full max-w-[960px] px-4 sm:px-6">
-				<div className="relative overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-b from-white via-white/90 to-slate-50 p-6 text-center shadow-[0_0_60px_rgba(6,182,212,0.08)] backdrop-blur-xl dark:border-cyan-500/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-[#0B1120]/95 dark:shadow-[0_0_60px_rgba(6,182,212,0.12)] sm:p-12">
+			<div className="relative z-10 mx-auto w-full max-w-5xl px-6">
+				<div className="relative w-full overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-b from-white via-white/90 to-slate-50 p-6 text-center shadow-[0_0_60px_rgba(6,182,212,0.08)] backdrop-blur-xl dark:border-cyan-500/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-[#0B1120]/95 dark:shadow-[0_0_60px_rgba(6,182,212,0.12)] sm:p-12">
 					<div
 						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-500/10 via-transparent to-transparent dark:from-cyan-500/15"
 						aria-hidden

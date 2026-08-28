@@ -23,8 +23,8 @@ export default async function AdminPage() {
 	return (
 		<main className="flex flex-col gap-8">
 			<section>
-				<h1 className="text-2xl font-bold text-slate-900">Admin 백오피스</h1>
-				<p className="mt-1 text-sm text-slate-600">
+				<h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Admin 백오피스</h1>
+				<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 					회원 · 매출 · API 비용 · 검색엔진 색인 파이프라인을 한눈에 확인하고 운영합니다. ({admin.email})
 				</p>
 				<div className="mt-4 flex flex-wrap gap-2">
@@ -36,7 +36,7 @@ export default async function AdminPage() {
 					</a>
 					<a
 						href="/admin/projects"
-						className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+						className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
 					>
 						프로젝트 관리
 					</a>
@@ -48,7 +48,7 @@ export default async function AdminPage() {
 					</a>
 					<a
 						href="/builder/wp-plugin"
-						className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+						className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
 					>
 						WP 플러그인 빌더
 					</a>
@@ -56,38 +56,38 @@ export default async function AdminPage() {
 			</section>
 
 			<section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-					<p className="text-xs uppercase tracking-wide text-slate-500">총 회원수</p>
-					<p className="mt-2 text-2xl font-bold text-slate-900">{overview.totalMembers.toLocaleString('ko-KR')}명</p>
+				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+					<p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">총 회원수</p>
+					<p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{overview.totalMembers.toLocaleString('ko-KR')}명</p>
 				</div>
-				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-					<p className="text-xs uppercase tracking-wide text-slate-500">이번 달 총 매출액</p>
+				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+					<p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">이번 달 총 매출액</p>
 					<p className="mt-2 text-2xl font-bold text-indigo-600">{formatKrw(overview.monthlyRevenueKrw)}</p>
 				</div>
-				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-					<p className="text-xs uppercase tracking-wide text-slate-500">이번 달 총 API 지출 비용</p>
+				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+					<p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">이번 달 총 API 지출 비용</p>
 					<p className="mt-2 text-2xl font-bold text-cyan-700">${overview.monthlyApiCostUsd.toFixed(4)}</p>
-					<p className="mt-1 text-[11px] text-slate-500">≈ {formatKrw(overview.monthlyApiCostKrw)} (환율 ₩{overview.usdToKrw}/$)</p>
+					<p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">≈ {formatKrw(overview.monthlyApiCostKrw)} (환율 ₩{overview.usdToKrw}/$)</p>
 				</div>
-				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-					<p className="text-xs uppercase tracking-wide text-slate-500">순수익률</p>
+				<div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+					<p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">순수익률</p>
 					<p className={`mt-2 text-2xl font-bold ${marginTone}`}>{overview.netMarginPercent.toFixed(1)}%</p>
 				</div>
 			</section>
 
 			<section className="flex flex-col gap-3">
-				<h2 className="text-sm font-bold text-slate-800">회원 관리</h2>
+				<h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">회원 관리</h2>
 				<AdminUsersTable />
 			</section>
 
 			<section className="flex flex-col gap-3">
-				<h2 className="text-sm font-bold text-slate-800">무료 진단 리드 (Step 7 Lead Magnet)</h2>
+				<h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">무료 진단 리드 (Step 7 Lead Magnet)</h2>
 				<AdminAuditLeadsTable />
 			</section>
 
 			<section className="flex flex-col gap-3">
 				<div className="flex items-center gap-2">
-					<h2 className="text-sm font-bold text-slate-800">실시간 주입 로그</h2>
+					<h2 className="text-sm font-bold text-slate-800 dark:text-slate-100">실시간 주입 로그</h2>
 					<span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700">
 						<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" /> LIVE
 					</span>

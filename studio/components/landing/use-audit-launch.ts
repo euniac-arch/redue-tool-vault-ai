@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { startTopProgress } from '@/components/common/top-progress';
 import { sanitizeUrlInput, toPunycodeHref } from '@/lib/audit/normalize-url';
 
 export function normalizeAuditUrl(raw: string): string {
@@ -86,6 +87,7 @@ export function useAuditLaunch({
 			let navigated = false;
 
 			try {
+				startTopProgress();
 				router.replace(href);
 				navigated = true;
 			} catch (err) {

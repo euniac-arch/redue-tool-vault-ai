@@ -22,9 +22,15 @@
  *    `/sub01/index.php`, `301.php`, `board.php?bo_table=…`, or `/?bo_table=` / `/?p=123`
  *    (path `/` with GET still counts as subpage). `/index.php` alone is normalized to `/`.
  *    Path dual-detects `REQUEST_URI` + `SCRIPT_NAME` (bot path loss). HTTPS origin forced.
- *    OB strips duplicate canonical/og:url and reinjects one exact pair immediately after
- *    `<meta charset>` / Content-Type charset (Charset-After First-Chunk; falls back to after
- *    `<head>`, then before `</head>`).
+ *    OB strips every duplicate canonical/og:url (quoted + unquoted rel) and reinjects one
+ *    exact pair immediately after `<head>` (Head-After First-Chunk; charset / `</head>` fallback).
+ * ⑱ [v33 100-Point Pack] Shared OB transformer (all industries):
+ *    · LocalBusiness/Organization telephone from `$config['cf_tel']` else buffer/footer regex
+ *    · PostalAddress.streetAddress from 전국 시/도 주소 정규식
+ *    · Main/about `@type` arrays: MEDICAL → MedicalWebPage+AboutPage+WebPage,
+ *      else AboutPage+WebPage; WebSite/WebPage `@id` always present
+ *    · Global Alt Transformer rewrites empty/missing `<img alt>` from nearby 대표자 heading / filename / page name
+ *    · `<title>` shorter than 10 chars is expanded to the 10–60 golden range
  * ⑪ [v30] Full-Document Script Defer: `ob_start()` regex sweeps the ENTIRE buffer (head+body)
  *    and appends `defer` to sync external `<script src>` lacking async/defer/module/ld+json.
  * ⑫ Static source-text defer (`addDeferToScriptTagsInSource`) retained as defense-in-depth
@@ -33,24 +39,105 @@
  *    emit the full Universal v30 Master Engine (OB + Article/FAQ/Person schema) for any
  *    common header file with zero CMS-specific hooks (no add_javascript / G5_THEME_PATH).
  * ⑭ v22 Top-Priority Injection: insert engine immediately after the first <?php ONLY.
- *    Never replace the file or strip existing HTML / meta / verification tags from source.
+ *    Strip theme description/og:title/og:description/og:image (PHP-aware) + leftover
+ *    quote-gt closers. Keep charset / robots / naver-site-verification / viewport.
  * ⑮ Article Node is guaranteed on EVERY page (main + subpages + boards). FAQPage is
  *    guaranteed on all non-board pages. Person E-E-A-T node is always emitted.
  * ⑯ [v31] NewsArticle Auto-Detect: when `$bo_table` / URL / title matches notice|press|news|
  *    media|insight|board (or 보도·뉴스·공지…), emit NewsArticle with Google/AI citation fields
  *    (headline, image, datePublished, dateModified, author Organization, publisher+logo) from
  *    Gnuboard globals — no hardcoded domain or board names.
+ * ⑰ [Universal Dynamic] Gnuboard head.sub.php engine drops static $page_meta and compile-time
+ *    NAP. `$GLOBALS['redue_org_type']` + `$config`/`$g5_menu`/`$view`/`$board`/`$g5_head_title`
+ *    drive Organization+WebSite+GNB, CollectionPage, Article, and BreadcrumbList+WebPage.
  */
 
 import { dedupeRepeatedPhrase } from '@/lib/audit/brand-name';
 import { resolveEngineRepresentative } from '@/lib/audit/extractors/entity';
+import { buildImageRepSemanticsPhp } from '@/lib/audit/extractors/image-rep-semantics';
+import { formatGnbHierarchyTitle } from '@/lib/audit/extractors/gnb-pages';
+import { resolvePageDescription } from '@/lib/audit/extractors/page-description';
+import {
+	SCHEMA_CURRENCIES_ACCEPTED_FALLBACK,
+	SCHEMA_PAYMENT_ACCEPTED_FALLBACK,
+	SCHEMA_PRICE_RANGE_FALLBACK,
+	buildAvailableServices,
+	filterOfficialSameAs,
+} from '@/lib/audit/extractors/schema-entity-pack';
+import {
+	buildEvidenceFaqHowToHelpersPhp,
+	buildEvidenceFaqInjectPhp,
+	buildForceCompleteNapPhp,
+	buildHowToAutoInjectPhp,
+	buildOrgFounderIdRefPhp,
+	buildPersonEeatNodePhp,
+	extractNapFromCorpus,
+	resolveCompleteNap,
+} from '@/lib/solve/core/eeat-citation';
+import {
+	classifyIndustrySchema,
+	orgTypesToPhpArray,
+	splitAlternateName,
+	type IndustrySchemaInput,
+} from '@/lib/solve/core/industry-schema';
+import { KR_STREET_ADDRESS_RE_PHP } from '@/lib/solve/core/entity-patterns';
+import {
+	bindTelephone,
+	buildTelephoneRuntimeHelpersPhp,
+	formatKoreanTelephone,
+} from '@/lib/solve/core/telephone';
+import {
+	buildUniversalBreadcrumbEnsurePhp,
+	buildUniversalGraphApplyPhp,
+	buildUniversalGraphGlobalsSeedPhp,
+	buildUniversalGraphRuntimeHelpersPhp,
+	buildUniversalOrgFiveCoreBindPhp,
+} from '@/lib/solve/core/universal-graph-builder';
+import { buildRedueLlmsPhpEngine } from '@/lib/solve/llms-php-engine';
+import {
+	humanizePathLabel,
+	hydrateSolvePageMeta,
+	isCmsPathToken,
+	looksLikeRawUrlOrPath,
+} from '@/lib/solve/page-meta-hydrate';
+import {
+	buildGnuboardLegacyCompatPhp,
+	cleanPhpTemplate,
+	healGnuboardHeadSubSource,
+	isGnuboardHeadSubPath,
+	isGnuboardThemeRelativePath,
+	sanitizeGeneratedPhpSnippet,
+	sanitizePhpCode,
+	sanitizePhpForDeploy,
+	stripGnuboardThemeSelfDelegation,
+	stripOrphanedReduePhpFunctions,
+} from '@/lib/solve/php-sanitize';
+
+export {
+	cleanPhpTemplate,
+	healGnuboardHeadSubSource,
+	isGnuboardHeadSubPath,
+	sanitizeGeneratedPhpSnippet,
+	sanitizePhpCode,
+	sanitizePhpForDeploy,
+	stripOrphanedReduePhpFunctions,
+} from '@/lib/solve/php-sanitize';
 
 export const REDUE_SCHEMA_MARKER_START = 'REDUE_AI_STUDIO:START';
 export const REDUE_SCHEMA_MARKER_END = 'REDUE_AI_STUDIO:END';
 
+/**
+ * Phase-2 render-call marker. The engine block (functions/vars only, no output)
+ * is injected right after the `_GNUBOARD_` guard; this second block is a tiny
+ * `echo redue_render_full_schema();` call injected right after `<meta charset>`
+ * so JSON-LD/canonical/OG output never lands before `<!doctype html>`.
+ */
+export const REDUE_SCHEMA_RENDER_MARKER_START = 'REDUE_AI_STUDIO_RENDER:START';
+export const REDUE_SCHEMA_RENDER_MARKER_END = 'REDUE_AI_STUDIO_RENDER:END';
+
 /** Success banner / modal copy for the Universal v30 Master Engine. */
 export const REDUE_V30_SCHEMA_PATCH_SUCCESS =
-	'✅ head.sub.php Crawler-Optimized Canonical & Schema Engine 패치 완료 (Charset-After First-Chunk · REQUEST_URI+SCRIPT_NAME 이중 감지 · HTTPS 강제 · 중복 canonical 청소 · static $executed 1회 가드 · exact canonical · script defer · Article/NewsArticle(보도·뉴스 자동) /FAQ/Person · Alt Auto-Fix)';
+	'✅ CMS 어댑터 패치 완료 — 그누보드: /extend/redue.schema.php 엔진 분리 + head.sub.php charset 직후 5줄 렌더 (관리자 CSRF/POST 차단) · 워드프레스: mu-plugins · 라이믹스: addon · SaaS: 정적 JSON-LD';
 
 /** @deprecated Use REDUE_V30_SCHEMA_PATCH_SUCCESS */
 export const REDUE_V29_SCHEMA_PATCH_SUCCESS = REDUE_V30_SCHEMA_PATCH_SUCCESS;
@@ -102,7 +189,7 @@ export const REDUE_V7_SCHEMA_PATCH_SUCCESS = REDUE_V20_SCHEMA_PATCH_SUCCESS;
 
 /** Short developer guide shown in completion modal / report. */
 export const REDUE_V20_SCHEMA_EXTENSION_GUIDE = `특수 확장 변수 (서브페이지에서 JSON-LD 직접 출력 금지 — 데이터만 바인딩):
-• $GLOBALS['schema_faq_items'] = [ ['q'=>'질문','a'=>'답변'], … ]  → FAQPage (서브페이지 우선; 미지정 시 v30 기본 Q&A 2종이 메인·서브 모든 비게시판 페이지에 자동 결합)
+• $GLOBALS['schema_faq_items'] = [ ['q'=>'질문','a'=>'답변'], … ]  → FAQPage (페이지 본문/게시글에서 실제 Q&A가 추출된 경우에만 생성. 비어 있으면 FAQPage 노드 생략)
 • $GLOBALS['schema_person'] = ['name'=>'이름','jobTitle'=>'직함', …]  → Person + worksFor + Organization.founder/physician (관리자 대표자명 또는 푸터/인사말 자동 추출 $rep_name; 미지정 시 {site_name} 의료진/연구팀 Fallback)
 • ob_start()가 </head> 직전에 <meta name="author"> / <meta name="representative"> 를 $rep_name 또는 런타임 텍스트 스캔으로 주입
 • $GLOBALS['schema_article'] = ['type'=>'Article'|'NewsArticle','headline'=>…, …]  → Article/NewsArticle (datePublished/dateModified 미지정 시 ISO 8601 자동 보완; 미지정 시 브랜드+Description 기반 기본 Article이 메인·서브·게시판 포함 모든 페이지에 자동 결합). v31: $bo_table/URL/제목에 notice|press|news|media|insight|board·보도·뉴스·공지 등이 있으면 NewsArticle로 자동 승격하고 headline·image·dates·author·publisher(logo)를 $config/$g5/$wr에서 주입
@@ -110,13 +197,15 @@ export const REDUE_V20_SCHEMA_EXTENSION_GUIDE = `특수 확장 변수 (서브페
 • v15 JS Defer Auto-Fixer: 외부 script[src]에 async/defer 없으면 defer 자동 부여 (클라이언트 보강)
 • v16/v30 Canonical Precision: 메인은 path가 index이고 query가 비어 있을 때만 $origin/; 서브페이지·
   /?p=123·board.php?bo_table= 등은 절대 루트로 붕괴하지 않음. 쿼리는 bo_table|co_id|it_id|ca_id|idx|p|page_id|wr_id|id 만 유지
-• v32 Crawler-Optimized OB Master Engine: ob_start()로 중복 canonical/og:url 제거 후
-  <meta charset>/Content-Type charset 바로 직후(Charset-After First-Chunk) exact 서브페이지 쌍 재주입
-  (없으면 <head> 직후 → </head> 직전) + REQUEST_URI·SCRIPT_NAME 이중 경로 감지 + HTTPS 강제 +
+• v32/v33 Crawler-Optimized OB Master Engine: ob_start()로 중복 canonical/og:url 제거 후
+  <head> 바로 직후(Head-After First-Chunk) exact 서브페이지 쌍 재주입
+  (없으면 charset 직후 → </head> 직전) + REQUEST_URI·SCRIPT_NAME 이중 경로 감지 + HTTPS 강제 +
   head+body 전문서 regex로 sync <script src>에 defer 부여 (진단봇 First Chunk에도 반영)
+• v33 100-Point Pack: LocalBusiness telephone/address 버퍼 자동추출 · 메인/소개 AboutPage 복합 @type
+  · WebSite/WebPage @id 보장 · Global Alt Transformer · 짧은 <title> 10–60자 보정
 • v26 Static Script Defer: addDeferToScriptTagsInSource()가 head.sub.php 소스 자체에서 async/defer 없는
   <script src>(및 add_javascript() 문자열 인자 내부)를 찾아 defer 속성을 직접 파일에 기록 (방어적 보강)
-• v22 Top-Priority: 첫 <?php 직후 삽입만 수행 — 기존 meta/Naver verification/HTML/include 절대 삭제 금지
+• v22 Top-Priority: 첫 <?php 직후 삽입 — charset/robots/Naver verification/HTML/include 보존. 엔진이 동적 처리하는 description/og:title/og:description/og:image 및 찌꺼기 quote-gt는 제거
 • Universal drop-in: buildUniversalObSeoEnginePhp() / generateUniversalPhpSeoEngine() — v30 Master Engine
   (OB + Article/FAQ/Person schema + Alt Auto-Fix)를 공통 헤더 맨 위에 단일 블록으로 삽입`;
 
@@ -183,17 +272,16 @@ export function buildExactCanonicalPhpBlock(defaultHost = 'koreaionlab.co.kr'): 
 /* =================================================================
  * [REDUE AI STUDIO] Crawler-Optimized Hardcoded Canonical Engine
  * ================================================================= */
-$canonical_base = "https://${host}";
+$__redue_proto = 'http';
+if ( ! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' && $_SERVER['HTTPS'] !== '0' ) { $__redue_proto = 'https'; }
+elseif ( isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443' ) { $__redue_proto = 'https'; }
+elseif ( ! empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && strtolower((string) $_SERVER['HTTP_X_FORWARDED_PROTO']) === 'https' ) { $__redue_proto = 'https'; }
+$canonical_base = $__redue_proto . "://${host}";
 
-// 0. HTTP/HTTPS 환경변수 정제 — 진단봇이 HTTP·헤더 없이 와도 HTTPS 대표 도메인 고정
-if ( ! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ) { /* keep */ }
-$_SERVER['HTTPS'] = 'on';
-$_SERVER['SERVER_PORT'] = '443';
 if ( empty($_SERVER['HTTP_HOST']) ) {
 	$_SERVER['HTTP_HOST'] = '${host}';
 }
 $_SERVER['HTTP_HOST'] = preg_replace('#^https?://#i', '', (string)$_SERVER['HTTP_HOST']);
-$_SERVER['HTTP_HOST'] = preg_replace('#:\\d+$#', '', $_SERVER['HTTP_HOST']);
 
 // 1. 접속 요청 경로 정밀 추적 — REQUEST_URI + SCRIPT_NAME 이중 감지 (진단봇 유실 방지)
 $raw_uri = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '';
@@ -240,7 +328,7 @@ if ( ($uri_path === '/' || $uri_path === '/index.php' || $uri_path === '') && $q
 	}
 	$final_canonical_url = $canonical_base . $uri_path . $query_str;
 }
-$exact_canonical_url = preg_replace('#^http://#i', 'https://', $final_canonical_url);
+$exact_canonical_url = $final_canonical_url;
 $final_canonical_url = $exact_canonical_url;
 /* ${REDUE_SCHEMA_MARKER_END} */
 `;
@@ -254,8 +342,8 @@ $final_canonical_url = $exact_canonical_url;
  */
 export function buildCanonicalLinkHtmlTag(): string {
 	return `<!-- SEO Standard Canonical & OpenGraph URL Pair (Bot Optimized Top Position) -->
-<link rel="canonical" href="<?php echo htmlspecialchars($exact_canonical_url, ENT_QUOTES, 'UTF-8'); ?>">
-<meta property="og:url" content="<?php echo htmlspecialchars($exact_canonical_url, ENT_QUOTES, 'UTF-8'); ?>">
+<link rel="canonical" href="<?php echo htmlspecialchars(isset($exact_canonical_url) && $exact_canonical_url !== '' ? $exact_canonical_url : (function_exists('redue_get_exact_canonical') ? redue_get_exact_canonical() : ''), ENT_QUOTES, 'UTF-8'); ?>">
+<meta property="og:url" content="<?php echo htmlspecialchars(isset($exact_canonical_url) && $exact_canonical_url !== '' ? $exact_canonical_url : (function_exists('redue_get_exact_canonical') ? redue_get_exact_canonical() : ''), ENT_QUOTES, 'UTF-8'); ?>">
 `;
 }
 
@@ -375,7 +463,7 @@ export function generateUniversalPhpSeoEngine(opts?: {
 
 /** Short developer guide shown alongside the v30 Universal Master Engine snippet/tab. */
 export const REDUE_V30_UNIVERSAL_OB_ENGINE_GUIDE =
-	'Crawler-Optimized Canonical & Schema Engine (Charset-After First-Chunk) — G5_URL·$config[cf_title]·$g5_head_title 자동 감지, REQUEST_URI+SCRIPT_NAME 이중 경로, HTTPS 강제, ob_start()로 중복 canonical/og:url 청소 후 <meta charset> 바로 직후 1쌍 재주입(없으면 <head> 직후 → </head> 직전), redue_dynamic_schema_controller()는 static $executed로 1회만 실행. 서브페이지 exact canonical · head+body script defer · Article/NewsArticle(보도·뉴스 게시판 자동) /FAQ/Person · Alt Auto-Fix. Gnuboard/Youngcart head.sub.php(또는 header.php) 최상단에 붙여넣으세요.';
+	'Universal JSON-LD Schema Engine (Charset-After Direct Echo) — G5_URL·$config[cf_title]·$g5_head_title 자동 감지, REQUEST_URI+SCRIPT_NAME 이중 경로, 실제 작동 프로토콜(http/https) 일치(HTTPS 강제 금지), charset 직후 또는 title 상단에서 직접 echo. 자사 홈페이지는 sameAs에서 제외하고 외부 공식 채널만 등록. 화면에 없는 FAQPage/HowTo는 생성하지 않음. LocalBusiness NAP·AboutPage/ContactPage·Person E-E-A-T. redue_dynamic_schema_controller()는 static $executed로 1회만 실행. Gnuboard/Youngcart head.sub.php(또는 header.php) 최상단에 붙여넣으세요.';
 
 /** @deprecated Use REDUE_V30_UNIVERSAL_OB_ENGINE_GUIDE */
 export const REDUE_V29_UNIVERSAL_OB_ENGINE_GUIDE = REDUE_V30_UNIVERSAL_OB_ENGINE_GUIDE;
@@ -419,12 +507,23 @@ function buildRepresentativeObMetaPhp(): string {
 				}
 			}
 		}
+		if ( $rep_name === '' && function_exists('redue_extract_rep_from_imgs') ) {
+			$img_hit = redue_extract_rep_from_imgs($buffer);
+			if ( is_array($img_hit) && ! empty($img_hit['name']) ) {
+				$rep_name = trim((string) $img_hit['name']);
+				if ( $rep_title === '' && ! empty($img_hit['title']) ) {
+					$rep_title = trim((string) $img_hit['title']);
+				}
+			}
+		}
 		$buffer = preg_replace('/<meta\\b(?=[^>]*\\bname=["\\']author["\\'])[^>]*>\\s*/i', '', $buffer);
 		$buffer = preg_replace('/<meta\\b(?=[^>]*\\bname=["\\']representative["\\'])[^>]*>\\s*/i', '', $buffer);
 		$buffer = preg_replace('/<link\\b(?=[^>]*\\brel=["\\'](?:help|alternate)["\\'])(?=[^>]*llms\\.txt)[^>]*>\\s*/i', '', $buffer);
+		$buffer = preg_replace('/<link\\b(?=[^>]*\\brel=["\\']alternate["\\'])(?=[^>]*rss\\.php)[^>]*>\\s*/i', '', $buffer);
 		$llms_origin = preg_replace('#^(https?://[^/]+).*#', '$1', $canonical_url);
 		if ( ! is_string($llms_origin) || $llms_origin === '' ) { $llms_origin = $canonical_url; }
 		$llms_href = htmlspecialchars(rtrim($llms_origin, '/') . '/llms.txt', ENT_QUOTES, 'UTF-8');
+		$rss_href = htmlspecialchars(rtrim($llms_origin, '/') . '/rss.php', ENT_QUOTES, 'UTF-8');
 		$rep_tags = '';
 		if ( $rep_name !== '' ) {
 			$GLOBALS['redue_rep_name'] = $rep_name;
@@ -435,9 +534,790 @@ function buildRepresentativeObMetaPhp(): string {
 		}
 		$rep_tags .= '<link rel="help" type="text/markdown" href="' . $llms_href . '" title="LLMs Context">' . "\\n";
 		$rep_tags .= '<link rel="alternate" type="text/markdown" href="' . $llms_href . '">' . "\\n";
+		$rep_tags .= '<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="' . $rss_href . '">' . "\\n";
 		if ( preg_match('/<\\/head>/i', $buffer) ) {
 			$buffer = preg_replace('/<\\/head>/i', $rep_tags . '</head>', $buffer, 1);
 		}
+`;
+}
+
+/**
+ * Head-time footer scanner — reads tail.php from disk before the CMS includes it.
+ * Fills empty `$GLOBALS['redue_*']` NAP fields only (never overwrites seeded values).
+ */
+export function buildFooterAutoDetectPhp(): string {
+	return `	if ( ! function_exists( 'redue_auto_detect_footer_info' ) ) {
+		function redue_auto_detect_footer_info() {
+			static $executed = false;
+			static $cached = null;
+			if ( $executed ) { return; }
+			$executed = true;
+
+			if ( ! is_string($cached) ) {
+				$cached = '';
+				if ( isset($GLOBALS['config']) && is_array($GLOBALS['config']) ) {
+					foreach ( array('cf_title', 'cf_tel', 'cf_phone', 'cf_admin_name', 'cf_add_script', 'cf_add_meta', 'cf_1', 'cf_2', 'cf_3') as $_ck ) {
+						if ( ! empty($GLOBALS['config'][$_ck]) && is_string($GLOBALS['config'][$_ck]) ) {
+							$cached .= "\\n" . $GLOBALS['config'][$_ck];
+						}
+					}
+				}
+				$candidates = array(
+					defined('G5_THEME_PATH') ? G5_THEME_PATH . '/tail.php' : '',
+					defined('G5_THEME_PATH') ? G5_THEME_PATH . '/tail.sub.php' : '',
+					defined('G5_PATH') ? G5_PATH . '/tail.php' : '',
+					defined('G5_PATH') ? G5_PATH . '/tail.sub.php' : '',
+					( isset($_SERVER['DOCUMENT_ROOT']) ? $_SERVER['DOCUMENT_ROOT'] : '' ) . '/theme/basic/tail.php',
+				);
+				foreach ( $candidates as $_p ) {
+					if ( ! is_string($_p) || $_p === '' || ! is_file($_p) ) { continue; }
+					$_raw = @file_get_contents($_p);
+					if ( ! is_string($_raw) || trim($_raw) === '' ) { continue; }
+					$cached .= "\\n" . $_raw;
+				}
+			}
+			if ( $cached === '' ) { return; }
+
+			$plain = function_exists('redue_plain_text') ? redue_plain_text($cached) : trim(strip_tags($cached));
+			$hay = $cached . "\\n" . ( is_string($plain) ? $plain : '' );
+
+			if ( empty($GLOBALS['redue_tax_id']) || ! is_string($GLOBALS['redue_tax_id']) || trim($GLOBALS['redue_tax_id']) === '' ) {
+				$_tax = function_exists('redue_extract_tax_id') ? redue_extract_tax_id($hay) : '';
+				if ( $_tax === '' && preg_match('/(?:사업자\\s*(?:등록)?\\s*번호|사업자번호|등록번호)\\s*[:：]?\\s*([0-9]{3}-[0-9]{2}-[0-9]{5}|[0-9]{10})/u', $hay, $m) ) {
+					$_tax = trim($m[1]);
+				}
+				if ( $_tax !== '' ) {
+					$GLOBALS['redue_tax_id'] = function_exists('redue_accept_tax_id') ? redue_accept_tax_id($_tax, true) : $_tax;
+				}
+			}
+			if ( empty($GLOBALS['redue_fax']) || ! is_string($GLOBALS['redue_fax']) || trim($GLOBALS['redue_fax']) === '' ) {
+				$_fax = function_exists('redue_extract_fax') ? redue_extract_fax($hay) : '';
+				if ( $_fax === '' && preg_match('/(?:팩스|FAX|Fax|F\\.)\\s*[:：]?\\s*([0-9]{2,4}-[0-9]{3,4}-[0-9]{4})/u', $hay, $m) ) {
+					$_fax = trim($m[1]);
+				}
+				if ( $_fax !== '' ) { $GLOBALS['redue_fax'] = $_fax; }
+			}
+			if ( empty($GLOBALS['redue_tel']) || ! is_string($GLOBALS['redue_tel']) || trim($GLOBALS['redue_tel']) === '' ) {
+				if ( function_exists('redue_extract_telephone') ) {
+					$_tel = redue_extract_telephone($hay);
+					if ( $_tel !== '' ) { $GLOBALS['redue_tel'] = $_tel; }
+				}
+			}
+			if ( empty($GLOBALS['redue_rep_name']) || ! is_string($GLOBALS['redue_rep_name']) || trim($GLOBALS['redue_rep_name']) === '' ) {
+				if ( preg_match_all('/(?:대표자|대표원장|원장|대표이사|대표)\\s*[:：]?\\s*([가-힣]{2,4})(?=\\s|<|$|\\||\\/)/u', $hay, $mm) ) {
+					$_stops = array('제품으로', '대표', '문의', '안내', '상담', '진료', '정보');
+					foreach ( $mm[1] as $_cand ) {
+						$_cand = trim((string) $_cand);
+						if ( $_cand === '' || in_array($_cand, $_stops, true) ) { continue; }
+						if ( function_exists('redue_is_valid_rep_name') && ! redue_is_valid_rep_name($_cand) ) { continue; }
+						$GLOBALS['redue_rep_name'] = $_cand;
+						if ( ! isset($GLOBALS['schema_person']) || ! is_array($GLOBALS['schema_person']) ) {
+							$GLOBALS['schema_person'] = array();
+						}
+						if ( empty($GLOBALS['schema_person']['name']) ) {
+							$GLOBALS['schema_person']['name'] = $_cand;
+						}
+						break;
+					}
+				}
+			}
+			if ( empty($GLOBALS['redue_street']) || ! is_string($GLOBALS['redue_street']) || trim($GLOBALS['redue_street']) === '' ) {
+				$_street = function_exists('redue_extract_street_address') ? redue_extract_street_address($hay) : '';
+				if ( $_street === '' && preg_match('/(?:주소|위치|소재지)?\\s*[:：]?\\s*([가-힣]+(?:특별시|광역시|도|시|군|구)\\s+[가-힣0-9\\s·\\-\\(\\),]+(?:로|길|동|리|가|번지|호|층|관|빌딩|호텔)[가-힣0-9\\s·\\-\\(\\),]*)/u', $hay, $m) ) {
+					$_street = trim(preg_replace('/\\s+/u', ' ', $m[1]));
+				}
+				if ( $_street !== '' ) { $GLOBALS['redue_street'] = $_street; }
+			}
+			if ( function_exists('redue_extract_official_sameas') ) {
+				$_origin = function_exists('redue_site_origin') ? redue_site_origin() : '';
+				$_sa = redue_extract_official_sameas($hay, $_origin);
+				if ( is_array($_sa) && count($_sa) > 0 ) {
+					$_prev = isset($GLOBALS['redue_sameas']) && is_array($GLOBALS['redue_sameas']) ? $GLOBALS['redue_sameas'] : array();
+					$GLOBALS['redue_sameas'] = function_exists('redue_normalize_sameas_list')
+						? redue_normalize_sameas_list(array_merge($_prev, $_sa), $_origin)
+						: array_values(array_unique(array_merge($_prev, $_sa)));
+				}
+			}
+		}
+	}
+`;
+}
+
+/**
+ * v33 shared PHP helpers used by every head.sub.php engine (universal / automated / hybrid).
+ * Telephone, Korean street address, img alt, title length, JSON-LD graph patch.
+ */
+export function buildUniversalSeoRuntimeHelpersPhp(): string {
+	return `	if ( ! function_exists( 'redue_detect_site_protocol' ) ) {
+		function redue_detect_site_protocol() {
+			if ( defined('G5_URL') && is_string(G5_URL) && preg_match('#^(https?)://#i', G5_URL, $m) ) {
+				return strtolower($m[1]);
+			}
+			if ( function_exists('home_url') ) {
+				$_home = home_url('/');
+				if ( is_string($_home) && preg_match('#^(https?)://#i', $_home, $m) ) {
+					return strtolower($m[1]);
+				}
+			}
+			if ( ! empty($_SERVER['HTTP_X_FORWARDED_PROTO']) ) {
+				$_fwd = strtolower(trim((string) $_SERVER['HTTP_X_FORWARDED_PROTO']));
+				if ( $_fwd === 'https' || $_fwd === 'http' ) { return $_fwd; }
+			}
+			if ( ! empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' && $_SERVER['HTTPS'] !== '0' ) {
+				return 'https';
+			}
+			if ( isset($_SERVER['SERVER_PORT']) && (string) $_SERVER['SERVER_PORT'] === '443' ) {
+				return 'https';
+			}
+			if ( ! empty($_SERVER['REQUEST_SCHEME']) && strtolower((string) $_SERVER['REQUEST_SCHEME']) === 'https' ) {
+				return 'https';
+			}
+			return 'http';
+		}
+	}
+	if ( ! function_exists( 'redue_site_origin' ) ) {
+		function redue_site_origin() {
+			$proto = redue_detect_site_protocol();
+			if ( defined('G5_URL') && G5_URL !== '' ) {
+				return preg_replace('#^https?://#i', $proto . '://', rtrim(G5_URL, '/'));
+			}
+			$host = '';
+			if ( ! empty($_SERVER['HTTP_HOST']) ) { $host = (string) $_SERVER['HTTP_HOST']; }
+			elseif ( ! empty($_SERVER['SERVER_NAME']) ) { $host = (string) $_SERVER['SERVER_NAME']; }
+			if ( $host === '' ) { $host = 'localhost'; }
+			$host = preg_replace('#^https?://#i', '', $host);
+			return $proto . '://' . $host;
+		}
+	}
+	if ( ! function_exists( 'redue_align_url_protocol' ) ) {
+		function redue_align_url_protocol( $url ) {
+			if ( ! is_string($url) || $url === '' ) { return $url; }
+			if ( ! preg_match('#^https?://#i', $url) ) { return $url; }
+			return preg_replace('#^https?://#i', redue_detect_site_protocol() . '://', $url);
+		}
+	}
+	if ( ! function_exists( 'redue_is_own_site_url' ) ) {
+		function redue_is_own_site_url( $url, $origin ) {
+			$uh = parse_url($url, PHP_URL_HOST);
+			$oh = parse_url($origin, PHP_URL_HOST);
+			if ( ! is_string($uh) || ! is_string($oh) || $uh === '' || $oh === '' ) { return false; }
+			$uh = preg_replace('#^www\\.#i', '', strtolower($uh));
+			$oh = preg_replace('#^www\\.#i', '', strtolower($oh));
+			return $uh === $oh;
+		}
+	}
+	if ( ! function_exists( 'redue_plain_text' ) ) {
+		function redue_plain_text( $html ) {
+			$plain = preg_replace('/<script\\b[^>]*>[\\s\\S]*?<\\/script>/i', ' ', is_string($html) ? $html : '');
+			$plain = preg_replace('/<style\\b[^>]*>[\\s\\S]*?<\\/style>/i', ' ', is_string($plain) ? $plain : '');
+			$plain = html_entity_decode(strip_tags(is_string($plain) ? $plain : ''), ENT_QUOTES, 'UTF-8');
+			return is_string($plain) ? trim(preg_replace('/\\s+/u', ' ', $plain)) : '';
+		}
+	}
+${buildTelephoneRuntimeHelpersPhp()}
+	if ( ! function_exists( 'redue_extract_street_address' ) ) {
+		function redue_extract_street_address( $text ) {
+			if ( ! is_string($text) || $text === '' ) { return ''; }
+			if ( preg_match('${KR_STREET_ADDRESS_RE_PHP}', $text, $m) ) {
+				$_hit = trim( ! empty($m[1]) ? $m[1] : $m[0] );
+				$_hit = preg_replace('/^(?:주소|위치|ADDRESS|소재지)\\s*[:：]?\\s*/u', '', is_string($_hit) ? $_hit : '');
+				if ( is_string($_hit) && $_hit !== '' && preg_match('/' . preg_quote($_hit, '/') . '\\s+(\\d[\\d-]{0,8}(?:\\s*[가-힣\\d호층동번지]+)?)/u', $text, $_num) ) {
+					$_hit = trim($_hit) . ' ' . trim($_num[1]);
+				}
+				return trim(preg_replace('/\\s+/u', ' ', is_string($_hit) ? $_hit : ''));
+			}
+			return '';
+		}
+	}
+	if ( ! function_exists( 'redue_read_php_plain' ) ) {
+		function redue_read_php_plain( $path ) {
+			if ( ! is_string($path) || $path === '' || ! is_file($path) ) { return ''; }
+			$raw = @file_get_contents($path);
+			if ( ! is_string($raw) || $raw === '' ) { return ''; }
+			return function_exists('redue_plain_text') ? redue_plain_text($raw) : trim(strip_tags($raw));
+		}
+	}
+	if ( ! function_exists( 'redue_scan_site_file_corpus' ) ) {
+		function redue_scan_site_file_corpus() {
+			static $cached = null;
+			if ( is_string($cached) ) { return $cached; }
+			$blob = '';
+			$paths = array();
+			if ( defined('G5_THEME_PATH') && G5_THEME_PATH ) {
+				$paths[] = G5_THEME_PATH . '/tail.php';
+				$paths[] = G5_THEME_PATH . '/tail.sub.php';
+				$paths[] = G5_THEME_PATH . '/head.php';
+			}
+			if ( defined('G5_PATH') && G5_PATH ) {
+				$paths[] = G5_PATH . '/tail.php';
+				$paths[] = G5_PATH . '/tail.sub.php';
+			}
+			if ( defined('G5_DATA_PATH') && G5_DATA_PATH && is_dir(G5_DATA_PATH . '/content') ) {
+				$_files = @glob(G5_DATA_PATH . '/content/*');
+				if ( is_array($_files) ) {
+					foreach ( $_files as $_cf ) {
+						if ( is_file($_cf) ) { $paths[] = $_cf; }
+					}
+				}
+			}
+			foreach ( $paths as $_p ) {
+				$blob .= ' ' . redue_read_php_plain($_p);
+			}
+			if ( isset($GLOBALS['config']) && is_array($GLOBALS['config']) ) {
+				foreach ( array('cf_title', 'cf_tel', 'cf_phone', 'cf_admin_name', 'cf_add_script', 'cf_add_meta', 'cf_analytics', 'cf_1', 'cf_2', 'cf_3') as $_ck ) {
+					if ( ! empty($GLOBALS['config'][$_ck]) && is_string($GLOBALS['config'][$_ck]) ) {
+						$blob .= ' ' . $GLOBALS['config'][$_ck];
+					}
+				}
+			}
+			$cached = trim(preg_replace('/\\s+/u', ' ', $blob));
+			return $cached;
+		}
+	}
+	if ( ! function_exists( 'redue_extract_fax' ) ) {
+		function redue_extract_fax( $text ) {
+			if ( ! is_string($text) || $text === '' ) { return ''; }
+			if ( preg_match('/(?:FAX|Fax|팩스)\\s*[:：]?\\s*((?:0\\d{1,2}|070)[-\\s.]?\\d{3,4}[-\\s.]?\\d{4})/u', $text, $m) ) {
+				return function_exists('redue_format_telephone') ? redue_format_telephone($m[1]) : trim($m[1]);
+			}
+			return '';
+		}
+	}
+	if ( ! function_exists( 'redue_extract_tax_id' ) ) {
+		function redue_extract_tax_id( $text ) {
+			if ( ! is_string($text) || $text === '' ) { return ''; }
+			if ( preg_match('/(?:사업자\\s*등록\\s*번호|사업자번호|사업자)\\s*[:：]?\\s*(\\d{3}-\\d{2}-\\d{5}|\\d{10})/u', $text, $m) ) {
+				return trim($m[1]);
+			}
+			return '';
+		}
+	}
+${buildFooterAutoDetectPhp()}
+	if ( ! function_exists( 'redue_is_shop_context' ) ) {
+		function redue_is_shop_context() {
+			return ( defined('_SHOP_') && _SHOP_ ) || ( defined('G5_USE_SHOP') && G5_USE_SHOP );
+		}
+	}
+	if ( ! function_exists( 'redue_industry_haystack' ) ) {
+		function redue_industry_haystack() {
+			$hay = '';
+			if ( isset($GLOBALS['config']) && is_array($GLOBALS['config']) ) {
+				foreach ( array('cf_title', 'cf_1', 'cf_2', 'cf_3', 'cf_add_meta') as $_ck ) {
+					if ( ! empty($GLOBALS['config'][$_ck]) && is_string($GLOBALS['config'][$_ck]) ) {
+						$hay .= ' ' . $GLOBALS['config'][$_ck];
+					}
+				}
+			}
+			if ( isset($GLOBALS['g5_head_title']) && is_string($GLOBALS['g5_head_title']) ) {
+				$hay .= ' ' . $GLOBALS['g5_head_title'];
+			}
+			if ( function_exists('redue_scan_site_file_corpus') ) {
+				$hay .= ' ' . redue_scan_site_file_corpus();
+			}
+			return trim(preg_replace('/\\s+/u', ' ', $hay));
+		}
+	}
+	if ( ! function_exists( 'redue_sanitize_org_types' ) ) {
+		function redue_sanitize_org_types( $types ) {
+			$out = array();
+			if ( is_string($types) && trim($types) !== '' ) { $types = array($types); }
+			if ( ! is_array($types) ) { return $out; }
+			foreach ( $types as $t ) {
+				$t = trim((string) $t);
+				if ( $t === '' || in_array($t, $out, true) ) { continue; }
+				$out[] = $t;
+			}
+			return $out;
+		}
+	}
+	if ( ! function_exists( 'redue_infer_org_types' ) ) {
+		function redue_infer_org_types() {
+			if ( function_exists('redue_is_shop_context') && redue_is_shop_context() ) {
+				return array('OnlineStore', 'Store', 'LocalBusiness');
+			}
+			$hay = function_exists('redue_industry_haystack') ? redue_industry_haystack() : '';
+			$seed = isset($GLOBALS['redue_org_type']) ? redue_sanitize_org_types($GLOBALS['redue_org_type']) : array();
+			$live_medical = (bool) preg_match('/병원|의원|클리닉|치과|한의|의료|진료|암치료|physician|clinic|hospital|dentist|veterinary|동물병원|수의사/iu', $hay);
+			$live_edu = (bool) preg_match('/학원|교육기관|과외|입시|보습|학교|academy|tutoring|hagwon/iu', $hay);
+			if ( $live_medical ) {
+				if ( preg_match('/동물병원|수의사|veterinary|VeterinaryCare/iu', $hay) ) {
+					return array('VeterinaryCare', 'LocalBusiness');
+				}
+				if ( preg_match('/치과|dentist|Dentist/iu', $hay) ) {
+					return array('Dentist', 'MedicalClinic', 'LocalBusiness');
+				}
+				return array('MedicalClinic', 'Physician', 'LocalBusiness');
+			}
+			if ( preg_match('/법률|법무|변호사|attorney|law\\s*firm/iu', $hay) ) {
+				return array('LegalService', 'LocalBusiness', 'Organization');
+			}
+			if ( preg_match('/세무|회계|노무|accounting|bookkeep/iu', $hay) ) {
+				return array('AccountingService', 'LocalBusiness', 'Organization');
+			}
+			if ( $live_edu ) {
+				return array('EducationalOrganization', 'LocalBusiness', 'Organization');
+			}
+			if ( preg_match('/쇼핑몰|스토어|온라인몰|커머스|영카트|youngcart|ecommerce|e-commerce/iu', $hay) ) {
+				return array('OnlineStore', 'Store', 'LocalBusiness');
+			}
+			if ( count($seed) > 0 ) {
+				$filtered = array();
+				foreach ( $seed as $t ) {
+					if ( preg_match('/MedicalClinic|VeterinaryCare|Physician|Hospital|Dentist/i', $t) && $hay !== '' && ! $live_medical ) { continue; }
+					if ( $t === 'EducationalOrganization' && $hay !== '' && ! $live_edu ) { continue; }
+					$filtered[] = $t;
+				}
+				if ( count($filtered) > 0 ) { return $filtered; }
+			}
+			return array('LocalBusiness', 'Organization');
+		}
+	}
+	if ( ! function_exists( 'redue_is_medical_org' ) ) {
+		function redue_is_medical_org() {
+			$hay = '';
+			$types = function_exists('redue_infer_org_types') ? redue_infer_org_types() : ( isset($GLOBALS['redue_org_type']) ? $GLOBALS['redue_org_type'] : array() );
+			$hay .= is_array($types) ? implode(' ', $types) : (string) $types;
+			if ( isset($GLOBALS['config']['cf_title']) ) { $hay .= ' ' . $GLOBALS['config']['cf_title']; }
+			return (bool) preg_match('/MedicalClinic|VeterinaryCare|Physician|Hospital|Dentist|병원|의원|클리닉|치과|한의|의료|암치료|진료/iu', $hay);
+		}
+	}
+	if ( ! function_exists( 'redue_is_nav_dump_description' ) ) {
+		function redue_is_nav_dump_description( $text, $gnb_items = array() ) {
+			$plain = trim(preg_replace('/\\s+/u', ' ', (string) $text));
+			if ( $plain === '' ) { return true; }
+			$names = array();
+			if ( is_array($gnb_items) ) {
+				foreach ( $gnb_items as $_g ) {
+					if ( is_array($_g) && ! empty($_g['name']) ) { $names[] = trim((string) $_g['name']); }
+				}
+			}
+			if ( count($names) >= 3 ) {
+				$hits = 0;
+				foreach ( $names as $_n ) {
+					if ( $_n === '' ) { continue; }
+					if ( function_exists('mb_strpos') ? mb_strpos($plain, $_n) !== false : strpos($plain, $_n) !== false ) { $hits++; }
+				}
+				if ( $hits >= 3 && $hits >= ( count($names) * 0.5 ) ) { return true; }
+			}
+			$_tokens = preg_split('/[\\s|\\/>·•,\\/]+/u', $plain);
+			if ( is_array($_tokens) && count($_tokens) >= 6 ) {
+				$_short = 0;
+				$_total = 0;
+				foreach ( $_tokens as $_t ) {
+					if ( $_t === '' ) { continue; }
+					$_total++;
+					$_len = function_exists('mb_strlen') ? mb_strlen($_t, 'UTF-8') : strlen($_t);
+					if ( $_len <= 6 ) { $_short++; }
+				}
+				if ( $_total > 0 && ( $_short / $_total ) >= 0.85 ) { return true; }
+			}
+			return false;
+		}
+	}
+	if ( ! function_exists( 'redue_compose_official_description' ) ) {
+		function redue_compose_official_description( $site_name, $page_title, $is_main = false ) {
+			$site = trim(strip_tags((string) $site_name));
+			$page = trim(strip_tags((string) $page_title));
+			if ( $site === '' ) { $site = '웹사이트'; }
+			if ( $is_main || $page === '' || $page === $site ) {
+				return $site . ' 공식 웹사이트입니다.';
+			}
+			$page = preg_replace('/\\s*[|\\-–—]\\s+' . preg_quote($site, '/') . '\\s*$/u', '', $page);
+			$page = trim(is_string($page) ? $page : '');
+			return $site . ' ' . $page . ' 공식 안내입니다.';
+		}
+	}
+	if ( ! function_exists( 'redue_summarize_body_text' ) ) {
+		function redue_summarize_body_text( $text, $max = 140 ) {
+			$plain = function_exists('redue_plain_text') ? redue_plain_text($text) : trim(preg_replace('/\\s+/u', ' ', strip_tags((string) $text)));
+			$plain = trim(is_string($plain) ? $plain : '');
+			if ( $plain === '' ) { return ''; }
+			if ( function_exists('mb_substr') ) { return mb_substr($plain, 0, (int) $max, 'UTF-8'); }
+			return substr($plain, 0, (int) $max);
+		}
+	}
+	if ( ! function_exists( 'redue_refine_page_description' ) ) {
+		function redue_refine_page_description( $desc, $site_name, $page_title, $is_main, $gnb_items = array() ) {
+			$desc = trim((string) $desc);
+			if ( $desc === '' || ( function_exists('redue_is_nav_dump_description') && redue_is_nav_dump_description($desc, $gnb_items) ) ) {
+				return function_exists('redue_compose_official_description')
+					? redue_compose_official_description($site_name, $page_title, $is_main)
+					: trim((string) $site_name);
+			}
+			return $desc;
+		}
+	}
+	/* Checklist 16/17: subpages keep a single @type; the homepage uses an industry
+	 * composite (e.g. MedicalWebPage+AboutPage+WebPage) so AI crawlers see both
+	 * the entity page and the about/service surface. */
+	if ( ! function_exists( 'redue_composite_page_types' ) ) {
+		function redue_composite_page_types( $is_main, $current_types = null, $is_about = false ) {
+			if ( $is_main ) {
+				$is_medical = function_exists('redue_is_medical_org') && redue_is_medical_org();
+				if ( $is_medical ) {
+					return array('MedicalWebPage', 'AboutPage', 'WebPage');
+				}
+				return array('AboutPage', 'WebPage');
+			}
+			if ( $is_about ) {
+				return 'AboutPage';
+			}
+			$types = array();
+			if ( is_array($current_types) ) { $types = $current_types; }
+			elseif ( is_string($current_types) && $current_types !== '' ) { $types = array($current_types); }
+			foreach ( $types as $t ) {
+				if ( is_string($t) && $t !== '' && $t !== 'WebPage' ) { return $t; }
+			}
+			return count($types) > 0 && is_string($types[0]) && $types[0] !== '' ? $types[0] : 'WebPage';
+		}
+	}
+	if ( ! function_exists( 'redue_infer_kr_address_parts' ) ) {
+		function redue_infer_kr_address_parts( $text ) {
+			$out = array( 'region' => '', 'locality' => '' );
+			if ( ! is_string($text) || $text === '' ) { return $out; }
+			if ( preg_match('/(서울특별시|부산광역시|대구광역시|인천광역시|광주광역시|대전광역시|울산광역시|세종특별자치시|제주특별자치도|경기도|강원도|충청북도|충청남도|전라북도|전라남도|경상북도|경상남도|서울시|부산시|대구시|인천시|광주시|대전시|울산시|세종시|제주시|서울|부산|대구|인천|광주|대전|울산|세종|제주|경기|강원)/u', $text, $m) ) {
+				$raw = $m[1];
+				$map = array( '서울특별시' => '서울', '서울시' => '서울', '부산광역시' => '부산', '부산시' => '부산', '대구광역시' => '대구', '대구시' => '대구', '인천광역시' => '인천', '인천시' => '인천', '광주광역시' => '광주', '대전광역시' => '대전', '대전시' => '대전', '울산광역시' => '울산', '울산시' => '울산', '세종특별자치시' => '세종', '세종시' => '세종', '제주특별자치도' => '제주', '제주시' => '제주', '경기도' => '경기', '강원도' => '강원', '충청북도' => '충북', '충청남도' => '충남', '전라북도' => '전북', '전라남도' => '전남', '경상북도' => '경북', '경상남도' => '경남' );
+				$out['region'] = isset($map[$raw]) ? $map[$raw] : $raw;
+			}
+			if ( preg_match('/(강남|서초|송파|마포|강서|관악|영등포|노원|종로|용산|성동|광진|은평|양천|구로|금천|동작|중랑|성북|강북|도봉|강동)구?/u', $text, $lm) ) {
+				$stem = preg_replace('/구$/', '', $lm[1]);
+				$out['locality'] = $stem . '구';
+				if ( $out['region'] === '' ) { $out['region'] = '서울'; }
+			} elseif ( preg_match('/([가-힣]{1,8}(?:시|군|구))/u', $text, $lm2) ) {
+				$out['locality'] = $lm2[1];
+			}
+			return $out;
+		}
+	}
+	if ( ! function_exists( 'redue_complete_postal_address' ) ) {
+		function redue_complete_postal_address( $addr, $site_name = '', $domain_host = '', $street = '', $locality = '', $region = '' ) {
+			if ( ! is_array($addr) ) { $addr = array(); }
+			$addr['@type'] = 'PostalAddress';
+			$addr['addressCountry'] = 'KR';
+			$blob = trim( implode( ' ', array_filter( array(
+				isset($addr['streetAddress']) ? (string) $addr['streetAddress'] : '',
+				is_string($street) ? $street : '',
+				is_string($locality) ? $locality : '',
+				is_string($region) ? $region : '',
+			) ) ) );
+			$parts = function_exists('redue_infer_kr_address_parts') ? redue_infer_kr_address_parts($blob) : array( 'region' => '', 'locality' => '' );
+			if ( empty($addr['streetAddress']) && is_string($street) && trim($street) !== '' ) { $addr['streetAddress'] = trim($street); }
+			if ( empty($addr['addressLocality']) && is_string($locality) && trim($locality) !== '' ) { $addr['addressLocality'] = trim($locality); }
+			if ( empty($addr['addressRegion']) && is_string($region) && trim($region) !== '' ) { $addr['addressRegion'] = trim($region); }
+			if ( empty($addr['addressLocality']) && ! empty($parts['locality']) ) { $addr['addressLocality'] = $parts['locality']; }
+			if ( empty($addr['addressRegion']) && ! empty($parts['region']) ) { $addr['addressRegion'] = $parts['region']; }
+			if ( empty($addr['streetAddress']) && empty($addr['addressLocality']) && empty($addr['addressRegion']) ) {
+				return array( '@type' => 'PostalAddress', 'addressCountry' => 'KR' );
+			}
+			return $addr;
+		}
+	}
+	if ( ! function_exists( 'redue_infer_page_schema_type' ) ) {
+		function redue_infer_page_schema_type( $hay, $is_medical = false ) {
+			$h = is_string($hay) ? $hay : '';
+			if ( preg_match('/wr_id=/i', $h) ) { return 'Article'; }
+			if ( ( preg_match('/board\\.php/i', $h) && preg_match('/bo_table=/i', $h) ) || preg_match('/[?&]bo_table=/i', $h) ) { return 'CollectionPage'; }
+			if ( preg_match('/content\\.php|[?&]co_id=/i', $h) ) { return 'AboutPage'; }
+			if ( preg_match('/의료진|프로필|원장진|전문의|강사진|임원|doctor|staff|\\bteam\\b|의료\\s*진/ui', $h) ) { return 'ProfilePage'; }
+			if ( preg_match('/연락처|문의|오시는|찾아오시는|견적|상담|지점|contact|location|map\\.php/ui', $h) ) { return 'ContactPage'; }
+			if ( preg_match('/소개|인사말|시설|장비|둘러보기|철학|연혁|about|company|greeting|조직도|개요|facility|equipment/ui', $h) ) { return 'AboutPage'; }
+			if ( $is_medical && preg_match('/진료|수술|시술|치료|질환|암종|암치료|서비스/ui', $h) && ! preg_match('/서비스\\s*소개/ui', $h) ) { return 'MedicalWebPage'; }
+			if ( $is_medical && preg_match('/(?:^|[\\/\\\\])((?:ultra|s|sub|page)?\\d{2,}|[a-z]{1,12}\\d{2,})\\.php/i', $h) ) {
+				return 'MedicalWebPage';
+			}
+			return 'WebPage';
+		}
+	}
+	if ( ! function_exists( 'redue_resolve_site_name' ) ) {
+		function redue_resolve_site_name() {
+			if ( isset($GLOBALS['config']['cf_title']) && is_string($GLOBALS['config']['cf_title']) && trim($GLOBALS['config']['cf_title']) !== '' ) {
+				return trim(strip_tags($GLOBALS['config']['cf_title']));
+			}
+			if ( function_exists('get_bloginfo') ) {
+				$_wp = get_bloginfo('name');
+				if ( is_string($_wp) && trim($_wp) !== '' ) { return trim(strip_tags($_wp)); }
+			}
+			if ( isset($GLOBALS['g5']['title']) && is_string($GLOBALS['g5']['title']) && trim($GLOBALS['g5']['title']) !== '' ) {
+				return trim(strip_tags($GLOBALS['g5']['title']));
+			}
+			if ( isset($GLOBALS['g5_head_title']) && is_string($GLOBALS['g5_head_title']) && trim($GLOBALS['g5_head_title']) !== '' ) {
+				return trim(strip_tags($GLOBALS['g5_head_title']));
+			}
+			if ( class_exists('Context') && method_exists('Context', 'get') ) {
+				$_rx = @Context::get('site_title');
+				if ( is_string($_rx) && trim($_rx) !== '' ) { return trim(strip_tags($_rx)); }
+				$_rx = @Context::get('site_module_info');
+				if ( is_object($_rx) && ! empty($_rx->browser_title) ) { return trim(strip_tags((string) $_rx->browser_title)); }
+			}
+			$_host = '';
+			if ( ! empty($_SERVER['HTTP_HOST']) ) { $_host = (string) $_SERVER['HTTP_HOST']; }
+			elseif ( ! empty($_SERVER['SERVER_NAME']) ) { $_host = (string) $_SERVER['SERVER_NAME']; }
+			$_host = preg_replace('#^https?://#i', '', $_host);
+			$_host = preg_replace('#:\\d+$#', '', $_host);
+			return $_host !== '' ? $_host : '웹사이트';
+		}
+	}
+${buildImageRepSemanticsPhp()}
+	if ( ! function_exists( 'redue_resolve_rep_identity' ) ) {
+		function redue_resolve_rep_identity() {
+			$name = '';
+			$title = '';
+			if ( isset($GLOBALS['redue_rep_name']) && is_string($GLOBALS['redue_rep_name']) ) {
+				$name = trim($GLOBALS['redue_rep_name']);
+			}
+			if ( isset($GLOBALS['redue_rep_title']) && is_string($GLOBALS['redue_rep_title']) ) {
+				$title = function_exists('redue_normalize_rep_title') ? redue_normalize_rep_title($GLOBALS['redue_rep_title']) : trim($GLOBALS['redue_rep_title']);
+			}
+			if ( $name === '' && isset($GLOBALS['config']['cf_admin_name']) && is_string($GLOBALS['config']['cf_admin_name']) ) {
+				$_admin = trim(strip_tags($GLOBALS['config']['cf_admin_name']));
+				if ( $_admin !== '' && function_exists('redue_is_valid_rep_name') && redue_is_valid_rep_name($_admin) ) {
+					$name = $_admin;
+				} elseif ( $_admin !== '' && preg_match('/^[가-힣]{2,4}$/u', $_admin) ) {
+					$name = $_admin;
+				}
+			}
+			if ( $name === '' || $title === '' ) {
+				$blob = function_exists('redue_scan_site_file_corpus') ? redue_scan_site_file_corpus() : '';
+				$hit = function_exists('redue_parse_rep_from_text') ? redue_parse_rep_from_text($blob) : null;
+				if ( is_array($hit) ) {
+					if ( $name === '' && ! empty($hit['name']) ) { $name = (string) $hit['name']; }
+					if ( $title === '' && ! empty($hit['title']) ) { $title = (string) $hit['title']; }
+				}
+			}
+			return array('name' => $name, 'title' => $title);
+		}
+	}
+	if ( ! function_exists( 'redue_img_alt_from_src' ) ) {
+		function redue_img_alt_from_src( $src, $site_name, $page_name ) {
+			$path = preg_replace('/[?#].*$/', '', (string) $src);
+			$base = basename(str_replace('\\\\', '/', $path));
+			$stem = preg_replace('/\\.[a-z0-9]+$/i', '', $base);
+			$stem = is_string($stem) ? $stem : '';
+			$decoded = $stem;
+			if ( function_exists('rawurldecode') ) {
+				$try = @rawurldecode($stem);
+				if ( is_string($try) && $try !== '' ) { $decoded = $try; }
+			}
+			if ( preg_match('/logo|로고/i', $decoded) ) {
+				return $site_name . ' 로고';
+			}
+			if ( preg_match('/^(sub\\d+|s?\\d{2,4})(_\\d+)?$/i', $decoded) || preg_match('/banner|visual|main[_-]?img|bg[_-]?/i', $decoded) ) {
+				return ($page_name !== '' ? $page_name : $site_name) . ' 안내 이미지';
+			}
+			$label = trim(preg_replace('/[-_]+/', ' ', $decoded));
+			if ( $label !== '' && ! preg_match('/^[a-z0-9]{1,3}$/i', $label) && function_exists('mb_strlen') && mb_strlen($label, 'UTF-8') >= 2 ) {
+				return $site_name . ' ' . $label . ' 이미지';
+			}
+			return trim($site_name . ' ' . $page_name . ' 안내 이미지');
+		}
+	}
+	if ( ! function_exists( 'redue_transform_img_alts' ) ) {
+		function redue_transform_img_alts( $buffer, $site_name, $page_name ) {
+			if ( ! is_string($buffer) || $buffer === '' ) { return $buffer; }
+			if ( ! preg_match_all('/<img\\b([^>]*?)(\\/?)>/i', $buffer, $all, PREG_SET_ORDER | PREG_OFFSET_CAPTURE) ) {
+				return $buffer;
+			}
+			$out = '';
+			$last = 0;
+			foreach ( $all as $m ) {
+				$full = $m[0][0];
+				$pos = (int) $m[0][1];
+				$attrs = $m[1][0];
+				$slash = $m[2][0];
+				$out .= substr($buffer, $last, $pos - $last);
+				$existing = '';
+				if ( preg_match('/\\balt\\s*=\\s*(["\\'])([^"\\']*)\\1/i', $attrs, $am) ) {
+					$existing = trim($am[2]);
+				}
+				if ( $existing !== '' ) {
+					if ( function_exists('redue_parse_rep_from_text') && function_exists('redue_bind_rep_globals') ) {
+						$exist_hit = redue_parse_rep_from_text($existing);
+						if ( is_array($exist_hit) ) { redue_bind_rep_globals($exist_hit['name'], $exist_hit['title']); }
+					}
+					$out .= $full;
+					$last = $pos + strlen($full);
+					continue;
+				}
+				$src = '';
+				if ( preg_match('/\\bsrc\\s*=\\s*(["\\'])([^"\\']*)\\1/i', $attrs, $sm) ) { $src = $sm[2]; }
+				$title = '';
+				if ( preg_match('/\\btitle\\s*=\\s*(["\\'])([^"\\']+)\\1/i', $attrs, $tm) ) {
+					$title = trim($tm[2]);
+				} elseif ( preg_match('/\\baria-label\\s*=\\s*(["\\'])([^"\\']+)\\1/i', $attrs, $tm) ) {
+					$title = trim($tm[2]);
+				}
+				$alt = '';
+				$rep_hit = null;
+				if ( function_exists('redue_extract_nearby_rep') ) {
+					$rep_hit = redue_extract_nearby_rep($buffer, $pos);
+				}
+				if ( ! is_array($rep_hit) && $title !== '' && function_exists('redue_parse_rep_from_text') ) {
+					$rep_hit = redue_parse_rep_from_text($title);
+				}
+				if ( ! is_array($rep_hit) && $src !== '' && function_exists('redue_parse_rep_from_filename') ) {
+					$rep_hit = redue_parse_rep_from_filename($src);
+				}
+				if ( is_array($rep_hit) && ! empty($rep_hit['name']) ) {
+					if ( function_exists('redue_bind_rep_globals') ) {
+						redue_bind_rep_globals($rep_hit['name'], isset($rep_hit['title']) ? $rep_hit['title'] : '');
+					}
+					$alt = function_exists('redue_compose_rep_img_alt')
+						? redue_compose_rep_img_alt($site_name, $rep_hit['name'], isset($rep_hit['title']) ? $rep_hit['title'] : '')
+						: trim($site_name . ' ' . $rep_hit['name'] . ' ' . (isset($rep_hit['title']) ? $rep_hit['title'] : ''));
+				}
+				if ( $alt === '' && $title !== '' ) { $alt = $title; }
+				if ( $alt === '' && ! empty($GLOBALS['redue_rep_name']) && is_string($GLOBALS['redue_rep_name']) && preg_match('/sign|ceo|director|rep|원장|대표/i', $src) ) {
+					$alt = function_exists('redue_compose_rep_img_alt')
+						? redue_compose_rep_img_alt($site_name, $GLOBALS['redue_rep_name'], isset($GLOBALS['redue_rep_title']) ? $GLOBALS['redue_rep_title'] : '')
+						: trim($site_name . ' ' . $GLOBALS['redue_rep_name']);
+				}
+				if ( $alt === '' ) { $alt = redue_img_alt_from_src($src, $site_name, $page_name); }
+				$alt = trim($alt);
+				if ( $alt === '' ) { $alt = $site_name . ' 이미지'; }
+				$alt_esc = htmlspecialchars($alt, ENT_QUOTES, 'UTF-8');
+				if ( preg_match('/\\balt\\s*=\\s*(["\\'])[^"\\']*\\1/i', $attrs) ) {
+					$attrs = preg_replace('/\\balt\\s*=\\s*(["\\'])[^"\\']*\\1/i', 'alt="' . $alt_esc . '"', $attrs, 1);
+				} elseif ( preg_match('/\\balt\\s*=/i', $attrs) ) {
+					$attrs = preg_replace('/\\balt\\s*=\\s*[^\\s>]*/i', 'alt="' . $alt_esc . '"', $attrs, 1);
+				} else {
+					$attrs = rtrim($attrs) . ' alt="' . $alt_esc . '"';
+				}
+				$out .= '<img' . $attrs . $slash . '>';
+				$last = $pos + strlen($full);
+			}
+			$out .= substr($buffer, $last);
+			return $out;
+		}
+	}
+	if ( ! function_exists( 'redue_optimize_document_title' ) ) {
+		function redue_optimize_document_title( $buffer, $site_name, $page_name, $is_main ) {
+			$has_title = preg_match('/<title\\b[^>]*>([\\s\\S]*?)<\\/title>/i', $buffer, $tm);
+			$current = $has_title ? trim(html_entity_decode(strip_tags($tm[1]), ENT_QUOTES, 'UTF-8')) : '';
+			$len = function_exists('mb_strlen') ? mb_strlen($current, 'UTF-8') : strlen($current);
+			if ( $len >= 10 && $len <= 60 ) { return $buffer; }
+			if ( $len < 10 ) {
+				if ( $is_main ) {
+					$new = $site_name . ' — 공식 안내 및 전문 서비스';
+				} else {
+					$page = ( $page_name !== '' && $page_name !== $site_name ) ? $page_name : '안내';
+					$new = $page . ' | ' . $site_name . ' 공식';
+				}
+				$new_len_soft = function_exists('mb_strlen') ? mb_strlen($new, 'UTF-8') : strlen($new);
+				if ( $new_len_soft > 35 ) {
+					$new = function_exists('mb_substr') ? mb_substr($new, 0, 35, 'UTF-8') : substr($new, 0, 35);
+				}
+			} else {
+				$new = $current;
+			}
+			$new_len = function_exists('mb_strlen') ? mb_strlen($new, 'UTF-8') : strlen($new);
+			if ( $new_len > 60 ) {
+				$new = function_exists('mb_substr') ? mb_substr($new, 0, 60, 'UTF-8') : substr($new, 0, 60);
+			}
+			$new_esc = htmlspecialchars(trim($new), ENT_QUOTES, 'UTF-8');
+			if ( $has_title ) {
+				return preg_replace('/<title\\b[^>]*>[\\s\\S]*?<\\/title>/i', '<title>' . $new_esc . '</title>', $buffer, 1);
+			}
+			if ( preg_match('/(<head\\b[^>]*>)/i', $buffer) ) {
+				return preg_replace('/(<head\\b[^>]*>)/i', '$1<title>' . $new_esc . '</title>', $buffer, 1);
+			}
+			return $buffer;
+		}
+	}
+	if ( ! function_exists( 'redue_echo_canonical_pair' ) ) {
+		function redue_echo_canonical_pair() {
+			static $done = false;
+			if ( $done ) { return; }
+			$url = '';
+			if ( function_exists('redue_get_exact_canonical') ) {
+				$url = redue_get_exact_canonical();
+			} elseif ( isset($GLOBALS['exact_canonical_url']) && is_string($GLOBALS['exact_canonical_url']) ) {
+				$url = $GLOBALS['exact_canonical_url'];
+			} elseif ( isset($GLOBALS['redue_canonical_url']) && is_string($GLOBALS['redue_canonical_url']) ) {
+				$url = $GLOBALS['redue_canonical_url'];
+			}
+			if ( ! is_string($url) || $url === '' ) { return; }
+			$done = true;
+			$esc = htmlspecialchars($url, ENT_QUOTES, 'UTF-8');
+			$origin = preg_replace('#^(https?://[^/]+).*#', '$1', $url);
+			if ( ! is_string($origin) || $origin === '' ) { $origin = $url; }
+			$llms_href = htmlspecialchars(rtrim($origin, '/') . '/llms.txt', ENT_QUOTES, 'UTF-8');
+			$rss_href = htmlspecialchars(rtrim($origin, '/') . '/rss.php', ENT_QUOTES, 'UTF-8');
+			echo '<!-- REDUE v30 PRECISION SEO START — SEO Standard Canonical Pair (Bot Optimized Top Position) -->' . "\\n";
+			echo '<link rel="canonical" href="' . $esc . '">' . "\\n";
+			echo '<meta property="og:url" content="' . $esc . '">' . "\\n";
+			echo '<link rel="help" type="text/markdown" href="' . $llms_href . '" title="LLMs Context">' . "\\n";
+			echo '<link rel="alternate" type="text/markdown" href="' . $llms_href . '">' . "\\n";
+			echo '<link rel="alternate" type="application/rss+xml" title="RSS 2.0" href="' . $rss_href . '">' . "\\n";
+			if ( isset($GLOBALS['redue_rep_name']) && is_string($GLOBALS['redue_rep_name']) && trim($GLOBALS['redue_rep_name']) !== '' ) {
+				$rep_esc = htmlspecialchars(trim($GLOBALS['redue_rep_name']), ENT_QUOTES, 'UTF-8');
+				echo '<meta name="author" content="' . $rep_esc . '">' . "\\n";
+				echo '<meta name="representative" content="' . $rep_esc . '">' . "\\n";
+			}
+			echo '<!-- REDUE v30 PRECISION SEO END -->' . "\\n";
+		}
+	}
+${buildEvidenceFaqHowToHelpersPhp()}
+${buildUniversalGraphRuntimeHelpersPhp()}
+	if ( ! function_exists( 'redue_strip_duplicate_canonicals' ) ) {
+		function redue_strip_duplicate_canonicals( $buffer ) {
+			$buffer = preg_replace('/<link\\b(?=[^>]*\\brel\\s*=\\s*["\\']?canonical["\\']?)[^>]*>\\s*(?:<\\/link>)?/is', '', $buffer);
+			$buffer = preg_replace('/<meta\\b(?=[^>]*\\bproperty\\s*=\\s*["\\']og:url["\\'])[^>]*>\\s*/i', '', $buffer);
+			$buffer = preg_replace('/^[ \\t]*">[ \\t]*\\r?\\n/m', '', $buffer);
+			$buffer = preg_replace('/<!--\\s*REDUE v30 PRECISION SEO START[\\s\\S]*?REDUE v30 PRECISION SEO END\\s*-->\\s*/i', '', $buffer);
+			return $buffer;
+		}
+	}
+`;
+}
+
+/** Runtime NAP bind from $config + helper extractors — shared by all schema controllers. */
+function buildRuntimeNapBindPhp(orgVar = 'org_node', opts?: { inventAddress?: boolean }): string {
+	return `
+		$_redue_cfg_blob = '';
+		if ( isset($config) && is_array($config) ) {
+			foreach ( array('cf_tel', 'cf_phone', 'cf_add_script', 'cf_add_meta', 'cf_analytics', 'cf_1', 'cf_2', 'cf_3') as $_ck ) {
+				if ( ! empty($config[$_ck]) && is_string($config[$_ck]) ) {
+					$_redue_cfg_blob .= ' ' . $config[$_ck];
+				}
+			}
+		}
+		if ( function_exists('redue_scan_site_file_corpus') ) {
+			$_file_blob = redue_scan_site_file_corpus();
+			if ( is_string($_file_blob) && $_file_blob !== '' ) { $_redue_cfg_blob .= ' ' . $_file_blob; }
+		}
+		if ( empty($${orgVar}['telephone']) && function_exists('redue_resolve_universal_telephone') ) {
+			$_uni_tel = redue_resolve_universal_telephone('');
+			if ( $_uni_tel !== '' ) { $${orgVar}['telephone'] = $_uni_tel; }
+		}
+		if ( empty($${orgVar}['telephone']) ) {
+			if ( function_exists('redue_resolve_cms_telephone') ) {
+				$_cms_tel = redue_resolve_cms_telephone();
+				if ( $_cms_tel !== '' ) { $${orgVar}['telephone'] = $_cms_tel; }
+			}
+			if ( empty($${orgVar}['telephone']) && ! empty($config['cf_tel']) && is_string($config['cf_tel']) && trim($config['cf_tel']) !== '' ) {
+				$${orgVar}['telephone'] = trim($config['cf_tel']);
+			} elseif ( empty($${orgVar}['telephone']) && function_exists('redue_extract_telephone') ) {
+				$_tel = redue_extract_telephone($_redue_cfg_blob);
+				if ( $_tel !== '' ) { $${orgVar}['telephone'] = $_tel; }
+			}
+		}
+		if ( ! empty($${orgVar}['telephone']) && function_exists('redue_format_telephone') ) {
+			$_fmt_tel = redue_format_telephone($${orgVar}['telephone']);
+			if ( $_fmt_tel !== '' ) { $${orgVar}['telephone'] = $_fmt_tel; }
+		}
+		$_has_street = isset($${orgVar}['address']) && is_array($${orgVar}['address']) && ! empty($${orgVar}['address']['streetAddress']);
+		if ( ! $_has_street && function_exists('redue_extract_street_address') ) {
+			$_addr = redue_extract_street_address($_redue_cfg_blob);
+			if ( $_addr !== '' ) {
+				$${orgVar}['address'] = array(
+					'@type' => 'PostalAddress',
+					'streetAddress' => $_addr,
+					'addressCountry' => 'KR',
+				);
+			}
+		}
+${buildForceCompleteNapPhp(orgVar, { inventAddress: opts?.inventAddress })}
 `;
 }
 
@@ -445,25 +1325,23 @@ export function buildUniversalObRegistrationPhp(): string {
 	return `if ( ! defined('REDUE_UNIVERSAL_ENGINE_ACTIVE') ) {
 	define('REDUE_UNIVERSAL_ENGINE_ACTIVE', true);
 
+${buildUniversalSeoRuntimeHelpersPhp()}
 	// 1. 그누보드 전역변수 기반 동적 Canonical URL 추출 (수동 정제)
 	//    path가 / 이어도 $_GET(bo_table 등)이 있으면 서브/게시판 — /index.php 단독은 / 로 정제
 	//    REQUEST_URI + SCRIPT_NAME 이중 감지로 진단봇 경로 유실 복구
 	if ( ! function_exists( 'redue_get_exact_canonical' ) ) {
 		function redue_get_exact_canonical() {
-			// 0) HTTP/HTTPS 환경 정제 — 진단봇이 HTTP·헤더 없이 와도 HTTPS 강제
-			$_SERVER['HTTPS'] = 'on';
-			$_SERVER['SERVER_PORT'] = '443';
-
-			// 1) 대표 도메인: G5_URL 자동 참조 (타 그누보드 공통) → HTTP_HOST 폴백 → HTTPS 강제
-			if ( defined('G5_URL') && G5_URL !== '' ) {
-				$site_domain = rtrim(G5_URL, '/');
-			} else {
-				$host = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost';
+			// 0) 실제 작동 프로토콜만 사용 — SSL 미설치 사이트에 https:// 강제 금지 (Mixed Content 방지)
+			$site_domain = function_exists('redue_site_origin') ? redue_site_origin() : '';
+			if ( $site_domain === '' ) {
+				$proto = function_exists('redue_detect_site_protocol') ? redue_detect_site_protocol() : 'http';
+				$host = '';
+				if ( ! empty($_SERVER['HTTP_HOST']) ) { $host = (string) $_SERVER['HTTP_HOST']; }
+				elseif ( ! empty($_SERVER['SERVER_NAME']) ) { $host = (string) $_SERVER['SERVER_NAME']; }
+				if ( $host === '' ) { $host = 'localhost'; }
 				$host = preg_replace('#^https?://#i', '', $host);
-				$host = preg_replace('#:\\d+$#', '', $host);
-				$site_domain = 'https://' . $host;
+				$site_domain = $proto . '://' . $host;
 			}
-			$site_domain = preg_replace('#^http://#i', 'https://', $site_domain);
 
 			// 2) 요청 URI 경로 — REQUEST_URI + SCRIPT_NAME 이중 감지 (302.php / 101.php 유실 방지)
 			$request_uri = isset($_SERVER['REQUEST_URI']) ? (string)$_SERVER['REQUEST_URI'] : '';
@@ -510,56 +1388,19 @@ export function buildUniversalObRegistrationPhp(): string {
 				}
 				$final_canonical = $site_domain . $page_path . $query_string;
 			}
-			return preg_replace('#^http://#i', 'https://', $final_canonical);
+			return function_exists('redue_align_url_protocol') ? redue_align_url_protocol($final_canonical) : $final_canonical;
 		}
 	}
 
-	// 2. 출력 버퍼링(ob_start): 중복 canonical/og:url 제거 후 charset 직후(First-Chunk) 1쌍 주입
-	ob_start(function($buffer) {
-		if ( ! is_string($buffer) || trim($buffer) === '' ) { return $buffer; }
-
-		$canonical_url = redue_get_exact_canonical();
-
-		// A. Strip ALL existing canonical & og:url tags (theme / controller echo / duplicates)
-		$buffer = preg_replace('/<link\\b(?=[^>]*\\brel=["\\']canonical["\\'])[^>]*>\\s*/i', '', $buffer);
-		$buffer = preg_replace('/<meta\\b(?=[^>]*\\bproperty=["\\']og:url["\\'])[^>]*>\\s*/i', '', $buffer);
-		$buffer = preg_replace('/<link\\b(?=[^>]*\\brel=["\\'](?:help|alternate)["\\'])(?=[^>]*llms\\.txt)[^>]*>\\s*/i', '', $buffer);
-		$buffer = preg_replace('/<!--\\s*REDUE v30 PRECISION SEO START[\\s\\S]*?REDUE v30 PRECISION SEO END\\s*-->\\s*/i', '', $buffer);
-
-		// B. Charset-After First-Chunk Injection: purified pair right after charset (before large CSS)
-		$seo_tags  = "\\n<!-- REDUE v30 PRECISION SEO START — SEO Standard Canonical Pair (Bot Optimized Top Position) -->\\n";
-		$seo_tags .= '<link rel="canonical" href="' . htmlspecialchars($canonical_url, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
-		$seo_tags .= '<meta property="og:url" content="' . htmlspecialchars($canonical_url, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
-		$llms_origin = preg_replace('#^(https?://[^/]+).*#', '$1', $canonical_url);
-		if ( ! is_string($llms_origin) || $llms_origin === '' ) { $llms_origin = $canonical_url; }
-		$llms_href = htmlspecialchars(rtrim($llms_origin, '/') . '/llms.txt', ENT_QUOTES, 'UTF-8');
-		$seo_tags .= '<link rel="help" type="text/markdown" href="' . $llms_href . '" title="LLMs Context">' . "\\n";
-		$seo_tags .= '<link rel="alternate" type="text/markdown" href="' . $llms_href . '">' . "\\n";
-		if ( isset($GLOBALS['redue_rep_name']) && is_string($GLOBALS['redue_rep_name']) && trim($GLOBALS['redue_rep_name']) !== '' ) {
-			$rep_esc_ob = htmlspecialchars(trim($GLOBALS['redue_rep_name']), ENT_QUOTES, 'UTF-8');
-			$seo_tags .= '<meta name="author" content="' . $rep_esc_ob . '">' . "\\n";
-			$seo_tags .= '<meta name="representative" content="' . $rep_esc_ob . '">' . "\\n";
-		}
-		$seo_tags .= "<!-- REDUE v30 PRECISION SEO END -->\\n";
-
-		$charset_re = '/(<meta\\b[^>]*(?:\\bcharset\\s*=|http-equiv=["\\']Content-Type["\\'][^>]*charset)[^>]*>)/i';
-		if ( preg_match($charset_re, $buffer) ) {
-			$buffer = preg_replace($charset_re, '$1' . $seo_tags, $buffer, 1);
-		} else if ( preg_match('/(<head\\b[^>]*>)/i', $buffer) ) {
-			$buffer = preg_replace('/(<head\\b[^>]*>)/i', '$1' . $seo_tags, $buffer, 1);
-		} else if ( preg_match('/<\\/head>/i', $buffer) ) {
-			$buffer = preg_replace('/<\\/head>/i', $seo_tags . '</head>', $buffer, 1);
-		} else {
-			$buffer = $seo_tags . $buffer;
-		}
-
-		// C. Global Full-Document Script Defer Transformer (Head + Body wide sweep)
-		$buffer = preg_replace_callback('/<script\\b(?![^>]*\\b(defer|async|type=["\\']module["\\']|type=["\\']application\\/ld\\+json["\\'])\\b)([^>]*\\bsrc\\s*=\\s*["\\'][^"\\']+["\\'][^>]*)>/i', function($matches) {
-			return preg_replace('/>$/', ' defer>', $matches[0]);
-		}, $buffer);
-${buildRepresentativeObMetaPhp()}
-		return $buffer;
-	});
+	// 2. Bind exact URL — 값만 준비하고 즉시 echo 하지 않음(v33). 실제 출력은
+	//    redue_dynamic_schema_controller_body() 안에서 charset 메타 태그 직후 렌더링
+	//    호출 시점에만 발생하므로, 이 상수 블록이 문서 최상단에 삽입되어도
+	//    화면에는 아무 것도 출력되지 않는다 (상단 덤프 방지).
+	if ( function_exists('redue_get_exact_canonical') ) {
+		$exact_canonical_url = redue_get_exact_canonical();
+		$GLOBALS['exact_canonical_url'] = $exact_canonical_url;
+		$GLOBALS['redue_canonical_url'] = $exact_canonical_url;
+	}
 }`;
 }
 
@@ -654,7 +1495,7 @@ export function buildNewsArticleAutoDetectPhp(): string {
 		} elseif ( isset($schema_meta_image) && is_string($schema_meta_image) && $schema_meta_image !== '' ) {
 			$redue_article_image = preg_replace('#^http://#i', 'https://', $schema_meta_image);
 		} else {
-			$redue_article_image = ( isset($origin) ? rtrim($origin, '/') : '' ) . '/logo.png';
+			$redue_article_image = '';
 		}
 		$redue_date_published = date('Y-01-01T00:00:00+09:00');
 		if ( $redue_wr_datetime !== '' ) {
@@ -674,10 +1515,10 @@ export function buildNewsArticleAutoDetectPhp(): string {
  *
  * Guarantees:
  *   1. Exact subpage canonical/og:url (never collapses 301.php / board.php?bo_table= / /?p=123 to /)
- *   2. `ob_start()` strips duplicates and reinjects one clean pair after charset (Charset-After; `<head>` / `</head>` fallback)
+ *   2. Direct `echo` of one canonical/OG pair after charset (Charset-After; no output-buffer rewrite)
  *   3. Full-document server-side `defer` on sync external `<script src>` tags (head + body)
  *   4. Article graph node on EVERY page (main + subpages); NewsArticle auto on news/press boards & subpages
- *   5. FAQPage on all non-board pages (universal 2-item fallback when unbound)
+ *   5. FAQPage only when live Q&A is extracted from the page body (never invent a fallback array)
  *   6. Person E-E-A-T node + Alt Auto-Fixer
  */
 export function buildUniversalObSeoEnginePhp(opts?: {
@@ -694,12 +1535,20 @@ export function buildUniversalObSeoEnginePhp(opts?: {
 	const compiled = resolveEngineRepresentative({
 		adminName: opts?.representativeName,
 		adminTitle: opts?.representativeTitle,
-		industryType: 'MEDICAL',
+		industryType: undefined,
 	});
-	const seedPhp = buildRepresentativeGlobalsSeedPhp(compiled.name, compiled.jobTitle || '대표원장');
-	return `<?php
+	return sanitizeGeneratedPhpSnippet(`<?php
 /* ${REDUE_SCHEMA_MARKER_START} — Crawler-Optimized Canonical & Schema Engine (Charset-After First-Chunk · v32) */
-${seedPhp}
+${buildUniversalGraphGlobalsSeedPhp({
+	repName: compiled.name,
+	repTitle: compiled.jobTitle || '',
+	lat: opts?.latitude,
+	lng: opts?.longitude,
+	openingHoursOpens: opts?.openingHoursOpens,
+	openingHoursCloses: opts?.openingHoursCloses,
+	sameAs: opts?.sameAs,
+	bakeStreet: false,
+})}
 ${buildUniversalObRegistrationPhp()}
 
 // 3. 스키마 컨트롤러 중복 실행 방지 가드 (여러 번 호출되어도 단 1회만 실행)
@@ -708,10 +1557,11 @@ if ( ! function_exists( 'redue_dynamic_schema_controller_safe' ) ) {
 		static $executed = false;
 		if ( $executed ) return;
 		$executed = true;
-
-		if ( function_exists( 'redue_dynamic_schema_controller_body' ) ) {
-			redue_dynamic_schema_controller_body();
-		}
+		try {
+			if ( function_exists( 'redue_dynamic_schema_controller_body' ) ) {
+				redue_dynamic_schema_controller_body();
+			}
+		} catch (\\Exception $_redue_schema_err) {} catch (\\Throwable $_redue_schema_err) {}
 	}
 }
 
@@ -723,6 +1573,9 @@ if ( ! function_exists( 'redue_dynamic_schema_controller' ) ) {
 
 if ( ! function_exists( 'redue_dynamic_schema_controller_body' ) ) {
 	function redue_dynamic_schema_controller_body() {
+		if ( function_exists( 'redue_auto_detect_footer_info' ) ) {
+			redue_auto_detect_footer_info();
+		}
 		global $config, $g5_head_title;
 
 		$site_name = (isset($config['cf_title']) && $config['cf_title'] !== '')
@@ -731,22 +1584,25 @@ if ( ! function_exists( 'redue_dynamic_schema_controller_body' ) ) {
 		$site_title = (isset($g5_head_title) && $g5_head_title !== '')
 			? $g5_head_title
 			: $site_name;
-		$origin = (defined('G5_URL') && G5_URL !== '')
-			? rtrim(G5_URL, '/')
-			: ('https://' . preg_replace('#^https?://#i', '', isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost'));
-		$origin = preg_replace('#^http://#i', 'https://', $origin);
-		$schema_meta_image = $origin . '/logo.png';
+		$origin = function_exists('redue_site_origin')
+			? redue_site_origin()
+			: ((defined('G5_URL') && G5_URL !== '')
+				? rtrim(G5_URL, '/')
+				: ((function_exists('redue_detect_site_protocol') ? redue_detect_site_protocol() : 'http') . '://' . preg_replace('#^https?://#i', '', isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost')));
+		$schema_meta_image = isset($GLOBALS['redue_logo']) && is_string($GLOBALS['redue_logo']) && trim($GLOBALS['redue_logo']) !== ''
+			? trim($GLOBALS['redue_logo'])
+			: '';
 		$domain_host = parse_url($origin, PHP_URL_HOST);
 		if ( ! is_string($domain_host) || $domain_host === '' ) {
 			$domain_host = preg_replace('#^https?://#i', '', $origin);
 			$domain_host = preg_replace('#/.*$#', '', $domain_host);
 		}
 
-${buildRepresentativeResolvePhp(compiled.name, compiled.jobTitle || '대표원장')}
+${buildRepresentativeResolvePhp(compiled.name, compiled.jobTitle || '')}
 ${buildGeoAeoBindingsPhp({
 	siteName: 'Site',
 	pages: [],
-	industryType: 'MEDICAL',
+	industryType: undefined,
 	openingHoursOpens: opts?.openingHoursOpens,
 	openingHoursCloses: opts?.openingHoursCloses,
 	latitude: opts?.latitude,
@@ -755,6 +1611,7 @@ ${buildGeoAeoBindingsPhp({
 	medicalSpecialty: opts?.medicalSpecialty,
 	isAcceptingNewPatients: opts?.isAcceptingNewPatients,
 })}
+${buildUniversalGraphApplyPhp()}
 
 		$page_url = redue_get_exact_canonical();
 		$request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
@@ -770,6 +1627,7 @@ ${buildNewsArticleAutoDetectPhp()}
 			$schema_meta_og_type = 'article';
 		}
 
+		if ( function_exists('redue_echo_canonical_pair') ) { redue_echo_canonical_pair(); }
 		echo '<meta name="description" content="' . htmlspecialchars($schema_meta_description, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:title" content="' . htmlspecialchars($schema_meta_title, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:description" content="' . htmlspecialchars($schema_meta_description, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
@@ -777,11 +1635,19 @@ ${buildNewsArticleAutoDetectPhp()}
 		echo '<meta property="og:image" content="' . htmlspecialchars($schema_meta_image, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:site_name" content="' . htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:locale" content="ko_KR">' . "\\n";
+		echo '<meta name="twitter:card" content="summary_large_image">' . "\\n";
+		echo '<meta name="twitter:title" content="' . htmlspecialchars($schema_meta_title, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta name="twitter:description" content="' . htmlspecialchars($schema_meta_description, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta name="twitter:image" content="' . htmlspecialchars($schema_meta_image, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 
 		$graph = array();
 
 		// Organization & WebPage Node
-		$org_types = array('Organization', 'MedicalClinic', 'ProfessionalService');
+		$org_types = function_exists('redue_infer_org_types')
+			? redue_infer_org_types()
+			: ( ! empty($GLOBALS['redue_org_type'])
+				? $GLOBALS['redue_org_type']
+				: array('LocalBusiness', 'Organization') );
 		$org_node = array(
 			'@type' => $org_types,
 			'@id' => $origin . '/#organization',
@@ -801,33 +1667,61 @@ ${buildNewsArticleAutoDetectPhp()}
 			),
 			'geo' => array(
 				'@type' => 'GeoCoordinates',
-				'latitude' => $latitude,
-				'longitude' => $longitude,
+				'latitude' => (float) $latitude,
+				'longitude' => (float) $longitude,
 			),
 			'openingHoursSpecification' => array(
 				array(
 					'@type' => 'OpeningHoursSpecification',
-					'dayOfWeek' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
+					'dayOfWeek' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'),
 					'opens' => $opens,
 					'closes' => $closes,
 				),
 			),
+			'availableService' => $available_services,
+			'priceRange' => $price_range,
+			'currenciesAccepted' => $currencies_accepted,
+			'paymentAccepted' => $payment_accepted,
 			'speakable' => $speakable_spec,
 		);
 ${buildOrgFounderPhysicianPhp('\t\t')}
+${buildRuntimeNapBindPhp('org_node')}
+${buildUniversalOrgFiveCoreBindPhp()}
 		$graph[] = $org_node;
 
 		$graph[] = array(
-			'@type' => 'WebPage',
+			'@type' => 'WebSite',
+			'@id' => $origin . '/#website',
+			'name' => $site_name,
+			'url' => $origin,
+			'publisher' => array('@id' => $origin . '/#organization'),
+			'inLanguage' => 'ko-KR',
+		);
+
+		$_page_is_main = ( $page_url === $origin . '/' || $page_url === $origin );
+		$_page_is_about = ! $_page_is_main && (bool) preg_match('/소개|인사말|시설|장비|about|company|greeting|연혁|조직도|개요/ui', $schema_meta_title . ' ' . $page_url);
+		$_page_types = function_exists('redue_composite_page_types')
+			? redue_composite_page_types($_page_is_main, 'WebPage', $_page_is_about)
+			: ( $_page_is_main ? 'WebPage' : ( $_page_is_about ? 'AboutPage' : 'WebPage' ) );
+		if ( ! $_page_is_main && function_exists('redue_infer_page_schema_type') ) {
+			$_inferred = redue_infer_page_schema_type($schema_meta_title . ' ' . $page_url, function_exists('redue_is_medical_org') && redue_is_medical_org());
+			if ( $_inferred !== 'WebPage' ) { $_page_types = $_inferred; }
+		}
+		$_page_node = array(
+			'@type' => $_page_types,
 			'@id' => $page_url . '#webpage',
 			'name' => $schema_meta_title,
 			'headline' => $schema_meta_title,
 			'description' => $schema_meta_description,
 			'url' => $page_url,
-			'isPartOf' => array('@type' => 'WebSite', 'url' => $origin, 'name' => $site_name),
+			'isPartOf' => array('@id' => $origin . '/#website'),
+			'about' => array('@id' => $origin . '/#organization'),
+			'mainEntity' => array('@id' => $origin . '/#organization'),
+			'author' => array('@id' => $origin . '/#person'),
 			'reviewedBy' => array('@id' => $origin . '/#person'),
 			'speakable' => $speakable_spec,
 		);
+		$graph[] = $_page_node;
 
 		// Article / NewsArticle Node — news/press boards & subpages → NewsArticle (Google/AI citation fields)
 		$article = isset($GLOBALS['schema_article']) && is_array($GLOBALS['schema_article']) ? $GLOBALS['schema_article'] : array();
@@ -868,62 +1762,20 @@ ${buildOrgFounderPhysicianPhp('\t\t')}
 			'speakable' => $speakable_spec,
 		);
 
-		// FAQPage Node
+		// FAQPage Node — skip entirely when page body has no Q&A
 		$is_board = preg_match('/board\\.php\\?bo_table=/', $page_url);
 		if ( ! $is_board ) {
-			$faq_items = isset($GLOBALS['schema_faq_items']) && is_array($GLOBALS['schema_faq_items']) ? $GLOBALS['schema_faq_items'] : array(
-				array(
-					'q' => $schema_meta_title . ' 관련 안내 및 상담은 어떻게 신청하나요?',
-					'a' => $site_name . ' 공식 웹사이트(' . $origin . ')의 안내 메뉴와 문의 창구를 통해 상세한 전문 안내를 받으실 수 있습니다.'
-				),
-				array(
-					'q' => $site_name . ' 서비스 이용 문의처는 어디인가요?',
-					'a' => '웹사이트 상단 고객센터 및 온라인 게시판을 통해 언제든지 문의 남겨주시면 빠르게 답변해 드립니다.'
-				)
-			);
-
-			$faq_entities = array();
-			foreach ($faq_items as $fi) {
-				if (!empty($fi['q']) && !empty($fi['a'])) {
-					$faq_entities[] = array(
-						'@type' => 'Question',
-						'name' => $fi['q'],
-						'acceptedAnswer' => array('@type' => 'Answer', 'text' => $fi['a'])
-					);
-				}
-			}
-			if (!empty($faq_entities)) {
-				$graph[] = array(
-					'@type' => 'FAQPage',
-					'@id' => $page_url . '#faq',
-					'url' => $page_url,
-					'mainEntity' => $faq_entities
-				);
-			}
+${buildEvidenceFaqInjectPhp('page_url')}
 		}
 
+${buildHowToAutoInjectPhp()}
 		// Person E-E-A-T Node
-		$person = null;
-		if ( isset($GLOBALS['schema_person']) && is_array($GLOBALS['schema_person']) ) {
-			$person = $GLOBALS['schema_person'];
-		}
-		$person_eeat_name = ( is_string($rep_name) && $rep_name !== '' )
-			? $rep_name
-			: ( is_array($person) && ! empty($person['name']) ? $person['name'] : ( $site_name . ' 의료진/연구팀' ) );
-		$person_eeat_title = ( is_string($rep_title) && $rep_title !== '' )
-			? $rep_title
-			: ( is_array($person) && ! empty($person['jobTitle']) ? $person['jobTitle'] : '의료 코디네이터 / 전문 연구팀' );
-		$graph[] = array(
-			'@type' => 'Person',
-			'@id' => $origin . '/#person',
-			'name' => $person_eeat_name,
-			'jobTitle' => $person_eeat_title,
-			'worksFor' => array('@id' => $origin . '/#organization')
-		);
+${buildPersonEeatNodePhp()}
+${buildUniversalBreadcrumbEnsurePhp({ canonicalVar: 'page_url', titleVar: 'schema_meta_title' })}
 
 		// Single JSON-LD Output
 		$payload = array('@context' => 'https://schema.org', '@graph' => $graph);
-		echo '<script type="application/ld+json">' . "\\n" . json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) . "\\n" . '</script>' . "\\n";
+		echo '<script type="application/ld+json">' . "\\n" . json_encode($payload, function_exists('redue_jsonld_flags') ? redue_jsonld_flags() : (JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)) . "\\n" . '</script>' . "\\n";
 
 		// Image Alt Auto-Fixer
 		echo '<script id="redue-alt-autofix">(function(){var site=' . json_encode($site_name, JSON_UNESCAPED_UNICODE) . ';function fix(){try{var imgs=document.querySelectorAll("img");for(var i=0;i<imgs.length;i++){var img=imgs[i];var cur=img.getAttribute("alt");if(cur!=null&&String(cur).trim()!=="")continue;var kw=img.getAttribute("title")||img.getAttribute("aria-label")||"";if(!kw&&img.getAttribute("src")){try{var path=String(img.getAttribute("src")).split("?")[0];var base=path.substring(path.lastIndexOf("/")+1).replace(/\\.[a-z0-9]+$/i,"");kw=decodeURIComponent(base).replace(/[-_]+/g," ").trim();}catch(e0){}}img.setAttribute("alt",(kw&&kw.length>1?kw+" — ":"")+site);}}catch(e){}}if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",fix);else fix();if(typeof MutationObserver!=="undefined"){try{new MutationObserver(fix).observe(document.documentElement,{childList:true,subtree:true});}catch(e2){}}})();</script>' . "\\n";
@@ -932,7 +1784,7 @@ ${buildOrgFounderPhysicianPhp('\t\t')}
 redue_dynamic_schema_controller();
 /* ${REDUE_SCHEMA_MARKER_END} */
 ?>
-`;
+`);
 }
 
 /** Compact per-page row — the only shape LLM should return (token-efficient). */
@@ -987,6 +1839,12 @@ export type AuditPageMeta = {
 	section?: string;
 	menu1?: string;
 	menu2?: string;
+	/** When false, exclude from $page_meta / schema mapping. */
+	selected?: boolean;
+	/** True when this row came from a live GNB href. */
+	fromGnb?: boolean;
+	/** Virtual FAQ/HowTo citation row (not a live crawl URL). */
+	virtual?: boolean;
 };
 
 export type DynamicPhpSchemaInput = {
@@ -1029,8 +1887,14 @@ export type DynamicPhpSchemaInput = {
 	streetAddress?: string;
 	addressLocality?: string;
 	addressRegion?: string;
+	/** Compiled footer / CMS telephone — baked into Organization.telephone. */
+	telephone?: string;
+	fax?: string;
+	taxId?: string;
 	/** Optional pre-built LLM mapping JSON (preferred over pages[]) */
 	mappingJson?: SchemaMappingJson;
+	/** When true, an empty pages[] stays empty (no synthetic homepage row). */
+	allowEmptyPageMap?: boolean;
 };
 
 type PageMetaRow = {
@@ -1054,29 +1918,39 @@ export const HARDCODED_META_ECHO_KEYS = [
 	'og:description',
 	'og:type',
 	'description',
-	'robots',
 	'og:image',
 ] as const;
 
-function phpSingleQuoted(value: string): string {
-	return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+/**
+ * Theme HTML metas the dynamic engine already emits.
+ * Keep charset / robots / naver-site-verification / viewport.
+ */
+export const HARDCODED_HTML_META_KEYS = [
+	'description',
+	'og:title',
+	'og:description',
+	'og:image',
+] as const;
+
+/**
+ * Match a start-to-end `<meta>` / `<link>` that may embed `<?php … ?>` in attributes.
+ * `[^>]*` is unsafe: `content="<?php echo $x; ?>">` stops at `?>` and leaves leftover `">`.
+ * Built per call so `/g` lastIndex never leaks across replacements.
+ */
+function phpAwareMetaTagRe(): RegExp {
+	return /<meta\b(?:[^<]|<\?php[\s\S]*?\?>)*?>/gi;
+}
+function phpAwareLinkTagRe(): RegExp {
+	return /<link\b(?:[^<]|<\?php[\s\S]*?\?>)*?>/gi;
 }
 
-/** Compile-time `$GLOBALS['redue_rep_*']` seed so ob_start can inject author meta. */
-function buildRepresentativeGlobalsSeedPhp(name: string, title: string): string {
-	return `$GLOBALS['redue_rep_name'] = ${phpSingleQuoted(name)};
-$GLOBALS['redue_rep_title'] = ${phpSingleQuoted(title)};
-if ( $GLOBALS['redue_rep_name'] !== '' ) {
-	if ( ! isset($GLOBALS['schema_person']) || ! is_array($GLOBALS['schema_person']) ) {
-		$GLOBALS['schema_person'] = array();
-	}
-	if ( empty($GLOBALS['schema_person']['name']) ) {
-		$GLOBALS['schema_person']['name'] = $GLOBALS['redue_rep_name'];
-	}
-	if ( empty($GLOBALS['schema_person']['jobTitle']) && $GLOBALS['redue_rep_title'] !== '' ) {
-		$GLOBALS['schema_person']['jobTitle'] = $GLOBALS['redue_rep_title'];
-	}
-}`;
+function htmlTagAttrValue(tag: string, attr: string): string {
+	const re = new RegExp(`\\b${attr}\\s*=\\s*["']([^"']+)["']`, 'i');
+	return (re.exec(tag)?.[1] || '').trim().toLowerCase();
+}
+
+function phpSingleQuoted(value: string): string {
+	return `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
 /** Runtime `$rep_name` / `$rep_title` resolve inside the schema controller body. */
@@ -1118,18 +1992,7 @@ function buildRepresentativeResolvePhp(compiledName: string, compiledTitle: stri
 }
 
 function buildOrgFounderPhysicianPhp(indent = '\t\t\t'): string {
-	return `${indent}if ( is_string($rep_name) && $rep_name !== '' ) {
-${indent}	$org_node['founder'] = array(
-${indent}		'@type' => 'Person',
-${indent}		'name' => $rep_name,
-${indent}		'jobTitle' => $rep_title !== '' ? $rep_title : '대표자',
-${indent}	);
-${indent}	$org_node['physician'] = array(
-${indent}		'@type' => 'Physician',
-${indent}		'name' => $rep_name,
-${indent}		'jobTitle' => $rep_title !== '' ? $rep_title : '대표자',
-${indent}	);
-${indent}}`;
+	return buildOrgFounderIdRefPhp(indent);
 }
 
 function normalizeEngineHhMm(raw: string | undefined, fallback: string): string {
@@ -1146,24 +2009,47 @@ function normalizeEngineCoord(raw: string | undefined, fallback: string): string
 }
 
 /** Compile GEO/AEO bindings: hours, geo, sameAs, medicalSpecialty, speakable, postalCode. */
-function buildGeoAeoBindingsPhp(input: DynamicPhpSchemaInput): string {
-	const opens = normalizeEngineHhMm(input.openingHoursOpens, '09:00');
-	const closes = normalizeEngineHhMm(input.openingHoursCloses, '18:00');
-	const latitude = normalizeEngineCoord(input.latitude, '37.4837');
-	const longitude = normalizeEngineCoord(input.longitude, '127.0324');
+function buildGeoAeoBindingsPhp(
+	input: DynamicPhpSchemaInput,
+	opts?: { includePostalBinds?: boolean; strictRealNap?: boolean },
+): string {
+	const opens = normalizeEngineHhMm(input.openingHoursOpens, opts?.strictRealNap ? '' : '09:00');
+	const closes = normalizeEngineHhMm(input.openingHoursCloses, opts?.strictRealNap ? '' : '18:00');
+	const latitude = normalizeEngineCoord(input.latitude, opts?.strictRealNap ? '' : '37.4837');
+	const longitude = normalizeEngineCoord(input.longitude, opts?.strictRealNap ? '' : '127.0324');
 	const industry = String(input.industryType || '').toUpperCase();
+	const specialtyHay = `${input.siteName || ''} ${industry} ${(input.medicalSpecialty || []).join(' ')}`;
 	const specialties =
 		input.medicalSpecialty && input.medicalSpecialty.length > 0
 			? input.medicalSpecialty.filter(Boolean)
-			: industry === 'MEDICAL'
+			: industry === 'MEDICAL' && /암|중입자|oncolog|radiation|양성자/i.test(specialtyHay)
 				? ['Oncologic', 'RadiationTherapy']
 				: [];
-	const sameAs = (input.sameAs || []).filter((url) => /^https?:\/\//i.test(url));
-	const accepting = input.isAcceptingNewPatients !== false;
+	const sameAs = filterOfficialSameAs(input.sameAs, input.targetUrl);
+	const accepting = opts?.strictRealNap
+		? input.isAcceptingNewPatients === true
+		: input.isAcceptingNewPatients !== false;
 	const postal = String(input.postalCode || '').replace(/\D/g, '').slice(0, 5);
 	const street = String(input.streetAddress || '').trim();
 	const locality = String(input.addressLocality || '').trim();
 	const region = String(input.addressRegion || '').trim();
+	const services = buildAvailableServices({
+		pages: input.pages,
+		navItems: input.navItems,
+		industryType: input.industryType,
+		siteName: input.siteName,
+		origin: input.targetUrl,
+	});
+	const servicesPhp = services.length
+		? `array(\n${services
+				.map((service) => {
+					const urlPart = service.url
+						? `, 'url' => ${phpSingleQuoted(service.url)}`
+						: '';
+					return `\t\t\tarray('@type' => ${phpSingleQuoted(service['@type'])}, 'name' => ${phpSingleQuoted(service.name)}${urlPart}),`;
+				})
+				.join('\n')}\n\t\t)`
+		: 'array()';
 
 	return `		$opens = ${phpSingleQuoted(opens)};
 		$closes = ${phpSingleQuoted(closes)};
@@ -1172,23 +2058,39 @@ function buildGeoAeoBindingsPhp(input: DynamicPhpSchemaInput): string {
 		$is_accepting_new_patients = ${accepting ? 'true' : 'false'};
 		$medical_specialty = ${specialties.length ? phpStringList(specialties, '\t\t') : 'array()'};
 		$same_as_extra = ${sameAs.length ? phpStringList(sameAs, '\t\t') : 'array()'};
-		$postal_code = ${phpSingleQuoted(postal)};
+		$available_services = ${servicesPhp};
+		$price_range = ${opts?.strictRealNap ? "''" : phpSingleQuoted(SCHEMA_PRICE_RANGE_FALLBACK)};
+		$currencies_accepted = ${opts?.strictRealNap ? "''" : phpSingleQuoted(SCHEMA_CURRENCIES_ACCEPTED_FALLBACK)};
+		$payment_accepted = ${opts?.strictRealNap ? "''" : phpSingleQuoted(SCHEMA_PAYMENT_ACCEPTED_FALLBACK)};
+${
+	opts?.includePostalBinds === false
+		? ''
+		: `		$postal_code = ${phpSingleQuoted(postal)};
 		$street_address = ${phpSingleQuoted(street)};
 		$locality = ${phpSingleQuoted(locality)};
 		$region = ${phpSingleQuoted(region)};
-		$same_as_array = array($origin);
+`
+}
+		$same_as_array = array();
 		if ( is_array($same_as_extra) ) {
 			foreach ( $same_as_extra as $_redue_sa ) {
-				if ( is_string($_redue_sa) && $_redue_sa !== '' && ! in_array($_redue_sa, $same_as_array, true) ) {
+				if ( ! is_string($_redue_sa) || $_redue_sa === '' ) { continue; }
+				if ( function_exists('redue_is_own_site_url') && redue_is_own_site_url($_redue_sa, $origin) ) { continue; }
+				if ( ! in_array($_redue_sa, $same_as_array, true) ) {
 					$same_as_array[] = $_redue_sa;
 				}
 			}
 		}
-		if ( is_string($domain_host) && $domain_host !== '' ) {
-			$_redue_naver_blog = 'https://blog.naver.com/' . $domain_host;
-			if ( ! in_array($_redue_naver_blog, $same_as_array, true) ) {
-				$same_as_array[] = $_redue_naver_blog;
+		if ( is_array($available_services) ) {
+			foreach ( $available_services as &$_svc ) {
+				if ( empty($_svc['url']) || ! is_string($_svc['url']) ) { continue; }
+				if ( preg_match('#^https?://#i', $_svc['url']) ) {
+					$_svc['url'] = function_exists('redue_align_url_protocol') ? redue_align_url_protocol($_svc['url']) : $_svc['url'];
+				} else {
+					$_svc['url'] = rtrim($origin, '/') . '/' . ltrim($_svc['url'], '/');
+				}
 			}
+			unset($_svc);
 		}
 		$speakable_spec = array(
 			'@type' => 'SpeakableSpecification',
@@ -1204,20 +2106,24 @@ function tryDecodeUriComponent(value: string): string {
 	}
 }
 
-/** Force https:// for origin / canonical / OG / JSON-LD @id URL assembly. */
+/** Legacy helper — keeps https rewrite for callers that already know the site is SSL. Runtime PHP never uses this. */
 export function enforceHttps(url: string): string {
 	const raw = String(url || '').trim();
 	if (!raw) return raw;
 	return raw.replace(/^http:\/\//i, 'https://');
 }
 
-/** Resolve site origin with HTTPS enforcement. */
+/** Resolve site origin using the live/audited protocol (http or https). */
 export function resolveHttpsOrigin(targetUrl?: string, fallback = 'https://example.com'): string {
 	try {
-		if (!targetUrl) return enforceHttps(fallback);
-		return enforceHttps(new URL(targetUrl).origin);
+		if (!targetUrl) return new URL(fallback).origin;
+		return new URL(targetUrl).origin;
 	} catch {
-		return enforceHttps(fallback);
+		try {
+			return new URL(fallback).origin;
+		} catch {
+			return fallback.replace(/\/+$/, '');
+		}
 	}
 }
 
@@ -1353,7 +2259,12 @@ export function sanitizePageFileKey(urlPath: string): string | null {
 	const file = basenameFromPath(urlPath);
 	if (isGarbagePageFile(file)) return null;
 	const identity = extractPageIdentityQuery(raw);
-	return identity ? `${file}?${identity}` : file;
+	if (identity) return `${file}?${identity}`;
+	const rel = pathOnly.replace(/\\/g, '/').replace(/^\//, '');
+	if (/^index\.(php|html?|htm)$/i.test(file) && rel.includes('/')) {
+		return rel;
+	}
+	return file;
 }
 
 /** Non-page entity types that must not become $page_meta['type']. */
@@ -1393,7 +2304,7 @@ export function isFaqBoardPath(urlPath: string): boolean {
 /** Simple info / intro / hospital directory / customer-service pages → WebPage. */
 export function isSimpleInfoPage(hay: string): boolean {
 	const h = String(hay || '').toLowerCase();
-	return /소개|인사말|오시는|길찾기|추천사|연혁|조직도|고객센터|공지|뉴스|소식|상담.?예약|문의|연락처|contact|about|company|intro|history|greeting|directions|hospital.?network|제휴.?병원|협력.?병원|해외.?병원|병원.?안내|서비스.?소개/.test(
+	return /소개|인사말|오시는|길찾기|추천사|연혁|조직도|고객센터|공지|뉴스|소식|상담.?예약|문의|연락처|contact|about|company|intro|history|greeting|directions|hospital.?network|제휴.?병원|협력.?병원|해외.?병원|병원.?안내|서비스.?소개|시설|장비|둘러보기|의료진|프로필|facility|equipment/.test(
 		h,
 	);
 }
@@ -1418,24 +2329,39 @@ export function isMedicalContentPage(hay: string): boolean {
 	if (isSimpleInfoPage(h) && !/치료|시술|therapy|treatment|질환|암종|세포|줄기|백신|중입자|양성자/.test(h)) {
 		return false;
 	}
-	return /치료|시술|therapy|treatment|질환|암종|carcinoma|세포치료|줄기세포|백신|중입자|양성자|방사선|네오안티젠|medicalcondition|적용.?대상|cancer.?type|종양.?치료/.test(
+	return /치료|시술|therapy|treatment|질환|암종|carcinoma|세포치료|줄기세포|백신|중입자|양성자|방사선|네오안티젠|medicalcondition|적용.?대상|cancer.?type|종양.?치료|진료|수술/.test(
 		h,
 	);
 }
 
-function inferPageTypeFromPath(urlPath: string, _industryType?: string, titleHint?: string): string {
+function isMedicalIndustryHint(industryType?: string, hay = ''): boolean {
+	return /MEDICAL/i.test(String(industryType || '')) || /병원|의원|클리닉|치과|한의|동물병원|veterinary|clinic|hospital|dentist/.test(hay);
+}
+
+function inferPageTypeFromPath(urlPath: string, industryType?: string, titleHint?: string): string {
 	const hay = `${urlPath} ${titleHint || ''}`.toLowerCase();
 	// Board list: always CollectionPage (FAQPage ban on board.php?bo_table=*)
 	if (isBoardListPath(hay)) return 'CollectionPage';
-	// Actual treatment / disease content only
+	if (/연락처|문의|오시는|찾아오시는|견적|상담|지점|contact|location|map\.php/i.test(hay) && !isMedicalContentPage(hay)) {
+		return 'ContactPage';
+	}
+	if (/doctor|staff|의료진|의료\s*진|프로필|원장진|전문의|강사진|임원|팀\b|team|person/i.test(hay)) {
+		return 'ProfilePage';
+	}
+	if (/소개|인사말|시설|장비|둘러보기|철학|연혁|about|company|greeting|조직도|개요|facility|equipment/i.test(hay)) {
+		return 'AboutPage';
+	}
+	const medicalIndustry = isMedicalIndustryHint(industryType, hay);
+	if (medicalIndustry && isMedicalContentPage(hay)) return 'MedicalWebPage';
+	if (medicalIndustry && /진료|수술|시술|치료|서비스/i.test(hay) && !/서비스\s*소개/i.test(hay)) {
+		return 'MedicalWebPage';
+	}
 	if (isMedicalContentPage(hay)) return 'MedicalWebPage';
-	// Dedicated FAQ landing (not a board list)
+	// Dedicated FAQ landing (not a board list) — page type only; FAQ nodes still require live Q&A
 	if (/(?:^|\/)faq(?:\.php|\/|$)|자주.?묻는|자주하는.?질문/.test(hay) && !/board\.php/.test(hay)) {
 		return 'FAQPage';
 	}
 	if (/product|item|goods|shop|상품/.test(hay) && !isSimpleInfoPage(hay)) return 'ItemList';
-	if (/doctor|staff|의료진|의료\s*진|팀\b|team|person/.test(hay)) return 'ProfilePage';
-	// Intro / greeting / directions / service intro / hospital / CS → WebPage
 	return 'WebPage';
 }
 
@@ -1475,9 +2401,16 @@ export function refineAssignedPageType(
 	const normalized = normalizePageType(pageType);
 
 	if (normalized === 'FAQPage' && /board\.php/i.test(fileOrPath)) return 'CollectionPage';
-	if (normalized === 'MedicalWebPage' && !isMedicalContentPage(hay)) return 'WebPage';
-	if ((normalized === 'AboutPage' || normalized === 'ContactPage') && !isMedicalContentPage(hay)) {
+	if (normalized === 'MedicalWebPage' && !isMedicalContentPage(hay)) {
+		if (/소개|인사말|시설|장비|둘러보기|about|company|greeting|연혁|조직도|개요|facility|equipment/i.test(hay)) {
+			return 'AboutPage';
+		}
+		if (/연락처|문의|오시는|찾아오시는|contact|location/i.test(hay)) return 'ContactPage';
+		if (/의료진|프로필|원장진|전문의|doctor|staff|team/i.test(hay)) return 'ProfilePage';
 		return 'WebPage';
+	}
+	if (normalized === 'AboutPage' || normalized === 'ContactPage' || normalized === 'ProfilePage') {
+		return normalized;
 	}
 	if (!pageType?.trim() || NON_PAGE_SCHEMA_TYPES.has(pageType.trim()) || normalized === 'WebPage') {
 		return inferPageTypeFromPath(fileOrPath, undefined, `${title} ${section}`);
@@ -1486,11 +2419,11 @@ export function refineAssignedPageType(
 }
 
 function titleFromPath(urlPath: string, siteName: string): string {
+	const human = humanizePathLabel(urlPath);
+	if (human && !looksLikeRawUrlOrPath(human)) return human;
 	const file = basenameFromPath(urlPath).replace(/\.(php|html?|htm|phtml)$/i, '');
-	if (!file || file === 'index') return siteName;
-	return file
-		.replace(/[-_]+/g, ' ')
-		.replace(/\b\w/g, (c) => c.toUpperCase());
+	if (!file || file === 'index' || isCmsPathToken(file) || isCodeLikeFileStem(file)) return siteName;
+	return file.replace(/[-_]+/g, ' ').trim() || siteName;
 }
 
 /** Bare numeric/code filenames (101, s101, a1) that should not become human titles. */
@@ -1500,10 +2433,10 @@ function isCodeLikeFileStem(stem: string): boolean {
 	return /^[a-z]?\d{1,6}$/i.test(s) || /^\d+[a-z]?$/i.test(s);
 }
 
-function findNavNameForFile(
+function findNavItemForFile<T extends { name: string; url: string }>(
 	file: string,
-	nav?: Array<{ name: string; url: string }>,
-): string | undefined {
+	nav?: T[],
+): T | undefined {
 	if (!nav?.length) return undefined;
 	const fileKey = (sanitizePageFileKey(file) || file).toLowerCase();
 	const key = basenameFromPath(file).toLowerCase();
@@ -1511,23 +2444,32 @@ function findNavNameForFile(
 	const fileIdentity = extractPageIdentityQuery(file);
 	for (const n of nav) {
 		if (!n?.name || !n?.url) continue;
+		if (looksLikeRawUrlOrPath(n.name) || isCmsPathToken(n.name)) continue;
 		const navFile = sanitizePageFileKey(n.url);
 		if (!navFile) continue;
-		if (navFile.toLowerCase() === fileKey) return n.name.trim();
+		if (navFile.toLowerCase() === fileKey) return n;
 		const navIdentity = extractPageIdentityQuery(n.url);
 		const navBase = basenameFromPath(navFile).toLowerCase();
-		// Identity-query pages must match basename + bo_table/co_id (board ≠ write)
 		if (fileIdentity || navIdentity) {
 			if (fileIdentity && navIdentity && fileIdentity === navIdentity && navBase === key) {
-				return n.name.trim();
+				return n;
 			}
 			continue;
 		}
-		if (navFile.toLowerCase() === key) return n.name.trim();
+		if (navFile.toLowerCase() === key) return n;
 		const navStem = navBase.replace(/\.(php|html?|htm|phtml)$/i, '');
-		if (navStem === stem) return n.name.trim();
+		if (navStem === stem) return n;
 	}
 	return undefined;
+}
+
+function findNavNameForFile(
+	file: string,
+	nav?: Array<{ name: string; url: string }>,
+): string | undefined {
+	const name = findNavItemForFile(file, nav)?.name.trim();
+	if (!name || looksLikeRawUrlOrPath(name) || isCmsPathToken(name)) return undefined;
+	return name;
 }
 
 /**
@@ -1553,7 +2495,10 @@ export function isPagingNoiseTitle(value: string): boolean {
 export function sanitizeMainPageTitle(title: string | undefined, siteName: string): string {
 	const brand = dedupeRepeatedPhrase(siteName || '') || siteName || 'Site';
 	const t = String(title || '').replace(/\s+/g, ' ').trim();
-	if (!t || isPagingNoiseTitle(t)) return brand;
+	if (!t || isPagingNoiseTitle(t) || looksLikeRawUrlOrPath(t)) return brand;
+	if (brand && /[가-힣]{2,}/.test(brand) && /^[A-Za-z0-9][A-Za-z0-9._-]{1,40}$/.test(t)) {
+		return brand;
+	}
 	return t;
 }
 
@@ -1582,7 +2527,7 @@ export function resolveHumanPageTitle(opts: {
 	const mainN = normLabel(opts.mainTitle || '');
 	const isRejected = (value: string): boolean => {
 		const t = value.trim();
-		if (!t || isPagingNoiseTitle(t)) return true;
+		if (!t || isPagingNoiseTitle(t) || looksLikeRawUrlOrPath(t) || isCmsPathToken(t)) return true;
 		const n = normLabel(t);
 		if (siteN && n === siteN) return true;
 		if (mainN && n === mainN) return true;
@@ -1607,6 +2552,8 @@ export function resolveHumanPageTitle(opts: {
 	if (opts.menu2?.trim() && !isRejected(opts.menu2)) return opts.menu2.trim();
 	if (raw && !isRejected(raw)) return raw;
 	if (h1 && !isPagingNoiseTitle(h1)) return h1;
+	const human = humanizePathLabel(opts.file);
+	if (human && !looksLikeRawUrlOrPath(human) && !isRejected(human)) return human;
 	return pathTitle;
 }
 
@@ -1672,8 +2619,21 @@ export function extendMetaDescription(
 	return d;
 }
 
-function fallbackDescription(title: string, siteName: string, existing?: string): string {
-	return extendMetaDescription(existing || '', siteName, title);
+function fallbackDescription(
+	title: string,
+	siteName: string,
+	existing?: string,
+	extra?: { url?: string; gnb?: string; industryType?: string; mainDescription?: string },
+): string {
+	return resolvePageDescription({
+		siteName,
+		pageTitle: title,
+		url: extra?.url || '',
+		gnb: extra?.gnb,
+		industryType: extra?.industryType,
+		existingMeta: existing,
+		mainDescription: extra?.mainDescription,
+	});
 }
 
 /** Infer breadcrumb menu labels from path / page type (deterministic fallback). */
@@ -1686,7 +2646,13 @@ export function inferMenuLabels(
 	const segments = path.replace(/^\//, '').split('/').filter(Boolean);
 	const fileStem = basenameFromPath(urlPath).replace(/\.(php|html?|htm)$/i, '');
 	const fileKey = `${fileStem}.php`.toLowerCase();
-	const humanTitle = title && !isCodeLikeFileStem(title) ? title : '';
+	const humanTitle =
+		title &&
+		!isCodeLikeFileStem(title) &&
+		!looksLikeRawUrlOrPath(title) &&
+		!isCmsPathToken(title)
+			? title
+			: '';
 
 	const typeMenu1: Record<string, string> = {
 		AboutPage: '소개',
@@ -1731,40 +2697,31 @@ export function inferMenuLabels(
 	}
 
 	if (segments.length >= 2) {
-		const parent = segments[segments.length - 2].replace(/[-_]+/g, ' ');
-		menu1 = parent;
-		menu2 = title || fileStem;
-	} else if (typeMenu1[pageType] && humanTitle && normLabel(humanTitle) !== normLabel(typeMenu1[pageType])) {
-		// Category from page type + leaf title (avoid menu1 === title collapse)
+		const parentStem = segments[segments.length - 2].replace(/\.(php|html?|htm)$/i, '');
+		if (!isCmsPathToken(parentStem) && !looksLikeRawUrlOrPath(parentStem)) {
+			menu1 = humanizePathLabel(`/${parentStem}`) || parentStem.replace(/[-_]+/g, ' ');
+			menu2 = humanTitle || humanizePathLabel(urlPath) || '';
+		}
+	}
+	if (!menu1 && typeMenu1[pageType] && humanTitle && normLabel(humanTitle) !== normLabel(typeMenu1[pageType])) {
 		menu1 = typeMenu1[pageType];
 		menu2 = humanTitle;
-	} else if (humanTitle && humanTitle !== fileStem) {
+	} else if (!menu1 && humanTitle && humanTitle !== fileStem) {
 		menu1 = humanTitle;
 		menu2 = '';
-	} else if (typeMenu1[pageType]) {
+	} else if (!menu1 && typeMenu1[pageType]) {
 		menu1 = typeMenu1[pageType];
-		menu2 = isCodeLikeFileStem(fileStem) ? title : title || fileStem;
-	} else if (fileStem && fileStem !== 'index') {
-		menu1 = title || fileStem;
+		menu2 = isCodeLikeFileStem(fileStem) ? humanTitle : humanTitle || humanizePathLabel(urlPath);
+	} else if (!menu1 && fileStem && fileStem !== 'index' && !isCmsPathToken(fileStem) && !isCodeLikeFileStem(fileStem)) {
+		menu1 = humanTitle || humanizePathLabel(urlPath);
 		menu2 = '';
 	}
 
 	return { menu1, menu2 };
 }
 
-function defaultKnowsAbout(industryType?: string, _siteName?: string): string[] {
-	const industry = (industryType || 'GENERAL').toUpperCase();
-	if (industry === 'MEDICAL') {
-		// Concrete medical / coordination topics only — no vague menu chrome
-		return ['중입자치료', '해외 암치료', '해외 의료 코디네이션', '전문병원 연계', '적합성 사전 검토'];
-	}
-	if (industry === 'LOCAL_STORE') {
-		return ['매장안내', '상품정보'];
-	}
-	if (industry === 'B2B_MFG') {
-		return ['제품', '제조', '기술력'];
-	}
-	return ['전문 상담'];
+function defaultKnowsAbout(industryType?: string, siteName?: string): string[] {
+	return classifyIndustrySchema({ industryType, siteName }).knowsAbout;
 }
 
 /** Menu / board chrome labels that must not enter Organization.knowsAbout. */
@@ -2031,9 +2988,9 @@ export function extractOrgContactFromFooter(footerText: string): OrgContactInfo 
 	const out: OrgContactInfo = {};
 
 	const phoneHit =
-		text.match(FOOTER_PHONE_LABELED_RE)?.[1] || text.match(FOOTER_PHONE_BARE_RE)?.[1];
+		text.match(FOOTER_PHONE_LABELED_RE)?.[1] || text.match(FOOTER_PHONE_BARE_RE)?.[1] || extractNapFromCorpus(text).telephone;
 	if (phoneHit) {
-		const tel = phoneHit.replace(/\s+/g, '-').replace(/\.{2,}/g, '.').trim();
+		const tel = formatKoreanTelephone(phoneHit) || phoneHit.replace(/\s+/g, '-').replace(/\.{2,}/g, '.').trim();
 		if (tel.length >= 9 && tel.length <= 20) out.telephone = tel;
 	}
 
@@ -2095,21 +3052,23 @@ function phpOrgContactBindings(contact: OrgContactInfo, indent = '\t\t\t\t'): st
 	if (contact.email) {
 		lines.push(`${indent}'email' => ${phpSingleQuoted(contact.email)},`);
 	}
-	if (contact.address) {
-		const a = contact.address;
-		lines.push(`${indent}'address' => array(`);
-		lines.push(`${indent}\t'@type' => 'PostalAddress',`);
-		if (a.postalCode) {
-			lines.push(`${indent}\t'postalCode' => ${phpSingleQuoted(a.postalCode)},`);
-		} else {
-			lines.push(`${indent}\t'postalCode' => $postal_code,`);
-		}
-		lines.push(`${indent}\t'streetAddress' => ${phpSingleQuoted(a.streetAddress)},`);
-		lines.push(`${indent}\t'addressLocality' => ${phpSingleQuoted(a.addressLocality)},`);
-		lines.push(`${indent}\t'addressRegion' => ${phpSingleQuoted(a.addressRegion)},`);
-		lines.push(`${indent}\t'addressCountry' => 'KR',`);
-		lines.push(`${indent}),`);
+	const a = contact.address;
+	lines.push(`${indent}'address' => array(`);
+	lines.push(`${indent}\t'@type' => 'PostalAddress',`);
+	if (a?.postalCode) {
+		lines.push(`${indent}\t'postalCode' => ${phpSingleQuoted(a.postalCode)},`);
+	} else {
+		lines.push(`${indent}\t'postalCode' => $postal_code,`);
 	}
+	lines.push(
+		`${indent}\t'streetAddress' => ${a?.streetAddress ? phpSingleQuoted(a.streetAddress) : '$street_address'},`,
+	);
+	lines.push(
+		`${indent}\t'addressLocality' => ${a?.addressLocality ? phpSingleQuoted(a.addressLocality) : '$locality'},`,
+	);
+	lines.push(`${indent}\t'addressRegion' => ${a?.addressRegion ? phpSingleQuoted(a.addressRegion) : '$region'},`);
+	lines.push(`${indent}\t'addressCountry' => 'KR',`);
+	lines.push(`${indent}),`);
 	return lines.join('\n');
 }
 
@@ -2610,11 +3569,17 @@ export function buildMainPageItemListBuckets(opts: {
 			pushUnique(treatments, t.name, url);
 		}
 
-		// #cancer-types: authoritative 1:1 leaf map → /601.php … /613.php (never hub /600.php)
-		for (const prev of cancerTypes) usedNames.delete(normLabel(prev.name));
-		cancerTypes.length = 0;
-		for (const t of DEFAULT_CANCER_TYPE_PAGES) {
-			pushUnique(cancerTypes, t.name, `${origin}/${t.file}`);
+		// #cancer-types: 1:1 leaf map only when the live GNB/page map already has a cancer hub.
+		const hasCancerHub =
+			Boolean(opts.pageMeta['600.php']) ||
+			DEFAULT_CANCER_TYPE_PAGES.some((c) => Boolean(opts.pageMeta[c.file])) ||
+			(opts.nav || []).some((n) => /적용\s*대상|암종|대상암/i.test(n.name || ''));
+		if (hasCancerHub) {
+			for (const prev of cancerTypes) usedNames.delete(normLabel(prev.name));
+			cancerTypes.length = 0;
+			for (const t of DEFAULT_CANCER_TYPE_PAGES) {
+				pushUnique(cancerTypes, t.name, `${origin}/${t.file}`);
+			}
 		}
 
 		// #hospital-network: expand partner hospitals with country URL 1:1 (일본→401, 독일→402)
@@ -2770,22 +3735,26 @@ export function buildAreaServed(input: {
  */
 export function buildSchemaMappingJson(input: DynamicPhpSchemaInput): SchemaMappingJson {
 	const pages: Record<string, SchemaMappingPage> = {};
+	const selectedPages = (input.pages || []).filter((page) => page.selected !== false);
 	const list =
-		input.pages.length > 0
-			? input.pages
-			: [
-					{
-						urlPath: '/',
-						title: input.siteName,
-						description: '',
-						h1: input.siteName,
-						pageType: normalizePageType(undefined, input.industryType),
-					},
-				];
+		selectedPages.length > 0
+			? selectedPages
+			: input.allowEmptyPageMap
+				? []
+				: [
+						{
+							urlPath: '/',
+							title: input.siteName,
+							description: '',
+							h1: input.siteName,
+							pageType: normalizePageType(undefined, input.industryType),
+						},
+					];
 
 	const navHint = input.navItems || input.mappingJson?.nav;
 
 	for (const page of list) {
+		if (/(^|\/)(robots\.txt|sitemap\.xml|llms\.txt|llms-full\.txt)(\?|$)/i.test(String(page.urlPath || '').trim())) continue;
 		const file = sanitizePageFileKey(page.urlPath);
 		if (!file) continue;
 
@@ -2823,7 +3792,11 @@ export function buildSchemaMappingJson(input: DynamicPhpSchemaInput): SchemaMapp
 
 		pages[file] = {
 			title,
-			desc: fallbackDescription(title, input.siteName, page.description),
+			desc: fallbackDescription(title, input.siteName, page.description, {
+				url: page.urlPath,
+				gnb: [page.section, menus.menu1, menus.menu2, navName].filter(Boolean).join(' '),
+				industryType: input.industryType,
+			}),
 			schemaType: finalType,
 			section,
 			menu1: menus.menu1 || undefined,
@@ -2955,6 +3928,132 @@ export function schemaMappingToAuditPages(mapping: SchemaMappingJson): AuditPage
 	}));
 }
 
+/** Single-@type route row compiled into `$schema_pages`. */
+export type SchemaPageRoute = {
+	file: string;
+	type: string;
+	name: string;
+	url: string;
+};
+
+/**
+ * Build `$schema_pages` from crawled GNB + selected subpages.
+ * AboutPage (소개/시설/장비) · ProfilePage (의료진) · ContactPage (오시는길) ·
+ * MedicalWebPage (진료/수술) · WebPage (일반 기업 서비스).
+ */
+export function buildSchemaPageRoutes(input: {
+	pages?: AuditPageMeta[];
+	navItems?: SchemaNavItem[];
+	pageMeta?: Record<string, PageMetaRow>;
+	industryType?: string;
+	siteName?: string;
+	origin?: string;
+	targetUrl?: string;
+}): SchemaPageRoute[] {
+	const origin = resolveHttpsOrigin(input.origin || input.targetUrl, '');
+	const site = input.siteName || 'Site';
+	const seen = new Set<string>();
+	const out: SchemaPageRoute[] = [];
+	const push = (rawFile: string, type: string, name: string, url: string) => {
+		const file = sanitizePageFileKey(rawFile);
+		if (!file || isGarbagePageFile(file)) return;
+		const key = file.toLowerCase();
+		if (seen.has(key)) return;
+		seen.add(key);
+		const refined = refineAssignedPageType(file, type, name, name);
+		out.push({
+			file,
+			type: refined,
+			name: name || file,
+			url: origin ? absoluteUrlFromNav(url || `/${file}`, origin) : url || `/${file}`,
+		});
+	};
+
+	if (input.pageMeta) {
+		for (const [file, meta] of Object.entries(input.pageMeta)) {
+			push(file, meta.type, meta.title || meta.section || file, `/${file}`);
+		}
+	}
+	for (const page of input.pages || []) {
+		if (page.selected === false) continue;
+		const file = sanitizePageFileKey(page.urlPath);
+		if (!file) continue;
+		const title = page.title || titleFromPath(page.urlPath, site);
+		const type = refineAssignedPageType(
+			file,
+			page.pageType || inferPageTypeFromPath(page.urlPath, input.industryType, title),
+			title,
+			page.section || '',
+		);
+		push(file, type, title, page.urlPath);
+	}
+	const walkNav = (items?: Array<{ name: string; url: string; children?: Array<{ name: string; url: string }> }>) => {
+		for (const n of items || []) {
+			if (!n?.url || !n.name) continue;
+			const type = inferPageTypeFromPath(n.url, input.industryType, n.name);
+			push(n.url, type, n.name, n.url);
+			if (n.children?.length) walkNav(n.children);
+		}
+	};
+	walkNav(input.navItems);
+	return out;
+}
+
+function buildSchemaPagesPhp(routes: SchemaPageRoute[], indent = '\t\t'): string {
+	if (!routes.length) return `${indent}$schema_pages = array();`;
+	const entries = routes.map((r) => [r.file, { type: r.type, name: r.name, url: r.url }] as [string, Record<string, string>]);
+	return `${indent}$schema_pages = ${phpAssocArray(entries, indent)};`;
+}
+
+/** Runtime overlay: `$schema_pages` lookup, then title/URL classifier. */
+function buildSchemaPagesResolvePhp(indent = '\t\t'): string {
+	return `${indent}if ( ! isset($schema_pages) || ! is_array($schema_pages) ) { $schema_pages = array(); }
+${indent}$_sp_key = isset($page_file) ? $page_file : ( isset($seo_file) ? $seo_file : ( isset($page_base) ? $page_base : '' ) );
+${indent}if ( is_string($_sp_key) && $_sp_key !== '' && isset($schema_pages[$_sp_key]) && is_array($schema_pages[$_sp_key]) && ! empty($schema_pages[$_sp_key]['type']) ) {
+${indent}	$page_type = $schema_pages[$_sp_key]['type'];
+${indent}} elseif ( isset($page_base) && is_string($page_base) && isset($schema_pages[$page_base]) && is_array($schema_pages[$page_base]) && ! empty($schema_pages[$page_base]['type']) ) {
+${indent}	$page_type = $schema_pages[$page_base]['type'];
+${indent}} elseif ( function_exists('redue_infer_page_schema_type') && ( ! isset($page_type) || $page_type === 'WebPage' ) ) {
+${indent}	$_sp_hay = ( isset($page_title) ? $page_title : '' ) . ' ' . ( isset($canonical_url) ? $canonical_url : '' ) . ' ' . ( isset($schema_meta_title) ? $schema_meta_title : '' ) . ' ' . ( isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '' ) . ' ' . ( isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : '' );
+${indent}	$_sp_medical = isset($is_medical_org) ? (bool) $is_medical_org : ( function_exists('redue_is_medical_org') && redue_is_medical_org() );
+${indent}	$_sp_inferred = redue_infer_page_schema_type($_sp_hay, $_sp_medical);
+${indent}	if ( $_sp_inferred !== 'WebPage' ) { $page_type = $_sp_inferred; }
+${indent}}
+${indent}if ( ! empty($gnb_items) && is_array($gnb_items) ) {
+${indent}	foreach ( $gnb_items as $_gnb ) {
+${indent}		if ( empty($_gnb['item']) || empty($_gnb['name']) ) { continue; }
+${indent}		$_gnb_path = parse_url((string) $_gnb['item'], PHP_URL_PATH);
+${indent}		$_gnb_file = basename(is_string($_gnb_path) && $_gnb_path !== '' ? $_gnb_path : (string) $_gnb['item']);
+${indent}		if ( $_gnb_file === '' || $_gnb_file === '/' || $_gnb_file === '.' ) { continue; }
+${indent}		if ( isset($schema_pages[$_gnb_file]) ) { continue; }
+${indent}		$_gnb_medical = isset($is_medical_org) ? (bool) $is_medical_org : ( function_exists('redue_is_medical_org') && redue_is_medical_org() );
+${indent}		$schema_pages[$_gnb_file] = array(
+${indent}			'type' => function_exists('redue_infer_page_schema_type') ? redue_infer_page_schema_type((string) $_gnb['name'] . ' ' . (string) $_gnb['item'], $_gnb_medical) : 'WebPage',
+${indent}			'name' => (string) $_gnb['name'],
+${indent}			'url' => (string) $_gnb['item'],
+${indent}		);
+${indent}	}
+${indent}}`;
+}
+
+function buildHasPartFromSchemaPagesPhp(indent = '\t\t\t'): string {
+	return `${indent}$_has_part = array();
+${indent}if ( isset($schema_pages) && is_array($schema_pages) ) {
+${indent}	foreach ( $schema_pages as $_sp_file => $_sp ) {
+${indent}		if ( ! is_array($_sp) ) { continue; }
+${indent}		if ( $_sp_file === 'index.php' || $_sp_file === 'index.html' || $_sp_file === 'index.htm' ) { continue; }
+${indent}		$_sp_url = ! empty($_sp['url']) ? (string) $_sp['url'] : ( rtrim($origin, '/') . '/' . ltrim((string) $_sp_file, '/') );
+${indent}		$_sp_type = ! empty($_sp['type']) ? (string) $_sp['type'] : 'WebPage';
+${indent}		$_has_part[] = array(
+${indent}			'@type' => $_sp_type,
+${indent}			'@id' => $_sp_url . '#webpage',
+${indent}			'name' => ! empty($_sp['name']) ? (string) $_sp['name'] : (string) $_sp_file,
+${indent}			'url' => $_sp_url,
+${indent}		);
+${indent}	}
+${indent}}`;
+}
+
 /** Collapse audit pages / mapping JSON into filename-keyed meta + schema maps. */
 export function buildPageMaps(input: DynamicPhpSchemaInput): {
 	pageMeta: Record<string, PageMetaRow>;
@@ -3004,7 +4103,11 @@ export function buildPageMaps(input: DynamicPhpSchemaInput): {
 			navName,
 		});
 		const pageType = refineAssignedPageType(file, row.schemaType || 'WebPage', title, section);
-		const description = fallbackDescription(title, input.siteName, row.desc);
+		const description = fallbackDescription(title, input.siteName, row.desc, {
+			url: file,
+			gnb: [section, menus.menu1, menus.menu2, navName].filter(Boolean).join(' '),
+			industryType: input.industryType,
+		});
 		const h1 = row.h1?.trim() || title;
 		const parent = resolveParentHierarchy({
 			file,
@@ -3132,8 +4235,9 @@ function shouldRegisterCancerTypeSubpages(
 	) {
 		return true;
 	}
-	// MEDICAL industry still seeds #cancer-types ItemList → keep $page_meta in sync
-	return (industryType || '').toUpperCase() === 'MEDICAL';
+	// Only when the crawled site actually exposes a cancer hub / leaf — never invent
+	// koreaionlab 601–613 pages for an unrelated clinic.
+	return false;
 }
 
 /**
@@ -3229,16 +4333,682 @@ function phpAssocArray(
 	return lines.join('\n');
 }
 
+function phpStringMap(entries: Array<[string, string]>, indent = '\t'): string {
+	if (entries.length === 0) return 'array()';
+	const lines: string[] = ['array('];
+	for (const [key, value] of entries) {
+		lines.push(`${indent}\t${phpSingleQuoted(key)} => ${phpSingleQuoted(value)},`);
+	}
+	lines.push(`${indent})`);
+	return lines.join('\n');
+}
+
 function phpStringList(values: string[], indent = '\t\t\t'): string {
 	if (values.length === 0) return 'array()';
 	return `array(\n${values.map((v) => `${indent}\t${phpSingleQuoted(v)},`).join('\n')}\n${indent})`;
 }
 
+export function isGnuboardCmsType(cmsType?: string): boolean {
+	const s = String(cmsType || '').toLowerCase();
+	return /gnuboard|그누보드|youngcart|영카트|\bg5\b/.test(s);
+}
+
+/**
+ * Fresh industry → Schema.org @type mapping per diagnosis.
+ * Uses title / description / GNB / footer from the *current* site only.
+ */
+function gnuboardOrgTypePhp(industryType?: string, siteName?: string, extra?: IndustrySchemaInput): string {
+	return orgTypesToPhpArray(
+		classifyIndustrySchema({
+			industryType,
+			siteName,
+			title: extra?.title,
+			description: extra?.description,
+			menuTexts: extra?.menuTexts,
+			body: extra?.body,
+			footerText: extra?.footerText,
+		}).orgTypes,
+	);
+}
+
+function industryCorpusFromSchemaInput(input: {
+	siteName?: string;
+	industryType?: string;
+	footerText?: string;
+	pages?: Array<{ title?: string; section?: string; h1?: string }>;
+	navItems?: Array<{ name?: string }>;
+}): IndustrySchemaInput {
+	const menuTexts = [
+		...(input.navItems || []).map((n) => n.name || ''),
+		...(input.pages || []).flatMap((p) => [p.title || '', p.section || '', p.h1 || '']),
+	].filter(Boolean);
+	return {
+		industryType: input.industryType,
+		siteName: input.siteName,
+		title: input.siteName,
+		description: menuTexts.join(' '),
+		menuTexts,
+		footerText: input.footerText,
+	};
+}
+
+/** Human-readable @type list from a PHP `array('A', 'B')` literal, e.g. "A, B". */
+function phpArrayLiteralToReadableList(phpArrayLiteral: string): string {
+	return phpArrayLiteral
+		.replace(/^array\(\s*/, '')
+		.replace(/\s*\)$/, '')
+		.split(',')
+		.map((s) => s.trim().replace(/^'/, '').replace(/'$/, ''))
+		.filter(Boolean)
+		.join(', ');
+}
+
+/**
+ * Phase 4 output guide: top-of-file analysis comment stating the detected
+ * [1] protocol, [2] industry/org-type mapping, [3] subpage @type routing —
+ * required so the final code is self-documenting for the target project.
+ */
+function buildEngineAnalysisHeaderComment(opts: {
+	targetUrl?: string;
+	protocolMode: 'runtime-detect' | 'static-origin';
+	orgTypesPhp: string;
+	pages: Array<{ urlPath: string; title?: string; pageType?: string }>;
+}): string {
+	const protocolLine =
+		opts.protocolMode === 'runtime-detect'
+			? " *   런타임 자동 감지 — redue_detect_site_protocol() 이 요청 시점의 SSL 여부를 확인해\n *   인증서가 있으면 https, 없으면 http 를 그대로 유지합니다 (강제 https 변환 없음)."
+			: ` *   ${opts.targetUrl && /^https:\/\//i.test(opts.targetUrl) ? 'HTTPS (SSL 적용됨)' : 'HTTP (SSL 미적용 — https 강제 변환 없음)'} — 감지된 origin: ${opts.targetUrl || '(런타임 결정)'}  `;
+
+	const orgTypesReadable = phpArrayLiteralToReadableList(opts.orgTypesPhp);
+
+	const pageLines = opts.pages.length
+		? opts.pages
+				.map((p) => {
+					const isMain = p.urlPath === '/' || p.urlPath === '';
+					const type = isMain ? 'WebPage (mainEntity=Organization, hasPart=주요 서비스)' : p.pageType || 'WebPage';
+					const label = `${p.urlPath}${p.title ? ` (${p.title})` : ''}`;
+					return ` *   - ${label.padEnd(28)} → ${type}`;
+				})
+				.join('\n')
+		: ' *   - 사이트맵 데이터 미제공 — 각 요청 URL/제목 패턴을 기준으로 런타임에 자동 분류됨 (about/contact/board/main)';
+
+	return `/**
+ * ═══════════════════════════════════════════════════════════════════════
+ *  REDUE Universal Schema Engine — Phase 4 자동 분석 결과 요약
+ * ═══════════════════════════════════════════════════════════════════════
+ * [1] Protocol (프로토콜)
+${protocolLine}
+ *
+ * [2] Industry Mapping (업종 매핑)
+ *   런타임 자동 추론 — $config['cf_title'] · _SHOP_/G5_USE_SHOP · 푸터/본문 키워드
+ *   의료 → MedicalClinic, Physician, LocalBusiness
+ *   쇼핑몰 → OnlineStore, Store, LocalBusiness
+ *   일반 → LocalBusiness, Organization
+ *   EducationalOrganization 등 무관 타입은 키워드가 있을 때만 사용 (기본값 오염 금지)
+ *   컴파일 시드(있을 경우) → ${orgTypesReadable}
+ *
+ * [3] Subpage Routing (서브페이지 분기 — Type Stacking 금지, 페이지당 단일 @type)
+${pageLines}
+ *
+ *   ※ FAQPage/HowTo는 페이지에 실제 존재하는 Q&A/절차가 바인딩된 경우에만 생성됩니다 (가상 데이터 금지).
+ *   ※ sameAs는 자사 도메인을 제외한 실제 운영 중인 공식 외부 채널만 포함합니다.
+ * ═══════════════════════════════════════════════════════════════════════
+ */
+`;
+}
+
+/**
+ * Fully automated Gnuboard Universal Dynamic engine: no static $page_meta,
+ * no compile-time address/phone/industry payload from another site.
+ * Reads $config / $g5_head_title / $board / $view / g5_menu at request time.
+ */
+export function buildGnuboardAutomatedRuntimeEnginePhp(input: {
+	siteName?: string;
+	industryType?: string;
+	/** Workspace seed for `$GLOBALS['redue_tel']` — runtime still falls back to CMS/DOM. */
+	telephone?: string;
+	/** Real street extracted from this site's footer/theme — never a dummy. */
+	streetAddress?: string;
+	addressLocality?: string;
+	addressRegion?: string;
+	postalCode?: string;
+	legalName?: string;
+	fax?: string;
+	taxId?: string;
+	representativeName?: string;
+	representativeTitle?: string;
+	pages?: AuditPageMeta[];
+	navItems?: SchemaNavItem[];
+	footerText?: string;
+	openingHoursOpens?: string;
+	openingHoursCloses?: string;
+	latitude?: string;
+	longitude?: string;
+	sameAs?: string[];
+	medicalSpecialty?: string[];
+	isAcceptingNewPatients?: boolean;
+}): string {
+	const industryInput = industryCorpusFromSchemaInput(input);
+	const industryProfile = classifyIndustrySchema(industryInput);
+	const compiledRep = resolveEngineRepresentative({
+		adminName: input.representativeName,
+		adminTitle: input.representativeTitle,
+		industryType: input.industryType,
+	});
+	const repName = String(compiledRep.name || '').trim();
+	const repTitle = String(input.representativeTitle || (compiledRep.isExtracted ? compiledRep.jobTitle : '') || '').trim();
+	const seededTel = bindTelephone(input.telephone || '');
+	const orgTypes = gnuboardOrgTypePhp(input.industryType, input.siteName, industryInput);
+	const alternateHint = splitAlternateName(input.siteName || '');
+	const seoMetaEntries: Array<[string, string]> = [];
+	for (const page of input.pages || []) {
+		const file = sanitizePageFileKey(page.urlPath);
+		if (!file || isGarbagePageFile(file)) continue;
+		const desc = String(page.description || '').trim();
+		if (desc) seoMetaEntries.push([file, desc]);
+	}
+	const schemaRoutes = buildSchemaPageRoutes({
+		pages: input.pages,
+		navItems: input.navItems,
+		industryType: input.industryType,
+		siteName: input.siteName,
+	});
+	const analysisHeaderPhp = buildEngineAnalysisHeaderComment({
+		targetUrl: undefined,
+		protocolMode: 'runtime-detect',
+		orgTypesPhp: orgTypes,
+		pages: (input.pages || []).map((p) => ({ urlPath: p.urlPath, title: p.title, pageType: p.pageType })),
+	});
+
+	return sanitizeGeneratedPhpSnippet(`<?php
+${analysisHeaderPhp}/* ${REDUE_SCHEMA_MARKER_START} — REDUE AUTOMATED UNIVERSAL SCHEMA ENGINE (GnuBoard Dynamic) */
+
+${buildGnuboardLegacyCompatPhp()}
+${buildUniversalGraphGlobalsSeedPhp({
+	repName,
+	repTitle,
+	tel: seededTel,
+	street: input.streetAddress,
+	taxId: input.taxId,
+	fax: input.fax,
+	lat: input.latitude,
+	lng: input.longitude,
+	openingHoursOpens: input.openingHoursOpens,
+	openingHoursCloses: input.openingHoursCloses,
+	sameAs: input.sameAs,
+	pages: input.pages,
+	navItems: input.navItems,
+	industryType: input.industryType,
+	siteName: input.siteName,
+	bakeStreet: false,
+})}
+$GLOBALS['redue_org_type']  = ${orgTypes}; // 기본 기관 타입 — 하드코딩 NAP 없이 상단 변수만 참조
+$GLOBALS['redue_legal_name'] = ${phpSingleQuoted(String(input.legalName || '').trim())};
+$GLOBALS['redue_fax'] = ${phpSingleQuoted(String(input.fax || '').trim())};
+$GLOBALS['redue_strict_nap'] = true;
+
+${buildUniversalObRegistrationPhp()}
+
+if ( ! function_exists( 'redue_dynamic_schema_controller_safe' ) ) {
+	function redue_dynamic_schema_controller_safe() {
+		static $executed = false;
+		if ( $executed ) return;
+		$executed = true;
+		try {
+			if ( function_exists( 'redue_dynamic_schema_controller_body' ) ) {
+				redue_dynamic_schema_controller_body();
+			}
+		} catch (\\Exception $_redue_schema_err) {} catch (\\Throwable $_redue_schema_err) {}
+	}
+}
+
+if ( ! function_exists( 'redue_dynamic_schema_controller' ) ) {
+	function redue_dynamic_schema_controller() {
+		redue_dynamic_schema_controller_safe();
+	}
+}
+
+if ( ! function_exists( 'redue_dynamic_schema_controller_body' ) ) {
+	function redue_dynamic_schema_controller_body() {
+		if ( function_exists( 'redue_auto_detect_footer_info' ) ) {
+			redue_auto_detect_footer_info();
+		}
+		global $config, $g5, $g5_head_title, $bo_table, $wr_id, $co_id, $view, $write, $board;
+
+		$origin = function_exists('redue_site_origin')
+			? redue_site_origin()
+			: (defined('G5_URL') && G5_URL !== ''
+				? rtrim(G5_URL, '/')
+				: ((function_exists('redue_detect_site_protocol') ? redue_detect_site_protocol() : 'http') . '://' . preg_replace('#:\\d+$#', '', isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost')));
+		$site_name = function_exists('redue_resolve_site_name')
+			? redue_resolve_site_name()
+			: ( ! empty($config['cf_title']) ? trim(strip_tags((string) $config['cf_title'])) : '' );
+		if ( $site_name === '' ) { $site_name = '웹사이트'; }
+		$canonical_url = function_exists('redue_get_exact_canonical') ? redue_get_exact_canonical() : ($origin . '/');
+		$is_main = ($canonical_url === $origin . '/' || $canonical_url === $origin);
+
+		$page_title = $site_name;
+		$page_desc = $site_name;
+		$page_type = 'WebPage';
+		$image_url = isset($GLOBALS['redue_logo']) && is_string($GLOBALS['redue_logo']) && trim($GLOBALS['redue_logo']) !== ''
+			? trim($GLOBALS['redue_logo'])
+			: '';
+		$domain_host = parse_url($origin, PHP_URL_HOST);
+		if ( ! is_string($domain_host) || $domain_host === '' ) {
+			$domain_host = preg_replace('#^https?://#i', '', $origin);
+			$domain_host = preg_replace('#/.*$#', '', $domain_host);
+		}
+${buildGeoAeoBindingsPhp({
+	siteName: input.siteName || 'Site',
+	pages: input.pages || [],
+	industryType: input.industryType,
+	navItems: input.navItems,
+	openingHoursOpens: input.openingHoursOpens,
+	openingHoursCloses: input.openingHoursCloses,
+	latitude: input.latitude,
+	longitude: input.longitude,
+	sameAs: input.sameAs,
+	medicalSpecialty: input.medicalSpecialty,
+	isAcceptingNewPatients: input.isAcceptingNewPatients,
+}, { includePostalBinds: false, strictRealNap: true })}
+		if ( ! isset($postal_code) ) { $postal_code = ""; }
+		if ( ! isset($street_address) ) { $street_address = isset($GLOBALS['redue_street']) && is_string($GLOBALS['redue_street']) ? trim($GLOBALS['redue_street']) : ""; }
+		if ( ! isset($locality) ) { $locality = ""; }
+		if ( ! isset($region) ) { $region = ""; }
+${buildUniversalGraphApplyPhp()}
+${buildSchemaPagesPhp(schemaRoutes)}
+		$knows_about = is_array($medical_specialty) ? $medical_specialty : array();
+		if ( count($knows_about) === 0 && is_array($available_services) ) {
+			foreach ( $available_services as $_ks ) {
+				if ( is_array($_ks) && ! empty($_ks['name']) ) { $knows_about[] = (string) $_ks['name']; }
+			}
+		}
+
+		$runtime_bo = !empty($bo_table) ? (string) $bo_table : (isset($_GET['bo_table']) ? (string) $_GET['bo_table'] : '');
+		$runtime_wr = !empty($wr_id) ? (string) $wr_id : (isset($_GET['wr_id']) ? (string) $_GET['wr_id'] : '');
+		$runtime_co = !empty($co_id) ? (string) $co_id : (isset($_GET['co_id']) ? (string) $_GET['co_id'] : '');
+
+		$org_types = function_exists('redue_infer_org_types')
+			? redue_infer_org_types()
+			: ( ! empty($GLOBALS['redue_org_type']) ? $GLOBALS['redue_org_type'] : array('LocalBusiness', 'Organization') );
+		$org_type_hay = is_array($org_types) ? implode(' ', $org_types) : (string) $org_types;
+		$is_medical_org = (bool) preg_match('/MedicalClinic|VeterinaryCare|Physician|Hospital|Dentist/i', $org_type_hay);
+		$_route_hay = $canonical_url . ' '
+			. ( isset($_SERVER['REQUEST_URI']) ? (string) $_SERVER['REQUEST_URI'] : '' ) . ' '
+			. ( isset($_SERVER['SCRIPT_NAME']) ? (string) $_SERVER['SCRIPT_NAME'] : '' );
+
+		if ( $is_main && $runtime_bo === '' && $runtime_wr === '' && $runtime_co === '' ) {
+			$page_title = $site_name;
+			$page_desc = function_exists('redue_compose_official_description')
+				? redue_compose_official_description($site_name, $site_name, true)
+				: ( $site_name . ' 공식 웹사이트입니다.' );
+			$page_type = 'WebPage';
+		} elseif ( $runtime_wr !== '' && ( !empty($view['wr_subject']) || !empty($write['wr_subject']) ) ) {
+			$subj = !empty($view['wr_subject']) ? $view['wr_subject'] : $write['wr_subject'];
+			$cont = !empty($view['wr_content']) ? $view['wr_content'] : (isset($write['wr_content']) ? $write['wr_content'] : '');
+			$page_title = trim(strip_tags((string) $subj));
+			$page_desc = function_exists('redue_summarize_body_text')
+				? redue_summarize_body_text($cont, 140)
+				: (function_exists('mb_substr') ? mb_substr(trim(preg_replace('/\\s+/', ' ', strip_tags((string) $cont))), 0, 140, 'UTF-8') : substr(trim(preg_replace('/\\s+/', ' ', strip_tags((string) $cont))), 0, 140));
+			if ( $page_desc === '' ) { $page_desc = $page_title; }
+			$page_type = 'Article';
+		} elseif ( $runtime_bo !== '' ) {
+			$page_title = ! empty($board['bo_subject']) ? (string) $board['bo_subject'] : $runtime_bo;
+			$page_desc = function_exists('redue_compose_official_description')
+				? redue_compose_official_description($site_name, $page_title, false)
+				: ( $site_name . ' ' . $page_title . ' 공식 안내입니다.' );
+			$page_type = 'CollectionPage';
+		} elseif ( $runtime_co !== '' ) {
+			$page_title = !empty($g5_head_title) ? (string) $g5_head_title : $runtime_co;
+			$page_desc = function_exists('redue_compose_official_description')
+				? redue_compose_official_description($site_name, $page_title, false)
+				: ( $site_name . ' ' . $page_title . ' 공식 안내입니다.' );
+			$page_type = function_exists('redue_infer_page_schema_type')
+				? redue_infer_page_schema_type($page_title . ' ' . $_route_hay, $is_medical_org)
+				: 'WebPage';
+		} elseif ( !empty($g5_head_title) ) {
+			$page_title = (string) $g5_head_title;
+			$page_desc = function_exists('redue_compose_official_description')
+				? redue_compose_official_description($site_name, $page_title, false)
+				: ( $site_name . ' ' . $page_title . ' 공식 안내입니다.' );
+			$page_type = function_exists('redue_infer_page_schema_type')
+				? redue_infer_page_schema_type($page_title . ' ' . $_route_hay, $is_medical_org)
+				: 'WebPage';
+		}
+
+		$seo_meta_map = ${phpStringMap(seoMetaEntries)};
+		$seo_req = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
+		$seo_path = parse_url($seo_req, PHP_URL_PATH);
+		$seo_query = parse_url($seo_req, PHP_URL_QUERY);
+		$seo_file = basename(is_string($seo_path) && $seo_path !== '' ? $seo_path : '/');
+		if ( $seo_file === '' || $seo_file === '/' || $seo_file === '.' ) { $seo_file = 'index.php'; }
+		if ( is_string($seo_query) && $seo_query !== '' ) {
+			parse_str($seo_query, $seo_qs);
+			foreach ( array('bo_table', 'co_id', 'it_id', 'ca_id') as $id_key ) {
+				if ( isset($seo_qs[$id_key]) && $seo_qs[$id_key] !== '' && preg_match('/^[a-zA-Z0-9_-]{1,40}$/', (string) $seo_qs[$id_key]) ) {
+					$seo_file = $seo_file . '?' . $id_key . '=' . $seo_qs[$id_key];
+					break;
+				}
+			}
+		}
+		$seo_rel = ltrim(is_string($seo_path) ? $seo_path : '', '/');
+		if ( $seo_rel !== '' && isset($seo_meta_map[$seo_rel]) && $seo_meta_map[$seo_rel] !== '' ) {
+			$page_desc = $seo_meta_map[$seo_rel];
+		} elseif ( isset($seo_meta_map[$seo_file]) && $seo_meta_map[$seo_file] !== '' ) {
+			$page_desc = $seo_meta_map[$seo_file];
+		} elseif ( $runtime_bo !== '' && isset($seo_meta_map['board.php?bo_table=' . $runtime_bo]) && $seo_meta_map['board.php?bo_table=' . $runtime_bo] !== '' ) {
+			$page_desc = $seo_meta_map['board.php?bo_table=' . $runtime_bo];
+		}
+		$page_file = $seo_file;
+		$page_base = $seo_file;
+		$gnb_items = array();
+		if ( isset($g5['menu_table']) && $g5['menu_table'] !== '' && function_exists('sql_query') && function_exists('sql_fetch_array') ) {
+			$sql = " select me_code, me_name, me_link from {$g5['menu_table']} where me_use = '1' order by me_code, me_order, me_id asc ";
+			$result = @sql_query($sql, false);
+			if ( $result ) {
+				$pos = 1;
+				while ( $row = sql_fetch_array($result) ) {
+					if ( empty($row['me_name']) ) { continue; }
+					$m_link = isset($row['me_link']) ? (string) $row['me_link'] : '';
+					$m_link = preg_match('#^https?://#i', $m_link) ? $m_link : $origin . '/' . ltrim($m_link, '/');
+					$m_link = function_exists('redue_align_url_protocol') ? redue_align_url_protocol($m_link) : $m_link;
+					$gnb_items[] = array(
+						'@type' => 'ListItem',
+						'position' => $pos++,
+						'name' => (string) $row['me_name'],
+						'item' => $m_link,
+						'code' => isset($row['me_code']) ? (string) $row['me_code'] : '',
+					);
+				}
+			}
+		}
+		$GLOBALS['redue_gnb_items'] = $gnb_items;
+		if ( ( ! is_array($available_services) || count($available_services) === 0 ) && function_exists('redue_catalog_from_menu') ) {
+			$_gnb_svc = redue_catalog_from_menu($gnb_items, isset($is_medical_org) ? (bool) $is_medical_org : false);
+			if ( is_array($_gnb_svc) && count($_gnb_svc) > 0 ) { $available_services = $_gnb_svc; }
+		}
+${buildSchemaPagesResolvePhp()}
+		if ( function_exists('redue_refine_page_description') ) {
+			$page_desc = redue_refine_page_description($page_desc, $site_name, $page_title, ( $is_main && $runtime_bo === '' && $runtime_wr === '' && $runtime_co === '' ), $gnb_items);
+		}
+
+		if ( function_exists('redue_echo_canonical_pair') ) { redue_echo_canonical_pair(); }
+		echo '<meta name="description" content="' . htmlspecialchars($page_desc, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta property="og:title" content="' . htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta property="og:description" content="' . htmlspecialchars($page_desc, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta property="og:type" content="' . ($page_type === 'Article' ? 'article' : 'website') . '">' . "\\n";
+		echo '<meta property="og:image" content="' . htmlspecialchars($image_url, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta property="og:site_name" content="' . htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta name="twitter:card" content="summary_large_image">' . "\\n";
+		echo '<meta name="twitter:title" content="' . htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta name="twitter:description" content="' . htmlspecialchars($page_desc, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta name="twitter:image" content="' . htmlspecialchars($image_url, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+
+		$graph = array();
+
+		$alternate_name = ${phpSingleQuoted(alternateHint.alternateName || '')};
+		if ( $alternate_name === '' && ! empty($g5_head_title) && is_string($g5_head_title) ) {
+			$_alt_title = trim(preg_replace('/\\s*[|\\-–—]\\s+.+$/u', '', strip_tags((string) $g5_head_title)));
+			if ( $_alt_title !== '' && $_alt_title !== $site_name ) { $alternate_name = $_alt_title; }
+		}
+		$org_node = array(
+			'@type' => $org_types,
+			'@id' => $origin . '/#organization',
+			'name' => $site_name,
+			'url' => $origin,
+		);
+		if ( $alternate_name !== '' && $alternate_name !== $site_name ) {
+			$org_node['alternateName'] = $alternate_name;
+		}
+		if ( is_array($available_services) && count($available_services) > 0 ) {
+			$org_node['availableService'] = $available_services;
+		}
+		if ( is_array($same_as_array) && count($same_as_array) > 0 ) {
+			$org_node['sameAs'] = $same_as_array;
+		}
+		if ( is_string($price_range) && trim($price_range) !== '' ) {
+			$org_node['priceRange'] = $price_range;
+		}
+		if ( is_string($currencies_accepted) && trim($currencies_accepted) !== '' ) {
+			$org_node['currenciesAccepted'] = $currencies_accepted;
+		}
+		if ( is_string($payment_accepted) && trim($payment_accepted) !== '' ) {
+			$org_node['paymentAccepted'] = $payment_accepted;
+		}
+		if ( is_array($knows_about) && count($knows_about) > 0 ) {
+			$org_node['knowsAbout'] = $knows_about;
+		}
+		if ( $is_medical_org && is_array($medical_specialty) && count($medical_specialty) > 0 ) {
+			$org_node['medicalSpecialty'] = $medical_specialty;
+		}
+		if ( is_string($latitude) && $latitude !== '' && is_string($longitude) && $longitude !== '' && is_numeric($latitude) && is_numeric($longitude) ) {
+			$org_node['geo'] = array(
+				'@type' => 'GeoCoordinates',
+				'latitude' => (float) $latitude,
+				'longitude' => (float) $longitude,
+			);
+		}
+		if ( is_string($opens) && $opens !== '' && is_string($closes) && $closes !== '' ) {
+			$org_node['openingHoursSpecification'] = array(
+				array(
+					'@type' => 'OpeningHoursSpecification',
+					'dayOfWeek' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'),
+					'opens' => $opens,
+					'closes' => $closes,
+				),
+			);
+		}
+
+${buildRuntimeNapBindPhp('org_node', { inventAddress: false })}
+		if ( empty($org_node['telephone']) && !empty($config['cf_add_script']) && preg_match('/(?:0\\d{1,2}-\\d{3,4}-\\d{4}|1[568]\\d{2}-\\d{4})/', $config['cf_add_script'], $tel_m) ) {
+			$org_node['telephone'] = $tel_m[0];
+		}
+		if ( empty($org_node['faxNumber']) && isset($GLOBALS['redue_fax']) && is_string($GLOBALS['redue_fax']) && trim($GLOBALS['redue_fax']) !== '' ) {
+			$org_node['faxNumber'] = trim($GLOBALS['redue_fax']);
+		}
+		if ( empty($org_node['faxNumber']) && function_exists('redue_extract_fax') ) {
+			$_fax = redue_extract_fax(isset($_redue_cfg_blob) ? $_redue_cfg_blob : '');
+			if ( $_fax !== '' ) { $org_node['faxNumber'] = $_fax; }
+		}
+		if ( empty($org_node['taxID']) && isset($GLOBALS['redue_tax_id']) && is_string($GLOBALS['redue_tax_id']) && trim($GLOBALS['redue_tax_id']) !== '' ) {
+			$org_node['taxID'] = trim($GLOBALS['redue_tax_id']);
+		}
+		if ( empty($org_node['taxID']) && function_exists('redue_extract_tax_id') ) {
+			$_tax = redue_extract_tax_id(isset($_redue_cfg_blob) ? $_redue_cfg_blob : '');
+			if ( $_tax !== '' ) { $org_node['taxID'] = $_tax; }
+		}
+		if ( empty($org_node['legalName']) && isset($GLOBALS['redue_legal_name']) && is_string($GLOBALS['redue_legal_name']) && trim($GLOBALS['redue_legal_name']) !== '' ) {
+			$org_node['legalName'] = trim($GLOBALS['redue_legal_name']);
+		}
+		$_area_served = array();
+		if ( ! empty($org_node['address']['addressLocality']) ) {
+			$_area_served[] = array('@type' => 'AdministrativeArea', 'name' => (string) $org_node['address']['addressLocality']);
+		}
+		if ( ! empty($org_node['address']['addressRegion']) ) {
+			$_area_served[] = array('@type' => 'AdministrativeArea', 'name' => (string) $org_node['address']['addressRegion']);
+		}
+		if ( count($_area_served) > 0 ) {
+			$org_node['areaServed'] = $_area_served;
+		}
+${buildOrgFounderPhysicianPhp('\t\t')}
+${buildUniversalOrgFiveCoreBindPhp()}
+		$graph[] = $org_node;
+		$graph[] = array(
+			'@type' => 'WebSite',
+			'@id' => $origin . '/#website',
+			'name' => $site_name,
+			'url' => $origin,
+			'publisher' => array('@id' => $origin . '/#organization'),
+		);
+
+		if ( $is_main && $runtime_bo === '' && $runtime_wr === '' && $runtime_co === '' ) {
+			if ( ! empty($gnb_items) ) {
+				$graph[] = array(
+					'@type' => 'ItemList',
+					'@id' => $origin . '/#gnb',
+					'name' => 'GNB Navigation',
+					'itemListElement' => $gnb_items,
+				);
+			}
+${buildHasPartFromSchemaPagesPhp('\t\t\t')}
+			if ( empty($_has_part) && ! empty($gnb_items) ) {
+				foreach ( $gnb_items as $_gnb ) {
+					if ( empty($_gnb['item']) || empty($_gnb['name']) ) { continue; }
+					$_has_part[] = array(
+						'@type' => 'WebPage',
+						'@id' => $_gnb['item'] . '#webpage',
+						'name' => (string) $_gnb['name'],
+						'url' => $_gnb['item'],
+					);
+				}
+			}
+			$_main_page_types = function_exists('redue_composite_page_types')
+				? redue_composite_page_types(true, $page_type)
+				: $page_type;
+			$_main_page = array(
+				'@type' => $_main_page_types,
+				'@id' => $canonical_url . '#webpage',
+				'name' => $page_title,
+				'headline' => $page_title,
+				'description' => $page_desc,
+				'url' => $canonical_url,
+				'isPartOf' => array('@id' => $origin . '/#website'),
+				'about' => array('@id' => $origin . '/#organization'),
+				'mainEntity' => array('@id' => $origin . '/#organization'),
+				'hasPart' => $_has_part,
+			);
+			if ( function_exists('redue_apply_page_graph_links') ) {
+				redue_apply_page_graph_links($_main_page, $origin, $canonical_url . '#breadcrumb');
+			}
+			$graph[] = $_main_page;
+		} else {
+			$_page_is_about = (bool) preg_match('/소개|인사말|시설|장비|about|company|greeting|연혁|조직도|개요/ui', $page_title . ' ' . $canonical_url);
+			if ( $_page_is_about && function_exists('redue_composite_page_types') ) {
+				$page_type = redue_composite_page_types(false, $page_type, true);
+			}
+			if ( function_exists('redue_build_breadcrumb_list') ) {
+				$graph[] = redue_build_breadcrumb_list($origin, $canonical_url, $page_title);
+			}
+			$page_node = array(
+				'@type' => $page_type,
+				'@id' => $canonical_url . '#webpage',
+				'name' => $page_title,
+				'description' => $page_desc,
+				'url' => $canonical_url,
+				'isPartOf' => array('@id' => $origin . '/#website'),
+				'about' => array('@id' => $origin . '/#organization'),
+				'mainEntity' => array('@id' => $origin . '/#organization'),
+				'breadcrumb' => array('@id' => $canonical_url . '#breadcrumb'),
+			);
+			if ( function_exists('redue_apply_page_graph_links') ) {
+				redue_apply_page_graph_links($page_node, $origin, $canonical_url . '#breadcrumb');
+			}
+			if ( ( is_string($page_type) && $page_type === 'Article' ) || ( is_array($page_type) && in_array('Article', $page_type, true) ) ) {
+				$page_node['headline'] = $page_title;
+				$published = '';
+				if ( !empty($view['wr_datetime']) ) { $published = (string) $view['wr_datetime']; }
+				elseif ( !empty($write['wr_datetime']) ) { $published = (string) $write['wr_datetime']; }
+				$ts = $published !== '' ? strtotime($published) : false;
+				if ( $ts ) { $page_node['datePublished'] = date('c', $ts); }
+				$_author_name = '';
+				if ( ! empty($view['wr_name']) ) { $_author_name = trim(strip_tags((string) $view['wr_name'])); }
+				elseif ( ! empty($write['wr_name']) ) { $_author_name = trim(strip_tags((string) $write['wr_name'])); }
+				elseif ( function_exists('redue_has_real_person') && redue_has_real_person() ) {
+					$_author_name = isset($GLOBALS['redue_rep_name']) ? trim((string) $GLOBALS['redue_rep_name']) : '';
+				}
+				if ( $_author_name !== '' ) {
+					$page_node['author'] = array(
+						'@type' => 'Person',
+						'@id' => $origin . '/#person',
+						'name' => $_author_name,
+					);
+				}
+			}
+			$_is_service_page = ( is_string($page_type) && ( $page_type === 'MedicalWebPage' || $page_type === 'WebPage' ) )
+				|| ( is_array($page_type) && ( in_array('MedicalWebPage', $page_type, true) || in_array('WebPage', $page_type, true) ) );
+			if ( $_is_service_page && $runtime_bo === '' && $runtime_wr === '' && ! $_page_is_about && $page_type !== 'ContactPage' && $page_type !== 'CollectionPage' && $page_type !== 'ProfilePage' ) {
+				$graph[] = array(
+					'@type' => $is_medical_org ? 'MedicalProcedure' : 'Service',
+					'@id' => $canonical_url . '#service',
+					'name' => $page_title,
+					'url' => $canonical_url,
+					'provider' => array('@id' => $origin . '/#organization'),
+				);
+				$page_node['mainEntity'] = array('@id' => $canonical_url . '#service');
+			}
+			$graph[] = $page_node;
+		}
+
+${buildHowToAutoInjectPhp()}
+		$is_board_list = preg_match('/board\\.php\\?bo_table=/', $canonical_url);
+		if ( ! $is_board_list ) {
+${buildEvidenceFaqInjectPhp('canonical_url')}
+		}
+${buildPersonEeatNodePhp()}
+${buildUniversalBreadcrumbEnsurePhp()}
+
+		echo '<script type="application/ld+json">' . "\\n" .
+			json_encode(array('@context' => 'https://schema.org', '@graph' => $graph), function_exists('redue_jsonld_flags') ? redue_jsonld_flags() : (JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)) .
+			"\\n" . '</script>' . "\\n";
+	}
+}
+
+${buildRedueLlmsPhpEngine()}
+// 4. Phase 1 — 렌더링 전용 함수. 여기서는 절대 즉시 실행/즉시 echo 하지 않는다.
+//    실제 출력은 charset 메타 태그 바로 아래(REDUE_AI_STUDIO_RENDER 블록)의
+//    렌더 호출문에서만 수행되어 문서 최상단 출력 덤프를 방지한다.
+if ( ! function_exists( 'redue_render_full_schema' ) ) {
+	function redue_render_full_schema() {
+		ob_start();
+		redue_dynamic_schema_controller_safe();
+		$out = ob_get_clean();
+		return is_string( $out ) ? $out : '';
+	}
+}
+/* ${REDUE_SCHEMA_MARKER_END} */
+?>
+
+<?php
+/* ${REDUE_SCHEMA_RENDER_MARKER_START} */
+if (function_exists('redue_render_full_schema')) {
+    echo redue_render_full_schema();
+}
+/* ${REDUE_SCHEMA_RENDER_MARKER_END} */
+?>`);
+}
+
 /**
  * Generate the dynamic PHP schema controller block for </head> injection.
- * Uses parse_url(REQUEST_URI) → $page_meta / $page_schema → SEO meta + conditional $graph[] → json_encode.
+ * Gnuboard → runtime engine (no $page_meta). Other CMS → mapped $page_meta controller.
  */
 export function buildDynamicPhpSchemaController(input: DynamicPhpSchemaInput): string {
+	if (isGnuboardCmsType(input.cmsType)) {
+		return buildGnuboardAutomatedRuntimeEnginePhp({
+			siteName: input.siteName,
+			industryType: input.industryType,
+			telephone: input.telephone,
+			streetAddress: input.streetAddress,
+			addressLocality: input.addressLocality,
+			addressRegion: input.addressRegion,
+			postalCode: input.postalCode,
+			legalName: input.legalName,
+			representativeName: input.representativeName,
+			representativeTitle: input.representativeTitle,
+			pages: input.pages,
+			navItems: input.navItems,
+			footerText: input.footerText,
+			openingHoursOpens: input.openingHoursOpens,
+			openingHoursCloses: input.openingHoursCloses,
+			latitude: input.latitude,
+			longitude: input.longitude,
+			sameAs: input.sameAs,
+			medicalSpecialty: input.medicalSpecialty,
+			isAcceptingNewPatients: input.isAcceptingNewPatients,
+			fax: input.fax,
+			taxId: input.taxId,
+		});
+	}
+
 	const origin = resolveHttpsOrigin(input.targetUrl);
 	const site = dedupeRepeatedPhrase(input.mappingJson?.siteName || input.siteName || 'Site') || 'Site';
 	const { pageMeta, pageSchema, mainFile } = buildPageMaps(input);
@@ -3274,8 +5044,26 @@ export function buildDynamicPhpSchemaController(input: DynamicPhpSchemaInput): s
 				`\t\t\tarray('@type' => 'ListItem', 'position' => ${i + 1}, 'name' => ${phpSingleQuoted(n.name)}, 'item' => ${phpSingleQuoted(enforceHttps(n.url))}),`,
 		)
 		.join('\n');
+	const schemaRoutes = buildSchemaPageRoutes({
+		pages: input.pages,
+		navItems: input.navItems || nav,
+		pageMeta,
+		industryType: input.industryType,
+		siteName: site,
+		origin,
+		targetUrl: input.targetUrl,
+	});
+	/* Phase 2 Rule 3: main WebPage.hasPart → typed $schema_pages subpages (no invented links). */
+	const hasPartPhp = schemaRoutes
+		.filter((r) => r.file !== 'index.php' && r.file !== 'index.html' && r.file !== 'index.htm')
+		.slice(0, 16)
+		.map((r) => {
+			const u = enforceHttps(r.url);
+			return `\t\t\t\tarray('@type' => ${phpSingleQuoted(r.type)}, '@id' => ${phpSingleQuoted(u)} . '#webpage', 'name' => ${phpSingleQuoted(r.name)}, 'url' => ${phpSingleQuoted(u)}),`;
+		})
+		.join('\n');
 
-	const imageUrl = enforceHttps(input.imageUrl || mapping.imageUrl || `${origin}/logo.png`);
+	const imageUrl = enforceHttps(input.imageUrl || mapping.imageUrl || '');
 	const knowsAbout = buildKnowsAboutKeywords({
 		knowsAbout: input.knowsAbout,
 		mappingKnowsAbout: mapping.knowsAbout,
@@ -3302,6 +5090,27 @@ export function buildDynamicPhpSchemaController(input: DynamicPhpSchemaInput): s
 	const orgContact = extractOrgContactFromFooter(
 		[input.footerText, input.copyrightText].filter(Boolean).join('\n'),
 	);
+	const completeNap = resolveCompleteNap({
+		corpus: [input.footerText, input.copyrightText].filter(Boolean).join('\n'),
+		telephone: input.telephone || orgContact.telephone,
+		streetAddress: input.streetAddress || orgContact.address?.streetAddress,
+		addressLocality: input.addressLocality || orgContact.address?.addressLocality,
+		addressRegion: input.addressRegion || orgContact.address?.addressRegion,
+		postalCode: input.postalCode || orgContact.address?.postalCode,
+		siteName: site,
+		targetUrl: input.targetUrl || origin,
+	});
+	if (completeNap.telephone) orgContact.telephone = formatKoreanTelephone(completeNap.telephone) || completeNap.telephone;
+	if (completeNap.streetAddress) {
+		orgContact.address = {
+			'@type': 'PostalAddress',
+			streetAddress: completeNap.streetAddress,
+			addressLocality: completeNap.addressLocality || orgContact.address?.addressLocality || '',
+			addressRegion: completeNap.addressRegion || orgContact.address?.addressRegion || '',
+			addressCountry: 'KR',
+			...(completeNap.postalCode ? { postalCode: completeNap.postalCode } : {}),
+		};
+	}
 	if (!input.postalCode && orgContact.address?.postalCode) {
 		input = { ...input, postalCode: orgContact.address.postalCode };
 	}
@@ -3321,10 +5130,17 @@ export function buildDynamicPhpSchemaController(input: DynamicPhpSchemaInput): s
 		htmlCorpus: [input.footerText, input.copyrightText].filter(Boolean).join('\n'),
 		industryType: input.industryType,
 	});
-	const orgTypePhp =
-		(input.industryType || '').toUpperCase() === 'MEDICAL'
-			? `array('Organization', 'ProfessionalService', 'MedicalClinic')`
-			: `array('Organization', 'ProfessionalService')`;
+	const orgTypePhp = gnuboardOrgTypePhp(
+		input.industryType,
+		site,
+		industryCorpusFromSchemaInput({
+			siteName: site,
+			industryType: input.industryType,
+			footerText: input.footerText,
+			pages: input.pages,
+			navItems: input.navItems,
+		}),
+	);
 	const mainBuckets = buildMainPageItemListBuckets({
 		origin,
 		pageMeta,
@@ -3346,9 +5162,42 @@ ${itemsPhp}
 		})
 		.join('\n');
 
-	return `<?php
-/* ${REDUE_SCHEMA_MARKER_START} v32 — Crawler-Optimized Canonical & Schema Engine (Charset-After First-Chunk · REQUEST_URI+SCRIPT_NAME · Exact Subpage Canonical · Head+Body Script Defer · Article Guaranteed All Pages · FAQPage Non-Board · Person E-E-A-T · Alt JS Auto-Fix · Description Extender · sameAs · v12 Master Core: Index Parent · PostalAddress · legalName · og:type · Parent Fallback · CollectionPage · ItemList) */
-${buildRepresentativeGlobalsSeedPhp(compiledRep.name, compiledRep.jobTitle)}
+	const analysisHeaderPhp = buildEngineAnalysisHeaderComment({
+		targetUrl: origin,
+		protocolMode: 'static-origin',
+		orgTypesPhp: orgTypePhp,
+		pages: [
+			{ urlPath: '/', title: site },
+			...metaEntries
+				.filter(([file]) => file !== mainFile)
+				.map(([file, meta]) => ({
+					urlPath: `/${file}`,
+					title: meta.title,
+					pageType: meta.type,
+				})),
+		],
+	});
+
+	return sanitizeGeneratedPhpSnippet(`<?php
+${analysisHeaderPhp}/* ${REDUE_SCHEMA_MARKER_START} v32 — Crawler-Optimized Canonical & Schema Engine (Charset-After First-Chunk · REQUEST_URI+SCRIPT_NAME · Exact Subpage Canonical · Head+Body Script Defer · Article Guaranteed All Pages · FAQPage Non-Board · Person E-E-A-T · Alt JS Auto-Fix · Description Extender · sameAs · v12 Master Core: Index Parent · PostalAddress · legalName · og:type · Parent Fallback · CollectionPage · ItemList) */
+${buildUniversalGraphGlobalsSeedPhp({
+	repName: compiledRep.name,
+	repTitle: compiledRep.jobTitle,
+	tel: orgContact.telephone || input.telephone || '',
+	street: input.streetAddress || orgContact.address?.streetAddress || '',
+	taxId: input.taxId,
+	lat: input.latitude,
+	lng: input.longitude,
+	openingHoursOpens: input.openingHoursOpens,
+	openingHoursCloses: input.openingHoursCloses,
+	sameAs: input.sameAs,
+	pages: input.pages,
+	navItems: input.navItems,
+	industryType: input.industryType,
+	siteName: site,
+	targetUrl: input.targetUrl || origin,
+	bakeStreet: true,
+})}
 ${buildUniversalObRegistrationPhp()}
 
 if ( ! function_exists( 'redue_dynamic_schema_controller_safe' ) ) {
@@ -3356,9 +5205,11 @@ if ( ! function_exists( 'redue_dynamic_schema_controller_safe' ) ) {
 		static $executed = false;
 		if ( $executed ) return;
 		$executed = true;
-		if ( function_exists( 'redue_dynamic_schema_controller_body' ) ) {
-			redue_dynamic_schema_controller_body();
-		}
+		try {
+			if ( function_exists( 'redue_dynamic_schema_controller_body' ) ) {
+				redue_dynamic_schema_controller_body();
+			}
+		} catch (\\Exception $_redue_schema_err) {} catch (\\Throwable $_redue_schema_err) {}
 	}
 }
 
@@ -3370,15 +5221,19 @@ if ( ! function_exists( 'redue_dynamic_schema_controller' ) ) {
 
 if ( ! function_exists( 'redue_dynamic_schema_controller_body' ) ) {
 	function redue_dynamic_schema_controller_body() {
+		if ( function_exists( 'redue_auto_detect_footer_info' ) ) {
+			redue_auto_detect_footer_info();
+		}
 		global $config, $g5_head_title;
 
 		$origin = ${phpSingleQuoted(origin)};
-		/* Gnuboard auto-detect: prefer G5_URL over audit-time origin (no hardcoded domain) */
-		if ( defined('G5_URL') && G5_URL !== '' ) {
+		/* CMS auto-detect: prefer live G5_URL / home_url protocol over audit-time origin */
+		if ( function_exists('redue_site_origin') ) {
+			$_live_origin = redue_site_origin();
+			if ( is_string($_live_origin) && $_live_origin !== '' ) { $origin = $_live_origin; }
+		} elseif ( defined('G5_URL') && G5_URL !== '' ) {
 			$origin = rtrim(G5_URL, '/');
 		}
-		/* HTTPS enforcement: normalize any http:// origin leakage */
-		$origin = preg_replace('#^http://#i', 'https://', $origin);
 		$domain_host = parse_url($origin, PHP_URL_HOST);
 		if ( ! is_string($domain_host) || $domain_host === '' ) {
 			$domain_host = preg_replace('#^https?://#i', '', $origin);
@@ -3391,8 +5246,42 @@ if ( ! function_exists( 'redue_dynamic_schema_controller_body' ) ) {
 		$legal_name = ${phpSingleQuoted(legalName)};
 ${buildRepresentativeResolvePhp(compiledRep.name, compiledRep.jobTitle)}
 ${buildGeoAeoBindingsPhp(input)}
+${buildUniversalGraphApplyPhp()}
 		$telephone = ${phpSingleQuoted(orgContact.telephone || '')};
 		$email = ${phpSingleQuoted(orgContact.email || '')};
+		if ( isset($GLOBALS['redue_tel']) && is_string($GLOBALS['redue_tel']) && trim($GLOBALS['redue_tel']) !== '' ) {
+			$_seed_tel = function_exists('redue_format_telephone') ? redue_format_telephone($GLOBALS['redue_tel']) : trim($GLOBALS['redue_tel']);
+			if ( $_seed_tel !== '' ) { $telephone = $_seed_tel; }
+		}
+		if ( $telephone === '' && function_exists('redue_resolve_universal_telephone') ) {
+			$_uni = redue_resolve_universal_telephone('');
+			if ( $_uni !== '' ) { $telephone = $_uni; }
+		}
+		if ( $telephone === '' && isset($config['cf_tel']) && is_string($config['cf_tel']) && trim($config['cf_tel']) !== '' ) {
+			$telephone = trim($config['cf_tel']);
+		}
+		if ( $telephone === '' && function_exists('redue_extract_telephone') && isset($config) && is_array($config) ) {
+			$_cfg_blob = '';
+			foreach ( array('cf_tel', 'cf_add_script', 'cf_add_meta', 'cf_1', 'cf_2', 'cf_3') as $_ck ) {
+				if ( ! empty($config[$_ck]) && is_string($config[$_ck]) ) { $_cfg_blob .= ' ' . $config[$_ck]; }
+			}
+			$_tel_rt = redue_extract_telephone($_cfg_blob);
+			if ( $_tel_rt !== '' ) { $telephone = $_tel_rt; }
+		}
+		if ( $telephone !== '' && function_exists('redue_format_telephone') ) {
+			$_fmt_tel = redue_format_telephone($telephone);
+			if ( $_fmt_tel !== '' ) { $telephone = $_fmt_tel; }
+		}
+		if ( $street_address === '' && function_exists('redue_extract_street_address') && isset($config) && is_array($config) ) {
+			$_cfg_blob_addr = isset($_cfg_blob) ? $_cfg_blob : '';
+			if ( $_cfg_blob_addr === '' ) {
+				foreach ( array('cf_add_script', 'cf_add_meta', 'cf_1', 'cf_2', 'cf_3') as $_ck ) {
+					if ( ! empty($config[$_ck]) && is_string($config[$_ck]) ) { $_cfg_blob_addr .= ' ' . $config[$_ck]; }
+				}
+			}
+			$_addr_rt = redue_extract_street_address($_cfg_blob_addr);
+			if ( $_addr_rt !== '' ) { $street_address = $_addr_rt; }
+		}
 		if ( $street_address === '' && ${phpSingleQuoted(orgContact.address?.streetAddress || '')} !== '' ) {
 			$street_address = ${phpSingleQuoted(orgContact.address?.streetAddress || '')};
 		}
@@ -3403,7 +5292,9 @@ ${buildGeoAeoBindingsPhp(input)}
 			$region = ${phpSingleQuoted(orgContact.address?.addressRegion || '')};
 		}
 		$main_file = ${phpSingleQuoted(mainFile)};
-		$schema_meta_image = preg_replace('#^http://#i', 'https://', ${phpSingleQuoted(imageUrl)});
+		$schema_meta_image = function_exists('redue_align_url_protocol')
+			? redue_align_url_protocol(${phpSingleQuoted(imageUrl)})
+			: ${phpSingleQuoted(imageUrl)};
 		$area_served = ${areaServedPhp};
 
 		$request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
@@ -3454,8 +5345,15 @@ ${buildGeoAeoBindingsPhp(input)}
 		}
 
 		$page_meta = ${phpAssocArray(metaEntries)};
+		$seo_meta_map = ${phpStringMap(metaEntries.map(([file, row]) => [file, row.description || '']))};
 
 		$page_schema = ${phpAssocArray(schemaEntries)};
+		$seo_schema_map = $page_schema;
+${buildSchemaPagesPhp(schemaRoutes)}
+		$rel_path = ltrim((string) $page_path, '/');
+		if ( $rel_path !== '' && ( isset($page_meta[$rel_path]) || isset($seo_meta_map[$rel_path]) || isset($seo_schema_map[$rel_path]) ) ) {
+			$page_file = $rel_path;
+		}
 
 		/* Runtime coerce: board.php?bo_table=* → CollectionPage always (FAQPage ban on board lists; Article still guaranteed via auto-fill) */
 		if ( preg_match('/board\\.php\\?bo_table=/', $page_file) ) {
@@ -3488,24 +5386,31 @@ ${buildGeoAeoBindingsPhp(input)}
 		}
 		if ( ! isset($meta['parent']) ) { $meta['parent'] = ''; }
 		if ( ! isset($meta['parent_url']) ) { $meta['parent_url'] = ''; }
+		$page_type = isset($meta['type']) ? $meta['type'] : 'WebPage';
+${buildSchemaPagesResolvePhp()}
+		if ( isset($page_type) && is_string($page_type) && $page_type !== '' ) {
+			$meta['type'] = $page_type;
+		}
 		/* v11 Index Parent Sanitization — main page never has upper hierarchy */
 		if ( $is_main ) {
 			$meta['parent'] = '';
 			$meta['parent_url'] = '';
 		}
 		if ( ! empty($meta['parent_url']) ) {
-			$meta['parent_url'] = preg_replace('#^http://#i', 'https://', $meta['parent_url']);
+			$meta['parent_url'] = function_exists('redue_align_url_protocol') ? redue_align_url_protocol($meta['parent_url']) : $meta['parent_url'];
 		}
-		$types = isset($page_schema[$page_file])
-			? $page_schema[$page_file]
-			: (isset($page_schema[$page_base]) ? $page_schema[$page_base] : array($meta['type'], 'BreadcrumbList'));
+		$types = isset($seo_schema_map[$page_file])
+			? $seo_schema_map[$page_file]
+			: (isset($page_schema[$page_file])
+				? $page_schema[$page_file]
+				: (isset($page_schema[$page_base]) ? $page_schema[$page_base] : array($meta['type'], 'BreadcrumbList')));
 
 		/* v30 Dynamic Canonical Overrider — single source: redue_get_exact_canonical()
 		   (path / + bo_table kept; /index.php → /; never basename-collapse /sub01/index.php) */
 		$schema_meta_canonical = function_exists('redue_get_exact_canonical')
 			? redue_get_exact_canonical()
 			: ( $is_main ? ( $origin . '/' ) : ( $origin . $page_path ) );
-		$schema_meta_canonical = preg_replace('#^http://#i', 'https://', $schema_meta_canonical);
+		$schema_meta_canonical = function_exists('redue_align_url_protocol') ? redue_align_url_protocol($schema_meta_canonical) : $schema_meta_canonical;
 		$GLOBALS['redue_canonical_url'] = $schema_meta_canonical;
 		$page_url = $schema_meta_canonical;
 
@@ -3514,15 +5419,22 @@ ${buildGeoAeoBindingsPhp(input)}
 		if ( ( ! isset($meta['title']) || $meta['title'] === '' || $meta['title'] === $site_name ) && isset($g5_head_title) && $g5_head_title !== '' ) {
 			$schema_meta_title = $g5_head_title;
 		}
-		$schema_meta_description = isset($meta['description']) && $meta['description'] !== '' ? $meta['description'] : $schema_meta_title;
-		/* v12 Description Extender — synthesize 75~150 char optimized meta description */
+		$schema_meta_description = $schema_meta_title;
+		if ( isset($seo_meta_map[$page_file]) && $seo_meta_map[$page_file] !== '' ) {
+			$schema_meta_description = $seo_meta_map[$page_file];
+		} elseif ( isset($seo_meta_map[$page_base]) && $seo_meta_map[$page_base] !== '' ) {
+			$schema_meta_description = $seo_meta_map[$page_base];
+		} elseif ( isset($meta['description']) && $meta['description'] !== '' ) {
+			$schema_meta_description = $meta['description'];
+		}
+		/* v12 Description Extender — pad short copy with page-unique title, not a shared template */
 		$_redue_desc_len = function_exists('mb_strlen') ? mb_strlen($schema_meta_description, 'UTF-8') : strlen($schema_meta_description);
 		if ( $_redue_desc_len < 75 ) {
-			$schema_meta_description = trim($schema_meta_description . ' ' . $site_name . '에서 관련 전문 정보와 상담 안내를 확인하실 수 있습니다.');
+			$schema_meta_description = trim($schema_meta_description . ' ' . $schema_meta_title . ' 페이지에서 ' . $site_name . '의 핵심 안내를 확인하세요.');
 			$_redue_desc_len = function_exists('mb_strlen') ? mb_strlen($schema_meta_description, 'UTF-8') : strlen($schema_meta_description);
 		}
 		if ( $_redue_desc_len < 75 ) {
-			$schema_meta_description = trim($schema_meta_description . ' 방문객에게 신뢰할 수 있는 최신 안내와 전문 상담을 제공합니다.');
+			$schema_meta_description = trim($schema_meta_description . ' ' . $schema_meta_title . ' 관련 이용 방법과 상담 안내를 제공합니다.');
 			$_redue_desc_len = function_exists('mb_strlen') ? mb_strlen($schema_meta_description, 'UTF-8') : strlen($schema_meta_description);
 		}
 		if ( $_redue_desc_len > 150 ) {
@@ -3549,26 +5461,30 @@ ${buildNewsArticleAutoDetectPhp()}
 		}
 
 		echo '<meta name="description" content="' . htmlspecialchars($schema_meta_description, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
-		/* v32: Canonical/og:url HTML tags are injected ONLY by ob_start() (Charset-After First-Chunk after meta charset, else after <head> / before </head>). Direct echo disabled to prevent duplicate tags. */
-		// echo '<link rel="canonical" href="' . htmlspecialchars($schema_meta_canonical, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		/* Native canonical echo — 1회 가드. OB가 <head> 직후로 재배치·중복 제거. */
+		if ( function_exists('redue_echo_canonical_pair') ) { redue_echo_canonical_pair(); }
 		echo '<meta property="og:title" content="' . htmlspecialchars($schema_meta_title, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:description" content="' . htmlspecialchars($schema_meta_description, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
-		// echo '<meta property="og:url" content="' . htmlspecialchars($schema_meta_canonical, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:type" content="' . htmlspecialchars($schema_meta_og_type, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:image" content="' . htmlspecialchars($schema_meta_image, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:site_name" content="' . htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		echo '<meta property="og:locale" content="ko_KR">' . "\\n";
+		echo '<meta name="twitter:card" content="summary_large_image">' . "\\n";
+		echo '<meta name="twitter:title" content="' . htmlspecialchars($schema_meta_title, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta name="twitter:description" content="' . htmlspecialchars($schema_meta_description, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
+		echo '<meta name="twitter:image" content="' . htmlspecialchars($schema_meta_image, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		if ( $schema_meta_og_type === 'article' && $schema_meta_section !== '' ) {
 			echo '<meta property="article:section" content="' . htmlspecialchars($schema_meta_section, ENT_QUOTES, 'UTF-8') . '">' . "\\n";
 		}
 
 		$graph = array();
+		$knows_about = ${knowsAboutPhp};
 
-		if ( $is_main ) {
-			$org_node = array(
+		$org_node = array(
 				'@type' => ${orgTypePhp},
 				'@id' => $origin . '/#organization',
 				'name' => $site_name,
+				'alternateName' => $legal_name !== '' && $legal_name !== $site_name ? $legal_name : $site_name,
 				'legalName' => $legal_name,
 				'url' => $origin,
 				'logo' => array(
@@ -3583,17 +5499,21 @@ ${buildNewsArticleAutoDetectPhp()}
 				'sameAs' => $same_as_array,
 				'geo' => array(
 					'@type' => 'GeoCoordinates',
-					'latitude' => $latitude,
-					'longitude' => $longitude,
+					'latitude' => (float) $latitude,
+					'longitude' => (float) $longitude,
 				),
 				'openingHoursSpecification' => array(
 					array(
 						'@type' => 'OpeningHoursSpecification',
-						'dayOfWeek' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'),
+						'dayOfWeek' => array('Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'),
 						'opens' => $opens,
 						'closes' => $closes,
 					),
 				),
+				'availableService' => $available_services,
+				'priceRange' => $price_range,
+				'currenciesAccepted' => $currencies_accepted,
+				'paymentAccepted' => $payment_accepted,
 				'speakable' => $speakable_spec,
 ${orgContactPhp ? `${orgContactPhp}\n` : ''}				'contactPoint' => array(
 					'@type' => 'ContactPoint',
@@ -3616,20 +5536,22 @@ ${orgContactPhp ? `${orgContactPhp}\n` : ''}				'contactPoint' => array(
 			} elseif ( ! empty($postal_code) && empty($org_node['address']['postalCode']) ) {
 				$org_node['address']['postalCode'] = $postal_code;
 			}
-			if ( $telephone !== '' && empty($org_node['telephone']) ) { $org_node['telephone'] = $telephone; }
+			if ( $telephone !== '' ) { $org_node['telephone'] = $telephone; }
 			if ( $email !== '' && empty($org_node['email']) ) { $org_node['email'] = $email; }
-			if ( $telephone === '' ) { unset($org_node['telephone']); }
 			if ( $email === '' ) { unset($org_node['email']); }
+${buildRuntimeNapBindPhp('org_node')}
 ${buildOrgFounderPhysicianPhp('\t\t\t')}
-			$graph[] = $org_node;
-			$graph[] = array(
-				'@type' => 'WebSite',
-				'@id' => $origin . '/#website',
-				'name' => $site_name,
-				'url' => $origin,
-				'publisher' => array('@id' => $origin . '/#organization'),
-				'inLanguage' => 'ko-KR',
-			);
+${buildUniversalOrgFiveCoreBindPhp('\t\t\t')}
+		$graph[] = $org_node;
+		$graph[] = array(
+			'@type' => 'WebSite',
+			'@id' => $origin . '/#website',
+			'name' => $site_name,
+			'url' => $origin,
+			'publisher' => array('@id' => $origin . '/#organization'),
+			'inLanguage' => 'ko-KR',
+		);
+		if ( $is_main ) {
 			$graph[] = array(
 				'@type' => 'ItemList',
 				'@id' => $origin . '/#gnb',
@@ -3645,8 +5567,11 @@ ${mainBucketPhp}
 				'url' => $schema_meta_image,
 				'caption' => $site_name,
 			);
+			$_main_page_types = function_exists('redue_composite_page_types')
+				? redue_composite_page_types(true, $meta['type'])
+				: 'WebPage';
 			$graph[] = array(
-				'@type' => $meta['type'],
+				'@type' => $_main_page_types,
 				'@id' => $page_url . '#webpage',
 				'name' => $meta['title'],
 				'headline' => $meta['h1'],
@@ -3654,9 +5579,14 @@ ${mainBucketPhp}
 				'url' => $page_url,
 				'isPartOf' => array('@id' => $origin . '/#website'),
 				'about' => array('@id' => $origin . '/#organization'),
+				'mainEntity' => array('@id' => $origin . '/#organization'),
+				'hasPart' => array(
+${hasPartPhp}
+				),
+				'author' => array('@id' => $origin . '/#person'),
 				'primaryImageOfPage' => array('@id' => $origin . '/#primaryimage'),
 			);
-			if ( $meta['type'] === 'MedicalWebPage' ) {
+			if ( $meta['type'] === 'MedicalWebPage' || ( is_array($_main_page_types) && in_array('MedicalWebPage', $_main_page_types, true) ) ) {
 				$graph[count($graph) - 1]['reviewedBy'] = array('@id' => $origin . '/#person');
 				$graph[count($graph) - 1]['speakable'] = $speakable_spec;
 			}
@@ -3718,30 +5648,40 @@ ${mainBucketPhp}
 				'itemListElement' => $crumb_items,
 			);
 
+			$_sub_is_about = (bool) preg_match('/소개|인사말|시설|장비|about|company|greeting|연혁|조직도|개요/ui', (isset($meta['title']) ? $meta['title'] : '') . ' ' . (isset($meta['section']) ? $meta['section'] : '') . ' ' . $page_url);
+			$_sub_page_types = function_exists('redue_composite_page_types')
+				? redue_composite_page_types(false, $meta['type'], $_sub_is_about)
+				: ( $_sub_is_about ? 'AboutPage' : $meta['type'] );
 			$page_node = array(
-				'@type' => $meta['type'],
+				'@type' => $_sub_page_types,
 				'@id' => $page_url . '#webpage',
 				'name' => $meta['title'],
 				'headline' => $meta['h1'],
 				'description' => $meta['description'],
 				'url' => $page_url,
-				'isPartOf' => array('@type' => 'WebSite', 'url' => $origin, 'name' => $site_name),
+				'isPartOf' => array('@id' => $origin . '/#website'),
+				'about' => array('@id' => $origin . '/#organization'),
+				'mainEntity' => array('@id' => $origin . '/#organization'),
 				'breadcrumb' => array('@id' => $page_url . '#breadcrumb'),
+				'author' => array('@id' => $origin . '/#person'),
 			);
-			if ( ! empty($meta['parent']) ) {
-				$page_node['isPartOf'] = array(
-					array('@type' => 'WebSite', 'url' => $origin, 'name' => $site_name),
-					array(
-						'@type' => 'CollectionPage',
-						'name' => $meta['parent'],
-						'url' => ! empty($meta['parent_url']) ? $meta['parent_url'] : ($origin . '/'),
-					),
-				);
-			}
 			$graph[] = $page_node;
 			if ( $meta['type'] === 'MedicalWebPage' ) {
 				$graph[count($graph) - 1]['reviewedBy'] = array('@id' => $origin . '/#person');
 				$graph[count($graph) - 1]['speakable'] = $speakable_spec;
+			}
+			/* Rule 5: detail service/treatment page → Service|MedicalProcedure node, mainEntity-linked. */
+			$_is_sub_service_page = ( $_sub_page_types === 'MedicalWebPage' || $_sub_page_types === 'WebPage' ) && ! $_sub_is_about;
+			if ( $_is_sub_service_page ) {
+				$_is_medical_org_sub = function_exists('redue_is_medical_org') && redue_is_medical_org();
+				$graph[] = array(
+					'@type' => $_is_medical_org_sub ? 'MedicalProcedure' : 'Service',
+					'@id' => $page_url . '#service',
+					'name' => $meta['title'],
+					'url' => $page_url,
+					'provider' => array('@id' => $origin . '/#organization'),
+				);
+				$graph[count($graph) - 2]['mainEntity'] = array('@id' => $page_url . '#service');
 			}
 
 			if ( in_array('ItemList', $types, true) || $meta['type'] === 'ItemList' ) {
@@ -3759,22 +5699,6 @@ ${mainBucketPhp}
 					),
 				);
 			}
-			if ( in_array('HowTo', $types, true) ) {
-				$graph[] = array(
-					'@type' => 'HowTo',
-					'@id' => $page_url . '#howto',
-					'name' => $meta['h1'],
-					'description' => $meta['description'],
-					'step' => array(
-						array(
-							'@type' => 'HowToStep',
-							'position' => 1,
-							'name' => $meta['title'],
-							'text' => $meta['description'] !== '' ? $meta['description'] : $meta['h1'],
-						),
-					),
-				);
-			}
 		}
 
 		/*
@@ -3787,91 +5711,15 @@ ${mainBucketPhp}
 		 */
 		$is_board_list = ( $meta['type'] === 'CollectionPage' || preg_match('/board\\.php\\?bo_table=/', $page_file) );
 
-		/* FAQPage — $GLOBALS['schema_faq_items'] preferred (subpage bind); else v30 universal default Q&A */
-		$faq_items = null;
-		if ( isset($GLOBALS['schema_faq_items']) && is_array($GLOBALS['schema_faq_items']) && count($GLOBALS['schema_faq_items']) > 0 ) {
-			$faq_items = $GLOBALS['schema_faq_items'];
-		} elseif ( isset($schema_faq_items) && is_array($schema_faq_items) && count($schema_faq_items) > 0 ) {
-			$faq_items = $schema_faq_items;
-		}
-		/* v14 Schema Auto-Filler — [v30] UNIVERSAL: default FAQPage Q&A on EVERY non-board page. */
-		if ( ( ! is_array($faq_items) || count($faq_items) === 0 ) && ! $is_board_list ) {
-			$faq_items = array(
-				array(
-					'q' => $schema_meta_title . ' 관련 안내 및 상담은 어떻게 신청하나요?',
-					'a' => $site_name . ' 공식 웹사이트(' . $origin . ')의 안내 메뉴와 문의 창구를 통해 상세한 전문 안내를 받으실 수 있습니다.',
-				),
-				array(
-					'q' => $site_name . ' 서비스 이용 문의처는 어디인가요?',
-					'a' => '웹사이트 상단 고객센터 및 온라인 게시판을 통해 언제든지 문의 남겨주시면 빠르게 답변해 드립니다.',
-				),
-			);
-		}
-		if ( is_array($faq_items) && ! $is_board_list ) {
-			$faq_entities = array();
-			foreach ( $faq_items as $fi ) {
-				if ( ! is_array($fi) ) { continue; }
-				$q = '';
-				$a = '';
-				if ( isset($fi['q']) ) { $q = $fi['q']; }
-				elseif ( isset($fi['question']) ) { $q = $fi['question']; }
-				elseif ( isset($fi['name']) ) { $q = $fi['name']; }
-				if ( isset($fi['a']) ) { $a = $fi['a']; }
-				elseif ( isset($fi['answer']) ) { $a = $fi['answer']; }
-				elseif ( isset($fi['text']) ) { $a = $fi['text']; }
-				$q = is_string($q) ? trim($q) : '';
-				$a = is_string($a) ? trim($a) : '';
-				if ( $q === '' || $a === '' ) { continue; }
-				$faq_entities[] = array(
-					'@type' => 'Question',
-					'name' => $q,
-					'acceptedAnswer' => array(
-						'@type' => 'Answer',
-						'text' => $a,
-					),
-				);
-			}
-			if ( count($faq_entities) > 0 ) {
-				$graph[] = array(
-					'@type' => 'FAQPage',
-					'@id' => $page_url . '#faq',
-					'url' => $page_url,
-					'mainEntity' => $faq_entities,
-				);
-			}
+		/* FAQPage — live bind or page-body extract only. Empty data → skip node entirely. */
+		if ( ! $is_board_list ) {
+${buildEvidenceFaqInjectPhp('page_url')}
 		}
 
-		/* Person E-E-A-T — $rep_name / $GLOBALS['schema_person'] preferred; else {site_name} 의료진/연구팀 */
-		$person = null;
-		if ( isset($GLOBALS['schema_person']) && is_array($GLOBALS['schema_person']) ) {
-			$person = $GLOBALS['schema_person'];
-		} elseif ( isset($schema_person) && is_array($schema_person) ) {
-			$person = $schema_person;
-		}
-		$person_eeat_name = ( is_string($rep_name) && $rep_name !== '' )
-			? $rep_name
-			: ( is_array($person) && ! empty($person['name']) ? $person['name'] : ( $site_name . ' 의료진/연구팀' ) );
-		$person_eeat_title = ( is_string($rep_title) && $rep_title !== '' )
-			? $rep_title
-			: ( is_array($person) && ! empty($person['jobTitle']) ? $person['jobTitle'] : '의료 코디네이터 / 전문 연구팀' );
-		$person_url = ( is_array($person) && ! empty($person['url']) )
-			? preg_replace('#^http://#i', 'https://', $person['url'])
-			: $page_url;
-		$person_node = array(
-			'@type' => 'Person',
-			'@id' => $origin . '/#person',
-			'name' => $person_eeat_name,
-			'url' => $person_url,
-			'jobTitle' => $person_eeat_title,
-			'worksFor' => array(
-				'@id' => $origin . '/#organization',
-			),
-		);
-		if ( is_array($person) && ! empty($person['image']) ) {
-			$person_node['image'] = preg_replace('#^http://#i', 'https://', $person['image']);
-		}
-		if ( is_array($person) && ! empty($person['description']) ) { $person_node['description'] = $person['description']; }
-		$graph[] = $person_node;
+${buildHowToAutoInjectPhp()}
+		/* Person E-E-A-T — $rep_name / $GLOBALS['schema_person'] preferred; else {site_name} 대표 */
+${buildPersonEeatNodePhp()}
+${buildUniversalBreadcrumbEnsurePhp({ canonicalVar: 'page_url', titleVar: 'schema_meta_title' })}
 
 		/* Article / NewsArticle — $GLOBALS['schema_article'] preferred; else v30/v31 auto-fill (NewsArticle on news/press) */
 		$article = null;
@@ -3913,7 +5761,7 @@ ${mainBucketPhp}
 					'url' => $origin,
 					'logo' => array(
 						'@type' => 'ImageObject',
-						'url' => $schema_meta_image !== '' ? $schema_meta_image : ( $origin . '/logo.png' ),
+						'url' => $schema_meta_image !== '' ? $schema_meta_image : '',
 					),
 				),
 			);
@@ -3967,7 +5815,7 @@ ${mainBucketPhp}
 					'url' => $origin,
 					'logo' => array(
 						'@type' => 'ImageObject',
-						'url' => $schema_meta_image !== '' ? $schema_meta_image : ( $origin . '/logo.png' ),
+						'url' => $schema_meta_image !== '' ? $schema_meta_image : '',
 					),
 				),
 				'reviewedBy' => array('@id' => $origin . '/#person'),
@@ -3981,7 +5829,7 @@ ${mainBucketPhp}
 			'@graph' => $graph,
 		);
 		echo '<script type="application/ld+json">' . "\\n" .
-			json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT) .
+			json_encode($payload, function_exists('redue_jsonld_flags') ? redue_jsonld_flags() : (JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT)) .
 			"\\n" . '</script>' . "\\n";
 
 		/* v14 JS Alt Auto-Fixer — common header bottom; empty/missing img[alt] → $site_name */
@@ -3993,7 +5841,7 @@ ${mainBucketPhp}
 }
 redue_dynamic_schema_controller();
 /* ${REDUE_SCHEMA_MARKER_END} */
-?>`;
+?>`);
 }
 
 /**
@@ -4028,15 +5876,18 @@ export function generateDynamicPhpSchema(
 		streetAddress?: string;
 		addressLocality?: string;
 		addressRegion?: string;
+		telephone?: string;
+		fax?: string;
+		taxId?: string;
 	},
 ): string {
 	// SchemaMappingJson path (LLM compact output)
 	if ('pages' in mappingOrInput && !Array.isArray((mappingOrInput as DynamicPhpSchemaInput).pages)) {
 		const mapping = parseSchemaMappingJson(mappingOrInput) || (mappingOrInput as SchemaMappingJson);
 		const siteName = siteOpts?.siteName || mapping.siteName || 'Site';
-		return buildDynamicPhpSchemaController({
+		return sanitizeGeneratedPhpSnippet(buildDynamicPhpSchemaController({
 			siteName,
-			targetUrl: siteOpts?.targetUrl ? enforceHttps(siteOpts.targetUrl) : undefined,
+			targetUrl: siteOpts?.targetUrl || undefined,
 			pages: schemaMappingToAuditPages(mapping),
 			industryType: siteOpts?.industryType,
 			cmsType: siteOpts?.cmsType,
@@ -4060,12 +5911,15 @@ export function generateDynamicPhpSchema(
 			streetAddress: siteOpts?.streetAddress,
 			addressLocality: siteOpts?.addressLocality,
 			addressRegion: siteOpts?.addressRegion,
+			telephone: siteOpts?.telephone,
+			fax: siteOpts?.fax,
+			taxId: siteOpts?.taxId,
 			mappingJson: mapping,
-		});
+		}));
 	}
 
 	const input = mappingOrInput as DynamicPhpSchemaInput;
-	return buildDynamicPhpSchemaController({
+	return sanitizeGeneratedPhpSnippet(buildDynamicPhpSchemaController({
 		...input,
 		siteName: siteOpts?.siteName || input.siteName,
 		targetUrl: siteOpts?.targetUrl ?? input.targetUrl,
@@ -4091,12 +5945,39 @@ export function generateDynamicPhpSchema(
 		streetAddress: siteOpts?.streetAddress ?? input.streetAddress,
 		addressLocality: siteOpts?.addressLocality ?? input.addressLocality,
 		addressRegion: siteOpts?.addressRegion ?? input.addressRegion,
-	});
+		telephone: siteOpts?.telephone ?? input.telephone,
+		fax: siteOpts?.fax ?? input.fax,
+		taxId: siteOpts?.taxId ?? input.taxId,
+	}));
+}
+
+/**
+ * Schema Injector Generator — CMS-agnostic public entry.
+ * Emits the complete auto-injection PHP (protocol helpers + `$GLOBALS` interface
+ * + Organization 5-core + Person KG + WebSite/WebPage + BreadcrumbList +
+ * evidence-only HowTo/FAQPage) for Gnuboard, Youngcart, WordPress, Rhymix, or standalone PHP.
+ */
+export function generateSchemaInjector(
+	input: DynamicPhpSchemaInput,
+	siteOpts?: Parameters<typeof generateDynamicPhpSchema>[1],
+): string {
+	return generateDynamicPhpSchema(input, siteOpts);
 }
 
 /** Remove previously injected REDUE schema blocks (PHP or HTML comment wrappers). */
 export function stripRedueSchemaBlocks(source: string): string {
 	let out = String(source || '');
+	// Render-call block (Phase 2 of the 2-phase injection) must be stripped BEFORE the
+	// engine block below, otherwise its outer `REDUE_AI_STUDIO_RENDER:START` text would
+	// never match the (narrower) engine-only regexes and would survive re-patch as a stale dup.
+	out = out.replace(
+		/<\?php\s*\/\*\s*REDUE_AI_STUDIO_RENDER:START[\s\S]*?REDUE_AI_STUDIO_RENDER:END\s*\*\/\s*\?>\s*/gi,
+		'',
+	);
+	out = out.replace(
+		/\/\*\s*REDUE_AI_STUDIO_RENDER:START[\s\S]*?REDUE_AI_STUDIO_RENDER:END\s*\*\//gi,
+		'',
+	);
 	out = out.replace(
 		/<\?php\s*\/\*\s*REDUE_AI_STUDIO:START[\s\S]*?REDUE_AI_STUDIO:END\s*\*\/\s*\?>\s*/gi,
 		'',
@@ -4165,6 +6046,26 @@ export function stripHardcodedMetaEchoes(source: string): string {
 	return out;
 }
 
+/** Drop orphan `">` left when a PHP-in-attribute `<meta>` was cut at `?>`. */
+export function stripOrphanMetaClosers(source: string): string {
+	return String(source || '').replace(/^[ \t]*"\s*>[ \t]*\r?\n?/gm, '');
+}
+
+/**
+ * Remove theme `<meta name|property="…">` copies the engine emits dynamically.
+ * PHP-aware so `content="<?php echo $x; ?>">` does not leave leftover `">`.
+ */
+export function stripHardcodedHtmlMetas(
+	source: string,
+	keys: readonly string[] = HARDCODED_HTML_META_KEYS,
+): string {
+	const keySet = new Set(keys.map((k) => k.toLowerCase()));
+	return String(source || '').replace(phpAwareMetaTagRe(), (tag) => {
+		const key = htmlTagAttrValue(tag, 'property') || htmlTagAttrValue(tag, 'name');
+		return key && keySet.has(key) ? '' : tag;
+	});
+}
+
 /**
  * Smart Clean (v20/v17, v26 build-time only): remove static / theme-default canonical + og:url
  * tags and the PHP echo lines that emit them. Since v26 has no ob_start() runtime cleaner
@@ -4173,10 +6074,14 @@ export function stripHardcodedMetaEchoes(source: string): string {
  */
 export function stripHardcodedCanonicalTags(source: string): string {
 	let out = String(source || '');
-	// HTML <link rel="canonical" …> (any attribute order)
-	out = out.replace(/<link\b(?=[^>]*\brel\s*=\s*["']canonical["'])[^>]*>\s*/gi, '');
-	// HTML <meta property="og:url" …> (any attribute order) — kept in sync with canonical
-	out = out.replace(/<meta\b(?=[^>]*\bproperty\s*=\s*["']og:url["'])[^>]*>\s*/gi, '');
+	// HTML <link rel="canonical" …> (PHP-aware — quoted or unquoted rel)
+	out = out.replace(phpAwareLinkTagRe(), (tag) =>
+		/\brel\s*=\s*["']?canonical["']?/i.test(tag) ? '' : tag,
+	);
+	// HTML <meta property="og:url" …> — kept in sync with canonical
+	out = out.replace(phpAwareMetaTagRe(), (tag) =>
+		htmlTagAttrValue(tag, 'property') === 'og:url' ? '' : tag,
+	);
 	// PHP echo lines that print a canonical link or og:url meta
 	out = out.replace(
 		/^[ \t]*echo\s+[^;\n]*rel\s*=\s*(?:\\?["'])canonical(?:\\?["'])[^;\n]*;[ \t]*\r?\n?/gim,
@@ -4191,12 +6096,39 @@ export function stripHardcodedCanonicalTags(source: string): string {
 }
 
 /**
- * Pre-inject cleanup for the v26 no-OB pipeline: strip prior REDUE blocks, then strip any
- * static/theme-default canonical + og:url tags so the direct engine's echo is never duplicated
- * (there is no runtime buffer cleaner anymore to catch this at the end of the request).
+ * Phase 3: keep only the FIRST literal `<title>…</title>` in a static header template
+ * so a theme-hardcoded title never fights with a second title tag echoed elsewhere.
+ * PHP-aware (`<?php echo $x; ?>` inside the title body does not break the match) and
+ * skips `<title>` occurrences nested inside `<?php … ?>` string literals.
  */
-export function prepareHeadSourceForInject(source: string): string {
-	return stripHardcodedCanonicalTags(stripRedueSchemaBlocks(source));
+export function stripDuplicateTitleTags(source: string): string {
+	const re = /<title\b[^>]*>(?:[^<]|<(?!\/title>))*?<\/title>/gi;
+	let seen = false;
+	return String(source || '').replace(re, (match) => {
+		if (seen) return '';
+		seen = true;
+		return match;
+	});
+}
+
+/**
+ * Pre-inject cleanup: prior REDUE blocks, stale canonical/og:url, theme description/OG
+ * metas (PHP-aware), PHP echo duplicates, duplicate `<title>` tags, and leftover `">` closers.
+ */
+export function prepareHeadSourceForInject(source: string, targetPath?: string): string {
+	let out = stripRedueSchemaBlocks(source);
+	if (isGnuboardHeadSubPath(targetPath) || /function\s+redue_/.test(out)) {
+		out = stripOrphanedReduePhpFunctions(out);
+	}
+	if (isGnuboardThemeRelativePath(targetPath)) {
+		out = stripGnuboardThemeSelfDelegation(out);
+	}
+	out = stripHardcodedCanonicalTags(out);
+	out = stripHardcodedMetaEchoes(out);
+	out = stripHardcodedHtmlMetas(out);
+	out = stripDuplicateTitleTags(out);
+	out = stripOrphanMetaClosers(out);
+	return cleanPhpTemplate(out.replace(/\n{3,}/g, '\n\n'));
 }
 
 /** True when target path should receive the dynamic PHP controller (not static JSON-LD). */
@@ -4225,7 +6157,7 @@ export function pagesFromAuditPaths(opts: {
 	mainH1?: string;
 	industryType?: string;
 	pageTypes?: string[];
-	navItems?: Array<{ name: string; url: string }>;
+	navItems?: Array<{ name: string; url: string; menu1?: string; menu2?: string; parent?: string }>;
 	/** Live-crawled per-URL title/h1 overrides (content-scoped). */
 	crawledPages?: CrawledPageMetaHint[];
 }): AuditPageMeta[] {
@@ -4237,9 +6169,22 @@ export function pagesFromAuditPaths(opts: {
 		if (key) crawledByKey.set(key.toLowerCase(), c);
 	}
 
-	const paths = [...(opts.collectedUrlPaths || [])];
-	for (const c of opts.crawledPages || []) {
-		if (c.urlPath && !paths.includes(c.urlPath)) paths.push(c.urlPath);
+	const navPaths = (opts.navItems || [])
+		.map((n) => String(n.url || '').trim().split('#')[0] || '')
+		.filter(Boolean);
+	const preferGnb = navPaths.length > 0;
+	const paths = preferGnb ? [...navPaths] : [...(opts.collectedUrlPaths || [])];
+	if (!preferGnb) {
+		for (const c of opts.crawledPages || []) {
+			if (c.urlPath && !paths.includes(c.urlPath)) paths.push(c.urlPath);
+		}
+	} else {
+		for (const c of opts.crawledPages || []) {
+			if (!c.urlPath || paths.includes(c.urlPath)) continue;
+			const crawledKey = (sanitizePageFileKey(c.urlPath) || '').toLowerCase();
+			const inNav = navPaths.some((href) => (sanitizePageFileKey(href) || '').toLowerCase() === crawledKey);
+			if (inNav) paths.push(c.urlPath);
+		}
 	}
 	if (opts.targetUrl) {
 		try {
@@ -4313,7 +6258,8 @@ export function pagesFromAuditPaths(opts: {
 
 		const crawled = crawledByKey.get(key);
 		const isMain = key === 'index.php' || key === 'index.html' || key === 'index.htm' || isRoot;
-		const navName = findNavNameForFile(file, opts.navItems);
+		const navHit = findNavItemForFile(file, opts.navItems);
+		const navName = navHit?.name.trim();
 		const crawledTitle = rejectPagingTitle(crawled?.title);
 		const crawledH1 = rejectPagingTitle(crawled?.h1);
 		const crawledDesc = (crawled?.description || '').trim();
@@ -4333,15 +6279,20 @@ export function pagesFromAuditPaths(opts: {
 		const pageType = isMain
 			? 'WebPage'
 			: refineAssignedPageType(file, inferred, pathTitle, crawledH1 || crawledTitle || navName || '');
+		const inferredMenus = inferMenuLabels(urlPath, pageType, crawledH1 || crawledTitle || navName || pathTitle);
 		const menus = isMain
 			? { menu1: '', menu2: '' }
-			: inferMenuLabels(urlPath, pageType, crawledH1 || crawledTitle || navName || pathTitle);
+			: {
+					menu1: navHit?.menu1 || navHit?.parent || inferredMenus.menu1,
+					menu2: navHit?.menu2 || inferredMenus.menu2,
+				};
+		const hierarchyTitle = formatGnbHierarchyTitle(menus.menu1, menus.menu2);
 		const title = isMain
 			? safeMainTitle
 			: resolveHumanPageTitle({
 					file,
 					title: pathTitle,
-					section: crawledTitle || menus.menu1,
+					section: crawledTitle || menus.menu2 || menus.menu1,
 					menu1: menus.menu1,
 					menu2: menus.menu2,
 					navName,
@@ -4351,13 +6302,15 @@ export function pagesFromAuditPaths(opts: {
 				});
 		const section = isMain
 			? site
-			: resolveSection({
-					section: crawledH1 || crawledTitle || menus.menu1,
-					menu1: menus.menu1,
-					menu2: menus.menu2,
-					title,
-					navName,
-				});
+			: hierarchyTitle.includes(' > ')
+				? hierarchyTitle
+				: resolveSection({
+						section: crawledH1 || crawledTitle || menus.menu1,
+						menu1: menus.menu1,
+						menu2: menus.menu2,
+						title,
+						navName,
+					});
 		const h1 = isMain
 			? safeMainH1
 			: crawledH1 || title;
@@ -4369,30 +6322,49 @@ export function pagesFromAuditPaths(opts: {
 				? urlPath.split('#')[0]!
 				: `/${file}`;
 
-		pages.push({
-			urlPath: hrefForMeta,
-			title,
-			description: isMain
-				? extendMetaDescription(opts.mainDescription || '', site, safeMainTitle)
-				: fallbackDescription(title, site, pageDesc),
-			h1,
-			pageType: finalType,
-			extraTypes: isMain
-				? opts.pageTypes
-						?.slice(1)
-						.filter(
-							(t) =>
-								!NON_PAGE_SCHEMA_TYPES.has(t) &&
-								t !== 'FAQPage' &&
-								t !== 'Article' &&
-								t !== 'MedicalWebPage' &&
-								t !== 'WebPage',
-						)
-				: undefined,
-			section,
-			menu1: menus.menu1 || undefined,
-			menu2: menus.menu2 || undefined,
-		});
+		pages.push(
+			hydrateSolvePageMeta(
+				{
+					urlPath: hrefForMeta,
+					title,
+					description: isMain
+						? extendMetaDescription(opts.mainDescription || '', site, safeMainTitle)
+						: fallbackDescription(title, site, pageDesc, {
+								url: hrefForMeta,
+								gnb: [hierarchyTitle, navName, menus.menu1, menus.menu2, section]
+									.filter(Boolean)
+									.join(' '),
+								industryType: industry,
+								mainDescription: mainDesc,
+							}),
+					h1,
+					pageType: finalType,
+					extraTypes: isMain
+						? opts.pageTypes
+								?.slice(1)
+								.filter(
+									(t) =>
+										!NON_PAGE_SCHEMA_TYPES.has(t) &&
+										t !== 'FAQPage' &&
+										t !== 'Article' &&
+										t !== 'MedicalWebPage' &&
+										t !== 'WebPage',
+								)
+						: undefined,
+					section,
+					menu1: menus.menu1 || undefined,
+					menu2: menus.menu2 || undefined,
+					fromGnb: Boolean(navHit) || isMain,
+				},
+				{
+					siteName: site,
+					mainTitle: safeMainTitle,
+					mainDescription: mainDesc,
+					industryType: industry,
+					navItems: opts.navItems,
+				},
+			),
+		);
 	}
 
 	return pages;

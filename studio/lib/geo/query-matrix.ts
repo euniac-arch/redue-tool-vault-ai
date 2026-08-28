@@ -6,7 +6,7 @@
  * include at least one category noun.
  */
 
-import { extractValidSpecialties, isUiStopword } from '@/lib/geo/clean-medical-entities';
+import { extractValidSpecialties, isUiStopword, stripUiStopwords } from '@/lib/geo/clean-medical-entities';
 import {
 	classifyMetaKeywords,
 	collectBrandEntities,
@@ -16,6 +16,17 @@ import {
 } from '@/lib/geo/brand-entities';
 import { extractCoreSpecialties } from '@/lib/geo/core-specialties';
 import { formatColloquialLocation } from '@/lib/geo/query-location';
+import {
+	composeSearchQuery,
+	dedupeQueryTokens,
+	extractAnimalTypeTokens,
+	extractHourIntent,
+	extractIndustrySearchNoun,
+	extractMetaQueryTokens,
+	isAnimalTypeToken,
+	isIndustryToken,
+	tokenizeSearchPhrase,
+} from '@/lib/geo/search-query-normalize';
 
 export type QueryMatrixLang = 'ko' | 'en';
 
@@ -73,6 +84,12 @@ export interface KeywordSlots {
 	intentModifiers: string[];
 	/** Colloquial geo token; omitted when NAP / meta has no place. */
 	location?: string;
+	/** Colloquial industry noun for search queries (동물병원, 치과, 에이전시). */
+	industryNoun?: string;
+	/** On-page hour intent such as 24시 — never invented. */
+	hourIntent?: string;
+	/** On-page animal-type modifiers (강아지, 고양이). */
+	animalTypes?: string[];
 }
 
 export interface QueryMatrix {
@@ -128,7 +145,7 @@ const SCHEMA_TYPE_NOUN: Record<string, { ko: string; en: string; generic?: boole
 	MedicalClinic: { ko: '의원', en: 'medical clinic', generic: true },
 	Physician: { ko: '병원', en: 'physician practice', generic: true },
 	Hospital: { ko: '병원', en: 'hospital', generic: true },
-	VeterinaryCare: { ko: '반려동물 병원', en: 'pet hospital' },
+	VeterinaryCare: { ko: '동물병원', en: 'pet hospital' },
 	Pharmacy: { ko: '약국', en: 'pharmacy' },
 	BeautySalon: { ko: '뷰티 살롱', en: 'beauty salon' },
 	HairSalon: { ko: '헤어 살롱', en: 'hair salon' },
@@ -149,8 +166,7 @@ const SCHEMA_TYPE_NOUN: Record<string, { ko: string; en: string; generic?: boole
 	ProfessionalService: { ko: '에이전시', en: 'agency' },
 };
 
-const BIZ_TYPE_NOUN_RE = /에이전시|의원|병원|치과|클리닉|학원|salon|agency|clinic|hospital|dental/i;
-const LOCAL_VERTICAL_RE = /치과|의원|병원|피부과|한의원|클리닉|도수|추나|재활|정형|임플란트|dental|clinic|therapy|ortho/i;
+const BIZ_TYPE_NOUN_RE = /에이전시|의원|동물병원|병원|치과|클리닉|학원|salon|agency|clinic|hospital|dental/i;
 
 function clean(value: unknown, max = 60): string {
 	if (typeof value !== 'string') return '';
@@ -270,18 +286,22 @@ export function refineCategoryNouns(
 	const scored = new Map<string, { phrase: string; score: number }>();
 
 	for (const token of raw) {
-		const stripped = stripBrandAndLocation(clean(token, 40), brand, location);
+		const stripped = stripUiStopwords(stripBrandAndLocation(clean(token, 40), brand, location));
 		if (stripped.length < 2) continue;
+		if (tokenizeSearchPhrase(stripped).length > 3) continue;
 		if (isUiStopword(stripped) || GENERIC_NOUNS.has(stripped.toLowerCase())) continue;
 		if (isIntentOnly(stripped, lang)) continue;
 		if (looksLikeLocation(stripped, location)) continue;
+		if (isAnimalTypeToken(stripped)) continue;
+		if (/^24\s*시$|24시간|연중무휴|응급$/i.test(stripped)) continue;
 		if (brand && fold(stripped) === fold(brand)) continue;
 		if (entities && isBrandStopword(stripped, entities)) continue;
 		if (!/[가-힣]{2,}/.test(stripped) && !/^[A-Za-z][A-Za-z0-9 &\-/]{2,30}$/.test(stripped)) continue;
 
 		const key = fold(stripped);
 		const prior = scored.get(key);
-		const score = stripped.length + (/[가-힣]{2,}/.test(stripped) ? 4 : 0);
+		const tokenCount = tokenizeSearchPhrase(stripped).length;
+		const score = (/[가-힣]{2,}/.test(stripped) ? 8 : 2) + (tokenCount === 1 ? 3 : 0) + Math.min(stripped.length, 10);
 		if (!prior || score > prior.score) scored.set(key, { phrase: stripped, score });
 	}
 
@@ -362,12 +382,18 @@ function resolveLocation(data: SiteAuditData): string | undefined {
 }
 
 function joinQuery(...parts: Array<string | undefined>): string {
-	return parts
-		.map((part) => clean(part, 80))
-		.filter(Boolean)
-		.join(' ')
-		.replace(/\s+/g, ' ')
-		.trim();
+	const seen = new Set<string>();
+	const out: string[] = [];
+	for (const part of parts) {
+		const value = stripUiStopwords(clean(part, 80));
+		if (!value) continue;
+		const key = fold(value);
+		if (seen.has(key)) continue;
+		if (out.some((existing) => fold(existing).includes(key) && key.length >= 2)) continue;
+		seen.add(key);
+		out.push(value);
+	}
+	return out.join(' ').replace(/\s+/g, ' ').trim();
 }
 
 /** True when the query contains at least one category noun (never intent-only). */
@@ -432,15 +458,20 @@ export function extractKeywordSlots(siteAuditData: SiteAuditData | null | undefi
 		lang,
 	});
 
-	const morphPool = [
-		...tokenizeTitleNouns(data.ogTitle || ''),
-		...tokenizeTitleNouns(data.title || ''),
-		...tokenizeTitleNouns(data.metaKeywords || ''),
-		...(data.h1Texts ?? []).flatMap((h) => tokenizeTitleNouns(h)),
-	];
+	const metaTokens = extractMetaQueryTokens({
+		title: data.title,
+		ogTitle: data.ogTitle,
+		metaDescription: data.metaDescription,
+		ogDescription: data.ogDescription,
+		metaKeywords: data.metaKeywords,
+	});
+	const metaCorpus = [data.title, data.ogTitle, data.metaDescription, data.ogDescription, data.metaKeywords]
+		.filter(Boolean)
+		.join(' ');
 
 	const categoryNouns = refineCategoryNouns(
 		[
+			...metaTokens,
 			...classified.categoryNouns,
 			...extractServicePhrases(data.metaDescription),
 			...extractServicePhrases(data.ogDescription),
@@ -454,17 +485,31 @@ export function extractKeywordSlots(siteAuditData: SiteAuditData | null | undefi
 			data.category,
 			...(data.entityPhrases ?? []),
 			...(data.schemaKnowsAbout ?? []),
-			...(data.navMenuTexts ?? []),
-			...morphPool,
+			...tokenizeTitleNouns(data.title || ''),
+			...tokenizeTitleNouns(data.ogTitle || ''),
+			...tokenizeTitleNouns(data.metaKeywords || ''),
 		],
 		{ brandName, location, lang, limit: 8, brandEntities },
 	);
+
+	const industryNoun = extractIndustrySearchNoun({
+		brandName,
+		schemaTypes,
+		categoryNouns,
+		primaryKeyword: data.primaryKeyword,
+		lang,
+	});
+	const hourIntent = extractHourIntent([...metaCorpus, ...(data.needSignals ?? [])].join(' '), lang);
+	const animalTypes = extractAnimalTypeTokens(metaCorpus, lang);
 
 	return {
 		brandName,
 		categoryNouns,
 		intentModifiers: [...intentSet(lang)],
 		...(location ? { location } : {}),
+		...(industryNoun ? { industryNoun } : {}),
+		...(hourIntent ? { hourIntent } : {}),
+		...(animalTypes.length ? { animalTypes } : {}),
 	};
 }
 
@@ -508,10 +553,8 @@ function assembleLevel3(slots: KeywordSlots, lang: QueryMatrixLang): string[] {
 	return out;
 }
 
-function preferLocalPrefix(nouns: readonly string[], location?: string): string {
-	if (!location) return '';
-	const corpus = nouns.join(' ');
-	return LOCAL_VERTICAL_RE.test(corpus) ? location : '';
+function preferLocalPrefix(_nouns: readonly string[], location?: string): string {
+	return location || '';
 }
 
 function complementaryNouns(nouns: readonly string[], limit = 3): string[] {
@@ -526,8 +569,9 @@ function complementaryNouns(nouns: readonly string[], limit = 3): string[] {
 	return out;
 }
 
-function pickIndustryNoun(nouns: readonly string[]): string {
-	return nouns.find((noun) => BIZ_TYPE_NOUN_RE.test(noun)) || nouns[0] || '';
+function pickIndustryNoun(nouns: readonly string[], preferred?: string): string {
+	if (preferred && (BIZ_TYPE_NOUN_RE.test(preferred) || isIndustryToken(preferred))) return preferred;
+	return nouns.find((noun) => BIZ_TYPE_NOUN_RE.test(noun)) || preferred || nouns[0] || '';
 }
 
 const CORE_INDUSTRY_SEEDS = ['행사', '섭외', '에이전시', 'event', 'booking', 'agency'] as const;
@@ -542,52 +586,93 @@ function firstMatchingPhrase(nouns: readonly string[], seeds: readonly string[])
 	return '';
 }
 
-function assembleSovPhrases(nouns: readonly string[]): { core: string; detail: string; tail: string } {
+function shortenCorePhrase(core: string, industry: string): string {
+	const tokens = dedupeQueryTokens([core, industry]);
+	if (tokens.length <= 2) return tokens.join(' ');
+	const spec = tokens.find((token) => fold(token) !== fold(industry)) || tokens[0] || '';
+	return composeSearchQuery([spec, industry], { maxTokens: 2 });
+}
+
+function petQualifier(nouns: readonly string[], industry: string): string {
+	if (!/동물병원|병원/.test(industry)) return '';
+	if (nouns.some((noun) => /반려/.test(noun)) || fold(industry).includes('동물')) return '반려동물';
+	return '';
+}
+
+function assembleSovPhrases(
+	nouns: readonly string[],
+	preferredIndustry?: string,
+): { core: string; detail: string; tail: string; industry: string } {
 	const parts = complementaryNouns(nouns, 4);
-	const industry = pickIndustryNoun(nouns);
+	const industry = pickIndustryNoun(nouns, preferredIndustry);
 	const canCompound = Boolean(industry && BIZ_TYPE_NOUN_RE.test(industry) && parts.length >= 2);
 	const seededCore = CORE_INDUSTRY_SEEDS.filter((seed) =>
 		nouns.some((noun) => fold(noun).includes(fold(seed)) || fold(seed).includes(fold(noun))),
 	);
-	const core = canCompound
-		? (seededCore.length >= 2 ? seededCore.slice(0, 3).join(' ') : parts.slice(0, 3).join(' '))
+	const rawCore = canCompound
+		? seededCore.length >= 2
+			? seededCore.slice(0, 2).join(' ')
+			: [parts.find((part) => fold(part) !== fold(industry)) || parts[0], industry].filter(Boolean).join(' ')
 		: parts[0] || industry;
+	const core = shortenCorePhrase(rawCore, canCompound ? industry : '');
 	const detail =
 		firstMatchingPhrase(nouns, DETAIL_SERVICE_SEEDS) ||
 		parts.find((noun) => fold(noun) !== fold(parts[0] || '') && fold(noun) !== fold(industry)) ||
 		parts[1] ||
 		parts[0] ||
 		core;
+	const nonIndustry = parts.filter((noun) => fold(noun) !== fold(industry));
 	const tail =
-		TAIL_SERVICE_SEEDS.filter((seed) =>
-			nouns.some((noun) => fold(noun).includes(fold(seed)) || fold(seed).includes(fold(noun))),
-		).join(' ') ||
-		(canCompound && parts.length >= 2 ? parts.filter((noun) => fold(noun) !== fold(industry)).slice(0, 3).join(' ') : '') ||
+		firstMatchingPhrase(nouns, TAIL_SERVICE_SEEDS) ||
+		nonIndustry[1] ||
+		nonIndustry[0] ||
 		parts[1] ||
 		parts[0] ||
 		core;
-	return { core, detail, tail };
+	return { core, detail, tail, industry };
 }
 
 function pickSovPresets(slots: KeywordSlots, level2: string[], lang: QueryMatrixLang): [string, string, string] {
 	const nouns = slots.categoryNouns;
 	const loc = preferLocalPrefix(nouns, slots.location);
-	const { core, detail, tail } = assembleSovPhrases(nouns);
-	const industry = pickIndustryNoun(nouns);
+	const { core, detail, tail, industry } = assembleSovPhrases(nouns, slots.industryNoun);
 	const recommend = lang === 'en' ? 'recommended' : '추천';
-	const best = '잘하는곳';
+	const best = lang === 'en' ? 'best' : '잘하는곳';
+	const specialist = lang === 'en' ? 'specialist' : '전문';
+	const bizIndustry = industry && BIZ_TYPE_NOUN_RE.test(industry);
 
-	const first = core ? joinQuery(loc, core, recommend) : '';
+	const firstCore = slots.hourIntent && bizIndustry ? industry : core;
+	const first = firstCore
+		? composeSearchQuery([loc, slots.hourIntent, firstCore], { trailingIntent: recommend, maxTokens: 5 })
+		: '';
+
+	const locTokenCount = tokenizeSearchPhrase(loc).length;
+	const primarySpec =
+		complementaryNouns(nouns, 4).find((noun) => fold(noun) !== fold(industry) && !isIndustryToken(noun)) || detail;
+	const secondDetail = slots.hourIntent && bizIndustry ? primarySpec : detail;
+	const petPrefix = petQualifier(nouns, industry);
+	const secondIndustry = petPrefix && /동물병원/.test(industry) ? '병원' : industry;
 	const second =
-		industry && BIZ_TYPE_NOUN_RE.test(industry) && fold(detail) !== fold(industry)
-			? joinQuery(loc, detail, industry)
-			: joinQuery(loc, detail || core);
+		bizIndustry && fold(secondDetail) !== fold(industry)
+			? composeSearchQuery(
+					locTokenCount <= 1
+						? [loc, petPrefix, secondDetail, specialist, secondIndustry]
+						: [loc, secondDetail, industry],
+					{ maxTokens: 5 },
+				)
+			: composeSearchQuery([loc, secondDetail || core], { maxTokens: 5 });
+
 	const third =
 		lang === 'en'
-			? joinQuery('best', tail || detail || core, loc ? `in ${loc}` : '')
-			: joinQuery(loc, tail || detail || core, best);
+			? composeSearchQuery([best, tail || detail || core, loc ? `in ${loc}` : ''], { maxTokens: 6 })
+			: composeSearchQuery([loc, ...(slots.animalTypes ?? []), tail || detail || core], {
+					trailingIntent: best,
+					maxTokens: 5,
+				});
 
-	const fallbacks = [first, second, third, ...level2].filter((q) => queryHasCategoryNoun(q, nouns));
+	const fallbacks = [first, second, third, ...level2].filter((q) =>
+		queryHasCategoryNoun(q, [...nouns, industry].filter(Boolean)),
+	);
 	return [fallbacks[0] || '', fallbacks[1] || fallbacks[0] || '', fallbacks[2] || fallbacks[1] || fallbacks[0] || ''];
 }
 

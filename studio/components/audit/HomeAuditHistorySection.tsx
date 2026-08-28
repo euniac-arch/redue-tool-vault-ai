@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { AuditHistoryList } from '@/components/AuditHistoryList';
 import { useAuditHistory } from '@/lib/audit/use-audit-history';
-import { notifyAuditHistorySync, removeGuestAudit } from '@/lib/audit-history-storage';
+import { deleteAuditHistoryEverywhere } from '@/lib/audit-history-storage';
 
 const HOME_HISTORY_PREVIEW = 3;
 
 export function HomeAuditHistorySection() {
 	const t = useTranslations('audit.history');
-	const { signedIn, historyList, setHistoryList, loading } = useAuditHistory();
+	const { signedIn, historyList, setHistoryList, loadHistory, loading } = useAuditHistory();
 	const [deletingId, setDeletingId] = useState<string | null>(null);
 
 	const preview = historyList.slice(0, HOME_HISTORY_PREVIEW);
@@ -19,12 +19,10 @@ export function HomeAuditHistorySection() {
 	async function handleDelete(id: string) {
 		setDeletingId(id);
 		try {
-			removeGuestAudit(id);
 			setHistoryList((prev) => prev.filter((item) => item.id !== id));
-			if (signedIn) {
-				await fetch(`/api/audit/${encodeURIComponent(id)}`, { method: 'DELETE' });
-			}
-			notifyAuditHistorySync({ ids: [id] });
+			await deleteAuditHistoryEverywhere(id);
+		} catch {
+			void loadHistory({ quiet: true });
 		} finally {
 			setDeletingId(null);
 		}
@@ -34,7 +32,7 @@ export function HomeAuditHistorySection() {
 	if (preview.length === 0) return null;
 
 	return (
-		<section className="mx-auto w-full max-w-[960px] px-5 py-10 sm:px-6">
+		<section className="mx-auto w-full max-w-5xl py-10">
 			<div className="mb-10 flex items-end justify-between gap-3">
 				<div>
 					<h2 className="text-lg font-bold text-slate-900 dark:text-white sm:text-xl">{t('title')}</h2>

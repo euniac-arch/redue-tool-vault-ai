@@ -232,16 +232,10 @@ function HeroMetric({
 				<div className="flex flex-col items-center">
 					<span className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-600 dark:text-emerald-400/80">After</span>
 					<p className="mt-1.5 flex items-baseline gap-1.5 font-mono leading-none">
-						<span className="relative inline-block">
-							<span
-								className="absolute inset-0 bg-gradient-to-br from-emerald-300 to-teal-300 bg-clip-text text-4xl font-extrabold tabular-nums text-transparent blur-[10px] opacity-80 sm:text-5xl"
-								aria-hidden="true"
-							>
-								{formatScore(after)}
-							</span>
-							<span className="relative bg-gradient-to-br from-emerald-200 via-emerald-400 to-teal-300 bg-clip-text text-4xl font-extrabold tabular-nums text-transparent sm:text-5xl">
-								{formatScore(after)}
-							</span>
+						<span
+							className="relative bg-gradient-to-br from-emerald-200 via-emerald-400 to-teal-300 bg-clip-text text-4xl font-extrabold tabular-nums text-transparent [text-shadow:0_0_18px_rgba(52,211,153,0.45)] sm:text-5xl"
+						>
+							{formatScore(after)}
 						</span>
 						<span className="text-sm font-semibold text-emerald-500/70">/ {maxScore}</span>
 					</p>

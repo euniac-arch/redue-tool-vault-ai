@@ -18,7 +18,7 @@ export function DiagnosisProofSection() {
 
 	return (
 		<section className="mt-20 sm:mt-24">
-			<div className="mx-auto w-full max-w-[960px]">
+			<div className="mx-auto w-full max-w-5xl">
 				<div className="text-center">
 					<p className="inline-flex rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-bold tracking-[0.16em] text-rose-600 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-400">
 						{t('badge')}

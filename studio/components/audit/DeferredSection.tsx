@@ -28,7 +28,13 @@ export function DeferredSection({
 	force = false,
 }: DeferredSectionProps) {
 	const ref = useRef<HTMLDivElement>(null);
-	const [show, setShow] = useState(force);
+	const [show, setShow] = useState(
+		() =>
+			force ||
+			(typeof document !== 'undefined' &&
+				(document.documentElement.classList.contains('pdf-printing') ||
+					document.documentElement.classList.contains('print-mode'))),
+	);
 
 	useEffect(() => {
 		if (force) {

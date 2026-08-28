@@ -63,7 +63,7 @@ export function EngineCompatibility() {
 
 	return (
 		<section className="mt-20 sm:mt-24">
-			<div className="mx-auto w-full max-w-[960px]">
+			<div className="mx-auto w-full max-w-5xl">
 				<StoryHeading kicker={t('kicker')} title={t('title')} subtitle={t('subtitle')} />
 
 				<div className="mt-8">

@@ -38,7 +38,7 @@ export function GeoMeasuredCardHeader({
 					{title}
 					{subtitle}
 				</div>
-				<div className="flex shrink-0 self-start items-center justify-end gap-2">
+				<div className="flex shrink-0 self-start items-start justify-end gap-2">
 					{pillar && <GeoPillarScoreBadge pillar={pillar} showAxisLabel={showAxisLabel} />}
 					{extra}
 				</div>

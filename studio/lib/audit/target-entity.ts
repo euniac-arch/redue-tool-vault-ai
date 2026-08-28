@@ -11,6 +11,8 @@ import {
 	toAuditCmsLabel,
 } from '@/lib/crawling/cms-from-html';
 import type { AuditReport } from '@/lib/site-auditor';
+import { looksLikeDomainBrand } from '@/lib/audit/brand-name';
+import { preferProjectName, resolveProjectSiteName } from '@/lib/audit/project-site-name';
 
 type AuditLang = 'ko' | 'en';
 
@@ -87,11 +89,13 @@ export function resolveTargetBrandName(
 	report: AuditReport,
 	reportData?: GeoNarrativeReport | null,
 ): string {
-	const fromMeta = report.siteMeta?.brandName?.trim();
-	if (fromMeta) return fromMeta;
+	const domain = report.siteMeta?.domain || domainFromUrl(report.url);
+	const resolved = resolveProjectSiteName(report);
 	const fromNarrative = reportData?.brandName?.trim();
-	if (fromNarrative) return fromNarrative;
-	return domainFromUrl(report.url);
+	if (fromNarrative && !looksLikeDomainBrand(fromNarrative, domain)) {
+		return preferProjectName(resolved, fromNarrative, domain);
+	}
+	return resolved;
 }
 
 export function formatTargetScanStamp(

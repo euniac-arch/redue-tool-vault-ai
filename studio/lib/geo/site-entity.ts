@@ -66,6 +66,7 @@ const GENERIC = new Set([
 
 const NEED_LEXICON: Array<{ test: RegExp; ko: string; en: string }> = [
 	{ test: /야간\s*진료|야간에도|야간\s*운영|evening\s*hours|open\s*late/i, ko: '야간진료', en: 'evening hours' },
+	{ test: /24\s*시|24시간|연중무휴|응급|emergency|24\s*hour/i, ko: '24시', en: '24 hour' },
 	{ test: /주말\s*진료|weekend/i, ko: '주말진료', en: 'weekend hours' },
 	{ test: /상담|consultation|consulting/i, ko: '상담', en: 'consultation' },
 	{ test: /해외|overseas|abroad/i, ko: '해외', en: 'overseas' },

@@ -52,7 +52,7 @@ export interface CategoryDefinition {
 	maxScore: number;
 }
 
-/** Canonical 5-category scale (15 + 12 + 29 + 36 + 30 = 122). */
+/** Canonical 5-category scale (15 + 12 + 32 + 36 + 30 = 125). */
 export const CATEGORY_DEFINITIONS: Record<CategoryKey, CategoryDefinition> = {
 	security: { id: 'security', name: AUDIT_CATEGORY_CONFIG.security.name, maxScore: AUDIT_CATEGORY_CONFIG.security.maxScore },
 	performance: { id: 'performance', name: AUDIT_CATEGORY_CONFIG.performance.name, maxScore: AUDIT_CATEGORY_CONFIG.performance.maxScore },

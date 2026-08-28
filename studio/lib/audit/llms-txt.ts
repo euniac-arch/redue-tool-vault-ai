@@ -112,13 +112,13 @@ export function generateLlmsTxt(data: SiteDiagnosticResult): string {
 		'',
 		`- name: ${representativeName}`,
 		`- jobTitle: ${representativeTitle}`,
-		'',
-		'## FAQ',
-		'',
 	];
 
-	for (const faq of faqs) {
-		lines.push(`### ${compact(faq.question)}`, '', compact(faq.answer), '');
+	if (faqs.length > 0) {
+		lines.push('', '## FAQ', '');
+		for (const faq of faqs) {
+			lines.push(`### ${compact(faq.question)}`, '', compact(faq.answer), '');
+		}
 	}
 
 	return `${lines.filter((line, index, all) => !(line === '' && all[index - 1] === '')).join('\n').replace(/\n{3,}/g, '\n\n').trim()}\n`;

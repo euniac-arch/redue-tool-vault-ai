@@ -13,7 +13,11 @@ import {
 import { parseAiBotAccessFromRobots } from '../lib/audit/robots-ai-bots';
 import { computeExternalReputationFromSignals, extractSignalsFromReport, resolveExternalReputation } from '../lib/audit/geo-score';
 import { detectEnginePlatformSignals } from '../lib/audit/engine-analysis';
-import { buildAiCrawlerStatuses, buildSchemaPropertyChecks } from '../lib/geo/precision-diagnostics';
+import {
+	applySharedSameAsToSchemaChecks,
+	buildAiCrawlerStatuses,
+	buildSchemaPropertyChecks,
+} from '../lib/geo/precision-diagnostics';
 import type { AuditReport } from '../lib/site-auditor';
 
 let failed = 0;
@@ -158,6 +162,69 @@ assert('label geo', completeChecks[1].label === 'geo', completeChecks[1].label);
 assert('label openingHoursSpecification', completeChecks[2].label === 'openingHoursSpecification', completeChecks[2].label);
 assert('label hasOfferCatalog / availableService', completeChecks[3].label === 'hasOfferCatalog / availableService', completeChecks[3].label);
 assert('label sameAs', completeChecks[4].label === 'sameAs', completeChecks[4].label);
+assert(
+	'complete sameAs detail is not 0',
+	!/0개/.test(completeChecks[4].detail) && completeChecks[4].complete,
+	completeChecks[4].detail,
+);
+
+const snsOnlyChecks = buildSchemaPropertyChecks({
+	lang: 'ko',
+	schemaTypes: ['MedicalClinic'],
+	jsonLdCorpus: '{"@type":"MedicalClinic"}',
+	sameAs: [
+		'https://www.instagram.com/clinic',
+		'https://blog.naver.com/clinic',
+		'https://www.facebook.com/clinic',
+		'https://www.youtube.com/@clinic',
+		'https://pf.kakao.com/_clinic',
+	],
+});
+const snsOnlySameAs = snsOnlyChecks.find((c) => c.id === 'sameAs');
+assert('SNS-only sameAs is complete', snsOnlySameAs?.complete === true);
+assert(
+	'SNS-only sameAs detail names 5 SNS and missing place',
+	snsOnlySameAs?.detail === 'SNS 5개 등록됨 (지도/플레이스 미등록)',
+	snsOnlySameAs?.detail,
+);
+
+const staleZero = applySharedSameAsToSchemaChecks(
+	[{ id: 'sameAs', label: 'sameAs', complete: false, detail: '공식 SNS·지도/플레이스 0개' }],
+	[
+		'https://www.instagram.com/clinic',
+		'https://blog.naver.com/clinic',
+		'https://www.facebook.com/clinic',
+		'https://www.youtube.com/@clinic',
+		'https://pf.kakao.com/_clinic',
+	],
+	'ko',
+);
+assert('shared sameAs overwrites stale 0', staleZero[0].complete && staleZero[0].detail === 'SNS 5개 등록됨 (지도/플레이스 미등록)', staleZero[0].detail);
+
+const collectedOnly = buildEeatAuditData({
+	lang: 'ko',
+	specialties: ['스포츠재활'],
+	industryType: 'MEDICAL',
+	schemaTypes: ['MedicalClinic'],
+	jsonLdCorpus: '{"@type":"MedicalClinic"}',
+	collectedUrls: [
+		'https://www.instagram.com/clinic',
+		'https://blog.naver.com/clinic',
+		'https://www.facebook.com/clinic',
+		'https://www.youtube.com/@clinic',
+		'https://pf.kakao.com/_clinic',
+	],
+	orgPresent: true,
+	orgComplete: false,
+});
+const collectedSameAs = collectedOnly.schemaProperties.find((c) => c.id === 'sameAs');
+assert('collectedUrls sameAs is complete', collectedSameAs?.complete === true);
+assert(
+	'collectedUrls sameAs is not 0',
+	collectedSameAs?.detail === 'SNS 5개 등록됨 (지도/플레이스 미등록)',
+	collectedSameAs?.detail,
+);
+assert('collectedUrls checklist sameAs valid', collectedOnly.data.schemaChecklist.sameAs.valid === true);
 
 const thinChecks = buildSchemaPropertyChecks({
 	lang: 'ko',
@@ -323,6 +390,17 @@ assert(
 	eeat.data.personName === '미검출 (수동 입력 필요)',
 	eeat.data.personName,
 );
+const noiseName = buildEeatAuditData({
+	lang: 'ko',
+	industryType: 'MEDICAL',
+	representativeName: '제품으로',
+	footerText: '대표원장 : 배우리 사업자등록번호 120-81-47521',
+	jsonLdCorpus: JSON.stringify({ '@type': 'Person', name: '배우리', jobTitle: '대표원장' }),
+	orgPresent: false,
+	orgComplete: false,
+});
+assert('stored 제품으로 is rejected for Person card', noiseName.data.personName === '배우리', noiseName.data.personName);
+assert('Person card title 대표원장', noiseName.data.personJobTitle === '대표원장', noiseName.data.personJobTitle);
 assert('EeatAuditData.recommendedSchemaType is MedicalClinic', eeat.data.recommendedSchemaType === 'MedicalClinic');
 assert('EeatAuditData.botAccessibility.claudeBot is false', eeat.data.botAccessibility.claudeBot === false);
 assert('EeatAuditData.schemaChecklist.entityType.valid is false', eeat.data.schemaChecklist.entityType.valid === false);

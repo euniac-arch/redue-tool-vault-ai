@@ -1,13 +1,30 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { useTheme } from './ThemeProvider';
 
 export function ThemeToggle() {
+	const [mounted, setMounted] = useState(false);
 	const t = useTranslations('nav');
 	const { theme, toggleTheme } = useTheme();
 	const isDark = theme === 'dark';
+
+	useEffect(() => {
+		setMounted(true);
+	}, []);
+
+	if (!mounted) {
+		return (
+			<button
+				type="button"
+				className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-transparent opacity-0 pointer-events-none"
+				aria-hidden="true"
+				tabIndex={-1}
+			/>
+		);
+	}
 
 	return (
 		<button

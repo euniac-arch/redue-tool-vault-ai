@@ -1,13 +1,14 @@
 /**
- * Tab 2 detailed checklist — official scoring rows (24 items · 122 pts).
+ * Tab 2 detailed checklist — official scoring rows (25 items · 125 pts).
  *
  * Five standard categories stay 1:1 with the radar axes and measured cards:
- *   보안 & 인프라 15 · 웹 성능 & 접근성 12 · SEO 기술 기본기 29
+ *   보안 & 인프라 15 · 웹 성능 & 접근성 12 · SEO 기술 기본기 32
  *   스키마 구조화 데이터 36 · GEO & AI 인용 신호 30
  *
  * Viewport, sitemap.xml, HSTS, and HTTP status are collected live and folded
  * into existing weighted rows (page-weight, canonical, https, response-time).
- * Do not add extra definition ids — the 24-row / 122-point scale stays fixed.
+ * RSS is a scored basic_seo row (`rss_feed`) measured from `/rss.php` headers
+ * or a discoverable RSS/Atom link tag.
  *
  * `CHECKLIST_TOTAL_MAX` is always `Σ item.maxScore`. Never hardcode the
  * headline max — UI and the calculator read this (or the live checklist sum).
@@ -37,15 +38,16 @@ export const AUDIT_CHECKLIST_DEFINITIONS: ChecklistItemDef[] = [
 	// 2. 웹 성능 & 접근성 (3개 · 12점)
 	{ id: 'html_size', name: 'HTML 문서 용량 (HTML < 1500KB)', maxScore: 5, category: 'web_perf_access', pLevel: 'P3' },
 	{ id: 'render_blocking', name: '렌더링 차단 스크립트 최적화', maxScore: 3, category: 'web_perf_access', pLevel: 'P2' },
-	{ id: 'image_alt', name: '이미지 alt 커버리지 (80% 이상)', maxScore: 4, category: 'web_perf_access', pLevel: 'P3' },
+	{ id: 'image_alt', name: '이미지 alt 커버리지 (90% 이상)', maxScore: 4, category: 'web_perf_access', pLevel: 'P3' },
 
-	// 3. SEO 기술 기본기 (7개 · 29점)
+	// 3. SEO 기술 기본기 (8개 · 32점)
 	{ id: 'title_length', name: '<title> 길이 적정성 (10–60자)', maxScore: 5, category: 'basic_seo', pLevel: 'P1' },
 	{ id: 'meta_description', name: '메타 디스크립션 적정성 (70–160자)', maxScore: 5, category: 'basic_seo', pLevel: 'P1' },
 	{ id: 'og_tags', name: 'Open Graph 3종 (title / description / image)', maxScore: 5, category: 'basic_seo', pLevel: 'P2' },
 	{ id: 'canonical_url', name: 'Canonical URL 명시 및 정합성', maxScore: 5, category: 'basic_seo', pLevel: 'P1' },
 	{ id: 'h1_single', name: 'H1 태그 단일성 (1개 감지)', maxScore: 4, category: 'basic_seo', pLevel: 'P2' },
 	{ id: 'heading_hierarchy', name: '헤딩 계층 순서 (H1→H2→H3, 비약 없음)', maxScore: 3, category: 'basic_seo', pLevel: 'P3' },
+	{ id: 'rss_feed', name: 'RSS 피드 존재 여부 (/rss.php 또는 RSS 링크 태그)', maxScore: 3, category: 'basic_seo', pLevel: 'P2' },
 	{ id: 'html_lang', name: 'html lang 속성 명시', maxScore: 2, category: 'basic_seo', pLevel: 'P4' },
 
 	// 4. 스키마 구조화 데이터 (6개 · 36점)
@@ -78,6 +80,7 @@ export const ENGINE_CHECK_TO_DEFINITION_ID: Record<string, string> = {
 	'single-h1': 'h1_single',
 	'heading-skip': 'heading_hierarchy',
 	'html-lang': 'html_lang',
+	'rss-feed': 'rss_feed',
 	'jsonld-present': 'jsonld_parse',
 	organization: 'local_business_props',
 	'article-fields': 'page_schema',

@@ -9,7 +9,7 @@ export function ClosingCta() {
 
 	return (
 		<section aria-labelledby="final-cta-title" className="mt-16">
-			<div className="mx-auto w-full max-w-[960px]">
+			<div className="mx-auto w-full max-w-5xl">
 				<div className="relative overflow-hidden rounded-3xl border-2 border-cyan-200 bg-gradient-to-b from-white via-white to-cyan-50 p-8 text-center shadow-sm dark:border-cyan-500/30 dark:from-slate-900 dark:via-slate-900 dark:to-cyan-950/40 dark:shadow-[0_0_50px_rgba(6,182,212,0.12)] sm:p-10">
 					<p className="font-mono text-xs font-semibold tracking-widest text-cyan-700 dark:text-cyan-300">{t('badge')}</p>
 					<h2 id="final-cta-title" className="mt-3">

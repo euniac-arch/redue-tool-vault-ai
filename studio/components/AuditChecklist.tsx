@@ -23,6 +23,10 @@ import {
 	JUMP_TO_CHECKLIST_CATEGORY_EVENT,
 } from '@/lib/audit/scroll-to-category';
 import { HTTPS_CHECK_ID, HTTPS_RAW_POINTS } from '@/lib/audit/scoreCalculator';
+import {
+	ChecklistIssueDetails,
+	checklistHasStructuredDetails,
+} from '@/components/audit/ChecklistIssueDetails';
 import type { AuditCheckItem, AuditCheckStatus } from '@/lib/site-auditor';
 
 const STATUS_UI: Record<
@@ -48,6 +52,26 @@ const CATEGORY_NAME_KEY: Record<DiagnosticCategoryId, 'security' | 'webPerf' | '
 	geo: 'geo',
 };
 
+/** Presentational-only AEO/GEO badge mapping keyed by the existing `AuditCheckItem.id` — labels/copy untouched, purely additive UI. */
+const AEO_GEO_TAG_KEY_BY_CHECK_ID: Record<string, 'faqHowtoSchema' | 'organization' | 'llmsTxt' | 'eeat' | 'semanticStructure'> = {
+	'faq-howto-schema': 'faqHowtoSchema',
+	organization: 'organization',
+	'llms-txt': 'llmsTxt',
+	'person-eeat': 'eeat',
+	'eeat-author': 'eeat',
+	'heading-structure': 'semanticStructure',
+};
+
+const AEO_GEO_BADGE_CLASS: Record<'faqHowtoSchema' | 'organization' | 'llmsTxt' | 'eeat' | 'semanticStructure', string> = {
+	faqHowtoSchema: 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-400/30 dark:bg-cyan-500/10 dark:text-cyan-300',
+	organization: 'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-300',
+	llmsTxt:
+		'border-indigo-300 bg-gradient-to-r from-cyan-50 to-violet-50 text-indigo-700 dark:border-indigo-400/30 dark:from-cyan-500/10 dark:to-violet-500/10 dark:text-indigo-300',
+	eeat: 'border-violet-300 bg-violet-50 text-violet-700 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-300',
+	semanticStructure:
+		'border-indigo-300 bg-gradient-to-r from-cyan-50 to-violet-50 text-indigo-700 dark:border-indigo-400/30 dark:from-cyan-500/10 dark:to-violet-500/10 dark:text-indigo-300',
+};
+
 interface AuditChecklistProps {
 	checks: AuditCheckItem[];
 	rawTechnicalScore?: number;
@@ -64,11 +88,14 @@ function ChecklistItemRow({ item }: { item: AuditCheckItem }) {
 	const status = resolveCheckStatus(item.status, item.passed);
 	const ui = STATUS_UI[status] ?? STATUS_UI.fail;
 	const categoryId = diagnosticCategoryIdOf(item);
+	const aeoGeoTagKey = AEO_GEO_TAG_KEY_BY_CHECK_ID[item.id];
+	const aeoGeoTag = aeoGeoTagKey ? t.raw(`aeoGeoTags.${aeoGeoTagKey}`) as { tag: string; note: string } : null;
 	const reasonKind = checklistReasonKind(item.status, item.passed);
 	const reasonText = resolveChecklistReasonText(item.status, item.passed, item.why, t('whyPassBody'));
 	const whyLabel = reasonKind === 'pass' ? t('whyPass') : reasonKind === 'warn' ? t('whyWarn') : t('whyFail');
 	const impactLabel = reasonKind === 'pass' ? t('impactPass') : t('impact');
-	const hasDetail = Boolean(reasonText || item.impact || item.evidence);
+	const hasStructured = checklistHasStructuredDetails(item);
+	const hasDetail = Boolean(reasonText || item.impact || item.evidence || hasStructured);
 	const earned = earnedPointsForCheck(item);
 	const weight =
 		item.id === HTTPS_CHECK_ID ? HTTPS_RAW_POINTS : Number.isFinite(item.weight) ? item.weight : 0;
@@ -82,49 +109,70 @@ function ChecklistItemRow({ item }: { item: AuditCheckItem }) {
 			id={`checklist-item-${item.id}`}
 			data-checklist-category={categoryId ?? undefined}
 			data-checklist-status={status}
-			className={`rounded-xl border bg-white dark:bg-white/[0.03] ${ui.border}`}
+			className={`checklist-item box-border w-full max-w-full overflow-hidden rounded-xl border bg-white dark:bg-white/[0.03] ${ui.border}`}
 		>
-			<div className="flex w-full items-start gap-3 px-4 py-3 text-left">
+			<div className="flex w-full max-w-full items-start gap-3 px-3 py-3 sm:px-4">
 				<span
 					className={`mt-0.5 shrink-0 rounded-md px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide ${ui.badge}`}
 				>
 					{t(ui.labelKey)}
 				</span>
-				<div className="min-w-0 flex-1">
+				<div className="min-w-0 max-w-full flex-1">
 					<div className="flex flex-wrap items-start justify-between gap-2">
-						<p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.label}</p>
+						<p className="min-w-0 break-words text-sm font-semibold text-slate-900 dark:text-slate-100">
+							{aeoGeoTag && (
+								<span
+									className={`mr-1.5 inline-flex items-center rounded-md border px-1.5 py-0.5 align-middle text-[10px] font-extrabold tracking-tight ${AEO_GEO_BADGE_CLASS[aeoGeoTagKey]}`}
+								>
+									{aeoGeoTag.tag}
+								</span>
+							)}
+							{item.label}
+						</p>
 						<span
 							className={`shrink-0 rounded-md border px-2.5 py-0.5 text-xs font-bold tabular-nums ${SCORE_BADGE[status] ?? SCORE_BADGE.fail}`}
 						>
 							{status === 'fail' ? `${t('fail')} · ${pointsLabel}` : pointsLabel}
 						</span>
 					</div>
+					{aeoGeoTag && (
+						<p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{aeoGeoTag.note}</p>
+					)}
 					{item.evidence && (
-						<p className="mt-1 break-all font-mono text-[11px] text-slate-500">{item.evidence}</p>
+						<p className="mt-1 max-w-full overflow-hidden break-all font-mono text-[11px] text-slate-500">{item.evidence}</p>
+					)}
+					{item.id === 'image-alt' && (item.imagesMissingAlt ?? 0) > 0 && (
+						<p
+							className="mt-1 max-w-full break-words text-xs text-neutral-400 dark:text-slate-400"
+							title={t('imageAltTip')}
+						>
+							{t('imageAltTip')}
+						</p>
 					)}
 				</div>
 			</div>
 
 			{hasDetail && (
-				<div className="space-y-3 border-t border-slate-200 dark:border-white/[0.06] px-4 py-3 text-xs text-slate-600 dark:text-slate-400">
-					{item.evidence && (
-						<div>
+				<div className="evidence-box box-border w-full max-w-full space-y-3 overflow-hidden border-t border-slate-200 px-3 py-3 text-xs text-slate-600 sm:px-4 dark:border-white/[0.06] dark:text-slate-400">
+					<ChecklistIssueDetails item={item} />
+					{item.evidence && !hasStructured && (
+						<div className="w-full max-w-full">
 							<p className="mb-1 font-bold uppercase tracking-wide text-slate-500">{t('evidence')}</p>
-							<pre className="overflow-x-auto whitespace-pre-wrap rounded-lg bg-slate-100 dark:bg-black/40 px-3 py-2 font-mono text-[11px] text-cyan-800 dark:text-cyan-200/90">
+							<pre className="w-full max-w-full overflow-hidden break-all whitespace-pre-wrap rounded-lg bg-slate-100 px-3 py-2 font-mono text-[11px] text-cyan-800 dark:bg-black/40 dark:text-cyan-200/90">
 								{item.evidence}
 							</pre>
 						</div>
 					)}
 					{reasonText && (
-						<div>
+						<div className="w-full max-w-full">
 							<p className="mb-1 font-bold uppercase tracking-wide text-slate-500">{whyLabel}</p>
-							<p className="leading-relaxed text-slate-700 dark:text-slate-300">{reasonText}</p>
+							<p className="break-words leading-relaxed text-slate-700 dark:text-slate-300">{reasonText}</p>
 						</div>
 					)}
 					{item.impact && (
-						<div>
+						<div className="w-full max-w-full">
 							<p className="mb-1 font-bold uppercase tracking-wide text-slate-500">{impactLabel}</p>
-							<p className="leading-relaxed text-slate-700 dark:text-slate-300">{item.impact}</p>
+							<p className="break-words leading-relaxed text-slate-700 dark:text-slate-300">{item.impact}</p>
 						</div>
 					)}
 				</div>
@@ -184,9 +232,9 @@ export function AuditChecklist({ checks, rawTechnicalScore, maxRawScore }: Audit
 	}
 
 	return (
-		<div className="flex flex-col gap-3">
+		<div className="checklist-container box-border flex w-full max-w-full flex-col gap-3 overflow-hidden">
 			{officialRaw != null ? (
-				<div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm dark:border-cyan-400/30 dark:bg-cyan-500/10">
+				<div className="box-border flex w-full max-w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-4 py-2.5 text-sm dark:border-cyan-400/30 dark:bg-cyan-500/10">
 					<span className="font-bold text-cyan-900 dark:text-cyan-100">{t('totalRawLabel')}</span>
 					<span className="tabular-nums font-extrabold text-cyan-900 dark:text-cyan-100">
 						{t('totalRaw', { score: formatRawScore(officialRaw), max: officialMax })}
@@ -217,7 +265,7 @@ export function AuditChecklist({ checks, rawTechnicalScore, maxRawScore }: Audit
 				))}
 			</div>
 
-			<div className="flex flex-col gap-4 px-0.5 py-1">
+			<div className="box-border flex w-full max-w-full flex-col gap-4 px-0.5 py-1">
 				{grouped.map((group) => {
 					const isCanonical = group.id !== 'other';
 					return (
@@ -226,14 +274,14 @@ export function AuditChecklist({ checks, rawTechnicalScore, maxRawScore }: Audit
 							id={isCanonical ? auditSectionId(group.id) : undefined}
 							data-audit-section={isCanonical ? group.id : undefined}
 							data-checklist-category={isCanonical ? group.id : undefined}
-							className="audit-section checklist-cat-anchor flex flex-col gap-2 rounded-xl scroll-mt-[100px]"
+							className="audit-section checklist-cat-anchor box-border flex w-full max-w-full scroll-mt-[100px] flex-col gap-2 overflow-hidden rounded-xl"
 						>
 							{isCanonical ? (
 								<h5 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
 									{tDist(CATEGORY_NAME_KEY[group.id])}
 								</h5>
 							) : null}
-							<ul className="flex flex-col gap-2">
+							<ul className="box-border flex w-full max-w-full flex-col gap-2">
 								{group.items.map((item) => (
 									<ChecklistItemRow key={item.id} item={item} />
 								))}

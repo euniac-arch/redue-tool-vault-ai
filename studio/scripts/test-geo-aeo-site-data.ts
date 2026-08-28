@@ -63,6 +63,21 @@ assert('collects kakao place', sameAs.some((u) => u.includes('place.map.kakao.co
 assert('collects instagram', sameAs.some((u) => u.includes('instagram.com')));
 assert('collects naver blog', sameAs.some((u) => u.includes('blog.naver.com')));
 
+const channelHtml = `
+<a href="https://www.facebook.com/clinic">fb</a>
+<a href="https://pf.kakao.com/_clinic">kakao channel</a>
+<a href="https://place.naver.com/hospital/123">naver place</a>
+<script>var marker = new kakao.maps.LatLng(35.1796, 129.0756);</script>
+`;
+const channels = extractEntitySameAsLinks(channelHtml);
+assert('collects facebook', channels.some((u) => u.includes('facebook.com')));
+assert('collects kakao channel', channels.some((u) => u.includes('pf.kakao.com')));
+assert('collects naver place', channels.some((u) => u.includes('place.naver.com')));
+const mapData = extractGeoAeoSiteData({ html: channelHtml, industryType: 'MEDICAL' });
+assert('map LatLng source', mapData.geo.source === 'map', mapData.geo.source);
+assert('map LatLng lat', mapData.geo.latitude === '35.1796', mapData.geo.latitude);
+assert('map LatLng lng', mapData.geo.longitude === '129.0756', mapData.geo.longitude);
+
 const specialties = mapMedicalSpecialties(['중입자치료', '암'], 'MEDICAL');
 assert('oncologic mapped', specialties.includes('Oncologic'));
 assert('radiation mapped', specialties.includes('RadiationTherapy'));

@@ -82,6 +82,12 @@ export default function PortfolioPage() {
 				</div>
 			)}
 
+			{!loading && (filteredCaseStudies.length > 0 || filteredItems.length > 0) ? (
+				<p className="text-center text-[11px] leading-relaxed text-slate-500 dark:text-slate-500">
+					※ 위 사례는 테스트 및 시뮬레이션 기반 예시 데이터가 포함되어 있습니다.
+				</p>
+			) : null}
+
 			<SchemaValidationModal
 				item={modalState?.item ?? null}
 				mode={modalState?.mode ?? null}

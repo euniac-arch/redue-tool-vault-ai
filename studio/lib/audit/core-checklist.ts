@@ -13,6 +13,7 @@ import {
 	type SchemaVertical,
 } from '@/lib/audit/recommended-schemas';
 import { getJosa } from '@/lib/korean-josa';
+import { buildJsonLdEntityPool, detectPageSchema } from '@/lib/audit/schemaAnalyzer';
 import type { AuditCheckItem, AuditCheckStatus, AuditReport } from '@/lib/site-auditor';
 
 export type CoreChecklistId =
@@ -81,7 +82,14 @@ export function buildCoreSeoGeoChecklist(report: AuditReport | null | undefined)
 	const m = report?.metrics;
 	const vertical = resolveVertical(report);
 	const newsVertical = isNewsMediaVertical(schemaMappingFromReport(report));
-	const pageAltOk = hasPageSchemaAlternative(m?.schemaTypes, vertical);
+	// `m?.schemaTypes` normally already reflects AboutPage/MedicalWebPage, but as a
+	// defense-in-depth cross-check (this exact "AboutPage/MedicalWebPage not found"
+	// misdiagnosis is what `schemaAnalyzer.ts` exists to catch), independently
+	// re-flatten the page's `@graph` and look for the page-schema entity directly.
+	const jsonLdCorpus = m?.jsonLdFullCorpus || (m?.jsonLdSnippets ?? []).join('\n');
+	const pageAltOk =
+		hasPageSchemaAlternative(m?.schemaTypes, vertical) ||
+		(vertical !== 'news' && detectPageSchema(buildJsonLdEntityPool(jsonLdCorpus)).found);
 
 	const canonical = findCheck(checks, 'canonical');
 	const singleH1 = findCheck(checks, 'single-h1');

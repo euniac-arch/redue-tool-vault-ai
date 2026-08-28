@@ -145,10 +145,15 @@ model AuditLead {
   statusLabel String
   reportJson  String
   userId      String? // set when the visitor was already signed in
+  userType    String   @default("guest") // "admin" | "user" | "guest" — diagnosing party at scan time
+  userAgent   String? // optional: abuse / guest fingerprinting
+  ipAddress   String? // optional: abuse / guest fingerprinting
   projectId   String? // optional link to admin Project workspace
   createdAt   DateTime @default(now())
 
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([userType])
 }
 
 /// Signed-in (admin) diagnosis history — survives browser close / new devices.
@@ -186,6 +191,7 @@ model Project {
   latestGeoScore    Int?
   latestSchemaScore Int?
   latestAuditId     String?
+  latestUserType    String   @default("guest") // "admin" | "user" | "guest" — diagnosing party of the latest audit
   auditCount        Int      @default(0)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

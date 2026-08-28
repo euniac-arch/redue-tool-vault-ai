@@ -5,7 +5,10 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getLocale, getMessages, getTranslations } from 'next-intl/server';
 import { authOptions } from '@/lib/auth';
 import { ConditionalAppShell } from '@/components/ConditionalAppShell';
+import { TopProgressBar } from '@/components/common/TopProgressBar';
 import { IntlErrorHandlingProvider } from '@/components/IntlErrorHandlingProvider';
+import { SchemaJsonLd } from '@/components/SchemaJsonLd';
+import { REDUE_SITE_SCHEMA } from '@/lib/schema';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { Providers } from './providers';
 import './globals.css';
@@ -31,39 +34,6 @@ export async function generateMetadata(): Promise<Metadata> {
 	};
 }
 
-const redueJsonLd = {
-  "@context": "https://schema.org",
-  "@graph": [
-    {
-      "@type": "WebSite",
-      "@id": "https://redue-tool-vault-ai.vercel.app/#website",
-      "url": "https://redue-tool-vault-ai.vercel.app",
-      "name": "REDUE AI SEO & GEO Studio",
-      "description": "AI 기반 SEO & GEO 자동 주입",
-      "inLanguage": "ko-KR"
-    },
-    {
-      "@type": "Organization",
-      "@id": "https://redue-tool-vault-ai.vercel.app/#organization",
-      "name": "REDUE AI SEO & GEO Studio",
-      "url": "https://redue-tool-vault-ai.vercel.app",
-      "logo": "https://redue-tool-vault-ai.vercel.app/web/upload/logo.png"
-    },
-    {
-      "@type": "BreadcrumbList",
-      "@id": "https://redue-tool-vault-ai.vercel.app/#breadcrumb",
-      "itemListElement": [
-        {
-          "@type": "ListItem",
-          "position": 1,
-          "name": "홈",
-          "item": "https://redue-tool-vault-ai.vercel.app"
-        }
-      ]
-    }
-  ]
-};
-
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
 	const [session, locale, messages] = await Promise.all([
 		getServerSession(authOptions),
@@ -79,16 +49,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 					strategy="beforeInteractive"
 					dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }}
 				/>
-				<Script
-        id="redue-schema-jsonld"
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(redueJsonLd) }}
-      />
+				<SchemaJsonLd id="redue-schema-jsonld" config={REDUE_SITE_SCHEMA} />
 				
 				<NextIntlClientProvider locale={locale} messages={messages}>
 					<IntlErrorHandlingProvider>
 						<Providers session={session}>
 							<ConditionalAppShell>{children}</ConditionalAppShell>
+							<TopProgressBar />
 						</Providers>
 					</IntlErrorHandlingProvider>
 				</NextIntlClientProvider>

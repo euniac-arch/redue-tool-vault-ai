@@ -77,6 +77,37 @@ html.dark .df-summary-box {
 		color: #f1f5f9;
 	}
 
+	/* Semantic tokens mapped to the public-site palette (body / landing-card / cyan brand). */
+	:root {
+		--background: 210 40% 98%; /* #f8fafc */
+		--foreground: 222 47% 11%; /* #0f172a */
+		--card: 0 0% 100%;
+		--card-foreground: 222 47% 11%;
+		--primary: 189 94% 43%; /* cyan-500 */
+		--primary-foreground: 0 0% 100%;
+		--secondary: 210 40% 96%; /* slate-100 */
+		--secondary-foreground: 222 47% 11%;
+		--muted: 210 40% 96%;
+		--muted-foreground: 215 16% 47%; /* slate-500 */
+		--border: 214 32% 91%; /* slate-200 */
+		--ring: 189 94% 43%;
+	}
+
+	html.dark {
+		--background: 216 27% 5%; /* #0a0d12 */
+		--foreground: 210 40% 98%;
+		--card: 222 38% 10%; /* #0F1422 landing-card */
+		--card-foreground: 210 40% 98%;
+		--primary: 187 85% 53%; /* cyan-400 */
+		--primary-foreground: 222 47% 11%;
+		--secondary: 222 32% 11%; /* #121824 theme-card */
+		--secondary-foreground: 210 40% 98%;
+		--muted: 222 32% 11%;
+		--muted-foreground: 215 20% 65%;
+		--border: 225 36% 18%; /* #1E2640 landing-card */
+		--ring: 187 85% 53%;
+	}
+
 	/* Ensure UI chrome inherits Pretendard even when nested utilities reset fonts */
 	button,
 	input,
@@ -99,7 +130,7 @@ html.dark .df-summary-box {
 		@apply bg-transparent text-slate-900 dark:text-white;
 	}
 	.landing-container {
-		@apply mx-auto w-full max-w-[1100px] px-5 sm:px-6;
+		@apply mx-auto w-full max-w-5xl px-6;
 	}
 	.landing-card {
 		@apply rounded-2xl border border-slate-200 bg-white/90 p-5 shadow-sm backdrop-blur-md dark:border-[#1E2640] dark:bg-[#0F1422]/80 dark:shadow-none;
@@ -128,10 +159,42 @@ html.dark .df-summary-box {
 	.landing-btn-purple {
 		@apply whitespace-nowrap rounded-xl bg-[#7C3AED] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#8B5CF6] disabled:opacity-50;
 	}
+	.theme-input {
+		width: 100%;
+		border-radius: 0.75rem;
+		border: 1px solid hsl(var(--border));
+		background: hsl(var(--card));
+		padding: 0.75rem 1rem;
+		font-size: 0.875rem;
+		color: hsl(var(--foreground));
+		outline: none;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+	.theme-input::placeholder {
+		color: hsl(var(--muted-foreground));
+	}
+	.theme-input:focus {
+		border-color: hsl(var(--primary));
+		box-shadow: 0 0 0 1px hsl(var(--primary) / 0.4);
+	}
 }
 
-/* ─── Admin workspace Light Theme (`/admin/*`) ─── */
-.admin-light-theme {
+/* ─── Admin workspace (`/admin/*`) ─── */
+html:has(.admin-wrapper),
+html:has(.admin-wrapper) body {
+	overflow: hidden;
+}
+
+.remote-patch-terminal {
+	height: 10rem;
+	max-height: 10rem;
+	min-height: 10rem;
+	overflow-x: hidden;
+	overflow-y: auto;
+	contain: layout paint;
+}
+
+.admin-wrapper {
 	color-scheme: light;
 	background: #f8fafc;
 	color: #0f172a;
@@ -141,48 +204,58 @@ html.dark .df-summary-box {
 	--admin-fg: #0f172a;
 }
 
+html.dark .admin-wrapper {
+	color-scheme: dark;
+	background: #0f172a;
+	color: #f1f5f9;
+	--admin-surface: #1e293b;
+	--admin-border: #334155;
+	--admin-muted: #94a3b8;
+	--admin-fg: #f1f5f9;
+}
+
 /* Naver blog Markdown editor preview */
-.admin-light-theme .md-preview h1 {
+.admin-wrapper .md-preview h1 {
 	margin: 0.75rem 0 0.4rem;
 	font-size: 1.35rem;
 	font-weight: 800;
 	color: #0f172a;
 }
-.admin-light-theme .md-preview h2 {
+.admin-wrapper .md-preview h2 {
 	margin: 0.7rem 0 0.35rem;
 	font-size: 1.15rem;
 	font-weight: 800;
 	color: #0f172a;
 }
-.admin-light-theme .md-preview h3 {
+.admin-wrapper .md-preview h3 {
 	margin: 0.6rem 0 0.3rem;
 	font-size: 1rem;
 	font-weight: 700;
 	color: #1e293b;
 }
-.admin-light-theme .md-preview p {
+.admin-wrapper .md-preview p {
 	margin: 0.35rem 0;
 }
-.admin-light-theme .md-preview ul,
-.admin-light-theme .md-preview ol {
+.admin-wrapper .md-preview ul,
+.admin-wrapper .md-preview ol {
 	margin: 0.4rem 0;
 	padding-left: 1.25rem;
 }
-.admin-light-theme .md-preview li {
+.admin-wrapper .md-preview li {
 	margin: 0.15rem 0;
 }
-.admin-light-theme .md-preview a {
+.admin-wrapper .md-preview a {
 	color: #0369a1;
 	text-decoration: underline;
 	text-underline-offset: 2px;
 }
-.admin-light-theme .md-preview blockquote {
+.admin-wrapper .md-preview blockquote {
 	margin: 0.5rem 0;
 	border-left: 3px solid #cbd5e1;
 	padding-left: 0.75rem;
 	color: #475569;
 }
-.admin-light-theme .md-preview pre {
+.admin-wrapper .md-preview pre {
 	margin: 0.5rem 0;
 	overflow-x: auto;
 	border-radius: 0.5rem;
@@ -190,18 +263,18 @@ html.dark .df-summary-box {
 	padding: 0.75rem;
 	font-size: 12px;
 }
-.admin-light-theme .md-preview code {
+.admin-wrapper .md-preview code {
 	border-radius: 0.25rem;
 	background: #f1f5f9;
 	padding: 0.1rem 0.3rem;
 	font-size: 0.9em;
 }
-.admin-light-theme .md-preview pre code {
+.admin-wrapper .md-preview pre code {
 	padding: 0;
 	background: transparent;
 }
-.admin-light-theme .md-preview .md-preview-img,
-.admin-light-theme .md-preview img {
+.admin-wrapper .md-preview .md-preview-img,
+.admin-wrapper .md-preview img {
 	display: block;
 	width: auto;
 	max-width: 100%;
@@ -211,6 +284,34 @@ html.dark .df-summary-box {
 	border: 1px solid #e2e8f0;
 	object-fit: contain;
 	background: #f8fafc;
+}
+
+html.dark .admin-wrapper .md-preview h1,
+html.dark .admin-wrapper .md-preview h2 {
+	color: #f1f5f9;
+}
+html.dark .admin-wrapper .md-preview h3 {
+	color: #e2e8f0;
+}
+html.dark .admin-wrapper .md-preview a {
+	color: #7dd3fc;
+}
+html.dark .admin-wrapper .md-preview blockquote {
+	border-left-color: #475569;
+	color: #94a3b8;
+}
+html.dark .admin-wrapper .md-preview pre,
+html.dark .admin-wrapper .md-preview code {
+	background: #334155;
+	color: #e2e8f0;
+}
+html.dark .admin-wrapper .md-preview pre code {
+	background: transparent;
+}
+html.dark .admin-wrapper .md-preview .md-preview-img,
+html.dark .admin-wrapper .md-preview img {
+	border-color: #334155;
+	background: #1e293b;
 }
 
 /* ─── Audit result report: fixed 120% UI scale (all resolutions, no breakpoints) ───
@@ -301,6 +402,47 @@ html.dark .mobile-menu-overlay__footer {
 	border-top-color: rgba(255, 255, 255, 0.08);
 }
 
+/* Desktop GNB dropdown — open is hover/focus only; never tied to the current page */
+.gnb-item {
+	position: relative;
+}
+.gnb-item::after {
+	content: '';
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: 100%;
+	height: 12px;
+}
+.gnb-dropdown {
+	position: absolute;
+	/* Shift the panel left by inner padding so submenu text lines up with the GNB label. */
+	left: calc(-0.5rem - 0.875rem - 1px);
+	top: 100%;
+	z-index: 60;
+	min-width: 13.5rem;
+	padding-top: 0.5rem;
+	opacity: 0;
+	visibility: hidden;
+	transform: translateY(-6px);
+	pointer-events: none;
+	transition:
+		opacity 180ms ease-out,
+		transform 180ms ease-out,
+		visibility 180ms ease-out;
+}
+.gnb-item.is-open > .gnb-dropdown {
+	opacity: 1;
+	visibility: visible;
+	transform: translateY(0);
+	pointer-events: auto;
+}
+@media (prefers-reduced-motion: reduce) {
+	.gnb-dropdown {
+		transition: none;
+	}
+}
+
 /* ── Footer: mobile stacking (bottom clearance is Tailwind pb-28 / sm:pb-36) ─ */
 @media (max-width: 768px) {
 	footer.site-footer .footer-info-list {
@@ -373,6 +515,198 @@ html.dark .mobile-menu-overlay__footer {
 	background: rgba(113, 113, 122, 0.55);
 }
 
+.checklist-detail-scroll {
+	max-height: 200px;
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding: 8px 10px;
+	border: 1px solid #e2e8f0;
+	border-radius: 6px;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
+}
+
+/* The scroll clip only makes sense on screen — a static PDF/print capture
+   must show the full evidence list instead of cutting it off mid-scroll. */
+html.pdf-printing .checklist-detail-scroll,
+html.print-mode .checklist-detail-scroll {
+	max-height: none !important;
+	overflow: visible !important;
+}
+
+.image-alt-issue-list {
+	display: flex;
+	flex-direction: column;
+}
+
+.image-alt-issue-item {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+	padding: 8px 0;
+	border-bottom: 1px solid #f1f5f9;
+}
+
+.image-alt-issue-item:last-child {
+	border-bottom: none;
+}
+
+.dark .image-alt-issue-item {
+	border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+.checklist-detail-scroll::-webkit-scrollbar {
+	width: 6px;
+}
+
+.checklist-detail-scroll::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+.checklist-detail-scroll::-webkit-scrollbar-thumb {
+	border-radius: 9999px;
+	background: rgba(148, 163, 184, 0.7);
+}
+
+/* Render-blocking script snippets always render as a dark terminal box on
+   screen, regardless of the app's light/dark theme toggle — only the
+   PDF/print capture (below) flattens this back to a light, ink-safe card. */
+.checklist-detail-scroll pre.code-tag,
+pre.code-tag {
+	margin: 6px 0 0;
+	padding: 8px 10px;
+	width: 100%;
+	max-width: 100%;
+	box-sizing: border-box;
+	overflow-x: auto;
+	overflow-wrap: anywhere;
+	border-radius: 4px;
+	font-size: 11px;
+	line-height: 1.45;
+	white-space: pre-wrap;
+	word-break: break-all;
+}
+
+.checklist-detail-scroll pre.code-tag code,
+pre.code-tag code {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+	color: inherit;
+}
+
+/* PDF/print isolation: the terminal look is a screen-only affordance —
+   printed evidence must stay legible as plain black-on-white text. Also
+   drop the horizontal-scroll escape hatch (`overflow-x: auto`) in favor of
+   a hard `overflow: hidden` + forced wrap — a static A4 capture can never
+   scroll, so a long `<script src="...">` tag must wrap in place instead of
+   spilling past the sheet's right margin. Scoped globally (not nested under
+   `.pdf-print-area`) so it also reaches the detached `.pdf-preview-content`
+   clone tree the PDF preview modal captures (see `lib/audit/print-pdf.ts`). */
+html.pdf-printing .checklist-detail-scroll pre.code-tag,
+html.print-mode .checklist-detail-scroll pre.code-tag,
+html.pdf-printing pre.code-tag,
+html.print-mode pre.code-tag {
+	background: #f8fafc !important;
+	color: #0f172a !important;
+	border-color: #e2e8f0 !important;
+	overflow: hidden !important;
+	white-space: normal !important;
+	word-break: break-all !important;
+	overflow-wrap: anywhere !important;
+}
+
+html.pdf-printing .checklist-detail-scroll pre.code-tag code,
+html.print-mode .checklist-detail-scroll pre.code-tag code,
+html.pdf-printing pre.code-tag code,
+html.print-mode pre.code-tag code {
+	color: inherit !important;
+	display: block !important;
+	overflow: hidden !important;
+	white-space: normal !important;
+	word-break: break-all !important;
+	overflow-wrap: anywhere !important;
+}
+
+@media print {
+	pre.code-tag {
+		background: #f8fafc !important;
+		color: #0f172a !important;
+		border-color: #e2e8f0 !important;
+		overflow: hidden !important;
+		white-space: normal !important;
+		word-break: break-all !important;
+		overflow-wrap: anywhere !important;
+	}
+
+	pre.code-tag code {
+		color: inherit !important;
+		display: block !important;
+		overflow: hidden !important;
+		white-space: normal !important;
+		word-break: break-all !important;
+		overflow-wrap: anywhere !important;
+	}
+}
+
+/* Render-blocking script card — outer wrapper + top path chip. Dark terminal
+   card/chip on screen; light ink-safe slate card in print/PDF. Scoped
+   globally (not nested under `.pdf-print-area`) so it also reaches the
+   detached `.pdf-preview-content` clone tree the PDF preview modal builds. */
+html.pdf-printing .render-blocking-card,
+html.print-mode .render-blocking-card {
+	background-color: #f8fafc !important; /* slate-50 */
+	border-color: #e2e8f0 !important; /* slate-200 */
+}
+
+html.pdf-printing .render-blocking-card > div,
+html.print-mode .render-blocking-card > div {
+	border-color: #e2e8f0 !important; /* slate-200 */
+}
+
+html.pdf-printing .render-blocking-path-tag,
+html.print-mode .render-blocking-path-tag {
+	background-color: rgba(226, 232, 240, 0.8) !important; /* slate-200/80 */
+	color: #334155 !important; /* slate-700 */
+	border-color: #cbd5e1 !important; /* slate-300 */
+}
+
+@media print {
+	.render-blocking-card {
+		background-color: #f8fafc !important;
+		border-color: #e2e8f0 !important;
+	}
+
+	.render-blocking-card > div {
+		border-color: #e2e8f0 !important;
+	}
+
+	.render-blocking-path-tag {
+		background-color: rgba(226, 232, 240, 0.8) !important;
+		color: #334155 !important;
+		border-color: #cbd5e1 !important;
+	}
+}
+
+/* The amber "recommended fix" badge uses a pale-on-dark palette that reads
+   fine on the terminal card but is illegible once print flattens the card
+   to a white sheet — pin it to a solid, ink-safe amber for paper/PDF. */
+html.pdf-printing .render-blocking-rec-badge,
+html.print-mode .render-blocking-rec-badge {
+	background: #fffbeb !important;
+	color: #92400e !important;
+	border-color: #fde68a !important;
+}
+
+@media print {
+	.render-blocking-rec-badge {
+		background: #fffbeb !important;
+		color: #92400e !important;
+		border-color: #fde68a !important;
+	}
+}
+
 /* Audit result tab panel — fade + slight rise on switch */
 @keyframes auditTabFadeIn {
 	from {
@@ -391,6 +725,29 @@ html.dark .mobile-menu-overlay__footer {
 
 @media print {
 	.audit-tab-fade-in {
+		animation: none;
+	}
+}
+
+/* Recent audits (home) — staggered fade-in-up as cards mount */
+@keyframes recentAuditFadeInUp {
+	from {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.recent-audit-card-animate {
+	animation: recentAuditFadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+	will-change: transform, opacity;
+}
+
+@media print {
+	.recent-audit-card-animate {
 		animation: none;
 	}
 }
@@ -431,6 +788,94 @@ html.dark .mobile-menu-overlay__footer {
 
 .audit-result-spinner {
 	animation: auditResultSpinner 0.85s linear infinite;
+}
+
+/*
+ * Audit loading gauge — shimmer sweep shown while genuinely waiting on the
+ * real PageSpeed/Lighthouse response (step 6). The numeric % holds steady
+ * (no oscillation) while this sweep signals "still computing" instead.
+ */
+@keyframes auditLoadingShimmer {
+	0% {
+		transform: translateX(-120%);
+	}
+	100% {
+		transform: translateX(220%);
+	}
+}
+
+.audit-loading-shimmer {
+	animation: auditLoadingShimmer 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.audit-loading-shimmer {
+		animation: none;
+	}
+}
+
+/* PDF compile loader — 3D A4 stack + looping scan beam */
+@keyframes pdf-loader-scanner {
+	0%,
+	100% {
+		top: 10%;
+	}
+	50% {
+		top: 86%;
+	}
+}
+
+@keyframes pdf-loader-float {
+	0%,
+	100% {
+		transform: translateY(0);
+	}
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+.pdf-loader-stack {
+	animation: pdf-loader-float 3.6s ease-in-out infinite;
+}
+
+.pdf-loader-scanner-beam {
+	position: absolute;
+	left: 7%;
+	right: 7%;
+	height: 2px;
+	border-radius: 999px;
+	background: linear-gradient(90deg, transparent, #22d3ee, #a78bfa, #34d399, transparent);
+	box-shadow: 0 0 12px 3px rgba(34, 211, 238, 0.45);
+	animation: pdf-loader-scanner 2.2s ease-in-out infinite;
+	pointer-events: none;
+}
+
+.pdf-loader-scanner-beam::after {
+	content: '';
+	position: absolute;
+	inset: -12px 0 auto 0;
+	height: 22px;
+	background: linear-gradient(180deg, rgba(34, 211, 238, 0.2), transparent);
+}
+
+.pdf-loader-progress-bar {
+	transition: width 0.3s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pdf-loader-stack,
+	.pdf-loader-scanner-beam {
+		animation: none;
+	}
+
+	.pdf-loader-scanner-beam {
+		top: 42%;
+	}
+
+	.pdf-loader-progress-bar {
+		transition: none;
+	}
 }
 
 @media print {
@@ -554,6 +999,7 @@ html.pdf-printing .live-cert-dot::before {
 @media (prefers-reduced-motion: reduce) {
 	.animate-fadeIn,
 	.audit-tab-fade-in,
+	.recent-audit-card-animate,
 	.psi-slide-in,
 	.psi-progress-msg,
 	.live-cert-dot::before {
@@ -618,6 +1064,26 @@ html.pdf-printing .live-cert-dot::before {
 	display: none;
 }
 
+/*
+ * Leftover A4 capture inline styles (`display:block !important` on
+ * `.pdf-print-only`) must not leak a white report slab onto the live
+ * diagnostic result after the preview modal closes.
+ */
+@media screen {
+	html:not(.pdf-printing):not(.print-mode) .pdf-print-area .pdf-print-only,
+	html:not(.pdf-printing):not(.print-mode) .pdf-print-area .audit-print-header,
+	html:not(.pdf-printing):not(.print-mode) .pdf-print-area .audit-print-footer {
+		display: none !important;
+		visibility: hidden !important;
+		height: 0 !important;
+		max-height: 0 !important;
+		overflow: hidden !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		border-width: 0 !important;
+	}
+}
+
 @media screen {
 	html:not(.pdf-printing) .audit-result-tab-panel:not(.is-active),
 	html:not(.pdf-printing) .df-tab-content:not(.is-active) {
@@ -638,7 +1104,10 @@ html.pdf-printing .live-cert-dot::before {
 
 html.pdf-printing .pdf-print-only,
 html.pdf-printing .audit-print-header,
-html.pdf-printing .audit-print-footer {
+html.pdf-printing .audit-print-footer,
+html.print-mode .pdf-print-only,
+html.print-mode .audit-print-header,
+html.print-mode .audit-print-footer {
 	display: block !important;
 }
 
@@ -647,8 +1116,10 @@ html.pdf-printing .pdf-screen-only {
 	display: none !important;
 }
 
-html.pdf-printing .audit-result-tab-panel,
-html.pdf-printing .df-tab-content {
+/* Tab bodies stay fully expanded in the A4 capture — leftover screen-only
+   wrappers inside a track panel must not collapse the printed content. */
+html.pdf-printing .audit-result-tab-panel .pdf-screen-only,
+html.pdf-printing .audit-result-tab-panel .print\:hidden:not(button):not(nav) {
 	display: flex !important;
 	flex-direction: column !important;
 	height: auto !important;
@@ -656,6 +1127,24 @@ html.pdf-printing .df-tab-content {
 	max-height: none !important;
 	overflow: visible !important;
 }
+
+html.pdf-printing .audit-result-tab-panel,
+html.pdf-printing .df-tab-content,
+html.print-mode .audit-result-tab-panel,
+html.print-mode .df-tab-content {
+	display: flex !important;
+	flex-direction: column !important;
+	height: auto !important;
+	min-height: auto !important;
+	max-height: none !important;
+	overflow: visible !important;
+}
+
+/*
+ * Track 1/2/3 bodies stay in the A4 capture tree. Do not hide
+ * `.audit-result-tab-panel` during `html.pdf-printing` — inactive tabs
+ * must stack under the force-flex rule above.
+ */
 
 html.pdf-printing .pdf-print-area,
 html.pdf-printing .pdf-print-container,
@@ -698,6 +1187,104 @@ html.pdf-printing .pdf-print-container {
 	background: #ffffff !important;
 	background-color: #ffffff !important;
 	background-image: none !important;
+	color: #0f172a !important;
+}
+
+/*
+ * Defensive net for the A4 capture tree (`#pdf-print-area` /
+ * `.pdf-print-container`, aliased here as this project's print root —
+ * there is no separate `.pdf-print-root` element). Some dashboard cards
+ * (ROI banners, GEO sub-metric grids, action-guide callouts) hard-code a
+ * dark tone with no `dark:` prefix, so removing `html.dark` before capture
+ * does not lighten them. Force any leftover dark surface back to a
+ * print-safe white/slate-50 card regardless of which exact utility class
+ * was used.
+ *
+ * IMPORTANT: the on-screen "PDF 미리보기" modal does not capture
+ * `#pdf-print-area` directly — `mountPdfPreviewPages()` deep-clones each
+ * `.pdf-page-item` into a *detached* `.pdf-preview-content` / `.pdf-page-node`
+ * tree (see `lib/audit/print-pdf.ts`) before html2canvas ever touches it.
+ * That clone is not a descendant of `.pdf-print-area`/`.pdf-print-container`,
+ * so every selector below must also target `.pdf-preview-content` /
+ * `.pdf-page-node` or a dark card (e.g. the render-blocking script list's
+ * `bg-slate-950/90` terminal card) survives untouched into the exported PDF.
+ */
+html.pdf-printing .pdf-print-area [class*="bg-slate-8"],
+html.pdf-printing .pdf-print-area [class*="bg-slate-9"],
+html.pdf-printing .pdf-print-area [class*="bg-gray-8"],
+html.pdf-printing .pdf-print-area [class*="bg-gray-9"],
+html.pdf-printing .pdf-print-area [class*="bg-zinc-8"],
+html.pdf-printing .pdf-print-area [class*="bg-zinc-9"],
+html.pdf-printing .pdf-print-area [class*="bg-black/"],
+html.pdf-printing .pdf-print-area [class*="indigo-950"],
+html.pdf-printing .pdf-print-area [class*="0F172A"],
+html.pdf-printing .pdf-print-area [class*="0f172a"],
+html.pdf-printing .pdf-print-area [class*="111827"],
+html.pdf-printing .pdf-print-area [class*="0B1C2C"],
+html.pdf-printing .pdf-print-area [class*="0B0F28"],
+html.pdf-printing .pdf-print-container [class*="bg-slate-8"],
+html.pdf-printing .pdf-print-container [class*="bg-slate-9"],
+html.pdf-printing .pdf-print-container [class*="bg-gray-8"],
+html.pdf-printing .pdf-print-container [class*="bg-gray-9"],
+html.pdf-printing .pdf-print-container [class*="bg-zinc-8"],
+html.pdf-printing .pdf-print-container [class*="bg-zinc-9"],
+html.pdf-printing .pdf-print-container [class*="bg-black/"],
+.pdf-preview-content [class*="bg-slate-8"],
+.pdf-preview-content [class*="bg-slate-9"],
+.pdf-preview-content [class*="bg-gray-8"],
+.pdf-preview-content [class*="bg-gray-9"],
+.pdf-preview-content [class*="bg-zinc-8"],
+.pdf-preview-content [class*="bg-zinc-9"],
+.pdf-preview-content [class*="bg-black/"],
+.pdf-preview-content [class*="indigo-950"],
+.pdf-preview-content [class*="0F172A"],
+.pdf-preview-content [class*="0f172a"],
+.pdf-preview-content [class*="111827"],
+.pdf-preview-content [class*="0B1C2C"],
+.pdf-preview-content [class*="0B0F28"],
+.pdf-page-node [class*="bg-slate-8"],
+.pdf-page-node [class*="bg-slate-9"],
+.pdf-page-node [class*="bg-gray-8"],
+.pdf-page-node [class*="bg-gray-9"],
+.pdf-page-node [class*="bg-zinc-8"],
+.pdf-page-node [class*="bg-zinc-9"],
+.pdf-page-node [class*="bg-black/"],
+.pdf-preview-measure-host [class*="bg-slate-8"],
+.pdf-preview-measure-host [class*="bg-slate-9"] {
+	background-color: #f8fafc !important; /* slate-50 */
+	background-image: none !important;
+	border-color: #e2e8f0 !important; /* slate-200 */
+	color: #0f172a !important; /* slate-900 */
+}
+
+/* Inner slots / evidence boxes nested inside a flattened dark card read as
+   a white inset instead of inheriting the slate-50 card tone. */
+html.pdf-printing .pdf-print-area [class*="bg-slate-8"] > *,
+html.pdf-printing .pdf-print-area [class*="bg-slate-9"] > *,
+html.pdf-printing .pdf-print-container [class*="bg-slate-8"] > *,
+html.pdf-printing .pdf-print-container [class*="bg-slate-9"] > *,
+.pdf-preview-content [class*="bg-slate-8"] > *,
+.pdf-preview-content [class*="bg-slate-9"] > *,
+.pdf-page-node [class*="bg-slate-8"] > *,
+.pdf-page-node [class*="bg-slate-9"] > * {
+	background-color: #ffffff !important;
+	border-color: #e2e8f0 !important;
+	color: #334155 !important; /* slate-700 */
+}
+
+/* Bright white/near-white text left over on a now-light surface. */
+html.pdf-printing .pdf-print-area .text-white,
+html.pdf-printing .pdf-print-area [class*="text-slate-1"],
+html.pdf-printing .pdf-print-area [class*="text-slate-2"],
+html.pdf-printing .pdf-print-container .text-white,
+html.pdf-printing .pdf-print-container [class*="text-slate-1"],
+html.pdf-printing .pdf-print-container [class*="text-slate-2"],
+.pdf-preview-content .text-white,
+.pdf-preview-content [class*="text-slate-1"],
+.pdf-preview-content [class*="text-slate-2"],
+.pdf-page-node .text-white,
+.pdf-page-node [class*="text-slate-1"],
+.pdf-page-node [class*="text-slate-2"] {
 	color: #0f172a !important;
 }
 
@@ -859,6 +1446,41 @@ html.pdf-printing .pdf-print-area .keyword-chip-label,
 	color: #0f172a;
 }
 
+/* PDF preview modal — minimize/maximize toggle (floating capsule + zoom). */
+@keyframes pdfPreviewCapsuleIn {
+	from {
+		opacity: 0;
+		transform: translateY(10px) scale(0.94);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+.pdf-preview-capsule {
+	animation: pdfPreviewCapsuleIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.pdf-preview-capsule {
+		animation: none;
+	}
+}
+
+/* `zoom` (not `transform`) so the maximized-view scale also shrinks/grows
+   layout height — a `transform: scale()` box keeps its unscaled footprint
+   and would leave dead whitespace below the sheet stack at <100%. */
+.pdf-preview-zoom-wrapper {
+	zoom: 1;
+}
+
+@supports not (zoom: 1) {
+	.pdf-preview-zoom-wrapper {
+		transform-origin: top center;
+	}
+}
+
 .pdf-page-node {
 	position: relative;
 	box-sizing: border-box;
@@ -918,25 +1540,230 @@ html.pdf-printing .pdf-print-area .keyword-chip-label,
 	flex-direction: column;
 	gap: 14px;
 	width: 100%;
+	max-width: 100%;
 	height: auto !important;
 	min-height: 0 !important;
 	max-height: none !important;
-	padding: 36px 36px 48px;
-	overflow: visible !important;
+	/* Keep in sync with PAGE_PAD_TOP_PX / PAGE_PAD_SIDE_PX / PAGE_PAD_BOTTOM_PX
+	   in lib/audit/print-pdf.ts — approximates a 12mm/15mm A4 print margin. */
+	padding: 45px 57px 57px;
+	overflow-x: hidden !important;
+	overflow-y: visible !important;
 	background: #ffffff;
 	color: #0f172a;
 }
 
+/*
+ * Explicit A4 coordinate lock (Shift/Offset fix). `.report-page` is applied
+ * together with `.pdf-page-node` on every sheet (see `createPageNode()` in
+ * lib/audit/print-pdf.ts) — these values intentionally mirror `.pdf-page-node`
+ * above 1:1 so the sheet's outer box can never disagree with itself between
+ * the two class rules, and so a future export surface that renders a bare
+ * `.report-page` (no `.pdf-page-node-inner` split) still locks to 210×297mm.
+ * `overflow: hidden` here is what stops `onclone`'s inline min/max-height and
+ * a stray oversized child from ever re-inflating the sheet past A4 during
+ * html2canvas's cloned-document layout pass.
+ */
+.report-page {
+	width: 210mm !important;
+	height: 297mm !important;
+	min-height: 297mm !important;
+	max-height: 297mm !important;
+	box-sizing: border-box !important;
+	overflow: hidden !important;
+	position: relative !important;
+	background-color: #ffffff !important;
+	margin: 0 auto !important;
+	transform-origin: top left !important;
+}
+
+/* Sheets that carry their padding on `.pdf-page-node-inner` (the normal path)
+   must not be double-padded here — this only fires for a bare `.report-page`
+   that holds its content directly. */
+.report-page:not(.pdf-page-node) {
+	padding: 12mm 15mm !important;
+}
+
+/* First-element margin-top is the classic html2canvas "content sits lower/
+   higher than the preview" cause — a heading's own top margin doesn't collapse
+   away the same in a rasterized clone as it does on screen. Kill it at the
+   sheet boundary so page 1 of the raster always starts flush with page 1 of
+   the on-screen preview. */
+.report-page > *:first-child {
+	margin-top: 0 !important;
+}
+
+/*
+ * A4 containment — dashboard breakpoints still match the live viewport, so
+ * cloned cards can be 1000px+ wide. Everything inside a sheet must shrink
+ * to the 680px content column instead of painting past the paper edge.
+ */
+.pdf-page-node,
+.pdf-page-node-inner,
+.pdf-preview-measure-host,
+.pdf-a4-fit {
+	box-sizing: border-box;
+	max-width: 100%;
+}
+
+.pdf-page-node-inner > *,
+.pdf-preview-measure-host > *,
+.pdf-a4-fit,
+.pdf-page-node .pdf-page-item,
+.pdf-preview-content .pdf-page-item,
+.pdf-preview-measure-host .pdf-page-item {
+	box-sizing: border-box !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	min-width: 0 !important;
+}
+
+.pdf-page-node table,
+.pdf-preview-content table,
+.pdf-preview-measure-host table {
+	width: 100% !important;
+	max-width: 100% !important;
+	min-width: 0 !important;
+	table-layout: fixed !important;
+}
+
+.pdf-page-node img,
+.pdf-page-node svg,
+.pdf-page-node canvas,
+.pdf-preview-content img,
+.pdf-preview-content svg,
+.pdf-preview-content canvas,
+.pdf-preview-measure-host img,
+.pdf-preview-measure-host svg,
+.pdf-preview-measure-host canvas {
+	max-width: 100% !important;
+	height: auto;
+}
+
+.pdf-page-node .whitespace-nowrap,
+.pdf-preview-content .whitespace-nowrap,
+.pdf-preview-measure-host .whitespace-nowrap {
+	white-space: normal !important;
+}
+
+.pdf-page-node pre,
+.pdf-page-node code,
+.pdf-preview-content pre,
+.pdf-preview-content code,
+.pdf-preview-measure-host pre,
+.pdf-preview-measure-host code {
+	white-space: pre-wrap !important;
+	word-break: break-word !important;
+	overflow-wrap: anywhere !important;
+	max-width: 100% !important;
+}
+
+.pdf-page-node-inner .lg\:flex-row,
+.pdf-preview-measure-host .lg\:flex-row,
+.pdf-preview-content .lg\:flex-row {
+	flex-direction: column !important;
+	width: 100% !important;
+}
+
+.pdf-page-node-inner .lg\:w-\[35\%\],
+.pdf-page-node-inner .lg\:w-\[65\%\],
+.pdf-preview-measure-host .lg\:w-\[35\%\],
+.pdf-preview-measure-host .lg\:w-\[65\%\],
+.pdf-preview-content .lg\:w-\[35\%\],
+.pdf-preview-content .lg\:w-\[65\%\] {
+	width: 100% !important;
+	max-width: 100% !important;
+}
+
+.pdf-two-track-grid {
+	display: grid !important;
+	grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+	width: 100% !important;
+	max-width: 100% !important;
+	overflow: visible !important;
+	height: auto !important;
+	max-height: none !important;
+}
+
+/*
+ * 3-track composite (#sec-pdf-two-track) and core-axes quick score
+ * (#sec-pdf-quick-axes) cards space everything with flex `gap-*` now, not
+ * heading/paragraph margins. Kill any leftover UA/browser block margin on
+ * text nodes inside them so html2canvas never reintroduces the tall empty
+ * gap that used to sit above the weight badge / grade chip / body copy.
+ */
+#sec-pdf-two-track h1,
+#sec-pdf-two-track h2,
+#sec-pdf-two-track h3,
+#sec-pdf-two-track h4,
+#sec-pdf-two-track p,
+#sec-pdf-two-track span,
+#sec-pdf-two-track div,
+#sec-pdf-quick-axes h1,
+#sec-pdf-quick-axes h2,
+#sec-pdf-quick-axes h3,
+#sec-pdf-quick-axes h4,
+#sec-pdf-quick-axes p,
+#sec-pdf-quick-axes span,
+#sec-pdf-quick-axes div {
+	margin-block-start: 0 !important;
+	margin-block-end: 0 !important;
+	margin-top: 0 !important;
+	margin-bottom: 0 !important;
+	box-sizing: border-box !important;
+}
+
+html.pdf-printing #sec-pdf-two-track,
+html.print-mode #sec-pdf-two-track,
+.pdf-preview-content #sec-pdf-two-track,
+.pdf-page-node #sec-pdf-two-track,
+.pdf-preview-measure-host #sec-pdf-two-track,
+.pdf-preview-content .pdf-print-only,
+.pdf-page-node .pdf-print-only,
+.pdf-preview-measure-host .pdf-print-only {
+	display: block !important;
+	visibility: visible !important;
+	overflow: visible !important;
+	height: auto !important;
+	max-height: none !important;
+}
+
 .pdf-page-node-footer {
 	position: absolute;
-	right: 36px;
+	right: 57px;
 	bottom: 16px;
-	left: 36px;
+	left: 57px;
 	margin: 0;
 	font-size: 10px;
 	line-height: 1.2;
 	color: #64748b;
 	text-align: center;
+}
+
+/*
+ * Curated print-report table rows (stage 2/3 AI-engine + schema tables) —
+ * `break-inside`/`page-break-inside` on raw `<tr>` so a row is never split
+ * across two A4 sheets. The existing `.pdf-page-item`/`.audit-report-section`
+ * rules above only cover section/article-level blocks, not table rows.
+ */
+.pdf-print-only table tr,
+.pdf-preview-content table tr,
+.pdf-preview-measure-host table tr {
+	break-inside: avoid !important;
+	page-break-inside: avoid !important;
+}
+
+/*
+ * Print-report gold accent utilities — same family as the `#C9A227` gold used
+ * on the A4 print header border/kicker, for score/point highlights in the
+ * curated print-only stage 1/5 cards.
+ */
+.pdf-text-gold {
+	color: #9c7b46;
+}
+
+.pdf-bg-gold-light {
+	background-color: #fcf9f2;
 }
 
 html.pdf-printing .pdf-expand-in-print,
@@ -974,9 +1801,53 @@ html.pdf-preview-capturing .pdf-page-node:not(.pdf-page-node--tall) {
 	overflow: hidden !important;
 }
 
+.pdf-preview-content .pdf-page-node,
+.pdf-preview-content .pdf-page-node-inner,
+.pdf-preview-content .pdf-a4-fit,
+html.pdf-preview-capturing .pdf-page-node-inner,
+html.pdf-printing .pdf-page-node-inner {
+	overflow-x: hidden !important;
+	max-width: 100% !important;
+}
+
 @media print {
+	/*
+	 * Native window.print() (`html.pdf-native-print`): isolate Track 1–3
+	 * report body, hide chrome / preview overlay / buttons immediately.
+	 */
+	html.pdf-native-print .pdf-preview-root,
+	html.pdf-native-print .pdf-preview-chrome,
+	html.pdf-native-print .pdf-generating-loader,
+	html.pdf-native-print .pdf-preview-measure-host,
+	html.pdf-native-print header:not(.audit-print-header),
+	html.pdf-native-print nav,
+	html.pdf-native-print .LocaleSwitcher,
+	html.pdf-native-print button:not(.keyword-chip),
+	html.pdf-native-print .print\:hidden,
+	html.pdf-native-print .pdf-screen-only {
+		display: none !important;
+		visibility: hidden !important;
+	}
+
+	html.pdf-native-print #pdf-print-area,
+	html.pdf-native-print #pdf-print-area * {
+		visibility: visible !important;
+	}
+
+	html.pdf-native-print #pdf-print-area {
+		display: block !important;
+		position: absolute !important;
+		left: 0 !important;
+		top: 0 !important;
+		width: 210mm !important;
+		max-width: 210mm !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		background: #ffffff !important;
+	}
+
 	/* Dashboard window.print() fallback: hide the overlay unless the A4 preview modal is open. */
-	.pdf-preview-root:not(.report-preview-modal) {
+	html:not(.pdf-native-print) .pdf-preview-root:not(.report-preview-modal) {
 		display: none !important;
 	}
 
@@ -993,7 +1864,7 @@ html.pdf-preview-capturing .pdf-page-node:not(.pdf-page-node--tall) {
 		overflow: visible !important;
 	}
 
-	body:has(.report-preview-modal) * {
+	html:not(.pdf-native-print) body:has(.report-preview-modal) * {
 		visibility: hidden !important;
 	}
 
@@ -1019,6 +1890,7 @@ html.pdf-preview-capturing .pdf-page-node:not(.pdf-page-node--tall) {
 		box-shadow: none !important;
 		overflow: visible !important;
 		display: block !important;
+		transform: none !important;
 		z-index: 1 !important;
 		-webkit-print-color-adjust: exact !important;
 		print-color-adjust: exact !important;
@@ -1069,6 +1941,13 @@ html.pdf-preview-capturing .pdf-page-node:not(.pdf-page-node--tall) {
 		overflow: visible !important;
 		background: #ffffff !important;
 		box-shadow: none !important;
+		transform: none !important;
+	}
+
+	body:has(.report-preview-modal) .pdf-preview-zoom-wrapper {
+		zoom: 1 !important;
+		transform: none !important;
+		width: 100% !important;
 	}
 
 	body:has(.report-preview-modal) .pdf-preview-scroll,
@@ -1084,6 +1963,105 @@ html.pdf-preview-capturing .pdf-page-node:not(.pdf-page-node--tall) {
 		display: none !important;
 		width: 0 !important;
 		height: 0 !important;
+	}
+
+	html.pdf-native-print .report-preview-modal,
+	html.pdf-native-print .pdf-preview-root {
+		display: none !important;
+		visibility: hidden !important;
+	}
+}
+
+/*
+ * PDF preview modal / public A4 view — print isolation keyed off
+ * `html.pdf-preview-surface-open` (set by `markPdfPreviewSurfaceOpen()` in
+ * `lib/audit/print-pdf.ts` whenever `.pdf-preview-content` has real,
+ * already-paginated A4 sheets) instead of `:has()`. `printPdfPreviewPages()`
+ * prints those sheets directly rather than trying to reveal the separate,
+ * normally hidden/off-screen `#pdf-print-area` — the previous "hide this
+ * component's own root, reveal #pdf-print-area elsewhere" dance produced a
+ * blank print page whenever `#pdf-print-area` happened to be nested *inside*
+ * the very root being hidden (the public A4 view renders it inside its own
+ * off-screen `.pdf-preview-measure-host`), and was fragile even when it
+ * wasn't. This block is intentionally independent of the `:has()` rules
+ * above — it does not require the browser to support `:has()` at all, and
+ * every layout-locking property the fixed/scaled screen chrome can set
+ * (`position`, `overflow`, `height`, `zoom`/`transform`) is explicitly
+ * reset here.
+ */
+@media print {
+	/* Generic opt-out hooks — any future toolbar/backdrop/button can tag
+	   itself with one of these instead of relying solely on the
+	   surface-open-scoped rules below. */
+	.no-print,
+	.preview-toolbar,
+	.modal-backdrop {
+		display: none !important;
+	}
+
+	html.pdf-preview-surface-open {
+		background: #ffffff !important;
+	}
+
+	html.pdf-preview-surface-open body {
+		background: #ffffff !important;
+		overflow: visible !important;
+		height: auto !important;
+	}
+
+	html.pdf-preview-surface-open .pdf-preview-chrome,
+	html.pdf-preview-surface-open .pdf-preview-measure-host,
+	html.pdf-preview-surface-open .pdf-preview-capsule,
+	html.pdf-preview-surface-open .no-print {
+		display: none !important;
+		visibility: hidden !important;
+	}
+
+	html.pdf-preview-surface-open .report-preview-modal,
+	html.pdf-preview-surface-open .report-a4-view {
+		position: static !important;
+		inset: auto !important;
+		display: block !important;
+		width: 100% !important;
+		max-width: none !important;
+		height: auto !important;
+		min-height: 0 !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		background: #ffffff !important;
+		box-shadow: none !important;
+		overflow: visible !important;
+		transform: none !important;
+		z-index: 1 !important;
+	}
+
+	/*
+	 * `display: block` (not `flex`) — `break-after`/`page-break-after` on
+	 * `.pdf-page-node` children is unreliable inside a flex/grid container
+	 * in several browsers, and each page is already a fixed 210mm-wide
+	 * block, so a flex row/column buys nothing here.
+	 */
+	html.pdf-preview-surface-open .pdf-preview-scroll,
+	html.pdf-preview-surface-open .pdf-preview-content {
+		display: block !important;
+		position: static !important;
+		width: 100% !important;
+		max-width: none !important;
+		margin: 0 !important;
+		padding: 0 !important;
+		gap: 0 !important;
+		min-height: 0 !important;
+		height: auto !important;
+		overflow: visible !important;
+		background: #ffffff !important;
+		box-shadow: none !important;
+		transform: none !important;
+	}
+
+	html.pdf-preview-surface-open .pdf-preview-zoom-wrapper {
+		zoom: 1 !important;
+		transform: none !important;
+		width: 100% !important;
 	}
 }
 
@@ -1182,7 +2160,15 @@ html.pdf-preview-capturing .pdf-page-node:not(.pdf-page-node--tall) {
 html.pdf-printing .pdf-print-area,
 html.pdf-printing .pdf-print-container,
 html.pdf-printing .pdf-print-area *,
-html.pdf-printing .pdf-print-container * {
+html.pdf-printing .pdf-print-container *,
+html.print-mode .pdf-print-area,
+html.print-mode .pdf-print-container,
+html.print-mode .pdf-print-area *,
+html.print-mode .pdf-print-container *,
+html.print-mode .pdf-preview-content,
+html.print-mode .pdf-preview-content *,
+html.print-mode .pdf-page-node,
+html.print-mode .pdf-page-node * {
 	backdrop-filter: none !important;
 	-webkit-backdrop-filter: none !important;
 	filter: none !important;
@@ -1231,10 +2217,22 @@ html.pdf-printing .pdf-print-container * {
 		max-height: none !important;
 	}
 
+	/*
+	 * Default page box gets the requested 12mm/15mm safe margin (plain
+	 * window.print() fallback and any content outside the pre-fit A4 sheets).
+	 * `.pdf-page-node` opts into the zero-margin named page below — those
+	 * sheets are already pre-sized to exactly 210×297mm with their own
+	 * internal padding (see PAGE_PAD_PX in print-pdf.ts), so a browser page
+	 * margin on top would push them onto a second physical sheet each.
+	 */
 	@page {
 		size: A4;
+		margin: 12mm 15mm;
+	}
+
+	@page pdf-sheet {
+		size: A4;
 		margin: 0;
-		padding: 0;
 	}
 
 	html:not(:has(.report-preview-modal)),
@@ -1247,6 +2245,7 @@ html.pdf-printing .pdf-print-container * {
 	}
 
 	.pdf-page-node {
+		page: pdf-sheet;
 		width: 210mm !important;
 		height: 297mm !important;
 		min-height: 297mm !important;
@@ -1278,6 +2277,17 @@ html.pdf-printing .pdf-print-container * {
 	button:not(.keyword-chip),
 	a[href='/login'] {
 		display: none !important;
+	}
+
+	.audit-result-tab-panel .pdf-screen-only,
+	.audit-result-tab-panel .print\:hidden:not(button):not(nav),
+	.audit-result-tab-panel button {
+		display: flex !important;
+		flex-direction: column !important;
+		height: auto !important;
+		min-height: auto !important;
+		max-height: none !important;
+		overflow: visible !important;
 	}
 
 	.pdf-print-area .keyword-pipeline-section,
@@ -1335,6 +2345,19 @@ html.pdf-printing .pdf-print-container * {
 		min-height: auto !important;
 		max-height: none !important;
 		overflow: visible !important;
+	}
+
+	/* Track 1/2/3 panels stay stacked for window.print() — same as html.pdf-printing. */
+	#sec-print-track-1,
+	#sec-print-track-2,
+	#sec-print-track-3 {
+		page-break-after: always !important;
+		break-after: page !important;
+	}
+
+	#sec-print-track-3 {
+		page-break-after: auto !important;
+		break-after: auto !important;
 	}
 
 	.pdf-print-area,

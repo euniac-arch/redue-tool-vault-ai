@@ -68,7 +68,7 @@ function buildPageNumbers(currentPage: number, totalPages: number): number[] {
 }
 
 function selectClassName() {
-	return 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800';
+	return 'w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700';
 }
 
 function formatTimestampForFilename(date: Date) {
@@ -671,7 +671,7 @@ export function CrawlingSetupWorkspace() {
 			{toast ? (
 				<div
 					role="status"
-					className="rounded-lg border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm"
+					className="rounded-lg border border-slate-200 bg-slate-900 px-4 py-2.5 text-sm font-medium text-white shadow-sm dark:border-slate-700"
 				>
 					{toast}
 				</div>
@@ -681,7 +681,7 @@ export function CrawlingSetupWorkspace() {
 			<div
 				role="tablist"
 				aria-label="크롤링 실행 방식"
-				className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:flex-row"
+				className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:flex-row dark:bg-slate-800 dark:border-slate-700"
 			>
 				<button
 					type="button"
@@ -691,7 +691,7 @@ export function CrawlingSetupWorkspace() {
 					className={`flex-1 rounded-lg px-3 py-3 text-left text-sm font-semibold transition ${
 						tab === 'discover'
 							? 'bg-slate-900 text-white shadow-sm'
-							: 'bg-transparent text-slate-700 hover:bg-slate-50'
+							: 'bg-transparent text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
 					}`}
 				>
 					<span className="mr-1.5" aria-hidden>
@@ -707,7 +707,7 @@ export function CrawlingSetupWorkspace() {
 					className={`flex-1 rounded-lg px-3 py-3 text-left text-sm font-semibold transition ${
 						tab === 'excel'
 							? 'bg-slate-900 text-white shadow-sm'
-							: 'bg-transparent text-slate-700 hover:bg-slate-50'
+							: 'bg-transparent text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700'
 					}`}
 				>
 					<span className="mr-1.5" aria-hidden>
@@ -720,16 +720,16 @@ export function CrawlingSetupWorkspace() {
 			{tab === 'discover' ? (
 				<div role="tabpanel" className="flex flex-col gap-4">
 					{/* Single URL */}
-					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-						<div className="mb-4 border-b border-slate-100 pb-3">
-							<h2 className="text-base font-bold text-slate-900">단일 URL 즉시 수집</h2>
-							<p className="mt-0.5 text-sm text-slate-600">
+					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+						<div className="mb-4 border-b border-slate-100 pb-3 dark:border-slate-700">
+							<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">단일 URL 즉시 수집</h2>
+							<p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
 								URL을 직접 입력하면 검증 후 정밀 진단 리스트로 이관·스캔합니다.
 							</p>
 						</div>
 						<form onSubmit={handleSingleCollect} className="flex flex-col gap-3 sm:flex-row sm:items-end">
 							<label className="flex min-w-0 flex-1 flex-col gap-1.5">
-								<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+								<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
 									대상 URL
 								</span>
 								<input
@@ -737,7 +737,7 @@ export function CrawlingSetupWorkspace() {
 									value={singleUrl}
 									onChange={(e) => setSingleUrl(e.target.value)}
 									placeholder="https://..."
-									className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 font-mono text-sm text-slate-800"
+									className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2.5 font-mono text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								/>
 							</label>
 							<button
@@ -756,10 +756,10 @@ export function CrawlingSetupWorkspace() {
 					</section>
 
 					{/* Discovery filters — simplified: country + keyword + count */}
-					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-						<div className="mb-4 border-b border-slate-100 pb-3">
-							<h2 className="text-base font-bold text-slate-900">타겟 자동 발굴</h2>
-							<p className="mt-0.5 text-sm text-slate-600">
+					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+						<div className="mb-4 border-b border-slate-100 pb-3 dark:border-slate-700">
+							<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">타겟 자동 발굴</h2>
+							<p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
 								검색어로 네이버·구글 플레이스·맞춤검색에서 자사 공식 웹사이트를 발굴합니다.
 								구글 지도(Places) 옵션은 상호·전화·평점과 연동 웹사이트를 함께 수집합니다.
 							</p>
@@ -767,7 +767,7 @@ export function CrawlingSetupWorkspace() {
 						<form onSubmit={handleDiscover} className="flex flex-col gap-4">
 							<div className="grid gap-4 sm:grid-cols-[minmax(0,180px)_minmax(0,1fr)_minmax(0,140px)]">
 								<label className="flex flex-col gap-1.5">
-									<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+									<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
 										국가 선택
 									</span>
 									<select
@@ -783,7 +783,7 @@ export function CrawlingSetupWorkspace() {
 									</select>
 								</label>
 								<label className="flex flex-col gap-1.5">
-									<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+									<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
 										통합 검색어
 									</span>
 									<input
@@ -796,7 +796,7 @@ export function CrawlingSetupWorkspace() {
 									/>
 								</label>
 								<label className="flex flex-col gap-1.5">
-									<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+									<span className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
 										수집 개수
 									</span>
 									<select
@@ -813,12 +813,12 @@ export function CrawlingSetupWorkspace() {
 								</label>
 							</div>
 							<div className="flex flex-wrap items-center gap-4">
-								<label className="inline-flex items-center gap-2 text-sm text-slate-700">
+								<label className="inline-flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
 									<input
 										type="checkbox"
 										checked={placesFirst}
 										onChange={(e) => setPlacesFirst(e.target.checked)}
-										className="h-4 w-4 rounded border-slate-300 text-sky-700"
+										className="h-4 w-4 rounded border-slate-300 text-sky-700 dark:border-slate-600"
 									/>
 									Google 지도(Places)로 수집
 								</label>
@@ -839,13 +839,13 @@ export function CrawlingSetupWorkspace() {
 					</section>
 
 					{/* Results table */}
-					<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-						<div className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+					<section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-700">
+						<div className="flex flex-col gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-700/60 dark:bg-slate-700/50 dark:border-slate-700">
 							<div>
-								<h2 className="text-sm font-bold text-slate-900">
+								<h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
 									추출된 타겟 리스트 ({targets.length}개)
 								</h2>
-								<p className="text-xs text-slate-500">
+								<p className="text-xs text-slate-500 dark:text-slate-400">
 									{targets.length > 0
 										? `${targets.length}건 · 선택 ${selected.size}건 · 페이지 ${currentPage}/${totalPages}`
 										: '검색 결과가 여기에 누적 저장됩니다.'}
@@ -869,7 +869,7 @@ export function CrawlingSetupWorkspace() {
 									type="button"
 									disabled={targets.length === 0}
 									onClick={handleExportTempExcel}
-									className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40"
+									className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-200 bg-white px-3 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-800"
 								>
 									<span aria-hidden>📊</span>
 									타겟 리스트 엑셀 저장
@@ -878,7 +878,7 @@ export function CrawlingSetupWorkspace() {
 						</div>
 
 						{/* Action bar: delete + page size */}
-						<div className="flex flex-col gap-2 border-b border-slate-100 bg-white px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+						<div className="flex flex-col gap-2 border-b border-slate-100 bg-white px-4 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-800 dark:border-slate-700">
 							<div className="flex flex-wrap items-center gap-2">
 								<button
 									type="button"
@@ -893,20 +893,20 @@ export function CrawlingSetupWorkspace() {
 									type="button"
 									disabled={targets.length === 0}
 									onClick={() => setDeleteAllOpen(true)}
-									className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+									className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-slate-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-600"
 								>
 									<Bomb className="h-3.5 w-3.5" aria-hidden />
 									전체 삭제
 								</button>
 							</div>
-							<label className="inline-flex items-center gap-2 text-xs text-slate-600">
+							<label className="inline-flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
 								<span className="font-medium">보기 개수</span>
 								<select
 									value={pageSize}
 									onChange={(e) =>
 										handlePageSizeChange(Number(e.target.value) as TargetPageSize)
 									}
-									className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800"
+									className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								>
 									{TARGET_PAGE_SIZE_OPTIONS.map((n) => (
 										<option key={n} value={n}>
@@ -920,7 +920,7 @@ export function CrawlingSetupWorkspace() {
 						<div className="overflow-x-auto">
 							<table className="w-full min-w-[720px] border-collapse text-left text-sm">
 								<thead>
-									<tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500">
+									<tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-700/60 dark:text-slate-400 dark:border-slate-700">
 										<th className="w-12 px-3 py-3">
 											<input
 												type="checkbox"
@@ -940,9 +940,9 @@ export function CrawlingSetupWorkspace() {
 								<tbody>
 									{targets.length === 0 ? (
 										<tr>
-											<td colSpan={5} className="px-4 py-14 text-center text-sm text-slate-500">
+											<td colSpan={5} className="px-4 py-14 text-center text-sm text-slate-500 dark:text-slate-400">
 												수집된 타겟 데이터가 없습니다. 위에서{' '}
-												<span className="font-semibold text-slate-700">[타겟 발굴]</span>으로
+												<span className="font-semibold text-slate-700 dark:text-slate-200">[타겟 발굴]</span>으로
 												사이트를 발굴해 보세요.
 											</td>
 										</tr>
@@ -952,7 +952,7 @@ export function CrawlingSetupWorkspace() {
 											return (
 												<tr
 													key={row.id}
-													className={`border-b border-slate-100 ${checked ? 'bg-slate-50' : 'hover:bg-slate-50/70'}`}
+													className={`border-b border-slate-100 dark:border-slate-700 ${checked ? 'bg-slate-50 dark:bg-slate-700/60' : 'hover:bg-slate-50/70 dark:hover:bg-slate-700'}`}
 												>
 													<td className="px-3 py-3">
 														<input
@@ -964,7 +964,7 @@ export function CrawlingSetupWorkspace() {
 														/>
 													</td>
 													<td className="max-w-[180px] px-3 py-3">
-														<p className="truncate font-semibold text-slate-900">{row.siteName}</p>
+														<p className="truncate font-semibold text-slate-900 dark:text-slate-100">{row.siteName}</p>
 														{row.checkLocationNeeded ? (
 															<span
 																className="mt-1 inline-flex items-center rounded-md bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-800 ring-1 ring-amber-200"
@@ -984,10 +984,10 @@ export function CrawlingSetupWorkspace() {
 															{row.url}
 														</a>
 													</td>
-													<td className="whitespace-nowrap px-3 py-3 text-slate-700">
+													<td className="whitespace-nowrap px-3 py-3 text-slate-700 dark:text-slate-200">
 														{row.country}
 													</td>
-													<td className="max-w-[200px] px-3 py-3 text-slate-700">
+													<td className="max-w-[200px] px-3 py-3 text-slate-700 dark:text-slate-200">
 														<span className="line-clamp-2">
 															{row.categoryLabel || row.region || '—'}
 														</span>
@@ -1001,8 +1001,8 @@ export function CrawlingSetupWorkspace() {
 						</div>
 
 						{targets.length > 0 ? (
-							<div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row">
-								<p className="text-xs text-slate-500">
+							<div className="flex flex-col items-center justify-between gap-3 border-t border-slate-100 px-4 py-3 sm:flex-row dark:border-slate-700">
+								<p className="text-xs text-slate-500 dark:text-slate-400">
 									{(currentPage - 1) * pageSize + 1}–
 									{Math.min(currentPage * pageSize, targets.length)} / 전체 {targets.length}건
 								</p>
@@ -1014,7 +1014,7 @@ export function CrawlingSetupWorkspace() {
 										type="button"
 										onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
 										disabled={currentPage <= 1}
-										className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+										className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
 										aria-label="이전 페이지"
 									>
 										<ChevronLeft className="h-3.5 w-3.5" aria-hidden />
@@ -1026,7 +1026,7 @@ export function CrawlingSetupWorkspace() {
 										return (
 											<span key={page} className="inline-flex items-center gap-1">
 												{showEllipsis ? (
-													<span className="px-1 text-xs text-slate-400" aria-hidden>
+													<span className="px-1 text-xs text-slate-400 dark:text-slate-500" aria-hidden>
 														…
 													</span>
 												) : null}
@@ -1037,7 +1037,7 @@ export function CrawlingSetupWorkspace() {
 													className={`min-w-[2rem] rounded-lg px-2 py-1.5 text-xs font-semibold ${
 														page === currentPage
 															? 'bg-slate-900 text-white'
-															: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+															: 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700'
 													}`}
 												>
 													{page}
@@ -1049,7 +1049,7 @@ export function CrawlingSetupWorkspace() {
 										type="button"
 										onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
 										disabled={currentPage >= totalPages}
-										className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+										className="inline-flex items-center gap-0.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
 										aria-label="다음 페이지"
 									>
 										다음
@@ -1062,18 +1062,18 @@ export function CrawlingSetupWorkspace() {
 				</div>
 			) : (
 				<div role="tabpanel" className="flex flex-col gap-4">
-					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-						<div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-end sm:justify-between">
+					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+						<div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-3 sm:flex-row sm:items-end sm:justify-between dark:border-slate-700">
 							<div>
-								<h2 className="text-base font-bold text-slate-900">엑셀 대량 업로드</h2>
-								<p className="mt-0.5 text-sm text-slate-600">
+								<h2 className="text-base font-bold text-slate-900 dark:text-slate-100">엑셀 대량 업로드</h2>
+								<p className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
 									.xlsx / .csv 파일의 URL을 검증한 뒤 정밀 진단 리스트로 일괄 이관합니다.
 								</p>
 							</div>
 							<button
 								type="button"
 								onClick={downloadTemplate}
-								className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+								className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 							>
 								<Download className="h-4 w-4" aria-hidden />
 								📥 엑셀 업로드 양식 파일 다운로드
@@ -1090,23 +1090,23 @@ export function CrawlingSetupWorkspace() {
 							className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-12 text-center transition ${
 								dragOver
 									? 'border-sky-400 bg-sky-50'
-									: 'border-slate-300 bg-slate-50/60'
+									: 'border-slate-300 bg-slate-50/60 dark:bg-slate-700/60 dark:border-slate-600'
 							}`}
 						>
 							{excelParsing ? (
-								<Loader2 className="mb-3 h-8 w-8 animate-spin text-slate-500" aria-hidden />
+								<Loader2 className="mb-3 h-8 w-8 animate-spin text-slate-500 dark:text-slate-400" aria-hidden />
 							) : (
-								<Upload className="mb-3 h-8 w-8 text-slate-400" aria-hidden />
+								<Upload className="mb-3 h-8 w-8 text-slate-400 dark:text-slate-500" aria-hidden />
 							)}
-							<p className="text-sm font-semibold text-slate-800">
+							<p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
 								파일을 여기에 드래그 앤 드롭하세요
 							</p>
-							<p className="mt-1 text-xs text-slate-500">또는 클릭하여 .xlsx / .csv 선택</p>
+							<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">또는 클릭하여 .xlsx / .csv 선택</p>
 							<button
 								type="button"
 								onClick={() => fileInputRef.current?.click()}
 								disabled={excelParsing}
-								className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60"
+								className="mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-60 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 							>
 								<FileSpreadsheet className="h-4 w-4" aria-hidden />
 								파일 선택
@@ -1123,7 +1123,7 @@ export function CrawlingSetupWorkspace() {
 								}}
 							/>
 							{excelFileName ? (
-								<p className="mt-4 text-xs font-medium text-slate-600">
+								<p className="mt-4 text-xs font-medium text-slate-600 dark:text-slate-300">
 									선택됨: {excelFileName}
 									{excelUrls.length > 0 ? ` · 인식 URL ${excelUrls.length}건` : ''}
 								</p>
@@ -1131,21 +1131,21 @@ export function CrawlingSetupWorkspace() {
 						</div>
 
 						{excelUrls.length > 0 ? (
-							<div className="mt-4 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-								<ul className="space-y-1 font-mono text-[11px] text-slate-600">
+							<div className="mt-4 max-h-40 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:bg-slate-700/60 dark:border-slate-700">
+								<ul className="space-y-1 font-mono text-[11px] text-slate-600 dark:text-slate-300">
 									{excelUrls.slice(0, 30).map((url) => (
 										<li key={url} className="truncate">
 											{url}
 										</li>
 									))}
 									{excelUrls.length > 30 ? (
-										<li className="text-slate-400">…외 {excelUrls.length - 30}건</li>
+										<li className="text-slate-400 dark:text-slate-500">…외 {excelUrls.length - 30}건</li>
 									) : null}
 								</ul>
 							</div>
 						) : null}
 
-						<div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4">
+						<div className="mt-5 flex flex-wrap gap-2 border-t border-slate-100 pt-4 dark:border-slate-700">
 							<button
 								type="button"
 								disabled={excelUrls.length === 0 || excelTransferring}
@@ -1173,13 +1173,13 @@ export function CrawlingSetupWorkspace() {
 					onClick={() => setDeleteAllOpen(false)}
 				>
 					<div
-						className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl"
+						className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl dark:bg-slate-800 dark:border-slate-700"
 						onClick={(e) => e.stopPropagation()}
 					>
-						<h3 id="target-delete-all-title" className="text-base font-bold text-slate-900">
+						<h3 id="target-delete-all-title" className="text-base font-bold text-slate-900 dark:text-slate-100">
 							추출된 타겟 전체 삭제
 						</h3>
-						<p className="mt-2 text-sm leading-relaxed text-slate-600">
+						<p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
 							리스트에서 제거하고 해당 도메인을 재수집 제외(EXCLUDED)로 표시합니다.
 							<br />
 							현재 {targets.length}건이 비워지며, DB 레코드는 삭제되지 않습니다.
@@ -1188,7 +1188,7 @@ export function CrawlingSetupWorkspace() {
 							<button
 								type="button"
 								onClick={() => setDeleteAllOpen(false)}
-								className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+								className="rounded-lg border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
 							>
 								취소
 							</button>

@@ -5,9 +5,25 @@ import {
 	parseImages,
 	parseMeta,
 	splitPageTitle,
+	type ImageAltIssue,
+	type MissingImageRow,
 	type NavLinkItem,
 } from '@/lib/audit/parser';
-import { collectGreetingCandidateUrls, isGreetingPagePath } from '@/lib/audit/extractors/representative-pages';
+import {
+	collectRenderBlockingScripts,
+	type RenderBlockingScript,
+} from '@/lib/audit/extractors/page-resource-trackers';
+import {
+	collectDoctorCandidateUrls,
+	collectGreetingCandidateUrls,
+	collectLocationCandidateUrls,
+	isGreetingPagePath,
+} from '@/lib/audit/extractors/representative-pages';
+import type { CeoSourcePage } from '@/lib/audit/extractors/ceo-name';
+import {
+	extractMainContentText,
+	resolvePageDescription,
+} from '@/lib/audit/extractors/page-description';
 
 export type CrawledPageMeta = {
 	urlPath: string;
@@ -19,10 +35,19 @@ export type CrawledPageMeta = {
 	imagesTotal?: number;
 	headingSkipDetected?: boolean;
 	headingSkipExamples?: string[];
+	/** Pinpoint alt defects with the page URL they were found on. */
+	imageAltIssues?: ImageAltIssue[];
+	missing_images?: MissingImageRow[];
+	/** In-scope image srcs used for unique coverage. */
+	imageSrcs?: string[];
+	/** How this URL was discovered — alt coverage keeps gnb/sitemap/seed only. */
+	source?: string;
+	/** Sync scripts in <head> / early <body> on this page. */
+	renderBlockingScriptItems?: RenderBlockingScript[];
 };
 
 const SUBPAGE_FETCH_TIMEOUT_MS = 5_000;
-const MAX_SUBPAGES = 24;
+const MAX_SUBPAGES = 60;
 const MAX_HTML_CHARS = 1_500_000;
 const USER_AGENT = 'Mozilla/5.0 (compatible; ReduAiAuditBot/1.0; +https://redue.ai/audit)';
 
@@ -184,6 +209,7 @@ export async function crawlCollectedPageMetas(opts: {
 	mainTitle?: string;
 	mainDescription?: string;
 	navItems?: NavLinkItem[];
+	industryType?: string;
 	limit?: number;
 	/** Bust CDN/proxy HTML caches on re-audit. */
 	forceRefresh?: boolean;
@@ -203,7 +229,8 @@ export async function crawlCollectedPageMetas(opts: {
 		if (n?.url && n?.name) navByHref.set(n.url.toLowerCase(), n.name.trim());
 	}
 
-	const candidates = [...new Set(opts.collectedUrls)]
+	const gnbUrls = (opts.navItems || []).map((n) => n.url).filter(Boolean);
+	const candidates = [...new Set([...gnbUrls, ...opts.collectedUrls])]
 		.filter((href) => shouldCrawlHref(href, mainPath))
 		.sort((a, b) => Number(isGreetingPagePath(b)) - Number(isGreetingPagePath(a)))
 		.slice(0, limit);
@@ -225,13 +252,19 @@ export async function crawlCollectedPageMetas(opts: {
 							urlPath: hrefPath,
 							title: navLabel,
 							h1: navLabel,
-							description: '',
+							description: resolvePageDescription({
+								siteName: opts.siteName || '',
+								pageTitle: navLabel,
+								url: hrefPath,
+								gnb: navLabel,
+								industryType: opts.industryType,
+								mainDescription: opts.mainDescription,
+							}),
 						} satisfies CrawledPageMeta;
 					}
 					const $ = cheerio.load(fetched.text);
 					const meta = parseMeta($, opts.siteName);
 					const h1Texts = extractContentScopedHeadings($);
-					const images = parseImages($);
 					const headings = parseHeadings($);
 					const navLabel = navByHref.get(hrefPath.toLowerCase());
 					const picked = pickPageTitleH1({
@@ -242,11 +275,28 @@ export async function crawlCollectedPageMetas(opts: {
 						navLabel,
 						mainTitle: opts.mainTitle,
 					});
-					const description = pickPageDescription({
+					const images = parseImages($, {
+						pageUrl: abs,
+						pageTitle: picked.title,
+						origin: opts.origin,
+						scope: 'content',
+					});
+					const renderBlockingScriptItems = collectRenderBlockingScripts($, { pageUrl: abs });
+					const metaDesc = pickPageDescription({
 						metaDescription: meta.metaDescription,
 						ogDescription: meta.ogDescription,
 						mainDescription: opts.mainDescription,
 						siteName: opts.siteName,
+					});
+					const description = resolvePageDescription({
+						siteName: opts.siteName || '',
+						pageTitle: picked.title,
+						url: hrefPath,
+						gnb: navLabel,
+						industryType: opts.industryType,
+						existingMeta: metaDesc,
+						bodyText: extractMainContentText($),
+						mainDescription: opts.mainDescription,
 					});
 					return {
 						urlPath: hrefPath,
@@ -257,6 +307,11 @@ export async function crawlCollectedPageMetas(opts: {
 						imagesTotal: images.total,
 						headingSkipDetected: headings.hasSkip,
 						headingSkipExamples: headings.skipExamples,
+						imageAltIssues: images.imageAltIssues,
+						missing_images: images.missing_images,
+						imageSrcs: images.imageSrcs,
+						source: 'gnb',
+						renderBlockingScriptItems,
 					} satisfies CrawledPageMeta;
 				} catch (error) {
 					console.error('[crawl-page-metas] subpage parse failed:', hrefPath, error);
@@ -276,36 +331,98 @@ export async function crawlCollectedPageMetas(opts: {
  * Fetch greeting / about HTML (102.php, about, 인사말 nav) so representative
  * extraction can see footer-equivalent copy that is missing from the homepage.
  */
+async function fetchHtmlPages(
+	urls: string[],
+	opts?: { forceRefresh?: boolean },
+): Promise<{ html: string; urls: string[]; pages: CeoSourcePage[] }> {
+	const chunks: string[] = [];
+	const fetched: string[] = [];
+	const pages: CeoSourcePage[] = [];
+	const concurrency = 4;
+	for (let i = 0; i < urls.length; i += concurrency) {
+		const batch = urls.slice(i, i + concurrency);
+		const rows = await Promise.all(
+			batch.map(async (abs) => {
+				const result = await fetchHtml(abs, { forceRefresh: opts?.forceRefresh });
+				if (!result.ok || !result.text) return null;
+				let title = '';
+				try {
+					const $ = cheerio.load(result.text);
+					title = ($('title').first().text() || '').replace(/\s+/g, ' ').trim();
+				} catch {
+					/* keep empty */
+				}
+				return { url: abs, title, html: result.text };
+			}),
+		);
+		for (const row of rows) {
+			if (!row) continue;
+			fetched.push(row.url);
+			chunks.push(row.html);
+			pages.push(row);
+		}
+	}
+	return { html: chunks.join('\n'), urls: fetched, pages };
+}
+
+/**
+ * Fetch greeting / about HTML (ceo_message, about, 인사말 nav) so representative
+ * extraction can see footer-equivalent copy that is missing from the homepage.
+ */
 export async function crawlGreetingPagesHtml(opts: {
 	origin: string;
 	collectedUrls?: string[];
 	navItems?: NavLinkItem[];
 	forceRefresh?: boolean;
 	limit?: number;
-}): Promise<{ html: string; urls: string[] }> {
+}): Promise<{ html: string; urls: string[]; pages: CeoSourcePage[] }> {
 	const urls = collectGreetingCandidateUrls({
 		origin: opts.origin,
 		collectedUrls: opts.collectedUrls,
 		navItems: opts.navItems,
 		limit: opts.limit ?? 4,
 	});
-	const chunks: string[] = [];
-	const fetched: string[] = [];
-	const concurrency = 4;
-	for (let i = 0; i < urls.length; i += concurrency) {
-		const batch = urls.slice(i, i + concurrency);
-		const rows = await Promise.all(
-			batch.map(async (abs) => {
-				const result = await fetchHtml(abs, { forceRefresh: opts.forceRefresh });
-				if (!result.ok || !result.text) return null;
-				return { url: abs, text: result.text };
-			}),
-		);
-		for (const row of rows) {
-			if (!row) continue;
-			fetched.push(row.url);
-			chunks.push(row.text);
-		}
-	}
-	return { html: chunks.join('\n'), urls: fetched };
+	return fetchHtmlPages(urls, { forceRefresh: opts.forceRefresh });
+}
+
+/** Fetch 의료진 / doctor list pages for Step 3 first-card CEO extraction. */
+export async function crawlDoctorPagesHtml(opts: {
+	origin: string;
+	collectedUrls?: string[];
+	navItems?: NavLinkItem[];
+	forceRefresh?: boolean;
+	limit?: number;
+}): Promise<{ html: string; urls: string[]; pages: CeoSourcePage[] }> {
+	const greetingKeys = new Set(
+		collectGreetingCandidateUrls({
+			origin: opts.origin,
+			collectedUrls: opts.collectedUrls,
+			navItems: opts.navItems,
+			limit: 8,
+		}).map((url) => url.replace(/\/+$/, '').toLowerCase()),
+	);
+	const urls = collectDoctorCandidateUrls({
+		origin: opts.origin,
+		collectedUrls: opts.collectedUrls,
+		navItems: opts.navItems,
+		limit: opts.limit ?? 3,
+	}).filter((url) => !greetingKeys.has(url.replace(/\/+$/, '').toLowerCase()));
+	return fetchHtmlPages(urls, { forceRefresh: opts.forceRefresh });
+}
+
+/** Fetch 오시는길 / location pages so map LatLng / Point scripts can bind geo. */
+export async function crawlLocationPagesHtml(opts: {
+	origin: string;
+	collectedUrls?: string[];
+	navItems?: NavLinkItem[];
+	forceRefresh?: boolean;
+	limit?: number;
+}): Promise<{ html: string; urls: string[]; pages: CeoSourcePage[] }> {
+	const urls = collectLocationCandidateUrls({
+		origin: opts.origin,
+		collectedUrls: opts.collectedUrls,
+		navItems: opts.navItems,
+		limit: opts.limit ?? 3,
+	});
+	return fetchHtmlPages(urls, { forceRefresh: opts.forceRefresh });
 }

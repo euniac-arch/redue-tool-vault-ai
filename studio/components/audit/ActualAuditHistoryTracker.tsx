@@ -13,11 +13,6 @@ import {
 } from 'recharts';
 import { SafeResponsiveContainer } from '@/components/charts/SafeResponsiveContainer';
 import { TrackingStatusBadge } from '@/components/audit/TrackingStatusBadge';
-type TooltipContentProps = {
-	active?: boolean;
-	payload?: Array<{ payload?: DomainTrackingChartPoint }>;
-	label?: string | number;
-};
 import {
 	aggregateTrackingByGranularity,
 	assignTrackingEvents,
@@ -47,6 +42,12 @@ import {
 	type AuditHistoryEntry,
 } from '@/lib/audit-history-storage';
 import type { AuditReport } from '@/lib/site-auditor';
+
+type TooltipContentProps = {
+	active?: boolean;
+	payload?: Array<{ payload?: DomainTrackingChartPoint }>;
+	label?: string | number;
+};
 
 interface ActualAuditHistoryTrackerProps {
 	report: AuditReport;
@@ -354,6 +355,10 @@ export function ActualAuditHistoryTracker({
 
 	useEffect(() => {
 		void loadSeries();
+		// A fresh `report` (new fetchedAt/score) means the rescan this button kicked off
+		// has landed and re-rendered — clear the disabled/"진단 중" state so the button is
+		// usable again instead of staying stuck disabled if the result page didn't unmount.
+		setRescanning(false);
 	}, [loadSeries, reportStamp]);
 
 	useEffect(() => {
@@ -670,7 +675,7 @@ export function ActualAuditHistoryTracker({
 									strokeWidth={2.4}
 									dot={<HistoryDot stroke="#34d399" showMarker activeIndex={activeIndex} />}
 									activeDot={{ r: 6, stroke: '#34d399', fill: '#0f172a' }}
-									isAnimationActive={chartPoints.length > 1}
+									isAnimationActive={false}
 									connectNulls
 								/>
 								<Line
@@ -681,7 +686,7 @@ export function ActualAuditHistoryTracker({
 									strokeWidth={2.2}
 									dot={<HistoryDot stroke="#60a5fa" activeIndex={activeIndex} />}
 									activeDot={{ r: 6, stroke: '#60a5fa', fill: '#0f172a' }}
-									isAnimationActive={chartPoints.length > 1}
+									isAnimationActive={false}
 									connectNulls
 								/>
 								<Line

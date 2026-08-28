@@ -58,13 +58,15 @@ interface PageSpeedScoreCardsProps {
 	snapshot: PageSpeedSnapshot | null;
 	loading?: boolean;
 	compact?: boolean;
+	/** Hide the shared PageSpeed badge/title (used when PC + Mobile sit side by side). */
+	hideIntro?: boolean;
 }
 
 /**
  * PageSpeed Insights 4대 핵심 지표 — 원형 프로그레스 카드.
  * 0–49 위험 / 50–89 개선필요 / 90–100 양호
  */
-export function PageSpeedScoreCards({ snapshot, loading, compact }: PageSpeedScoreCardsProps) {
+export function PageSpeedScoreCards({ snapshot, loading, compact, hideIntro }: PageSpeedScoreCardsProps) {
 	const t = useTranslations('audit.pageSpeed');
 
 	if (loading && !snapshot) {
@@ -73,23 +75,48 @@ export function PageSpeedScoreCards({ snapshot, loading, compact }: PageSpeedSco
 
 	if (!snapshot) return null;
 
+	if (snapshot.unavailableReason) {
+		return (
+			<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+				<p className="font-semibold">{t('cardsTitle')}</p>
+				<p className="mt-1 leading-relaxed">
+					{snapshot.unavailableMessage || t('unavailableFallback')}
+				</p>
+			</div>
+		);
+	}
+
 	return (
 		<div className={compact ? 'flex flex-col gap-3' : 'flex flex-col gap-3'}>
-			<div className="flex flex-wrap items-end justify-between gap-2">
-				<div>
-					<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300/80">
-						{t('cardsBadge')}
-					</p>
-					<p className="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-200">{t('cardsTitle')}</p>
+			{hideIntro ? (
+				<div className="flex justify-end">
+					<span className="rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+						{t('strategyLabel', {
+							strategy: t(`strategyNames.${snapshot.strategy}`),
+						})}
+					</span>
 				</div>
-				<span className="rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-400">
-					{t('strategyLabel', {
-						strategy: t(`strategyNames.${snapshot.strategy}`),
-					})}
-				</span>
-			</div>
+			) : (
+				<div className="flex flex-wrap items-end justify-between gap-2">
+					<div>
+						<p className="text-[11px] font-bold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300/80">
+							{t('cardsBadge')}
+						</p>
+						<p className="mt-0.5 text-sm font-semibold text-slate-800 dark:text-slate-200">{t('cardsTitle')}</p>
+					</div>
+					<span className="rounded-full border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] px-2.5 py-1 text-[10px] font-medium text-slate-600 dark:text-slate-400">
+						{t('strategyLabel', {
+							strategy: t(`strategyNames.${snapshot.strategy}`),
+						})}
+					</span>
+				</div>
+			)}
 			<div
-				className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+				className={
+					hideIntro
+						? 'grid grid-cols-2 gap-3'
+						: 'grid grid-cols-2 gap-3 lg:grid-cols-4'
+				}
 				role="list"
 				aria-label={t('cardsAriaLabel')}
 			>

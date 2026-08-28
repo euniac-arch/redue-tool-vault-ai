@@ -1,12 +1,11 @@
-import { AdminPlaceholder } from '@/components/admin/AdminPlaceholder';
+import { ApiUsageDashboard } from '@/components/admin/usage/ApiUsageDashboard';
+
+export const dynamic = 'force-dynamic';
 
 export default function AdminUsagePage() {
 	return (
-		<AdminPlaceholder
-			title="API 사용량 및 쿼터 관리"
-			description="API 사용량과 쿼터를 모니터링합니다. (임시 메뉴)"
-			path="/admin/usage"
-			badge="임시"
-		/>
+		<main className="flex flex-col gap-4">
+			<ApiUsageDashboard />
+		</main>
 	);
 }

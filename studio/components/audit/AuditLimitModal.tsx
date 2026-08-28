@@ -57,10 +57,10 @@ export function AuditLimitModal({ open, onClose }: AuditLimitModalProps) {
 					<div className="flex items-start justify-between gap-3">
 						<div>
 							<p className="text-[11px] font-bold uppercase tracking-[0.16em] text-amber-500">
-								{t('kicker')}
+								{signedIn ? t('kicker') : t('guestKicker')}
 							</p>
 							<h2 id="audit-limit-title" className="mt-1 text-lg font-extrabold text-slate-900 dark:text-white">
-								{t('modalTitle')}
+								{signedIn ? t('modalTitle') : t('guestModalTitle')}
 							</h2>
 						</div>
 						<button
@@ -73,7 +73,7 @@ export function AuditLimitModal({ open, onClose }: AuditLimitModalProps) {
 						</button>
 					</div>
 					<p className="mt-3 break-keep text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-						{t('modalBody')}
+						{signedIn ? t('modalBody') : t('guestModalBody')}
 					</p>
 					<div className="mt-5 flex flex-col gap-2">
 						{signedIn ? (

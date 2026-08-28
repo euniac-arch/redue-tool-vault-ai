@@ -4,11 +4,14 @@ import { useMemo } from 'react';
 import { useLocale } from 'next-intl';
 import { EeatAndEntityDisambiguationSection } from '@/components/audit/EeatAndEntityDisambiguationSection';
 import { GEO_PILLAR_ANCHOR_IDS } from '@/lib/audit/geoScoreCalculator';
-import { computeAdvancedGeoFromReport } from '@/lib/audit/advancedGeoFromReport';
+import { computeAdvancedGeoFromReport, officialSameAsFromReport } from '@/lib/audit/advancedGeoFromReport';
 import type { EntityDisambiguationResult } from '@/lib/audit/advancedGeoMetrics';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import { useResolvedReputation } from '@/components/audit/AuditDataContext';
-import { buildSchemaPropertyChecksFromAudit } from '@/lib/geo/precision-diagnostics';
+import {
+	applySharedSameAsToSchemaChecks,
+	buildSchemaPropertyChecksFromAudit,
+} from '@/lib/geo/precision-diagnostics';
 import { resolveIndustryConfigFromSite } from '@/lib/registry/universalIndustryRegistry';
 import type { AuditReport } from '@/lib/site-auditor';
 
@@ -28,10 +31,18 @@ export function EeatReport({ report, reportData, entity }: EeatReportProps) {
 	);
 	const brandTrust = useResolvedReputation(report, reportData, lang)?.brandTrust;
 	if (!brandTrust) return null;
-	const schemaProperties =
+	const rawSchemaProperties =
 		brandTrust.schemaProperties?.length
 			? brandTrust.schemaProperties
 			: buildSchemaPropertyChecksFromAudit(report, lang);
+	const sharedSameAs =
+		resolvedEntity.breakdown.sameAs.urls?.length
+			? resolvedEntity.breakdown.sameAs.urls
+			: officialSameAsFromReport(report);
+	const schemaProperties =
+		sharedSameAs.length > 0
+			? applySharedSameAsToSchemaChecks(rawSchemaProperties, sharedSameAs, lang)
+			: rawSchemaProperties;
 	const meta = report.siteMeta;
 	const industry = resolveIndustryConfigFromSite({
 		lang,

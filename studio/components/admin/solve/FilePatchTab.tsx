@@ -18,6 +18,13 @@ import {
 	type DetectedCmsDisplay,
 	type LocalScannedFile,
 } from '@/lib/solve/local-folder-scan';
+import {
+	applyCmsAdapterWrap,
+	buildGnuboardHeadRenderCallBlock,
+	GNUBOARD_EXTEND_ENGINE_RELATIVE_PATH,
+	normalizeCmsAdapterId,
+	planCmsInjection,
+} from '@/lib/solve/adapters';
 import { CMS_DISPLAY_OPTIONS } from '@/lib/solve/types';
 import {
 	buildSchemaMappingJson,
@@ -41,8 +48,22 @@ import {
 	type MappedSourceFile,
 	type SourceMappingResult,
 } from '@/lib/solve/source-mapping';
+import { bindCeoName } from '@/lib/audit/extractors/ceo-name';
+import { bindTelephone } from '@/lib/solve/core/telephone';
+import {
+	pickGnuboardReconPaths,
+	reconGnuboardSite,
+	summarizeGnuboardRecon,
+	type GnuboardSiteRecon,
+} from '@/lib/solve/gnuboard-site-recon';
+import {
+	applyCitationExtrasToMain,
+	excludeCitationVirtualFromSchemaPages,
+} from '@/lib/solve/core/eeat-citation';
+import { excludeRootDeployFromSchemaPages, resolveRootDeployFlags } from '@/lib/solve/geo-root-assets';
 import type { SolvePageMeta } from '@/lib/solve/types';
 import { ExternalVerificationLinks } from '@/components/ExternalVerificationLinks';
+import { consumeRemotePatchExecuteResponse } from '@/lib/solve/remote-patch-stream';
 import { LightDiffViewer } from './LightDiffViewer';
 
 type WorkMode = 'local' | 'remote';
@@ -59,6 +80,8 @@ interface FilePatchTabProps {
 	issueCodes?: string[];
 	/** Per-page title/meta/type from audit_payload for dynamic PHP $page_meta. */
 	pageMetas?: SolvePageMeta[];
+	/** When true, empty pageMetas means "inject none" — do not fall back to all collected URLs. */
+	schemaSelectionActive?: boolean;
 	mainTitle?: string;
 	mainDescription?: string;
 	mainH1?: string;
@@ -69,6 +92,7 @@ interface FilePatchTabProps {
 	footerText?: string;
 	legalName?: string;
 	representativeName?: string;
+	ceoName?: string;
 	representativeTitle?: string;
 	openingHoursOpens?: string;
 	openingHoursCloses?: string;
@@ -81,6 +105,7 @@ interface FilePatchTabProps {
 	streetAddress?: string;
 	addressLocality?: string;
 	addressRegion?: string;
+	telephone?: string;
 }
 
 const UNIFIED_INJECT_SUCCESS = `[✅ 원본 백업 완료] ➔ [${REDUE_V14_SCHEMA_PATCH_SUCCESS}]`;
@@ -92,6 +117,7 @@ export function FilePatchTab({
 	siteName,
 	issueCodes = [],
 	pageMetas = [],
+	schemaSelectionActive = false,
 	mainTitle,
 	mainDescription,
 	mainH1,
@@ -100,6 +126,7 @@ export function FilePatchTab({
 	footerText,
 	legalName,
 	representativeName,
+	ceoName,
 	representativeTitle,
 	openingHoursOpens,
 	openingHoursCloses,
@@ -112,6 +139,7 @@ export function FilePatchTab({
 	streetAddress,
 	addressLocality,
 	addressRegion,
+	telephone,
 }: FilePatchTabProps) {
 	const [workMode, setWorkMode] = useState<WorkMode>('local');
 	const [uploadMode, setUploadMode] = useState<UploadMode>(
@@ -142,10 +170,12 @@ export function FilePatchTab({
 	const [restoring, setRestoring] = useState(false);
 	const [patchReport, setPatchReport] = useState<BackupPatchReport | null>(null);
 	const [errorModal, setErrorModal] = useState<{ title: string; message: string } | null>(null);
-	const [repName, setRepName] = useState(representativeName || '');
+	const [repName, setRepName] = useState(representativeName || ceoName || '');
 	const [repTitle, setRepTitle] = useState(representativeTitle || '');
-	const [hoursOpens, setHoursOpens] = useState(openingHoursOpens || '09:00');
-	const [hoursCloses, setHoursCloses] = useState(openingHoursCloses || '18:00');
+	const [telNumber, setTelNumber] = useState(telephone || '');
+	const [hoursOpens, setHoursOpens] = useState(openingHoursOpens || '');
+	const [hoursCloses, setHoursCloses] = useState(openingHoursCloses || '');
+	const [recon, setRecon] = useState<GnuboardSiteRecon | null>(null);
 	const [sameAsText, setSameAsText] = useState((sameAs || []).join('\n'));
 	const [acceptingNewPatients, setAcceptingNewPatients] = useState(isAcceptingNewPatients !== false);
 	const [successModal, setSuccessModal] = useState<{
@@ -206,12 +236,17 @@ export function FilePatchTab({
 	}, []);
 
 	useEffect(() => {
-		if (representativeName) setRepName(representativeName);
-	}, [representativeName]);
+		const next = representativeName || ceoName;
+		if (next) setRepName(next);
+	}, [representativeName, ceoName]);
 
 	useEffect(() => {
 		if (representativeTitle) setRepTitle(representativeTitle);
 	}, [representativeTitle]);
+
+	useEffect(() => {
+		if (telephone) setTelNumber(telephone);
+	}, [telephone]);
 
 	useEffect(() => {
 		if (openingHoursOpens) setHoursOpens(openingHoursOpens);
@@ -251,20 +286,27 @@ export function FilePatchTab({
 		[sameAsText],
 	);
 
+	const rootDeployFlags = useMemo(() => resolveRootDeployFlags(pageMetas), [pageMetas]);
+
 	const auditPages: AuditPageMeta[] = useMemo(() => {
 		if (pageMetas.length > 0) {
-			return pageMetas.map((p) => ({
-				urlPath: p.urlPath,
-				title: p.title,
-				description: p.description,
-				h1: p.h1,
-				pageType: p.pageType,
-				extraTypes: p.extraTypes,
-				section: p.section || p.menu1 || p.title,
-				menu1: p.menu1,
-				menu2: p.menu2,
-			}));
+			return excludeCitationVirtualFromSchemaPages(excludeRootDeployFromSchemaPages(applyCitationExtrasToMain(pageMetas)))
+				.filter((p) => p.selected !== false)
+				.map((p) => ({
+					urlPath: p.urlPath,
+					title: p.title,
+					description: p.description,
+					h1: p.h1,
+					pageType: p.pageType,
+					extraTypes: p.extraTypes,
+					section: p.section || p.menu1 || p.title,
+					menu1: p.menu1,
+					menu2: p.menu2,
+					fromGnb: p.fromGnb,
+					selected: true,
+				}));
 		}
+		if (schemaSelectionActive) return [];
 		return pagesFromAuditPaths({
 			targetUrl,
 			siteName: resolvedSiteName,
@@ -277,6 +319,7 @@ export function FilePatchTab({
 		});
 	}, [
 		pageMetas,
+		schemaSelectionActive,
 		targetUrl,
 		resolvedSiteName,
 		collectedUrlPaths,
@@ -297,8 +340,9 @@ export function FilePatchTab({
 				industryType,
 				cmsType,
 				navItems,
+				allowEmptyPageMap: schemaSelectionActive,
 			}),
-		[resolvedSiteName, targetUrl, auditPages, industryType, cmsType, navItems],
+		[resolvedSiteName, targetUrl, auditPages, industryType, cmsType, navItems, schemaSelectionActive],
 	);
 
 	/** Backend template builder — binds mapping JSON → full dynamic PHP controller (no LLM tokens). */
@@ -310,21 +354,24 @@ export function FilePatchTab({
 				industryType,
 				cmsType,
 				navItems,
-				footerText,
-				legalName,
-				representativeName: repName,
-				representativeTitle: repTitle,
-				openingHoursOpens: hoursOpens,
-				openingHoursCloses: hoursCloses,
-				latitude,
-				longitude,
-				sameAs: sameAsList,
-				medicalSpecialty,
+				footerText: footerText || recon?.corpus,
+				legalName: legalName || recon?.legalName,
+				representativeName: bindCeoName(repName || recon?.representativeName),
+				representativeTitle: repTitle || recon?.representativeTitle,
+				openingHoursOpens: hoursOpens || recon?.openingHoursOpens,
+				openingHoursCloses: hoursCloses || recon?.openingHoursCloses,
+				latitude: latitude || recon?.latitude,
+				longitude: longitude || recon?.longitude,
+				sameAs: sameAsList.length ? sameAsList : recon?.sameAs,
+				medicalSpecialty: medicalSpecialty?.length ? medicalSpecialty : recon?.medicalSpecialty,
 				isAcceptingNewPatients: acceptingNewPatients,
-				postalCode,
-				streetAddress,
-				addressLocality,
-				addressRegion,
+				postalCode: postalCode || recon?.postalCode,
+				streetAddress: streetAddress || recon?.streetAddress,
+				addressLocality: addressLocality || recon?.addressLocality,
+				addressRegion: addressRegion || recon?.addressRegion,
+				telephone: bindTelephone(telNumber || recon?.telephone || ''),
+				fax: recon?.fax,
+				taxId: recon?.taxId,
 			}),
 		[
 			schemaMappingJson,
@@ -348,6 +395,8 @@ export function FilePatchTab({
 			streetAddress,
 			addressLocality,
 			addressRegion,
+			telNumber,
+			recon,
 		],
 	);
 
@@ -364,12 +413,21 @@ export function FilePatchTab({
 	function snippetForPath(relativePath: string | null | undefined): string {
 		const mapped = mapping?.files.find((f) => f.relativePath === relativePath);
 		const path = relativePath || '';
+		if (normalizeCmsAdapterId(cmsType) === 'gnuboard' && /head\.sub\.php$/i.test(path)) {
+			return buildGnuboardHeadRenderCallBlock();
+		}
+		if (normalizeCmsAdapterId(cmsType) === 'saas') {
+			return applyCmsAdapterWrap('', cmsType, path, {
+				siteName: resolvedSiteName,
+				targetUrl,
+			});
+		}
 		const useDynamic =
 			Boolean(mapped?.isPrimaryHeader || mapped?.group === 'global') &&
 			shouldUseDynamicPhpSchema(path);
 
 		if (useDynamic) {
-			return dynamicPhpSnippet;
+			return applyCmsAdapterWrap(dynamicPhpSnippet, cmsType, path);
 		}
 		if (mapped) {
 			return buildInjectSnippetForMappedFile(mapped, {
@@ -379,7 +437,7 @@ export function FilePatchTab({
 			});
 		}
 		if (shouldUseDynamicPhpSchema(path)) {
-			return dynamicPhpSnippet;
+			return applyCmsAdapterWrap(dynamicPhpSnippet, cmsType, path);
 		}
 		return injectSnippet;
 	}
@@ -400,7 +458,7 @@ export function FilePatchTab({
 		const patched = selectedPath ? batchPatched[selectedPath] : undefined;
 		if (patched) return buildDiffModel(fileContent, patched);
 		const snippet = snippetForPath(selectedPath);
-		const injected = injectBeforeClosingHead(fileContent, snippet);
+		const injected = injectBeforeClosingHead(fileContent, snippet, { targetPath: selectedPath || undefined });
 		if (injected.ok) return buildDiffModel(fileContent, injected.result);
 		return buildDiffModel(fileContent, `${fileContent}\n${snippet}\n`);
 	}, [
@@ -439,12 +497,13 @@ export function FilePatchTab({
 		setDirectoryHandle(null);
 		setProjectFolderName(null);
 		setPatchReport(null);
+		setRecon(null);
 	}
 
 	async function applyMapping(
 		sourceFiles: LocalScannedFile[],
 		cmsDisplay: DetectedCmsDisplay | string,
-	): Promise<SourceMappingResult> {
+	): Promise<{ mapping: SourceMappingResult; reconHead: string | null }> {
 		const paths = sourceFiles.map((f) => f.relativePath.replace(/\\/g, '/'));
 		const byPath = new Map(sourceFiles.map((f) => [f.relativePath.replace(/\\/g, '/'), f]));
 
@@ -459,7 +518,8 @@ export function FilePatchTab({
 
 		const headCandidates = pickGlobalHeadScanCandidates(paths, 48);
 		const pageCandidates = draft.pageTargets.map((f) => f.relativePath.replace(/\\/g, '/'));
-		const toRead = [...new Set([...headCandidates, ...pageCandidates])].slice(0, 80);
+		const reconCandidates = pickGnuboardReconPaths(paths);
+		const toRead = [...new Set([...headCandidates, ...pageCandidates, ...reconCandidates])].slice(0, 96);
 		const fileContents: Record<string, string> = {};
 
 		for (const cand of toRead) {
@@ -486,12 +546,29 @@ export function FilePatchTab({
 			fileContents,
 		});
 		setMapping(result);
+		let reconHead: string | null = null;
+		if (/그누보드|gnuboard|youngcart|영카트/i.test(String(cmsDisplay))) {
+			const found = reconGnuboardSite({
+				relativePaths: paths,
+				fileContents,
+				urlPaths: auditPaths,
+			});
+			setRecon(found);
+			reconHead = found.headSubPath;
+			if (!repName && found.representativeName) setRepName(found.representativeName);
+			if (!repTitle && found.representativeTitle) setRepTitle(found.representativeTitle);
+			if (!telNumber && found.telephone) setTelNumber(found.telephone);
+			if (!hoursOpens && found.openingHoursOpens) setHoursOpens(found.openingHoursOpens);
+			if (!hoursCloses && found.openingHoursCloses) setHoursCloses(found.openingHoursCloses);
+			if (!sameAsText && found.sameAs.length) setSameAsText(found.sameAs.join('\n'));
+			for (const line of summarizeGnuboardRecon(found)) pushLog(`[실데이터 정찰] ${line}`);
+		}
 		const nextChecked = new Set(
 			result.mainTargets.filter((f) => f.autoChecked).map((f) => f.relativePath),
 		);
 		setCheckedPaths(nextChecked);
 		for (const line of result.summaryLines) pushLog(line);
-		return result;
+		return { mapping: result, reconHead };
 	}
 
 	async function loadScannedFile(
@@ -577,8 +654,11 @@ export function FilePatchTab({
 			return;
 		}
 
-		const map = await applyMapping(result.sourceFiles, result.cms.display);
+		const { mapping: map, reconHead } = await applyMapping(result.sourceFiles, result.cms.display);
 		const preferredPath =
+			(reconHead && result.sourceFiles.some((f) => f.relativePath.replace(/\\/g, '/') === reconHead)
+				? reconHead
+				: null) ||
 			map.globalHeaderPath ||
 			map.pageTargets[0]?.relativePath ||
 			result.preferredPath ||
@@ -704,8 +784,14 @@ export function FilePatchTab({
 						text = await entry.file.text();
 					}
 					originals[entry.relativePath] = text;
+					if (
+						entry.relativePath.replace(/\\/g, '/').replace(/^\/+/, '') ===
+						GNUBOARD_EXTEND_ENGINE_RELATIVE_PATH
+					) {
+						continue;
+					}
 					const snippet = snippetForPath(entry.relativePath);
-					const built = buildPatchedContent(text, snippet, searchText, replaceText);
+					const built = buildPatchedContent(text, snippet, searchText, replaceText, entry.relativePath);
 					if (built.ok) {
 						patchedMap[entry.relativePath] = built.result;
 						okCount += 1;
@@ -728,7 +814,13 @@ export function FilePatchTab({
 				const key = selectedPath || fileName || 'file';
 				originals[key] = fileContent;
 				const snippet = snippetForPath(selectedPath || fileName);
-				const built = buildPatchedContent(fileContent, snippet, searchText, replaceText);
+				const built = buildPatchedContent(
+					fileContent,
+					snippet,
+					searchText,
+					replaceText,
+					selectedPath || fileName || undefined,
+				);
 				if (built.ok) {
 					patchedMap[key] = built.result;
 					okCount += 1;
@@ -736,6 +828,43 @@ export function FilePatchTab({
 				} else {
 					failCount += 1;
 					pushLog(`✗ 주입 실패 — ${built.warning}`);
+				}
+			}
+
+			const companionPlans = planCmsInjection({
+				cmsType,
+				corePhp: dynamicPhpSnippet,
+				headerPath: recon?.headSubPath || selectedPath || targets[0]?.relativePath || null,
+				siteName: resolvedSiteName,
+				targetUrl,
+			});
+			for (const plan of companionPlans) {
+				if (plan.mode === 'create') {
+					patchedMap[plan.relativePath] = plan.content;
+					if (originals[plan.relativePath] === undefined) originals[plan.relativePath] = '';
+					okCount += 1;
+					pushLog(`✓ 어댑터 엔진 파일 100% 덮어쓰기: ${plan.relativePath} — ${plan.description}`);
+					continue;
+				}
+				if (plan.mode === 'patch-render-only' && !patchedMap[plan.relativePath]) {
+					let original = originals[plan.relativePath];
+					if (original === undefined && directoryHandle) {
+						try {
+							original = await readTextFile(directoryHandle, plan.relativePath);
+						} catch {
+							original = '';
+						}
+					}
+					if (!original) continue;
+					originals[plan.relativePath] = original;
+					const injected = injectBeforeClosingHead(original, plan.content, {
+						targetPath: plan.relativePath,
+					});
+					if (injected.ok) {
+						patchedMap[plan.relativePath] = injected.result;
+						okCount += 1;
+						pushLog(`✓ head.sub.php 표준 렌더 블록만 교체: ${plan.relativePath}`);
+					}
 				}
 			}
 
@@ -748,7 +877,7 @@ export function FilePatchTab({
 			}));
 
 			if (directoryHandle && writeTargets.length > 0) {
-				pushLog('① 자동 백업 폴더 생성 → ② 원본 백업 → ③ 최우선 공통 헤더 첫 <?php 직후 v30 Precision Canonical & Full-Document Defer 주입 (exact canonical · head/body defer · Article/FAQ 보장 · 기존 meta 보존)…');
+				pushLog('① 자동 백업 → ② CMS 어댑터 엔진 파일 생성(extend/mu-plugin/addon) → ③ head.sub.php 초경량 렌더 · NBSP 정제…');
 				const report = await backupAndDirectPatch({
 					root: directoryHandle,
 					targets: writeTargets,
@@ -938,20 +1067,38 @@ export function FilePatchTab({
 			pushRemoteLog('호스트와 Username을 입력하세요.');
 			return;
 		}
+		await runRemoteOneClickPatch();
+	}
+
+	async function handleRemoteExecute(e: React.FormEvent) {
+		e.preventDefault();
+		if (remotePatching) return;
+		await runRemoteOneClickPatch();
+	}
+
+	async function runRemoteOneClickPatch() {
+		if (!host.trim() || !username.trim()) {
+			setConnStatus('fail');
+			pushRemoteLog('호스트와 Username을 입력하세요.');
+			return;
+		}
 		setConnStatus('working');
+		setRemotePatching(true);
 		setRemoteBackupOk(false);
 		setRemoteReport(null);
-		setRemotePrimaryTarget(null);
-		setRemoteTargets([]);
-		setRemoteFiles([]);
-		setRemoteSessionToken(null);
 		setRemoteProgress(8);
-		pushRemoteLog(`${protocol.toUpperCase()} ${host}:${port} 접속 및 CMS 구조 진단…`);
+		pushRemoteLog(`${protocol.toUpperCase()} ${host}:${port} 원클릭 진단+패치 (단일 FTP 세션)`);
+
+		const abort = new AbortController();
+		const hangWatch = window.setTimeout(() => {
+			abort.abort();
+		}, 45_000);
 
 		try {
-			const res = await fetch('/api/admin/remote-patch/diagnose', {
+			const res = await fetch('/api/admin/remote-patch/execute', {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
+				signal: abort.signal,
 				body: JSON.stringify({
 					protocol,
 					host: host.trim(),
@@ -959,153 +1106,84 @@ export function FilePatchTab({
 					username: username.trim(),
 					password,
 					remoteRoot: targetDir.trim() || '/',
-				}),
-			});
-			const data = (await res.json()) as {
-				ok?: boolean;
-				error?: string;
-				sessionToken?: string;
-				cmsDisplay?: string;
-				cmsLabel?: string;
-				cmsMessage?: string;
-				scannedPathCount?: number;
-				primaryTarget?: {
-					relativePath: string;
-					absolutePath: string;
-					score: number;
-					badge: string;
-					engine: 'php-dynamic' | 'html-static';
-				} | null;
-				targets?: Array<{
-					relativePath: string;
-					score: number;
-					badge: string;
-					isPrimary: boolean;
-					engine: 'php-dynamic' | 'html-static';
-				}>;
-				logs?: string[];
-			};
-
-			if (!res.ok) {
-				setConnStatus('fail');
-				setRemoteProgress(0);
-				pushRemoteLog(data.error || `진단 실패 (HTTP ${res.status})`);
-				if (res.status === 401) {
-					pushRemoteLog('관리자 로그인이 필요합니다.');
-				}
-				return;
-			}
-
-			for (const line of data.logs || []) pushRemoteLog(line);
-
-			setRemoteSessionToken(data.sessionToken || null);
-			if (data.cmsDisplay) {
-				setRemoteCms(data.cmsDisplay);
-				setCmsType(data.cmsDisplay);
-			}
-			setRemoteCmsLabel(data.cmsLabel || null);
-			const targets = data.targets || [];
-			setRemoteTargets(targets);
-			setRemoteFiles(targets.map((t) => t.relativePath));
-			setRemotePrimaryTarget(data.primaryTarget || null);
-			setRemoteProgress(35);
-			setConnStatus(data.ok && data.primaryTarget ? 'ok' : 'fail');
-
-			if (data.cmsMessage) pushRemoteLog(data.cmsMessage);
-			if (data.primaryTarget) {
-				pushRemoteLog(
-					`1순위 타겟 확정: ${data.primaryTarget.relativePath} (Score ${data.primaryTarget.score})`,
-				);
-			} else {
-				pushRemoteLog('공통 헤더 타겟을 찾지 못했습니다. 원격 루트 경로를 확인하세요.');
-			}
-		} catch (err) {
-			setConnStatus('fail');
-			setRemoteProgress(0);
-			pushRemoteLog(err instanceof Error ? err.message : String(err));
-		}
-	}
-
-	async function handleRemoteExecute(e: React.FormEvent) {
-		e.preventDefault();
-		if (connStatus !== 'ok' || !remoteSessionToken) {
-			pushRemoteLog('먼저 [원격 접속 및 CMS 구조 진단]을 완료하세요.');
-			return;
-		}
-		if (!remotePrimaryTarget) {
-			pushRemoteLog('1순위 타겟 파일이 없습니다. 진단을 다시 실행하세요.');
-			return;
-		}
-
-		setRemotePatching(true);
-		setRemoteBackupOk(false);
-		setRemoteReport(null);
-		setRemoteProgress(40);
-		pushRemoteLog('원격 자동 스키마 패치 실행…');
-
-		try {
-			const res = await fetch('/api/admin/remote-patch/execute', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					sessionToken: remoteSessionToken,
-					targetRelativePath: remotePrimaryTarget.relativePath,
 					cmsLabel: remoteCmsLabel,
 					cmsDisplay: remoteCms,
-					primaryTarget: remotePrimaryTarget,
 					schema: {
 						siteName: resolvedSiteName,
 						targetUrl,
 						pages: auditPages,
+						allowEmptyPageMap: schemaSelectionActive,
+						deployHeader: auditPages.length > 0,
+						deployRobotsTxt: rootDeployFlags.deployRobotsTxt,
+						deploySitemapXml: rootDeployFlags.deploySitemapXml,
+						deployLlmsTxt: rootDeployFlags.deployLlmsTxt,
+						deployLlmsFullTxt: rootDeployFlags.deployLlmsFullTxt,
+						deployRssPhp: rootDeployFlags.deployRssPhp,
+						mainDescription,
 						industryType,
 						cmsType: remoteCms || cmsType,
 						navItems,
-						footerText,
-						legalName,
-						representativeName: repName,
-						representativeTitle: repTitle,
-						openingHoursOpens: hoursOpens,
-						openingHoursCloses: hoursCloses,
-						latitude,
-						longitude,
-						sameAs: sameAsList,
-						medicalSpecialty,
+						footerText: footerText || recon?.corpus,
+						legalName: legalName || recon?.legalName,
+						representativeName: bindCeoName(repName || recon?.representativeName),
+						representativeTitle: repTitle || recon?.representativeTitle,
+						openingHoursOpens: hoursOpens || recon?.openingHoursOpens,
+						openingHoursCloses: hoursCloses || recon?.openingHoursCloses,
+						latitude: latitude || recon?.latitude,
+						longitude: longitude || recon?.longitude,
+						sameAs: sameAsList.length ? sameAsList : recon?.sameAs,
+						medicalSpecialty: medicalSpecialty?.length ? medicalSpecialty : recon?.medicalSpecialty,
 						isAcceptingNewPatients: acceptingNewPatients,
-						postalCode,
-						streetAddress,
-						addressLocality,
-						addressRegion,
+						postalCode: postalCode || recon?.postalCode,
+						streetAddress: streetAddress || recon?.streetAddress,
+						addressLocality: addressLocality || recon?.addressLocality,
+						addressRegion: addressRegion || recon?.addressRegion,
+						telephone: bindTelephone(telNumber || recon?.telephone || ''),
+						fax: recon?.fax,
+						taxId: recon?.taxId,
 					},
 				}),
 			});
-			const data = (await res.json()) as {
-				ok?: boolean;
-				error?: string;
-				message?: string;
-				backupFolderName?: string | null;
-				targetPath?: string | null;
-				injectedPath?: string | null;
-				cmsLabel?: string | null;
-				logs?: string[];
-			};
-
-			for (const line of data.logs || []) pushRemoteLog(line);
+			const data = await consumeRemotePatchExecuteResponse(res, (line, progress) => {
+				pushRemoteLog(line);
+				if (typeof progress === 'number') setRemoteProgress(progress);
+			});
 
 			if (!res.ok || !data.ok) {
-				setRemoteProgress(data.backupFolderName ? 55 : 40);
+				setConnStatus('fail');
+				setRemoteProgress(data.backupFolderName ? 55 : 36);
 				setRemoteBackupOk(Boolean(data.backupFolderName));
+				const failMessage =
+					data.message || data.error || `원격 패치 실패 (HTTP ${res.status})`;
+				pushRemoteLog(`[오류 원인] ${failMessage}`);
 				setErrorModal({
 					title: '원격 패치 실패',
-					message: data.message || data.error || `원격 패치 실패 (HTTP ${res.status})`,
+					message: failMessage,
 				});
 				return;
 			}
 
+			setConnStatus('ok');
 			setRemoteBackupOk(true);
 			setRemoteProgress(100);
-			const injectedPath =
-				data.injectedPath || data.targetPath || remotePrimaryTarget.relativePath;
-			const successMessage = data.message || `[성공] ${injectedPath} 에 주입 완료`;
+			const injectedPath = data.injectedPath || data.targetPath || null;
+			if (injectedPath) {
+				setRemotePrimaryTarget((prev) =>
+					prev && prev.relativePath === injectedPath
+						? prev
+						: {
+								relativePath: injectedPath,
+								absolutePath: injectedPath,
+								score: 300,
+								badge: '원클릭 패치 타겟',
+								engine: /\.php$/i.test(injectedPath) ? 'php-dynamic' : 'html-static',
+							},
+				);
+				setRemoteFiles((prev) => (prev.includes(injectedPath) ? prev : [injectedPath, ...prev]));
+			}
+			if (data.cmsLabel) setRemoteCmsLabel(data.cmsLabel);
+			const successMessage =
+				data.message || `[100%] 패치 완료 및 원격 파일 무결성 검증 성공 (${injectedPath || ''})`;
 			setRemoteReport({
 				message: successMessage,
 				targetPath: injectedPath,
@@ -1121,10 +1199,17 @@ export function FilePatchTab({
 				mode: 'remote',
 			});
 		} catch (err) {
-			const message = err instanceof Error ? err.message : String(err);
-			pushRemoteLog(message);
+			const aborted = err instanceof DOMException && err.name === 'AbortError';
+			const message = aborted
+				? '원격 패치가 45초 안에 끝나지 않아 중단했습니다. FTP 타임아웃/방화벽을 확인하세요.'
+				: err instanceof Error
+					? err.message
+					: String(err);
+			setConnStatus('fail');
+			pushRemoteLog(`[오류 원인] ${message}`);
 			setErrorModal({ title: '원격 패치 오류', message });
 		} finally {
+			window.clearTimeout(hangWatch);
 			setRemotePatching(false);
 		}
 	}
@@ -1134,7 +1219,7 @@ export function FilePatchTab({
 	return (
 		<div className="flex flex-col gap-4">
 			<div
-				className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-2"
+				className="grid grid-cols-1 gap-2 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm sm:grid-cols-2 dark:bg-slate-800 dark:border-slate-700"
 				role="tablist"
 				aria-label="패치 작업 모드"
 			>
@@ -1153,7 +1238,7 @@ export function FilePatchTab({
 							aria-selected={active}
 							onClick={() => setWorkMode(mode.id)}
 							className={`rounded-lg px-3 py-3 text-sm font-bold transition ${
-								active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'
+								active ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-700'
 							}`}
 						>
 							{mode.label}
@@ -1162,81 +1247,93 @@ export function FilePatchTab({
 				})}
 			</div>
 
-			<section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+			<section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div className="mb-3">
-					<h3 className="text-sm font-bold text-slate-900">GEO / AEO 엔티티 · 엔진 주입 데이터</h3>
-					<p className="mt-1 text-xs text-slate-600">
-						진단 시 푸터·인사말·메타에서 자동 추출됩니다. 수정한 값은 [엔진 주입/배포] 시{' '}
-						<code className="rounded bg-slate-100 px-1 font-mono text-[11px]">$org_node</code> ·{' '}
-						<code className="rounded bg-slate-100 px-1 font-mono text-[11px]">$rep_name</code> · llms.txt 링크에
-						반영됩니다.
+					<h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">GEO / AEO 엔티티 · 엔진 주입 데이터</h3>
+					<p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+						진단 시 대표자명과 대표 전화번호를 자동 추출해 프리필합니다. 수정한 값은 [엔진 주입/배포] 시{' '}
+						<code className="rounded bg-slate-100 px-1 font-mono text-[11px] dark:bg-slate-700/60">$GLOBALS['redue_tel']</code> ·{' '}
+						<code className="rounded bg-slate-100 px-1 font-mono text-[11px] dark:bg-slate-700/60">$org_node['telephone']</code> ·
+						llms.txt / llms-full.txt에 반영됩니다.
 					</p>
 				</div>
 				<div className="grid gap-3 sm:grid-cols-2">
 					<label className="flex flex-col gap-1.5">
-						<span className="text-xs font-bold text-slate-500">대표자명</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">대표자명</span>
 						<input
 							type="text"
 							value={repName}
 							onChange={(e) => setRepName(e.target.value)}
 							placeholder="자동 추출 또는 직접 입력"
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 					<label className="flex flex-col gap-1.5">
-						<span className="text-xs font-bold text-slate-500">대표자 직책</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">대표자 직책</span>
 						<input
 							type="text"
 							value={repTitle}
 							onChange={(e) => setRepTitle(e.target.value)}
 							placeholder={industryType?.toUpperCase() === 'MEDICAL' ? '대표원장' : '대표자'}
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 					<label className="flex flex-col gap-1.5">
-						<span className="text-xs font-bold text-slate-500">운영/상담 시작</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">대표 전화번호</span>
+						<input
+							type="tel"
+							value={telNumber}
+							onChange={(e) => setTelNumber(e.target.value)}
+							placeholder="자동 추출 또는 직접 입력 (02-1234-5678)"
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
+						/>
+					</label>
+					<label className="flex flex-col gap-1.5">
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">운영/상담 시작</span>
 						<input
 							type="time"
 							value={hoursOpens}
-							onChange={(e) => setHoursOpens(e.target.value || '09:00')}
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							onChange={(e) => setHoursOpens(e.target.value)}
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 					<label className="flex flex-col gap-1.5">
-						<span className="text-xs font-bold text-slate-500">운영/상담 종료</span>
+						<span className="text-xs font-bold text-slate-500 dark:text-slate-400">운영/상담 종료</span>
 						<input
 							type="time"
 							value={hoursCloses}
-							onChange={(e) => setHoursCloses(e.target.value || '18:00')}
-							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+							onChange={(e) => setHoursCloses(e.target.value)}
+							className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 						/>
 					</label>
 				</div>
 				<label className="mt-3 flex flex-col gap-1.5">
-					<span className="text-xs font-bold text-slate-500">지도/SNS SameAs 목록</span>
+					<span className="text-xs font-bold text-slate-500 dark:text-slate-400">지도/SNS SameAs 목록</span>
 					<textarea
 						value={sameAsText}
 						onChange={(e) => setSameAsText(e.target.value)}
 						rows={4}
 						placeholder={'https://map.naver.com/...\nhttps://place.map.kakao.com/...\nhttps://blog.naver.com/...'}
-						className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-800"
+						className="rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 					/>
-					<span className="text-[11px] text-slate-500">한 줄에 URL 하나씩 · Naver/Kakao 지도, YouTube, Instagram, 네이버 블로그</span>
+					<span className="text-[11px] text-slate-500 dark:text-slate-400">
+						한 줄에 URL 하나씩 · 네이버 지도/플레이스/블로그, 카카오맵/카카오채널, Instagram, Facebook, YouTube
+					</span>
 				</label>
-				<label className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-					<span className="text-xs font-bold text-slate-700">신규 환자/고객 접수 여부 (isAcceptingNewPatients)</span>
+				<label className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:bg-slate-700/60 dark:border-slate-700">
+					<span className="text-xs font-bold text-slate-700 dark:text-slate-200">신규 환자/고객 접수 여부 (isAcceptingNewPatients)</span>
 					<button
 						type="button"
 						role="switch"
 						aria-checked={acceptingNewPatients}
 						onClick={() => setAcceptingNewPatients((v) => !v)}
-						className={`relative h-6 w-11 rounded-full transition ${
-							acceptingNewPatients ? 'bg-emerald-600' : 'bg-slate-300'
+						className={`inline-flex h-6 w-11 shrink-0 items-center rounded-full border-0 p-0.5 transition ${
+							acceptingNewPatients ? 'bg-emerald-600' : 'bg-slate-300 dark:bg-slate-600'
 						}`}
 					>
 						<span
-							className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-								acceptingNewPatients ? 'left-5' : 'left-0.5'
+							className={`block h-5 w-5 rounded-full bg-white shadow transition-transform ${
+								acceptingNewPatients ? 'translate-x-5' : 'translate-x-0'
 							}`}
 						/>
 					</button>
@@ -1246,17 +1343,17 @@ export function FilePatchTab({
 			{workMode === 'local' ? (
 				<>
 					<div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-						<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+						<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 							<div className="mb-4">
-								<h3 className="text-base font-bold text-slate-900">
+								<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
 									로컬 폴더 매핑 · 공통 헤더 단일 주입
 								</h3>
-								<p className="mt-1 text-sm text-slate-600">
+								<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 									폴더 스캔은 백그라운드로 수행하고, 화면에는{' '}
 									<strong className="font-semibold">실제 웹 메뉴 매핑 파일</strong>과{' '}
 									<strong className="font-semibold">📌 최우선 공통 헤더 1개</strong>만 정리해
 									표시합니다. 패치 시{' '}
-									<code className="rounded bg-slate-100 px-1 font-mono text-[12px]">
+									<code className="rounded bg-slate-100 px-1 font-mono text-[12px] dark:bg-slate-700/60">
 										_redue_backups/TIMESTAMP_DOMAIN/
 									</code>{' '}
 									계층 백업 후 v14 동적 PHP 스키마를 한 번에 주입합니다.
@@ -1264,7 +1361,7 @@ export function FilePatchTab({
 							</div>
 
 							<form className="flex flex-col gap-4" onSubmit={(e) => void handleLocalPatch(e)}>
-								<div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-1">
+								<div className="grid grid-cols-2 gap-2 rounded-lg bg-slate-50 p-1 dark:bg-slate-700/60">
 									<button
 										type="button"
 										onClick={() => {
@@ -1272,7 +1369,7 @@ export function FilePatchTab({
 											resetScanState();
 										}}
 										className={`rounded-md px-3 py-2 text-xs font-bold ${
-											uploadMode === 'file' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+											uploadMode === 'file' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'
 										}`}
 									>
 										개별 파일 선택
@@ -1281,7 +1378,7 @@ export function FilePatchTab({
 										type="button"
 										onClick={() => setUploadMode('folder')}
 										className={`rounded-md px-3 py-2 text-xs font-bold ${
-											uploadMode === 'folder' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+											uploadMode === 'folder' ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-400'
 										}`}
 									>
 										프로젝트 폴더 선택
@@ -1292,12 +1389,12 @@ export function FilePatchTab({
 									<button
 										type="button"
 										onClick={() => fileInputRef.current?.click()}
-										className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center transition hover:border-slate-400 hover:bg-slate-100"
+										className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center transition hover:border-slate-400 hover:bg-slate-100 dark:bg-slate-700/60 dark:border-slate-600 dark:hover:bg-slate-700"
 									>
-										<span className="text-sm font-bold text-slate-800">소스 파일 업로드</span>
-										<span className="text-xs text-slate-500">.php · .html · .tsx · .js · .css · .zip</span>
+										<span className="text-sm font-bold text-slate-800 dark:text-slate-100">소스 파일 업로드</span>
+										<span className="text-xs text-slate-500 dark:text-slate-400">.php · .html · .tsx · .js · .css · .zip</span>
 										{fileName ? (
-											<span className="mt-1 rounded-md bg-white px-2 py-1 font-mono text-[11px] text-slate-700 shadow-sm">
+											<span className="mt-1 rounded-md bg-white px-2 py-1 font-mono text-[11px] text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
 												{fileName}
 											</span>
 										) : null}
@@ -1314,10 +1411,10 @@ export function FilePatchTab({
 										<button
 											type="button"
 											onClick={() => void handlePickProjectFolder()}
-											className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center transition hover:border-slate-400 hover:bg-slate-100"
+											className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-10 text-center transition hover:border-slate-400 hover:bg-slate-100 dark:bg-slate-700/60 dark:border-slate-600 dark:hover:bg-slate-700"
 										>
-											<span className="text-sm font-bold text-slate-800">프로젝트 폴더 선택</span>
-											<span className="text-xs text-slate-500">
+											<span className="text-sm font-bold text-slate-800 dark:text-slate-100">프로젝트 폴더 선택</span>
+											<span className="text-xs text-slate-500 dark:text-slate-400">
 												{fsSupported
 													? 'File System Access — 읽기/쓰기 권한 · 백업 후 로컬 소스 직접 패치'
 													: '브라우저 폴더 선택 (읽기 전용 폴백) · 직접 쓰기는 Chrome/Edge 권장'}
@@ -1328,13 +1425,13 @@ export function FilePatchTab({
 												</span>
 											) : null}
 											{scanSummary ? (
-												<span className="max-w-full rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm">
+												<span className="max-w-full rounded-md bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 shadow-sm dark:bg-slate-800 dark:text-slate-200">
 													{scanSummary}
 												</span>
 											) : null}
 										</button>
 										{!fsSupported ? (
-											<label className="cursor-pointer text-center text-[11px] font-semibold text-slate-500 underline hover:text-slate-800">
+											<label className="cursor-pointer text-center text-[11px] font-semibold text-slate-500 underline hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">
 												또는 기존 방식으로 폴더 열기
 												<input
 													ref={folderInputRef}
@@ -1407,7 +1504,7 @@ export function FilePatchTab({
 								) : null}
 
 								<label className="flex flex-col gap-1.5">
-									<span className="text-xs font-bold text-slate-500">
+									<span className="text-xs font-bold text-slate-500 dark:text-slate-400">
 										CMS / 플랫폼
 										{cmsAutoDetected ? (
 											<span className="ml-1.5 font-normal text-emerald-600">자동 감지됨</span>
@@ -1423,7 +1520,7 @@ export function FilePatchTab({
 												void applyMapping(scannedFiles, next);
 											}
 										}}
-										className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+										className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 									>
 										{CMS_DISPLAY_OPTIONS.map((cms) => (
 											<option key={cms} value={cms}>
@@ -1435,27 +1532,27 @@ export function FilePatchTab({
 
 								<div className="grid gap-3 sm:grid-cols-2">
 									<label className="flex flex-col gap-1.5">
-										<span className="text-xs font-bold text-slate-500">
-											검색 키워드 (Before) <span className="font-normal text-slate-400">선택</span>
+										<span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+											검색 키워드 (Before) <span className="font-normal text-slate-400 dark:text-slate-500">선택</span>
 										</span>
 										<textarea
 											rows={3}
 											value={searchText}
 											onChange={(e) => setSearchText(e.target.value)}
 											placeholder="수동 Search & Replace 미리보기"
-											className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+											className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 										/>
 									</label>
 									<label className="flex flex-col gap-1.5">
-										<span className="text-xs font-bold text-slate-500">
-											대체 코드 (After) <span className="font-normal text-slate-400">선택</span>
+										<span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+											대체 코드 (After) <span className="font-normal text-slate-400 dark:text-slate-500">선택</span>
 										</span>
 										<textarea
 											rows={3}
 											value={replaceText}
 											onChange={(e) => setReplaceText(e.target.value)}
 											placeholder="대체할 코드 또는 문자열"
-											className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+											className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 										/>
 									</label>
 								</div>
@@ -1482,8 +1579,8 @@ export function FilePatchTab({
 							</form>
 						</section>
 
-						<aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-							<h4 className="text-sm font-bold text-slate-900">패치 정보</h4>
+						<aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+							<h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">패치 정보</h4>
 							<div className="mt-3 grid grid-cols-2 gap-2">
 								{[
 									{
@@ -1509,18 +1606,18 @@ export function FilePatchTab({
 													: '—',
 									},
 								].map((stat) => (
-									<div key={stat.label} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-										<p className="text-lg font-extrabold tabular-nums text-slate-900">{stat.value}</p>
-										<p className="text-[11px] font-medium text-slate-500">{stat.label}</p>
+									<div key={stat.label} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5 dark:bg-slate-700/60 dark:border-slate-700">
+										<p className="text-lg font-extrabold tabular-nums text-slate-900 dark:text-slate-100">{stat.value}</p>
+										<p className="text-[11px] font-medium text-slate-500 dark:text-slate-400">{stat.label}</p>
 									</div>
 								))}
 							</div>
-							<ol className="mt-4 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-slate-600">
+							<ol className="mt-4 list-decimal space-y-1.5 pl-4 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
 								<li>DB 메뉴구조 로드 → (필요 시) 웹 사이트 메뉴구조 재분석</li>
 								<li>프로젝트 폴더 선택 → 백그라운드 스캔 · 최우선 공통 헤더 자동 타겟팅</li>
 								<li>
-									<code className="rounded bg-slate-100 px-1 font-mono">_redue_backups/TIMESTAMP_DOMAIN/…</code>{' '}
-									1:1 계층 백업 후 공통 헤더 <code className="rounded bg-slate-100 px-1 font-mono">&lt;/head&gt;</code> 직전
+									<code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-700/60">_redue_backups/TIMESTAMP_DOMAIN/…</code>{' '}
+									1:1 계층 백업 후 공통 헤더 <code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-700/60">&lt;/head&gt;</code> 직전
 									v14 Auto-Fix 엔진 주입
 								</li>
 								<li>완료 모달에 FAQ/Person/Article 확장 변수 연동 가이드 표시</li>
@@ -1533,40 +1630,45 @@ export function FilePatchTab({
 								].map((chip) => (
 									<span
 										key={chip}
-										className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-600"
+										className="rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-600 dark:bg-slate-700/60 dark:text-slate-300 dark:border-slate-700"
 									>
 										{chip}
 									</span>
 								))}
 							</div>
 							{auditPages.length > 0 ? (
-								<div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-									<p className="text-[11px] font-bold text-slate-500">
-										DB 웹 메뉴 매핑 ({auditPages.length}페이지)
+								<div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:bg-slate-700/60 dark:border-slate-700">
+									<p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+										DB 웹 메뉴 매핑 ({auditPages.length}페이지 · 선택 주입
+										{rootDeployFlags.deployRobotsTxt ? ' · robots.txt' : ''}
+										{rootDeployFlags.deploySitemapXml ? ' · sitemap.xml' : ''}
+										{rootDeployFlags.deployLlmsTxt ? ' · llms.txt' : ''}
+										{rootDeployFlags.deployLlmsFullTxt ? ' · llms-full.txt' : ''}
+										{rootDeployFlags.deployRssPhp ? ' · rss.php' : ''})
 									</p>
-									<ul className="mt-1 max-h-28 space-y-1 overflow-auto text-[10px] text-slate-600">
+									<ul className="mt-1 max-h-28 space-y-1 overflow-auto text-[10px] text-slate-600 dark:text-slate-300">
 										{auditPages.slice(0, 12).map((p) => (
-											<li key={p.urlPath} className="flex flex-col gap-0.5 border-b border-slate-100 pb-1 last:border-0">
+											<li key={p.urlPath} className="flex flex-col gap-0.5 border-b border-slate-100 pb-1 last:border-0 dark:border-slate-700">
 												<span className="font-mono text-sky-800">{p.urlPath}</span>
-												<span className="truncate text-slate-700">
+												<span className="truncate text-slate-700 dark:text-slate-200">
 													{p.section || p.menu1 || '메인'} · {p.title || '—'}
 												</span>
 											</li>
 										))}
 										{auditPages.length > 12 ? (
-											<li className="text-slate-400">…외 {auditPages.length - 12}개</li>
+											<li className="text-slate-400 dark:text-slate-500">…외 {auditPages.length - 12}개</li>
 										) : null}
 									</ul>
 								</div>
 							) : auditPaths.length > 0 ? (
-								<div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-									<p className="text-[11px] font-bold text-slate-500">진단 수집 URL 경로</p>
-									<ul className="mt-1 max-h-24 overflow-auto font-mono text-[10px] text-slate-600">
+								<div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 dark:bg-slate-700/60 dark:border-slate-700">
+									<p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">진단 수집 URL 경로</p>
+									<ul className="mt-1 max-h-24 overflow-auto font-mono text-[10px] text-slate-600 dark:text-slate-300">
 										{auditPaths.slice(0, 12).map((p) => (
 											<li key={p}>{p}</li>
 										))}
 										{auditPaths.length > 12 ? (
-											<li className="text-slate-400">…외 {auditPaths.length - 12}개</li>
+											<li className="text-slate-400 dark:text-slate-500">…외 {auditPaths.length - 12}개</li>
 										) : null}
 									</ul>
 								</div>
@@ -1574,11 +1676,11 @@ export function FilePatchTab({
 						</aside>
 					</div>
 
-					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+					<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 						<div className="flex flex-wrap items-start justify-between gap-3">
 							<div>
-								<h4 className="text-sm font-bold text-slate-900">로컬 패치 결과 뷰어</h4>
-								<p className="mt-0.5 text-xs text-slate-500">
+								<h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">로컬 패치 결과 뷰어</h4>
+								<p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
 									v30 Top-Priority 주입 Diff (Precision Canonical & Full-Document Defer) · Before 빨강 / After 초록
 								</p>
 							</div>
@@ -1588,7 +1690,7 @@ export function FilePatchTab({
 										? 'border-emerald-200 bg-emerald-50 text-emerald-700'
 										: status === 'ready'
 											? 'border-sky-200 bg-sky-50 text-sky-700'
-											: 'border-slate-200 bg-slate-50 text-slate-500'
+											: 'border-slate-200 bg-slate-50 text-slate-500 dark:bg-slate-700/60 dark:text-slate-400 dark:border-slate-700'
 								}`}
 							>
 								{status === 'done' ? '패치 완료' : status === 'ready' ? '파일 준비됨' : '패치 대기'}
@@ -1596,19 +1698,19 @@ export function FilePatchTab({
 						</div>
 
 						<div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-							<span className="font-bold text-slate-500">대상 파일</span>
-							<code className="rounded bg-slate-100 px-2 py-1 font-mono text-slate-700">
+							<span className="font-bold text-slate-500 dark:text-slate-400">대상 파일</span>
+							<code className="rounded bg-slate-100 px-2 py-1 font-mono text-slate-700 dark:bg-slate-700/60 dark:text-slate-200">
 								{fileName || '파일이 선택되지 않았습니다'}
 							</code>
 						</div>
 
 						{progress > 0 ? (
 							<div className="mt-4">
-								<div className="mb-1 flex justify-between text-[11px] font-semibold text-slate-600">
+								<div className="mb-1 flex justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-300">
 									<span>진행률</span>
 									<span>{progress}%</span>
 								</div>
-								<div className="h-2 overflow-hidden rounded-full bg-slate-100">
+								<div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60">
 									<div className="h-full rounded-full bg-slate-900 transition-all" style={{ width: `${progress}%` }} />
 								</div>
 							</div>
@@ -1619,14 +1721,14 @@ export function FilePatchTab({
 								<div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-3 text-xs font-bold leading-relaxed text-emerald-900">
 									{REDUE_V14_SCHEMA_PATCH_SUCCESS}
 								</div>
-								<pre className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-700">
+								<pre className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-[11px] leading-relaxed text-slate-700 dark:bg-slate-700/60 dark:text-slate-200 dark:border-slate-700">
 									{REDUE_V14_SCHEMA_EXTENSION_GUIDE}
 								</pre>
 								{patchReport.backupFolderName ? (
-									<div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+									<div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 dark:text-slate-400">
 										<span>
 											계층 백업:{' '}
-											<code className="rounded bg-slate-100 px-1 font-mono">
+											<code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-700/60">
 												{patchReport.backupFolderName}/…
 											</code>
 										</span>
@@ -1641,7 +1743,7 @@ export function FilePatchTab({
 														targetPath: patchReport.results[0]?.relativePath || selectedPath,
 													})
 												}
-												className="rounded-md border border-slate-300 bg-white px-2.5 py-1 font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+												className="rounded-md border border-slate-300 bg-white px-2.5 py-1 font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 											>
 												{restoring ? '복원 중…' : '원클릭 복원'}
 											</button>
@@ -1670,11 +1772,11 @@ export function FilePatchTab({
 						) : null}
 
 						{consoleLogs.length > 0 ? (
-							<details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 open:pb-0" open>
-								<summary className="cursor-pointer px-3 py-2 text-xs font-bold text-slate-700">
+							<details className="mt-4 rounded-lg border border-slate-200 bg-slate-50 open:pb-0 dark:bg-slate-700/60 dark:border-slate-700" open>
+								<summary className="cursor-pointer px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200">
 									실시간 작업 콘솔 로그
 								</summary>
-								<div className="max-h-40 overflow-auto border-t border-slate-200 bg-white px-3 py-2 font-mono text-[11px] text-slate-600">
+								<div className="max-h-40 overflow-auto border-t border-slate-200 bg-white px-3 py-2 font-mono text-[11px] text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
 									{consoleLogs.map((line, i) => (
 										<div key={i}>{line}</div>
 									))}
@@ -1683,7 +1785,7 @@ export function FilePatchTab({
 						) : null}
 
 						<div className="mt-4">
-							<p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">SEO Auto-Inject Diff</p>
+							<p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">SEO Auto-Inject Diff</p>
 							<LightDiffViewer
 								filePath={fileName}
 								diff={patchedDiff || previewDiff}
@@ -1694,43 +1796,39 @@ export function FilePatchTab({
 				</>
 			) : (
 				<>
-					<div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-						<section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+					<div className="grid h-fit min-w-0 items-start gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+						<section className="h-fit min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
 							<div className="mb-4">
-								<h3 className="text-base font-bold text-slate-900">
+								<h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
 									🌐 Universal FTP/SFTP 원격 패치
 								</h3>
-								<p className="mt-1 text-sm text-slate-600">
+								<p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
 									접속 정보만으로 CMS·디렉터리 구조를 자동 진단하고, 최우선 공통 헤더에 v14 동적
 									스키마를 <strong className="font-semibold">계층형 원격 백업 후 Overwrite</strong> 합니다.
 								</p>
 							</div>
-							<form className="flex flex-col gap-3" onSubmit={(e) => void handleRemoteExecute(e)}>
-								<div className="flex gap-2">
+							<form className="flex h-fit flex-col gap-3" onSubmit={(e) => void handleRemoteExecute(e)}>
+								<div className="flex h-fit gap-2" role="tablist" aria-label="원격 프로토콜">
 									{(['sftp', 'ftp'] as const).map((p) => (
-										<label
+										<button
 											key={p}
-											className={`flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-bold ${
+											type="button"
+											role="tab"
+											aria-selected={protocol === p}
+											onClick={() => {
+												setProtocol(p);
+												setPort(p === 'sftp' ? 22 : 21);
+												setConnStatus('idle');
+												setRemoteSessionToken(null);
+											}}
+											className={`flex h-fit flex-1 items-center justify-center rounded-lg border px-3 py-2 text-sm font-bold ${
 												protocol === p
 													? 'border-slate-900 bg-slate-900 text-white'
-													: 'border-slate-200 bg-white text-slate-600'
+													: 'border-slate-200 bg-white text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
 											}`}
 										>
-											<input
-												type="radio"
-												name="remote-protocol"
-												value={p}
-												checked={protocol === p}
-												onChange={() => {
-													setProtocol(p);
-													setPort(p === 'sftp' ? 22 : 21);
-													setConnStatus('idle');
-													setRemoteSessionToken(null);
-												}}
-												className="sr-only"
-											/>
 											{p.toUpperCase()}
-										</label>
+										</button>
 									))}
 								</div>
 								{(
@@ -1773,7 +1871,7 @@ export function FilePatchTab({
 									] as const
 								).map((field) => (
 									<label key={field.label} className="flex flex-col gap-1">
-										<span className="text-xs font-bold text-slate-500">{field.label}</span>
+										<span className="text-xs font-bold text-slate-500 dark:text-slate-400">{field.label}</span>
 										<input
 											type={field.type}
 											value={field.value}
@@ -1784,7 +1882,7 @@ export function FilePatchTab({
 											}}
 											placeholder={field.placeholder}
 											autoComplete="off"
-											className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+											className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 										/>
 									</label>
 								))}
@@ -1820,9 +1918,9 @@ export function FilePatchTab({
 										type="button"
 										disabled={connStatus === 'working' || remotePatching}
 										onClick={() => void handleRemoteDiagnose()}
-										className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+										className="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 									>
-										🔌 원격 접속 및 CMS 구조 진단
+										🔌 원격 접속 및 CMS 구조 진단 (자동 패치)
 									</button>
 									<span
 										className={`inline-flex items-center gap-1.5 text-xs font-bold ${
@@ -1832,37 +1930,39 @@ export function FilePatchTab({
 													? 'text-rose-600'
 													: connStatus === 'working'
 														? 'text-sky-600'
-														: 'text-slate-400'
+														: 'text-slate-400 dark:text-slate-500'
 										}`}
 									>
 										<span className="h-2 w-2 rounded-full bg-current" />
-										{connStatus === 'ok'
-											? '진단 완료'
-											: connStatus === 'fail'
-												? '진단 실패'
-												: connStatus === 'working'
-													? '진단 중…'
-													: '미접속'}
+										{remotePatching
+											? '패치 실행 중…'
+											: connStatus === 'ok'
+												? '진단 완료'
+												: connStatus === 'fail'
+													? '실패'
+													: connStatus === 'working'
+														? '진단 중…'
+														: '미접속'}
 									</span>
 								</div>
 
 								<button
 									type="submit"
-									disabled={connStatus !== 'ok' || remotePatching || !remotePrimaryTarget}
+									disabled={remotePatching || connStatus === 'working' || !host.trim() || !username.trim()}
 									className="rounded-lg bg-slate-900 px-4 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									{remotePatching
 										? '원격 패치 실행 중…'
-										: '🚀 원격 자동 스키마 패치 실행'}
+										: '🚀 원클릭 원격 자동 스키마 패치'}
 								</button>
 
 								{remoteProgress > 0 ? (
 									<div>
-										<div className="mb-1 flex justify-between text-[11px] font-semibold text-slate-600">
+										<div className="mb-1 flex justify-between text-[11px] font-semibold text-slate-600 dark:text-slate-300">
 											<span>원격 작업</span>
 											<span>{remoteProgress}%</span>
 										</div>
-										<div className="h-2 overflow-hidden rounded-full bg-slate-100">
+										<div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60">
 											<div
 												className="h-full rounded-full bg-emerald-600 transition-all"
 												style={{ width: `${remoteProgress}%` }}
@@ -1873,18 +1973,18 @@ export function FilePatchTab({
 							</form>
 						</section>
 
-						<aside className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-							<h4 className="text-sm font-bold text-slate-900">진단 리포트</h4>
+						<aside className="h-fit min-w-0 self-start overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:bg-slate-800 dark:border-slate-700">
+							<h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">진단 리포트</h4>
 							<div className="mt-3 grid grid-cols-2 gap-2">
-								<div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-									<p className="text-lg font-extrabold text-slate-900">
+								<div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5 dark:bg-slate-700/60 dark:border-slate-700">
+									<p className="text-lg font-extrabold text-slate-900 dark:text-slate-100">
 										{remoteBackupOk || remoteProgress >= 100 ? 'OK' : remoteProgress >= 35 ? 'READY' : '—'}
 									</p>
-									<p className="text-[11px] text-slate-500">백업/접속</p>
+									<p className="text-[11px] text-slate-500 dark:text-slate-400">백업/접속</p>
 								</div>
-								<div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-									<p className="text-lg font-extrabold text-slate-900">{remoteFiles.length}</p>
-									<p className="text-[11px] text-slate-500">랭킹 후보</p>
+								<div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5 dark:bg-slate-700/60 dark:border-slate-700">
+									<p className="text-lg font-extrabold text-slate-900 dark:text-slate-100">{remoteFiles.length}</p>
+									<p className="text-[11px] text-slate-500 dark:text-slate-400">랭킹 후보</p>
 								</div>
 							</div>
 
@@ -1899,23 +1999,23 @@ export function FilePatchTab({
 							) : null}
 
 							<div className="mt-4">
-								<p className="text-xs font-bold text-slate-500">
+								<p className="text-xs font-bold text-slate-500 dark:text-slate-400">
 									랭킹 타겟 목록 ({remoteTargets.length}개)
 								</p>
-								<div className="mt-2 max-h-36 overflow-auto rounded-lg border border-slate-100 bg-slate-50 p-2">
+								<div className="mt-2 max-h-36 overflow-auto rounded-lg border border-slate-100 bg-slate-50 p-2 dark:bg-slate-700/60 dark:border-slate-700">
 									{remoteTargets.length === 0 ? (
-										<p className="text-xs text-slate-400">
+										<p className="text-xs text-slate-400 dark:text-slate-500">
 											진단 실행 후 랭킹된 헤더 파일이 표시됩니다.
 										</p>
 									) : (
-										<ul className="space-y-1.5 font-mono text-[11px] text-slate-700">
+										<ul className="space-y-1.5 font-mono text-[11px] text-slate-700 dark:text-slate-200">
 											{remoteTargets.map((t) => (
 												<li key={t.relativePath} className="flex items-start gap-2">
 													<span
 														className={`mt-0.5 shrink-0 rounded px-1 text-[10px] font-bold ${
 															t.isPrimary
 																? 'bg-emerald-600 text-white'
-																: 'bg-slate-200 text-slate-600'
+																: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
 														}`}
 													>
 														{t.score}
@@ -1931,22 +2031,29 @@ export function FilePatchTab({
 								</div>
 							</div>
 
-							<div className="mt-4">
+							<div className="mt-4 h-fit">
 								<div className="mb-2 flex items-center justify-between">
-									<p className="text-xs font-bold text-slate-500">실시간 작업 타임라인</p>
+									<p className="text-xs font-bold text-slate-500 dark:text-slate-400">실시간 작업 타임라인</p>
 									<button
 										type="button"
 										onClick={() => setRemoteLogs([])}
-										className="text-[11px] font-bold text-slate-500 hover:text-slate-800"
+										className="text-[11px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
 									>
 										로그 지우기
 									</button>
 								</div>
-								<div className="max-h-40 overflow-auto rounded-lg border border-slate-200 bg-slate-900 p-3 font-mono text-[11px] text-emerald-300">
+								<div
+									className="remote-patch-terminal rounded-lg border border-slate-200 bg-[#0B1220] p-3 font-mono text-[11px] leading-5 text-emerald-300 dark:border-slate-700"
+									style={{ height: 160, maxHeight: 160, minHeight: 160 }}
+								>
 									{remoteLogs.length === 0 ? (
-										<span className="text-slate-500">$ waiting for remote patch job...</span>
+										<p className="m-0 text-slate-500 dark:text-slate-400">$ waiting for remote patch job...</p>
 									) : (
-										remoteLogs.map((line, i) => <div key={i}>{line}</div>)
+										remoteLogs.map((line, i) => (
+											<div key={i} className="h-auto">
+												{line}
+											</div>
+										))
 									)}
 								</div>
 							</div>
@@ -1954,14 +2061,14 @@ export function FilePatchTab({
 					</div>
 
 					{remoteReport ? (
-						<section className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm">
+						<section className="rounded-xl border border-emerald-200 bg-white p-5 shadow-sm dark:bg-slate-800">
 							<p className="text-sm font-bold text-emerald-800">{remoteReport.message}</p>
-							<ul className="mt-3 space-y-1 text-xs text-slate-600">
+							<ul className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
 								{remoteReport.cmsLabel ? <li>감지 CMS: {remoteReport.cmsLabel}</li> : null}
 								{remoteReport.targetPath ? (
 									<li>
 										주입 파일:{' '}
-										<code className="rounded bg-slate-100 px-1 font-mono">
+										<code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-700/60">
 											{remoteReport.targetPath}
 										</code>
 									</li>
@@ -1970,7 +2077,7 @@ export function FilePatchTab({
 									<li className="flex flex-wrap items-center gap-2">
 										<span>
 											원격 계층 백업:{' '}
-											<code className="rounded bg-slate-100 px-1 font-mono">
+											<code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-700/60">
 												{remoteReport.backupFolderName}/…
 											</code>
 										</span>
@@ -1984,7 +2091,7 @@ export function FilePatchTab({
 													targetPath: remoteReport.targetPath,
 												})
 											}
-											className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+											className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 										>
 											{restoring ? '복원 중…' : '원클릭 복원'}
 										</button>
@@ -2006,21 +2113,21 @@ export function FilePatchTab({
 					aria-modal="true"
 					aria-labelledby="local-patch-success-title"
 				>
-					<div className="w-full max-w-xl rounded-xl border border-emerald-200 bg-white p-5 shadow-xl">
+					<div className="w-full max-w-xl rounded-xl border border-emerald-200 bg-white p-5 shadow-xl dark:bg-slate-800">
 						<p id="local-patch-success-title" className="text-base font-bold text-emerald-800">
 							{successModal.title || REDUE_V14_SCHEMA_PATCH_SUCCESS}
 						</p>
 						<p className="mt-3 rounded-lg border border-emerald-100 bg-emerald-50 px-3 py-3 text-sm font-bold leading-relaxed text-emerald-900">
 							{successModal.message}
 						</p>
-						<pre className="mt-3 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-[11px] leading-relaxed text-slate-700">
+						<pre className="mt-3 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-[11px] leading-relaxed text-slate-700 dark:bg-slate-700/60 dark:text-slate-200 dark:border-slate-700">
 							{REDUE_V14_SCHEMA_EXTENSION_GUIDE}
 						</pre>
-						<ul className="mt-4 space-y-1.5 text-xs text-slate-600">
+						<ul className="mt-4 space-y-1.5 text-xs text-slate-600 dark:text-slate-300">
 							{successModal.headerPath ? (
 								<li>
 									공통 헤더:{' '}
-									<code className="rounded bg-slate-100 px-1 font-mono text-slate-800">
+									<code className="rounded bg-slate-100 px-1 font-mono text-slate-800 dark:bg-slate-700/60 dark:text-slate-100">
 										{successModal.headerPath}
 									</code>
 									{' '}(JSON-LD 단일 출력 + Alt Auto-Fixer)
@@ -2030,7 +2137,7 @@ export function FilePatchTab({
 							{successModal.backupFolderName ? (
 								<li>
 									계층 백업:{' '}
-									<code className="rounded bg-slate-100 px-1 font-mono text-slate-800">
+									<code className="rounded bg-slate-100 px-1 font-mono text-slate-800 dark:bg-slate-700/60 dark:text-slate-100">
 										{successModal.backupFolderName}/…
 									</code>
 								</li>
@@ -2055,7 +2162,7 @@ export function FilePatchTab({
 											targetPath: successModal.headerPath,
 										})
 									}
-									className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+									className="flex-1 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-800 hover:bg-slate-50 disabled:opacity-50 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-600 dark:hover:bg-slate-700"
 								>
 									{restoring ? '복원 중…' : '↩ 원클릭 복원'}
 								</button>
@@ -2079,14 +2186,14 @@ export function FilePatchTab({
 					aria-modal="true"
 					aria-labelledby="local-patch-error-title"
 				>
-					<div className="w-full max-w-md rounded-xl border border-rose-200 bg-white p-5 shadow-xl">
+					<div className="w-full max-w-md rounded-xl border border-rose-200 bg-white p-5 shadow-xl dark:bg-slate-800">
 						<p id="local-patch-error-title" className="text-base font-bold text-rose-800">
 							⚠ {errorModal.title}
 						</p>
-						<p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
+						<p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
 							{errorModal.message}
 						</p>
-						<p className="mt-3 text-xs text-slate-500">
+						<p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
 							안전을 위해 백업이 완료되지 않은 원본 소스는 수정하지 않았습니다.
 						</p>
 						<button
@@ -2152,7 +2259,7 @@ function PatchTargetList({
 				{cmsDetectMessage ? (
 					<p className="mt-1 text-[11px] font-medium text-slate-300">{cmsDetectMessage}</p>
 				) : null}
-				<p className="mt-1 text-[11px] text-slate-400">
+				<p className="mt-1 text-[11px] text-slate-400 dark:text-slate-500">
 					주입 선택 {mainChecked}개 (권장: 공통 헤더 1개) · 매핑 파일 {mapping.pageTargets.length}
 					{mapping.otherFiles.length > 0
 						? ` · 기타 ${mapping.otherFiles.length.toLocaleString()}개는 하단 아코디언`
@@ -2168,7 +2275,7 @@ function PatchTargetList({
 						mapping.globalHeaderPath ? ` (${mapping.globalHeaderPath})` : ' (자동 탐지)'
 					}`
 				}
-				hint="테마 미사용 시 루트 head.sub.php · 테마 사용 시 theme/{테마}/head.sub.php · 첫 <?php 직후 v30 Precision Canonical & Full-Document Defer 삽입 (exact canonical · head/body defer · Article/FAQ 보장 · 기존 meta 보존)"
+				hint="테마 미사용 시 루트 head.sub.php · 테마 사용 시 theme/{테마}/head.sub.php · 2단계 분할 주입(_GNUBOARD_ 가드 직후 엔진 / charset 직후 echo) · 테마 파일에 G5_THEME_PATH return; 금지 · NBSP 저장 전 정제 · 기존 CSS/JS 100% 보존"
 				files={mapping.globalTargets}
 				checkedPaths={checkedPaths}
 				selectedPath={selectedPath}
@@ -2195,54 +2302,54 @@ function PatchTargetList({
 
 			{/* 📁 기타 스캔된 전체 파일 */}
 			{mapping.otherFiles.length > 0 ? (
-				<div className="rounded-xl border border-slate-200 bg-slate-50">
+				<div className="rounded-xl border border-slate-200 bg-slate-50 dark:bg-slate-700/60 dark:border-slate-700">
 					<button
 						type="button"
 						onClick={() => setOtherOpen((v) => !v)}
 						className="flex w-full items-center justify-between gap-2 px-3 py-3 text-left"
 						aria-expanded={otherOpen}
 					>
-						<span className="text-xs font-bold text-slate-700">
+						<span className="text-xs font-bold text-slate-700 dark:text-slate-200">
 							{otherOpen ? '▲' : '▼'} 📁 기타 스캔된 전체 파일 ({mapping.otherFiles.length.toLocaleString()}
 							개)
 						</span>
-						<span className="text-[10px] font-medium text-slate-500">
+						<span className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
 							백그라운드 스캔 보관 · 기본 접힘
 						</span>
 					</button>
 
 					{otherOpen ? (
-						<div className="border-t border-slate-200 px-3 pb-3 pt-2">
+						<div className="border-t border-slate-200 px-3 pb-3 pt-2 dark:border-slate-700">
 							<div className="mb-2 flex flex-wrap items-center gap-2">
 								<input
 									type="search"
 									value={otherQuery}
 									onChange={(e) => setOtherQuery(e.target.value)}
 									placeholder="파일명·경로 검색 (예: head.php, company/)"
-									className="min-w-[12rem] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800"
+									className="min-w-[12rem] flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-800 dark:bg-slate-800 dark:text-slate-100 dark:border-slate-700"
 								/>
 								<button
 									type="button"
 									onClick={() => onSetGroupChecked(filteredOther, true)}
-									className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
+									className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
 								>
 									검색결과 선택
 								</button>
 								<button
 									type="button"
 									onClick={() => onSetGroupChecked(mapping.otherFiles, false)}
-									className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
+									className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
 								>
 									기타 전체 해제
 								</button>
 							</div>
-							<p className="mb-2 text-[10px] text-slate-500">
+							<p className="mb-2 text-[10px] text-slate-500 dark:text-slate-400">
 								표시 {filteredOther.length.toLocaleString()} / 전체{' '}
 								{mapping.otherFiles.length.toLocaleString()}
 							</p>
-							<ul className="max-h-56 space-y-1 overflow-auto rounded-lg border border-slate-200 bg-white p-1.5">
+							<ul className="max-h-56 space-y-1 overflow-auto rounded-lg border border-slate-200 bg-white p-1.5 dark:bg-slate-800 dark:border-slate-700">
 								{filteredOther.length === 0 ? (
-									<li className="px-2 py-4 text-center text-[11px] text-slate-400">
+									<li className="px-2 py-4 text-center text-[11px] text-slate-400 dark:text-slate-500">
 										검색 결과가 없습니다.
 									</li>
 								) : (
@@ -2253,21 +2360,21 @@ function PatchTargetList({
 											<li key={f.relativePath}>
 												<label
 													className={`flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 ${
-														active ? 'bg-slate-100' : 'hover:bg-slate-50'
+														active ? 'bg-slate-100 dark:bg-slate-700/60' : 'hover:bg-slate-50 dark:hover:bg-slate-700'
 													}`}
 												>
 													<input
 														type="checkbox"
 														checked={checked}
 														onChange={() => onToggle(f.relativePath)}
-														className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300"
+														className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-slate-300 dark:border-slate-600"
 													/>
 													<button
 														type="button"
 														className="min-w-0 flex-1 text-left"
 														onClick={() => onSelect(f.relativePath)}
 													>
-														<span className="block truncate font-mono text-[11px] text-slate-700">
+														<span className="block truncate font-mono text-[11px] text-slate-700 dark:text-slate-200">
 															{f.relativePath}
 														</span>
 														{f.caution ? (
@@ -2280,7 +2387,7 @@ function PatchTargetList({
 									})
 								)}
 								{filteredOther.length > 400 ? (
-									<li className="px-2 py-2 text-center text-[10px] text-slate-400">
+									<li className="px-2 py-2 text-center text-[10px] text-slate-400 dark:text-slate-500">
 										검색어로 범위를 좁혀 주세요 (상위 400개만 표시)
 									</li>
 								) : null}
@@ -2320,25 +2427,25 @@ function MappedFileSection({
 		accent === 'emerald' ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-100 text-sky-800';
 
 	return (
-		<div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-			<div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2.5">
+		<div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:bg-slate-800 dark:border-slate-700">
+			<div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2.5 dark:bg-slate-700/60 dark:border-slate-700">
 				<div>
-					<p className="text-xs font-bold text-slate-800">{title}</p>
-					<p className="text-[10px] font-medium text-slate-500">{hint}</p>
+					<p className="text-xs font-bold text-slate-800 dark:text-slate-100">{title}</p>
+					<p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">{hint}</p>
 				</div>
 				{files.length > 0 ? (
 					<div className="flex gap-2">
 						<button
 							type="button"
 							onClick={() => onSetGroupChecked(files, true)}
-							className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
+							className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
 						>
 							전체 선택
 						</button>
 						<button
 							type="button"
 							onClick={() => onSetGroupChecked(files, false)}
-							className="text-[10px] font-bold text-slate-500 hover:text-slate-800"
+							className="text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100"
 						>
 							전체 해제
 						</button>
@@ -2347,9 +2454,9 @@ function MappedFileSection({
 			</div>
 
 			{files.length === 0 ? (
-				<p className="px-4 py-5 text-center text-xs text-slate-400">{emptyText}</p>
+				<p className="px-4 py-5 text-center text-xs text-slate-400 dark:text-slate-500">{emptyText}</p>
 			) : (
-				<ul className="divide-y divide-slate-100">
+				<ul className="divide-y divide-slate-100 dark:divide-slate-700">
 					{files.map((f) => {
 						const checked = checkedPaths.has(f.relativePath);
 						const active = selectedPath === f.relativePath;
@@ -2361,15 +2468,15 @@ function MappedFileSection({
 										isPrimary
 											? 'bg-emerald-50/90 ring-1 ring-inset ring-emerald-200'
 											: active
-												? 'bg-slate-50'
-												: 'bg-white hover:bg-slate-50/80'
+												? 'bg-slate-50 dark:bg-slate-700/60'
+												: 'bg-white hover:bg-slate-50/80 dark:bg-slate-800 dark:hover:bg-slate-700 dark:hover:bg-slate-700/50'
 									}`}
 								>
 									<input
 										type="checkbox"
 										checked={checked}
 										onChange={() => onToggle(f.relativePath)}
-										className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300"
+										className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 dark:border-slate-600"
 										aria-label={`${f.relativePath} 패치 대상`}
 									/>
 									<button
@@ -2378,7 +2485,7 @@ function MappedFileSection({
 										className="min-w-0 flex-1 text-left"
 									>
 										<div className="flex flex-wrap items-center gap-2">
-											<code className="break-all font-mono text-[12px] font-bold text-slate-900">
+											<code className="break-all font-mono text-[12px] font-bold text-slate-900 dark:text-slate-100">
 												{f.relativePath}
 											</code>
 											{isPrimary ? (
@@ -2392,20 +2499,20 @@ function MappedFileSection({
 												{f.natureBadge}
 											</span>
 											{typeof f.priorityScore === 'number' ? (
-												<span className="inline-flex shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500">
+												<span className="inline-flex shrink-0 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700">
 													score {f.priorityScore}
 												</span>
 											) : null}
 										</div>
 										{!isPrimary && f.badge && f.badge !== f.natureBadge ? (
-											<p className="mt-1 text-[10px] font-medium text-slate-500">{f.badge}</p>
+											<p className="mt-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">{f.badge}</p>
 										) : null}
 										{f.schemaSummary.length > 0 ? (
 											<p className="mt-1.5 flex flex-wrap gap-1">
 												{f.schemaSummary.map((s) => (
 													<span
 														key={s}
-														className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600"
+														className="rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700"
 													>
 														{s}
 													</span>

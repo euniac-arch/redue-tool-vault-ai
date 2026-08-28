@@ -12,6 +12,8 @@
     "build:wp-plugin": "node scripts/build-wp-plugin.mjs",
     "agent:cron": "node scripts/run-agent-cron.mjs",
     "seed:admin": "prisma db push --skip-generate && node scripts/ensure-admin.cjs",
+    "seed:test-user": "prisma db push --skip-generate && node scripts/create-test-user.mjs",
+    "reset:quota": "node scripts/reset-quota.mjs",
     "firebase:check": "node scripts/test-firestore-connection.cjs",
     "firebase:check:client": "node scripts/test-firebase-client.cjs",
     "test:e2e:audit-flow": "node scripts/test-e2e-audit-flow.cjs"

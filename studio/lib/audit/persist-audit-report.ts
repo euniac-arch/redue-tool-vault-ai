@@ -1,9 +1,10 @@
 import { ensureMasterAdminUser } from '@/lib/ensure-master-admin';
 import { MASTER_ADMIN_ID } from '@/lib/master-admin';
 import { prisma } from '@/lib/prisma';
+import { buildDiagnosisScoreSnapshot } from '@/lib/audit/diagnosis-scores';
+import { resolveReportTrack3Score } from '@/lib/audit/pagespeed';
 import { gradeForScore } from '@/lib/audit/score-grade';
 import { formatTargetCategory, resolveTargetBrandName } from '@/lib/audit/target-entity';
-import { resolveAuditScoreFromReport } from '@/lib/audit/resolveAuditScore';
 import type { AuditReport as SiteAuditReport } from '@/lib/site-auditor';
 
 function errorMessage(err: unknown): string {
@@ -25,9 +26,11 @@ function persistFields(report: SiteAuditReport) {
 	const domain = auditDomainFromReport(report);
 	const brandName = resolveTargetBrandName(report) || domain;
 	const category = formatTargetCategory(report.siteMeta, report.lang === 'en' ? 'en' : 'ko');
-	const auditScore = resolveAuditScoreFromReport(report);
-	const score = Math.round(auditScore.normalizedScore ?? report.score ?? 0);
-	const grade = String(auditScore.grade || gradeForScore(score));
+	const snapshot = buildDiagnosisScoreSnapshot(report, null, report.lang === 'en' ? 'en' : 'ko', {
+		coreWebVitalsScore100: resolveReportTrack3Score(report),
+	});
+	const score = snapshot.measuredScore;
+	const grade = String(snapshot.grade || gradeForScore(score));
 	return {
 		domain,
 		brandName,

@@ -48,6 +48,15 @@ export function detectCmsFromHtml(html: string): string {
 		return '워드프레스 (WordPress)';
 	}
 	if (
+		htmlString.includes('rhymix') ||
+		htmlString.includes('rx_layout') ||
+		htmlString.includes('xe-common') ||
+		htmlString.includes('xpressengine') ||
+		htmlString.includes('class="xe-')
+	) {
+		return '라이믹스 / XE (Rhymix)';
+	}
+	if (
 		htmlString.includes('.jsp') ||
 		htmlString.includes('jsessionid') ||
 		htmlString.includes('egovframe') ||
@@ -98,6 +107,9 @@ export function toAuditCmsLabel(detected: string, lang: 'ko' | 'en' = 'ko'): str
 	}
 	if (d.includes('wordpress') || detected.includes('워드프레스') || d.includes('wp-content')) {
 		return 'WordPress';
+	}
+	if (d.includes('rhymix') || d.includes('xpressengine') || detected.includes('라이믹스') || /\bxe\b/.test(d)) {
+		return lang === 'ko' ? '라이믹스 / XE' : 'Rhymix / XE';
 	}
 	if (d.includes('next.js') || d.includes('__next') || d.includes('/_next')) {
 		return 'Next.js';

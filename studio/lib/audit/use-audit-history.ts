@@ -5,14 +5,18 @@ import { useSession } from 'next-auth/react';
 import {
 	AUDIT_HISTORY_SYNC_CHANNEL,
 	AUDIT_HISTORY_SYNC_KEY,
+	applyLocalMeasuredScorePatches,
+	applyMeasuredScorePatchToEntries,
 	dedupeHistoryEntries,
 	filterDeletedHistoryEntries,
 	getGuestAudits,
 	type AuditHistoryEntry,
+	type HistoryMeasuredScorePatch,
 } from '@/lib/audit-history-storage';
 
 type HistorySyncDetail = {
 	entry?: AuditHistoryEntry | null;
+	scorePatch?: HistoryMeasuredScorePatch | null;
 	ids?: string[];
 	all?: boolean;
 };
@@ -46,8 +50,9 @@ export function useAuditHistory() {
 			}
 
 			try {
+				const local = filterDeletedHistoryEntries(getGuestAudits());
 				if (!signedIn) {
-					setHistoryList(filterDeletedHistoryEntries(getGuestAudits()));
+					setHistoryList(local);
 					return;
 				}
 
@@ -60,7 +65,14 @@ export function useAuditHistory() {
 							: 'Failed to load history.';
 					throw new Error(message);
 				}
-				setHistoryList(filterDeletedHistoryEntries(dedupeHistoryEntries(parseHistoryPayload(data))));
+				setHistoryList(
+					filterDeletedHistoryEntries(
+						applyLocalMeasuredScorePatches(
+							dedupeHistoryEntries([...local, ...parseHistoryPayload(data)]),
+							local,
+						),
+					),
+				);
 			} catch (err) {
 				setError((err as Error).message);
 				if (!signedIn) {
@@ -77,6 +89,32 @@ export function useAuditHistory() {
 		setHistoryList((prev) => filterDeletedHistoryEntries(dedupeHistoryEntries([entry, ...prev])));
 	}, []);
 
+	const applyScorePatch = useCallback((patch: HistoryMeasuredScorePatch) => {
+		setHistoryList((prev) => filterDeletedHistoryEntries(applyMeasuredScorePatchToEntries(prev, patch)));
+	}, []);
+
+	const applySyncDetail = useCallback(
+		(detail: HistorySyncDetail | null | undefined) => {
+			if (!detail) {
+				void loadHistory({ quiet: true });
+				return;
+			}
+			let handled = false;
+			if (detail.scorePatch?.id) {
+				applyScorePatch(detail.scorePatch);
+				handled = true;
+			}
+			if (detail.entry?.id && detail.entry.url) {
+				prependHistory(detail.entry);
+				handled = true;
+			}
+			if (detail.all || !handled) {
+				void loadHistory({ quiet: true });
+			}
+		},
+		[applyScorePatch, loadHistory, prependHistory],
+	);
+
 	useEffect(() => {
 		if (authStatus === 'loading') return;
 		void loadHistory();
@@ -84,21 +122,15 @@ export function useAuditHistory() {
 
 	useEffect(() => {
 		const onCustom = (event: Event) => {
-			const detail = (event as CustomEvent<HistorySyncDetail>).detail;
-			if (detail?.entry?.id) {
-				prependHistory(detail.entry);
-			}
-			void loadHistory({ quiet: true });
+			applySyncDetail((event as CustomEvent<HistorySyncDetail>).detail);
 		};
 		const onStorage = (event: StorageEvent) => {
 			if (event.key !== AUDIT_HISTORY_SYNC_KEY) return;
 			try {
-				const parsed = event.newValue ? (JSON.parse(event.newValue) as HistorySyncDetail) : null;
-				if (parsed?.entry?.id) prependHistory(parsed.entry);
+				applySyncDetail(event.newValue ? (JSON.parse(event.newValue) as HistorySyncDetail) : null);
 			} catch {
-				// ignore malformed sync payload
+				void loadHistory({ quiet: true });
 			}
-			void loadHistory({ quiet: true });
 		};
 		const onVisible = () => {
 			if (document.visibilityState === 'visible') void loadHistory({ quiet: true });
@@ -112,8 +144,7 @@ export function useAuditHistory() {
 		try {
 			channel = new BroadcastChannel(AUDIT_HISTORY_SYNC_CHANNEL);
 			channel.onmessage = (event: MessageEvent<HistorySyncDetail>) => {
-				if (event.data?.entry?.id) prependHistory(event.data.entry);
-				void loadHistory({ quiet: true });
+				applySyncDetail(event.data);
 			};
 		} catch {
 			channel = null;
@@ -125,7 +156,7 @@ export function useAuditHistory() {
 			document.removeEventListener('visibilitychange', onVisible);
 			channel?.close();
 		};
-	}, [loadHistory, prependHistory]);
+	}, [applySyncDetail, loadHistory]);
 
 	return {
 		session,

@@ -19,15 +19,17 @@ export default function LandingPage() {
 	return (
 		<main className="landing-page pb-24">
 			<FreeAuditHero />
-			<HomeAuditHistorySection />
-			<div className="landing-container pb-4">
+			<div className="landing-container">
+				<HomeAuditHistorySection />
 				<ProblemSection />
 				<DiagnosisProofSection />
 				<EngineCompatibility />
 				<QueryReachSection />
 				<SovShareSection />
 				<PrescriptionModules />
-				<ContrastSimulator />
+			</div>
+			<ContrastSimulator />
+			<div className="landing-container pb-4">
 				<RoiValueSection />
 				<PricingPackages />
 				<LandingFaq />

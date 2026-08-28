@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
+import { AdminAuthGuard } from '@/components/admin/AdminAuthGuard';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 
@@ -10,7 +11,21 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar';
 const AUTO_COLLAPSE_MAX = 1023;
 
 /** Data-heavy admin pages that should use the full main column (no max-width). */
-const FULL_WIDTH_PATHS = ['/admin/crawling/list'] as const;
+const FULL_WIDTH_PATHS = [
+	'/admin/crawling/list',
+	'/admin/diagnostics',
+	'/admin/users',
+	'/admin/usage',
+	'/admin/notices',
+	'/admin/system-logs',
+	'/admin/geo-insights',
+	'/admin/schema-library',
+	'/admin/code-library',
+	'/admin/settings/notices',
+	'/admin/settings/logs',
+	'/admin/api-settings',
+	'/admin/settings/api',
+] as const;
 
 interface AdminShellProps {
 	children: ReactNode;
@@ -50,26 +65,28 @@ export function AdminShell({ children, firebaseConfigured }: AdminShellProps) {
 	}
 
 	return (
-		<div className="admin-light-theme flex h-screen overflow-hidden bg-slate-50 text-slate-900">
-			<AdminSidebar collapsed={collapsed} />
-			<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-				<AdminHeader
-					collapsed={collapsed}
-					onToggleSidebar={toggleSidebar}
-					firebaseConfigured={firebaseConfigured}
-				/>
-				<main className="h-full min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
-					<div
-						className={
-							fullWidth
-								? 'w-full max-w-none px-4 py-6 sm:px-6 lg:px-8'
-								: 'mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8'
-						}
-					>
-						{children}
-					</div>
-				</main>
+		<AdminAuthGuard>
+			<div className="admin-wrapper flex h-dvh max-h-dvh overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+				<AdminSidebar collapsed={collapsed} />
+				<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+					<AdminHeader
+						collapsed={collapsed}
+						onToggleSidebar={toggleSidebar}
+						firebaseConfigured={firebaseConfigured}
+					/>
+					<main className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
+						<div
+							className={
+								fullWidth
+									? 'w-full max-w-none px-4 py-6 sm:px-6 lg:px-8'
+									: 'mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8'
+							}
+						>
+							{children}
+						</div>
+					</main>
+				</div>
 			</div>
-		</div>
+		</AdminAuthGuard>
 	);
 }

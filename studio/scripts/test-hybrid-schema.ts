@@ -8,6 +8,8 @@
  */
 import {
 	generateDynamicPhpSchema,
+	isGnuboardCmsType,
+	buildGnuboardAutomatedRuntimeEnginePhp,
 	buildSchemaMappingJson,
 	parseSchemaMappingJson,
 	pagesFromAuditPaths,
@@ -20,6 +22,9 @@ import {
 	resolveHumanPageTitle,
 	stripHardcodedMetaEchoes,
 	stripHardcodedCanonicalTags,
+	stripHardcodedHtmlMetas,
+	stripOrphanMetaClosers,
+	prepareHeadSourceForInject,
 	stripRedueSchemaBlocks,
 	enforceHttps,
 	refineAssignedPageType,
@@ -33,6 +38,7 @@ import {
 	resolveNetworkHubByRegion,
 	isActionServiceName,
 	buildUniversalObSeoEnginePhp,
+	buildUniversalSeoRuntimeHelpersPhp,
 	buildNewsArticleAutoDetectPhp,
 	buildExactCanonicalPhpBlock,
 	buildCrawlerOptimizedCanonicalHeadFragment,
@@ -42,6 +48,7 @@ import {
 	DEFAULT_MAIN_SERVICE_NAMES,
 	DEFAULT_TREATMENT_NAMES,
 	HOSPITAL_NETWORK_SEEDS,
+	REDUE_SCHEMA_RENDER_MARKER_START,
 } from '../lib/solve/dynamic-php-schema';
 import {
 	detectGlobalHeadTargets,
@@ -49,6 +56,7 @@ import {
 	scoreGlobalHeadCandidate,
 	injectBeforeClosingHead,
 	injectAfterCharsetOrHead,
+	hasLiveCanonicalHtmlTag,
 	formatPrimaryHeaderBadge,
 	analyzeGnuboardThemeUsage,
 	parseCfThemeFromConfig,
@@ -67,30 +75,29 @@ assert(rankHeaderPathPriority('head.sub.php') === 90, 'rank 90');
 assert(rankHeaderPathPriority('inc/head.php') === 80, 'rank 80');
 assert(rankHeaderPathPriority('index.html') === 70, 'rank 70');
 
-assert(gnuboardInjectTier('theme/basic/head.sub.php') === 1, 'ftp tier 1 basic');
-assert(gnuboardInjectTier('www/theme/basic/head.sub.php') === 1, 'ftp tier 1 www/basic');
-assert(gnuboardInjectTier('html/theme/basic/head.sub.php') === 1, 'ftp tier 1 html/basic');
-assert(gnuboardInjectTier('theme/custom/head.sub.php') === 2, 'ftp tier 2 other theme');
-assert(gnuboardInjectTier('head.sub.php') === 3, 'ftp tier 3 root');
-assert(gnuboardInjectTier('index.php') === 4, 'ftp tier 4 index');
+assert(gnuboardInjectTier('theme/hospital/head.sub.php') === 1, 'ftp tier 1 theme head.sub.php');
+assert(gnuboardInjectTier('theme/basic/head.sub.php') === 1, 'ftp tier 1 theme head.sub.php (any theme name)');
+assert(gnuboardInjectTier('www/theme/basic/head.sub.php') === 1, 'ftp tier 1 www/theme/*');
+assert(gnuboardInjectTier('theme/hospital/head.php') === 2, 'ftp tier 2 theme head.php');
+assert(gnuboardInjectTier('head.sub.php') === 3, 'ftp tier 3 root head.sub.php fallback');
+assert(gnuboardInjectTier('head.php') === 4, 'ftp tier 4 root head.php fallback');
+assert(gnuboardInjectTier('index.php') === 5, 'ftp tier 5 index (last resort)');
 assert(
+	// Path-string tiering alone can't know which theme cf_theme points to — the
+	// pinpoint prober (pinpointGnuboardTargets) resolves that via config.php
+	// before ever calling gnuboardInjectTier. Here we only assert tier ordering.
 	pickPreferredGnuboardInjectPath([
 		'index.php',
 		'head.sub.php',
 		'theme/custom/head.sub.php',
 		'theme/basic/head.sub.php',
 	]) === 'theme/basic/head.sub.php',
-	'ftp prefers theme/basic over root',
+	'ftp prefers any theme/*/head.sub.php over root by tier (alphabetical tiebreak)',
 );
 assert(
 	pickPreferredGnuboardInjectPath(['head.sub.php', 'www/theme/basic/head.sub.php', 'index.html']) ===
 		'www/theme/basic/head.sub.php',
-	'ftp prefers www/theme/basic over root',
-);
-assert(
-	pickPreferredGnuboardInjectPath(['index.php', 'head.sub.php', 'theme/shop/head.sub.php']) ===
-		'theme/shop/head.sub.php',
-	'ftp prefers other theme head.sub.php over root',
+	'ftp prefers theme head.sub.php over root by tier',
 );
 assert(
 	pickPreferredGnuboardInjectPath(['index.html', 'index.php', 'head.sub.php']) === 'head.sub.php',
@@ -218,8 +225,8 @@ assert(
 	'qa board → CollectionPage',
 );
 assert(
-	refineAssignedPageType('101.php', 'MedicalWebPage', '연구소 소개', '연구소 소개') === 'WebPage',
-	'intro page not MedicalWebPage',
+	refineAssignedPageType('101.php', 'MedicalWebPage', '연구소 소개', '연구소 소개') === 'AboutPage',
+	'intro page AboutPage not MedicalWebPage',
 );
 assert(
 	refineAssignedPageType('301.php', 'WebPage', '중입자치료', '중입자치료') === 'MedicalWebPage',
@@ -284,12 +291,16 @@ const php = generateDynamicPhpSchema(llmJson, {
 });
 assert(php.includes('parse_url'), 'parse_url');
 assert(php.includes('$page_meta'), 'page_meta');
+assert(php.includes('$seo_meta_map'), 'seo_meta_map');
+assert(php.includes('$seo_schema_map'), 'seo_schema_map');
 assert(php.includes('$page_schema'), 'page_schema');
 assert(php.includes('예담소개'), 'menu1 in php');
 assert(php.includes("'section'"), 'section key in page_meta');
 assert(php.includes('연구소 소개'), 'human title in php');
 assert(!php.includes('title%3E'), 'no garbage in php');
-assert(php.includes('ProfessionalService'), 'ProfessionalService');
+// Phase 2 spec: 동물병원 → VeterinaryCare only (no MedicalClinic mixed in).
+assert(php.includes('VeterinaryCare'), 'VeterinaryCare org type (동물의료센터 keyword)');
+assert(!php.includes("array('VeterinaryCare', 'MedicalClinic'"), 'VeterinaryCare bucket no longer mixes in MedicalClinic');
 assert(php.includes('Organization'), 'Organization');
 assert(php.includes('knowsAbout'), 'knowsAbout');
 assert(!php.includes('MedicalOrganization'), 'no MedicalOrganization');
@@ -399,7 +410,7 @@ const mapped = pagesFromAuditPaths({
 const byPath = Object.fromEntries(mapped.map((p) => [sanitizePageFileKey(p.urlPath) || p.urlPath, p]));
 assert(byPath['101.php']?.title === '연구소 소개', '101 title');
 assert(byPath['101.php']?.h1 === '연구소 소개', '101 h1');
-assert(byPath['101.php']?.pageType === 'WebPage', '101 WebPage not MedicalWebPage');
+assert(byPath['101.php']?.pageType === 'AboutPage', '101 AboutPage not MedicalWebPage');
 assert(byPath['board.php?bo_table=notice']?.title === '공지사항', 'notice title');
 assert(byPath['board.php?bo_table=notice']?.h1 === '공지사항', 'notice h1');
 assert(byPath['board.php?bo_table=qa']?.pageType === 'CollectionPage', 'qa board CollectionPage');
@@ -470,10 +481,9 @@ assert(boardPhp.includes("schema_faq_items"), 'FAQ context var scan');
 assert(boardPhp.includes("schema_person"), 'Person context var scan');
 assert(boardPhp.includes("schema_article"), 'Article context var scan');
 assert(boardPhp.includes('Single JSON-LD Output Guarantee') || boardPhp.includes('Context Variable Injection'), 'v8 architecture comments');
-assert(!boardPhp.includes('LocalBusiness'), 'no LocalBusiness node');
-assert(!boardPhp.includes("'http://example.com"), 'no http origin literal');
-assert(boardPhp.includes('https://example.com'), 'https origin from http input');
-assert(boardPhp.includes("preg_replace('#^http://#i', 'https://'"), 'runtime https coerce');
+assert(boardPhp.includes('LocalBusiness'), 'LocalBusiness on Organization @type (NAP required)');
+assert(boardPhp.includes('http://example.com'), 'preserves audited http origin (no SSL force)');
+assert(boardPhp.includes('redue_detect_site_protocol') || boardPhp.includes('redue_align_url_protocol'), 'runtime protocol align');
 assert(!boardPhp.includes('Service Details'), 'no Service Details node');
 // v11: Organization telephone / email / PostalAddress from footer
 assert(boardPhp.includes("'telephone' => '02-1234-5678'"), 'Organization telephone bound');
@@ -483,7 +493,8 @@ assert(boardPhp.includes("'streetAddress' => '테헤란로 123 5층'") || boardP
 assert(boardPhp.includes("'addressLocality' => '강남구'"), 'addressLocality 강남구');
 assert(boardPhp.includes("'addressRegion' => '서울특별시'"), 'addressRegion 서울특별시');
 assert(boardPhp.includes("'addressCountry' => 'KR'"), 'addressCountry KR');
-assert(boardPhp.includes("Organization', 'ProfessionalService"), 'Organization+ProfessionalService');
+// Phase 2 spec: 일반 병의원/클리닉 → MedicalClinic + LocalBusiness (no MedicalBusiness/Organization mixed in).
+assert(boardPhp.includes('MedicalClinic') && boardPhp.includes('LocalBusiness'), 'MedicalClinic+LocalBusiness org type');
 {
 	const mainSvcBlock = boardPhp.match(/\/#main-services'[\s\S]*?itemListElement'\s*=>\s*array\(([\s\S]*?)\)\s*,\s*\)\s*;/);
 	assert(mainSvcBlock, 'main-services block present');
@@ -737,7 +748,9 @@ assert(
 	boardPhp.includes("$GLOBALS['redue_canonical_url']") || boardPhp.includes('http_build_query'),
 	'v30 canonical computation present',
 );
-assert(boardPhp.includes('ob_start'), 'v30 restores ob_start for canonical dedup + script defer');
+assert(!boardPhp.includes('ob_start('), 'v35 drops ob_start preg_replace buffer rewrite');
+assert(boardPhp.includes('redue_detect_site_protocol'), 'v35 detects live http/https protocol');
+assert(boardPhp.includes('redue_echo_canonical_pair'), 'v35 echoes canonical/OG directly');
 assert(boardPhp.includes('REDUE_UNIVERSAL_ENGINE_ACTIVE'), 'v30 OB guard constant');
 assert(boardPhp.includes('redue_get_exact_canonical'), 'v30 exact canonical helper');
 assert(boardPhp.includes('redue_dynamic_schema_controller_safe'), 'static $executed duplicate-call guard');
@@ -761,8 +774,8 @@ assert(
 	'v30 canonical + og:url present (OB reinject)',
 );
 assert(
-	boardPhp.includes("// echo '<link rel=\"canonical\"") || boardPhp.includes("// echo '<link rel=\"canonical\" href=\""),
-	'v30 controller canonical echo is commented out (OB-only inject)',
+	boardPhp.includes('redue_echo_canonical_pair'),
+	'v34 native canonical echo helper (not OB-only)',
 );
 assert(boardPhp.includes('REDUE v30 PRECISION SEO START'), 'v30 PRECISION SEO START marker');
 assert(boardPhp.includes('SEO Standard Canonical Pair'), 'v30 SEO Standard Canonical Pair marker');
@@ -777,7 +790,8 @@ assert(
 );
 {
 	const directCanon = buildExactCanonicalPhpBlock('koreaionlab.co.kr');
-	assert(directCanon.includes('https://koreaionlab.co.kr'), 'v32 hardcoded HTTPS base');
+	assert(directCanon.includes('koreaionlab.co.kr'), 'v32 host fallback in direct engine');
+	assert(directCanon.includes('$__redue_proto') || directCanon.includes('HTTP_X_FORWARDED_PROTO'), 'v35 protocol detect in direct engine');
 	assert(directCanon.includes('SCRIPT_NAME'), 'v32 SCRIPT_NAME dual detect in direct engine');
 	assert(directCanon.includes('$exact_canonical_url'), 'v32 sets $exact_canonical_url');
 	const frag = buildCrawlerOptimizedCanonicalHeadFragment('koreaionlab.co.kr');
@@ -804,7 +818,8 @@ assert(
 	const dStyle = dirtyDirect.result.indexOf('<style');
 	assert(dCharset >= 0 && dCanon > dCharset && dCanon < dStyle, 'php-open inject places canonical after charset before CSS');
 }
-assert(boardPhp.includes('관련 안내 및 상담은 어떻게 신청하나요?'), 'v30 FAQ fallback Q1');
+assert(!boardPhp.includes('진료시간은 어떻게 되나요'), 'v35 never invents FAQ hours');
+assert(boardPhp.includes('schema_faq_items'), 'FAQ only from live schema_faq_items');
 assert(boardPhp.includes('if ( ! $article_bound )') || boardPhp.includes("if ( ! $article_bound )"), 'Article guaranteed on all pages');
 // v31 NewsArticle Auto-Detect (Gnuboard portable — notice/press/news boards & subpages)
 assert(boardPhp.includes('v31 NewsArticle Auto-Detect'), 'v31 NewsArticle Auto-Detect marker in hybrid');
@@ -820,7 +835,7 @@ assert(
 	'NewsArticle type switch in hybrid',
 );
 assert(boardPhp.includes('wr_subject') && boardPhp.includes('wr_datetime'), 'Gnuboard write fields for NewsArticle');
-assert(boardPhp.includes('/logo.png'), 'NewsArticle image fallback logo.png');
+assert(!boardPhp.includes('/logo.png'), 'NewsArticle does not invent /logo.png');
 assert(boardPhp.includes("'@type' => 'ImageObject'"), 'publisher logo ImageObject');
 {
 	const detectPhp = buildNewsArticleAutoDetectPhp();
@@ -832,18 +847,68 @@ assert(boardPhp.includes("'@type' => 'ImageObject'"), 'publisher logo ImageObjec
 	assert(universalPhp.includes("$redue_is_news_context ? 'NewsArticle' : 'Article'"), 'universal NewsArticle switch');
 }
 assert(boardPhp.includes('redue-alt-autofix'), 'v14 alt autofix');
+{
+	const helpers = buildUniversalSeoRuntimeHelpersPhp();
+	assert(helpers.includes('redue_auto_detect_footer_info'), 'footer lifecycle scanner');
+	assert(helpers.includes("G5_THEME_PATH . '/tail.php'"), 'footer scanner theme tail.php');
+	assert(helpers.includes("'/theme/basic/tail.php'"), 'footer scanner DOCUMENT_ROOT fallback');
+	assert(helpers.includes('redue_extract_telephone'), 'v33 telephone extractor');
+	assert(helpers.includes('redue_format_telephone'), 'v33 telephone formatter');
+	assert(helpers.includes('redue_resolve_universal_telephone'), 'v33 universal tel chain');
+	assert(helpers.includes('대표번호|대표전화|TEL|Tel|전화|문의'), 'v33 labeled phone prefix');
+	assert(helpers.includes('0\\d{1,2}[-\\s]?\\d{3,4}[-\\s]?\\d{4}'), 'v33 phone regex fallback');
+	assert(helpers.includes('서울|경기|인천|부산|대구|광주|대전|울산|세종'), 'v33 nationwide address prefix');
+	assert(helpers.includes('(?:로|길|동|리|읍|면|가|층|호|번지)'), 'v33 address street suffix');
+	assert(helpers.includes('redue_transform_img_alts'), 'v33 Global Alt Transformer');
+	assert(helpers.includes('redue_parse_rep_from_text'), 'v33 image-rep alt/title parser');
+	assert(helpers.includes('redue_parse_rep_from_filename'), 'v33 image-rep filename parser');
+	assert(helpers.includes('sign|ceo|director|rep'), 'v33 sign/ceo/director/rep filename regex');
+	assert(helpers.includes('redue_extract_nearby_rep'), 'v33 nearby heading alt context');
+	assert(helpers.includes('redue_compose_rep_img_alt'), 'v33 compose site+name+title alt');
+	assert(helpers.includes('redue_extract_rep_from_imgs'), 'v33 img alt scraper');
+	assert(helpers.includes('redue_bind_rep_globals'), 'v33 bind redue_rep_name from img');
+	assert(helpers.includes('로고'), 'v33 logo alt rule');
+	assert(helpers.includes('안내 이미지'), 'v33 coded-filename alt rule');
+	assert(helpers.includes('redue_optimize_document_title'), 'v33 title length optimizer');
+	assert(helpers.includes('공식 안내 및 전문 서비스'), 'v33 main title expansion');
+	assert(helpers.includes('공식'), 'v33 sub title 공식 suffix');
+	assert(helpers.includes('redue_composite_page_types'), 'composite page classifier');
+	assert(helpers.includes("array('MedicalWebPage', 'AboutPage', 'WebPage')"), 'main medical composite types');
+	assert(helpers.includes("array('AboutPage', 'WebPage')"), 'main non-medical composite types');
+	assert(helpers.includes("if ( $is_about ) {") && helpers.includes("return 'AboutPage';"), 'about forces single AboutPage');
+	assert(boardPhp.includes('/#website'), 'v33 WebSite @id in generated controller');
+	assert(boardPhp.includes('redue_strip_duplicate_canonicals'), 'v33 canonical dedupe helper in OB');
+	assert(boardPhp.includes("rel\\s*=\\s*[\"\\']?canonical"), 'v33 strips unquoted rel=canonical');
+	assert(
+		boardPhp.includes('Charset-After') || boardPhp.includes('Bot Optimized Top Position') || boardPhp.includes('redue_echo_canonical_pair'),
+		'v35 charset-after / title-top direct echo is the inject target',
+	);
+	assert(boardPhp.includes('redue_transform_img_alts'), 'v33 alt transformer called from OB');
+	assert(boardPhp.includes('redue_extract_rep_from_imgs'), 'v33 OB scans img alt/filename for rep');
+	assert(boardPhp.includes('redue_optimize_document_title'), 'v33 title optimizer called from OB');
+	assert(boardPhp.includes('redue_composite_page_types'), 'v33 composite types in hybrid controller');
+	const universalPhp = buildUniversalObSeoEnginePhp();
+	assert(universalPhp.includes("array('@id' => $origin . '/#website')") || universalPhp.includes("'@id' => $origin . '/#website'"), 'universal WebSite @id');
+	assert(universalPhp.includes('redue_extract_telephone'), 'universal ships telephone extractor');
+	assert(universalPhp.includes('LocalBusiness'), 'universal org includes LocalBusiness');
+	const gnuV33 = buildGnuboardAutomatedRuntimeEnginePhp({ siteName: '서울내과의원', industryType: 'MEDICAL' });
+	assert(gnuV33.includes('redue_extract_street_address'), 'gnu runtime address extractor');
+	assert(gnuV33.includes('#webpage'), 'gnu main emits WebPage @id');
+	assert(gnuV33.includes('AboutPage') || gnuV33.includes('redue_composite_page_types'), 'gnu main/about composite schema');
+}
 assert(boardPhp.includes('redue-js-defer-fix'), 'v15 js defer autofix (defense-in-depth)');
 assert(boardPhp.includes("date('Y-01-01T00:00:00+09:00')"), 'v15 Article datePublished default');
-assert(boardPhp.includes("'sameAs' => $same_as_array") || boardPhp.includes('$same_as_array = array($origin)'), 'Organization sameAs array');
-assert(boardPhp.includes("blog.naver.com/' . $domain_host"), 'sameAs Naver blog host');
+assert(boardPhp.includes("'sameAs' => $same_as_array") || boardPhp.includes('$same_as_array = array()'), 'Organization sameAs array');
+assert(boardPhp.includes('redue_is_own_site_url'), 'sameAs excludes own homepage origin');
+assert(!boardPhp.includes("blog.naver.com/' . $domain_host"), 'does not invent Naver blog from site host');
 assert(boardPhp.includes("$origin . '/#person'"), 'Person @id origin/#person');
-assert(boardPhp.includes('의료진/연구팀'), 'default Person E-E-A-T name');
-assert(boardPhp.includes('의료 코디네이터 / 전문 연구팀'), 'default Person jobTitle');
+assert(boardPhp.includes("$site_name . ' 대표'") || boardPhp.includes('대표'), 'default Person E-E-A-T name');
+assert(boardPhp.includes("'대표'") || boardPhp.includes("$site_name . ' 대표'"), 'default Person jobTitle');
 assert(boardPhp.includes("$rep_name"), 'compiled $rep_name binding');
 assert(boardPhp.includes("$rep_title"), 'compiled $rep_title binding');
 assert(boardPhp.includes("'founder'"), 'Organization founder node');
 assert(boardPhp.includes("'physician'"), 'Organization physician node');
-assert(boardPhp.includes("'@type' => 'Physician'"), 'Physician @type');
+assert(boardPhp.includes("$org_node['founder'] = array('@id' => $origin . '/#person')"), 'founder @id Person');
 assert(boardPhp.includes('MedicalClinic'), 'MEDICAL org includes MedicalClinic');
 assert(boardPhp.includes('name="author"'), 'author meta in OB callback');
 assert(boardPhp.includes('name="representative"'), 'representative meta in OB callback');
@@ -892,14 +957,20 @@ assert(boardPhp.includes("'Oncologic'") && boardPhp.includes("'RadiationTherapy'
 	assert(geoPhp.includes('map.naver.com'), 'Naver map sameAs compiled');
 	assert(geoPhp.includes('instagram.com'), 'Instagram sameAs compiled');
 	assert(geoPhp.includes("'37.4837'"), 'latitude compiled');
+	assert(geoPhp.includes("'Saturday'"), 'openingHours includes Saturday');
+	assert(geoPhp.includes('availableService'), 'availableService compiled');
+	assert(geoPhp.includes("'₩₩'"), 'priceRange fallback compiled');
+	assert(geoPhp.includes("'KRW'"), 'currenciesAccepted fallback compiled');
+	assert(geoPhp.includes('Cash, Credit Card'), 'paymentAccepted fallback compiled');
+	assert(geoPhp.includes('(float) $latitude'), 'geo latitude emitted as number');
 	const emptyPhp = generateDynamicPhpSchema({
 		siteName: '한국중입자 암치료연구소',
 		targetUrl: 'https://example.com',
 		pages: [{ urlPath: '/', title: '홈', pageType: 'WebPage' }],
 		industryType: 'MEDICAL',
 	});
-	assert(emptyPhp.includes("$site_name . ' 의료진/연구팀'"), 'empty representative uses fallback Person name');
-	assert(emptyPhp.includes("if ( is_string($rep_name) && $rep_name !== '' )"), 'founder/physician gated on non-empty $rep_name');
+	assert(emptyPhp.includes("$person_eeat_name !== ''") || emptyPhp.includes("if ( $person_eeat_name !== '' )"), 'empty representative omits Person node');
+	assert(emptyPhp.includes("$org_node['founder'] = array('@id' => $origin . '/#person')"), 'founder @id linked when Person exists');
 }
 assert(boardPhp.includes('Description Extender'), 'Description Extender comment');
 assert(boardPhp.includes('$_redue_desc_len'), 'runtime description length check');
@@ -999,7 +1070,7 @@ assert(
 	'qa board schema excludes FAQPage',
 );
 
-// Optional Smart Clean helpers still available (manual), but inject path must NOT strip them
+// Smart Clean: theme OG/description echoes + static canonicals are stripped on inject
 const dirtyHead = `<?php
 if (G5_IS_MOBILE) {
     echo '<meta property="og:url" content="'.$og_url.'">'.PHP_EOL;
@@ -1025,13 +1096,15 @@ assert(!/og:url/.test(cleanedHead), 'manual clean removes og:url echo/meta');
 assert(!/og:title/.test(cleanedHead), 'manual clean removes og:title echo');
 assert(!/rel=["']canonical["']/.test(cleanedHead), 'manual clean removes static/echo canonical');
 assert(/G5_IS_MOBILE/.test(cleanedHead), 'keeps G5_IS_MOBILE branch');
+assert(/name="robots"/.test(cleanedHead), 'manual clean keeps robots echo');
 const cleanInjected = injectBeforeClosingHead(dirtyHead, boardPhp);
 assert(cleanInjected.ok, 'v22 top inject ok');
 assert(cleanInjected.anchor === 'php-open-top', 'v22 php-open-top on dirty head');
 // v30: stale static canonical/og:url are stripped at build time; runtime OB also dedups.
 assert(cleanInjected.result.includes('naver-site-verification'), 'preserves Naver site verification');
-assert(cleanInjected.result.includes('$og_title'), 'preserves existing $og_title echoes');
+assert(!cleanInjected.result.includes('$og_title'), 'strips theme $og_title echoes (engine emits OG)');
 assert(!/\$og_url/.test(cleanInjected.result), 'strips stale $og_url echo (static pre-inject clean)');
+assert(cleanInjected.result.includes('index,follow'), 'preserves robots');
 // Stale hardcoded canonicals from dirtyHead removed; engine may reference canonical in echo + OB inject strings.
 assert(
 	!cleanInjected.result.includes('https://koreaionlab.co.kr/">\n<link href="https://koreaionlab.co.kr/" rel="canonical"'),
@@ -1042,7 +1115,15 @@ assert(
 	'v30 engine still emits canonical link markup (echo and/or OB reinject)',
 );
 assert(cleanInjected.result.includes('$schema_meta_title'), 'dynamic meta title present');
-assert(cleanInjected.result.includes('ob_start'), 'v30 inject result registers ob_start');
+assert(!cleanInjected.result.includes('ob_start('), 'v35 inject result has no ob_start buffer');
+assert(
+	hasLiveCanonicalHtmlTag(cleanInjected.result),
+	'v34 stamps a live <head> canonical tag (href="<?php …") so crawlers see it even if OB fails',
+);
+assert(
+	/charset="utf-8">[\s\S]{0,400}<link\s+rel="canonical"/i.test(cleanInjected.result),
+	'v34 live canonical sits immediately after charset (First-Chunk)',
+);
 assert(
 	cleanInjected.result.includes('REDUE v30 PRECISION SEO START') ||
 		cleanInjected.result.includes('REDUE v30 PRECISION SEO'),
@@ -1065,6 +1146,185 @@ assert((cleanInjected.result.match(/application\/ld\+json/g) || []).length === 1
 	const strippedGuard = stripRedueSchemaBlocks(leftoverGuard);
 	assert(!strippedGuard.includes('REDUE_UNIVERSAL_ENGINE_ACTIVE'), 'strips leftover UNIVERSAL_ENGINE_ACTIVE guard');
 }
+
+assert(isGnuboardCmsType('Gnuboard') && isGnuboardCmsType('그누보드(테마사용)'), 'gnuboard cms detect');
+assert(!isGnuboardCmsType('WordPress'), 'wp is not gnuboard');
+
+const gnuRuntime = generateDynamicPhpSchema(llmJson, {
+	siteName: '한국중입자암치료연구소',
+	targetUrl: 'https://example.com',
+	industryType: 'MEDICAL',
+	cmsType: 'Gnuboard',
+});
+assert(!gnuRuntime.includes('$page_meta ='), 'gnuboard engine drops static page_meta');
+assert(gnuRuntime.includes('$seo_meta_map'), 'gnuboard still compiles seo_meta_map overlay');
+assert(!gnuRuntime.includes('마음반려동물의료원'), 'no foreign clinic hallucination');
+assert(gnuRuntime.includes("$config['cf_title']"), 'runtime cf_title');
+assert(gnuRuntime.includes("$config['cf_tel']"), 'runtime cf_tel');
+assert(gnuRuntime.includes("$config['cf_add_script']"), 'runtime tel fallback from cf_add_script');
+assert(gnuRuntime.includes('$g5_head_title'), 'runtime g5_head_title');
+assert(gnuRuntime.includes("$view['wr_subject']"), 'article from $view');
+assert(gnuRuntime.includes("$view['wr_content']"), 'article body from $view');
+assert(gnuRuntime.includes("$view['wr_datetime']"), 'article date from $view');
+assert(gnuRuntime.includes("$board['bo_subject']"), 'collection from $board');
+assert(gnuRuntime.includes("$g5['menu_table']"), 'live g5_menu query');
+assert(gnuRuntime.includes("redue_org_type"), 'org type from top-level global');
+assert(gnuRuntime.includes('CollectionPage'), 'board list CollectionPage');
+assert(gnuRuntime.includes("'Article'"), 'post Article');
+assert(gnuRuntime.includes('MedicalWebPage'), 'main MedicalWebPage when org is medical');
+assert(gnuRuntime.includes('BreadcrumbList'), 'subpage BreadcrumbList');
+assert(gnuRuntime.includes("'WebSite'"), 'main WebSite node');
+assert(gnuRuntime.includes('/#gnb'), 'GNB ItemList id');
+assert(gnuRuntime.includes('https://schema.org'), 'schema.org context');
+assert(!gnuRuntime.includes('[https://schema.org]'), 'no markdown schema.org leak');
+// v33: redue_render_full_schema() wraps the (unchanged) direct-echo body function in a small,
+// single-purpose ob_start()/ob_get_clean() pair so it can be RETURNED (not echoed) at define
+// time and only echoed later at the correct <meta charset> position. This is not the old
+// whole-document defer/rewrite buffer that v26 removed — only one scoped ob_start() exists.
+assert(gnuRuntime.includes('function redue_render_full_schema()'), 'gnu runtime exposes redue_render_full_schema()');
+assert((gnuRuntime.match(/ob_start\(\);/g) || []).length === 1, 'exactly one scoped ob_start() (render wrapper only)');
+assert(gnuRuntime.includes('redue_detect_site_protocol'), 'gnu runtime matches live protocol');
+assert(gnuRuntime.includes("'홈'"), 'gnu breadcrumb starts at 홈');
+assert(gnuRuntime.includes('mainEntity'), 'gnu homepage mainEntity Organization');
+assert(gnuRuntime.includes('hasPart'), 'gnu homepage hasPart service pages');
+assert(gnuRuntime.includes('redue_get_exact_canonical'), 'exact canonical');
+assert(gnuRuntime.includes('redue_echo_canonical_pair'), 'gnu echoes canonical/OG in head');
+// v33: no immediate/top-level call left in the engine block — output only happens when
+// redue_render_full_schema() is explicitly echoed at the <meta charset> render-call anchor.
+assert(!/^redue_dynamic_schema_controller\(\);/m.test(gnuRuntime), 'no bare top-level controller() call left in engine block');
+assert(gnuRuntime.includes(REDUE_SCHEMA_RENDER_MARKER_START), 'gnu runtime ships a separate REDUE_AI_STUDIO_RENDER call block');
+assert(gnuRuntime.includes('echo redue_render_full_schema();'), 'render block echoes redue_render_full_schema()');
+// Exactly one call site left for the canonical/OG echo helper (inside the body function) —
+// the premature top-of-file echo that caused the "상단 덤프" bug has been removed.
+assert((gnuRuntime.match(/redue_echo_canonical_pair\(\);/g) || []).length === 1, 'canonical/OG echo call site is deduped to one (deferred) call');
+assert(gnuRuntime.includes('twitter:card'), 'twitter card meta');
+assert(gnuRuntime.includes('twitter:title'), 'twitter title meta');
+assert(!gnuRuntime.includes("$telephone = '"), 'no compile-time telephone assign');
+assert(!gnuRuntime.includes("$street_address = '"), 'no compile-time street assign');
+
+const gnuBare = buildGnuboardAutomatedRuntimeEnginePhp({
+	siteName: 'TestClinic',
+	industryType: 'MEDICAL',
+	telephone: '02-1234-5678',
+	streetAddress: '서울시 강남구 오염로 1',
+});
+assert(gnuBare.includes("$GLOBALS['redue_tel'] = '02-1234-5678'"), 'seeds workspace tel as redue_tel');
+assert(!gnuBare.includes("$telephone = '02-1234-5678'"), 'no compile-time $telephone assign');
+assert(!gnuBare.includes('서울시 강남구 오염로 1'), 'does not bake compile-time address');
+assert(!gnuBare.includes('031.211.0975'), 'no hardcoded foreign phone');
+assert(gnuBare.includes("$config['cf_tel']"), 'uses $config cf_tel');
+// 의료 → MedicalClinic + Physician + LocalBusiness (런타임 키워드 추론과 동일).
+assert(gnuBare.includes("array('MedicalClinic', 'Physician', 'LocalBusiness')"), 'medical org types are MedicalClinic+Physician+LocalBusiness');
+
+const gnuShop = buildGnuboardAutomatedRuntimeEnginePhp({
+	siteName: 'TestShop',
+	industryType: 'SHOP',
+});
+// 쇼핑몰 → OnlineStore + Store + LocalBusiness.
+assert(gnuShop.includes("array('OnlineStore', 'Store', 'LocalBusiness')"), 'shop org types are OnlineStore+Store+LocalBusiness');
+assert(gnuShop.includes('redue_composite_page_types'), 'main page type uses composite AboutPage helper');
+
+const gnuAgency = buildGnuboardAutomatedRuntimeEnginePhp({
+	siteName: '애드멘토 광고대행사',
+	industryType: 'GENERAL',
+});
+// Phase 2 spec: 광고/마케팅/에이전시/기업 → ProfessionalService + LocalBusiness + Organization,
+// and medicalSpecialty must never attach to a non-medical org type.
+assert(
+	gnuAgency.includes(
+		"$GLOBALS['redue_org_type']  = array('ProfessionalService', 'LocalBusiness', 'Organization');",
+	),
+	'agency $GLOBALS[redue_org_type] is freshly assigned ProfessionalService+LocalBusiness+Organization (Phase 2 spec)',
+);
+assert(
+	!/\$GLOBALS\['redue_org_type'\]\s*=\s*array\([^)]*(?:MedicalClinic|VeterinaryCare)/.test(gnuAgency),
+	'agency org never inherits a medical @type assignment from a previous site',
+);
+const gnuAgencyMedicalGuard = buildGnuboardAutomatedRuntimeEnginePhp({
+	siteName: '애드멘토 광고대행사',
+	industryType: 'GENERAL',
+	medicalSpecialty: ['Oncologic', 'RadiationTherapy'],
+});
+assert(
+	!gnuAgencyMedicalGuard.includes("'medicalSpecialty' => \$medical_specialty") ||
+		/\$is_medical_org && is_array\(\$medical_specialty\)/.test(gnuAgencyMedicalGuard),
+	'medicalSpecialty assignment is gated behind $is_medical_org so a leftover medical specialty array can never render for a non-medical org',
+);
+assert(gnuBare.includes("$GLOBALS['redue_rep_name']  = '';"), 'empty rep name when unset');
+assert(
+	gnuBare.includes("$GLOBALS['redue_rep_title'] = '';") || gnuBare.includes("$GLOBALS['redue_rep_title']  = '';"),
+	'no invented jobTitle when representative is unset',
+);
+
+const gnuNamed = buildGnuboardAutomatedRuntimeEnginePhp({
+	siteName: '연세클리닉',
+	industryType: 'MEDICAL',
+	representativeName: '연대영',
+	representativeTitle: '대표원장',
+});
+assert(gnuNamed.includes("$GLOBALS['redue_rep_name']  = '연대영';"), 'seeds actual 원장명');
+assert(
+	!buildGnuboardAutomatedRuntimeEnginePhp({
+		representativeName: '병원안내',
+		industryType: 'MEDICAL',
+	}).includes("$GLOBALS['redue_rep_name']  = '병원안내';"),
+	'noise org copy is not hardcoded as rep name',
+);
+
+const dirtyHtmlHead = `<?php
+if (!defined('_GNUBOARD_')) exit;
+?>
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="index,follow">
+<meta name="naver-site-verification" content="129f6a8dbd49172460f51daa1c3d5e50b3d106d7" />
+<meta name="description" content="<?php echo $config['cf_title']; ?>">
+<meta property="og:title" content="<?php echo $og_title; ?>">
+<meta property="og:description" content="<?php echo $og_desc; ?>">
+<meta property="og:image" content="<?php echo $og_image; ?>">
+">
+<title>clinic</title>
+</head>`;
+const preparedHtml = prepareHeadSourceForInject(dirtyHtmlHead);
+assert(!/name="description"/.test(preparedHtml), 'strips theme description meta');
+assert(!/property="og:title"/.test(preparedHtml), 'strips theme og:title meta');
+assert(!/property="og:description"/.test(preparedHtml), 'strips theme og:description meta');
+assert(!/property="og:image"/.test(preparedHtml), 'strips theme og:image meta');
+assert(!/^[\t ]*">/m.test(preparedHtml), 'strips leftover og:image closer');
+assert(preparedHtml.includes('naver-site-verification'), 'keeps naver verification');
+assert(preparedHtml.includes('name="robots"'), 'keeps robots');
+assert(preparedHtml.includes('charset="utf-8"'), 'keeps charset');
+assert(
+	stripOrphanMetaClosers('meta\n">\n<title>') === 'meta\n<title>',
+	'orphan closer helper drops leftover quote-gt',
+);
+assert(
+	!/og:image/.test(stripHardcodedHtmlMetas('<meta property="og:image" content="<?php echo $og_image; ?>">\n">')),
+	'php-aware html strip consumes full og:image tag',
+);
+
+const gnuInjected = injectBeforeClosingHead(dirtyHtmlHead, gnuNamed, {
+	targetPath: 'theme/basic/head.sub.php',
+});
+assert(gnuInjected.ok, 'gnu inject into php-in-attribute head');
+const doctypeIdx = gnuInjected.result.indexOf('<!doctype html>');
+const charsetIdx = gnuInjected.result.indexOf('charset="utf-8"');
+const renderIdx = gnuInjected.result.indexOf(REDUE_SCHEMA_RENDER_MARKER_START);
+assert(!gnuInjected.result.includes('REDUE_AI_STUDIO:START'), 'engine is not inlined into head.sub.php');
+assert(doctypeIdx >= 0 && doctypeIdx < charsetIdx, 'sanity: charset meta comes after doctype');
+assert(charsetIdx >= 0 && charsetIdx < renderIdx, 'render-call block is injected right after <meta charset>');
+assert(gnuInjected.result.includes('echo redue_render_full_schema();'), 'render block echoes redue_render_full_schema()');
+const preDoctype = gnuInjected.result.slice(0, doctypeIdx);
+assert(!preDoctype.includes('echo redue_render_full_schema()'), 'no schema/canonical/OG output executes before <!doctype html>');
+assert(!preDoctype.includes('function redue_render_full_schema'), 'engine functions stay out of head.sub.php');
+assert(!/^redue_dynamic_schema_controller\(\);/m.test(preDoctype), 'no bare top-level controller() call before <!doctype html>');
+assert(!/^redue_render_full_schema\(\);/m.test(preDoctype), 'render function is never bare-called before <!doctype html>');
+assert(!/^\s*redue_echo_canonical_pair\(\);/m.test(preDoctype), 'canonical/OG pair is not echoed immediately at top of file anymore');
+assert(!/^[\t ]*">/m.test(gnuInjected.result), 'injected source has no leftover closer');
+assert(gnuInjected.result.includes('129f6a8dbd49172460f51daa1c3d5e50b3d106d7'), 'keeps site naver hash');
+assert(!gnuInjected.result.includes("$og_image"), 'theme og:image php attr removed');
 
 console.log('OK', {
 	primary: targets[0].path,

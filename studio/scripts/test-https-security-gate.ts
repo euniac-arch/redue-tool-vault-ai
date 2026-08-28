@@ -9,10 +9,11 @@ import { buildGeoDiagnosticReportFromAudit } from '../lib/geo/from-visibility';
 import { buildOnPageDiagnostic } from '../lib/audit/onpage-diagnostic';
 import {
 	HTTPS_ENGINE_SCORE_CAP,
-	HTTPS_GRADE_HARD_CAP,
 	HTTPS_P0_LABEL,
 	HTTPS_PERCENTILE_FLOOR,
 	HTTPS_RAW_POINTS,
+	HTTPS_SECURITY_PENALTY,
+	blendMeasuredScore,
 	calculateAuditScores,
 	resolveIsHttps,
 } from '../lib/audit/scoreCalculator';
@@ -132,8 +133,8 @@ assert(
 	String(httpScores.geoScore),
 );
 assert(
-	'HTTP composite is hard-capped at 78',
-	httpScores.totalScore === HTTPS_GRADE_HARD_CAP && httpScores.grade === 'B',
+	'HTTP composite applies a fixed −15 penalty (98 → 83), not a hard cap to 78',
+	httpScores.totalScore === 98 - HTTPS_SECURITY_PENALTY && httpScores.grade === 'B',
 	`${httpScores.totalScore} ${httpScores.grade}`,
 );
 assert('HTTP security cap flag is on', httpScores.securityCapped === true);
@@ -141,6 +142,16 @@ assert('HTTP security alert is set', Boolean(httpScores.securityCriticalAlert));
 assert('HTTP cannot be S or A', httpScores.grade !== 'S' && httpScores.grade !== 'A');
 assert('HTTP penalty flag is on', httpScores.securityPenaltyApplied === true);
 assert('HTTP percentile is floored at 25', httpScores.percentile === HTTPS_PERCENTILE_FLOOR);
+
+// Regression guard for the "항상 78점" bug: two sites with different Track1/Track2
+// scores must not collapse onto the same composite once both exceed the old cap.
+const siteA = blendMeasuredScore({ track1: 92, track2: 84, isHttps: false });
+const siteB = blendMeasuredScore({ track1: 84, track2: 82, isHttps: false });
+assert(
+	'different Track1/Track2 inputs no longer collapse onto an identical composite',
+	siteA.totalScore !== siteB.totalScore,
+	`siteA=${siteA.totalScore} siteB=${siteB.totalScore}`,
+);
 
 const httpOnpage = buildOnPageDiagnostic(report('http://plain.example/'));
 assert(
@@ -160,17 +171,18 @@ assert(
 	snapshot.technicalScore === Math.round((112 / 122) * 100),
 	String(snapshot.technicalScore),
 );
-const snapshotBlend = Math.round(snapshot.technicalScore * 0.5 + snapshot.externalTrustScore * 0.5);
+const expectedBlend = blendMeasuredScore({
+	track1: snapshot.technicalScore,
+	track2: snapshot.externalTrustScore,
+	coreWebVitals: snapshot.scoreBreakdown.coreWebVitals,
+	isHttps: snapshot.isHttps,
+});
 assert(
-	'snapshot securityCapped only when the blend exceeded 78',
-	snapshot.securityCapped === snapshotBlend > HTTPS_GRADE_HARD_CAP,
-	`${snapshot.securityCapped} blend=${snapshotBlend} measured=${snapshot.measuredScore}`,
+	'snapshot measured matches the Track1/Track2/CWV blend minus the fixed security penalty',
+	snapshot.measuredScore === expectedBlend.totalScore,
+	`snapshot=${snapshot.measuredScore} expected=${expectedBlend.totalScore}`,
 );
-assert(
-	'snapshot measured is at or below the B hard cap',
-	snapshot.measuredScore <= HTTPS_GRADE_HARD_CAP,
-	String(snapshot.measuredScore),
-);
+assert('snapshot securityCapped flag is on for HTTP', snapshot.securityCapped === true);
 assert('snapshot grade fields are B or below', snapshot.geoGrade !== 'S' && snapshot.technicalGrade !== 'S');
 assert('snapshot GEO grade cannot be S or A', snapshot.geoGrade !== 'S' && snapshot.geoGrade !== 'A');
 assert('snapshot GEO percentile is not top 6%', snapshot.geoPercentile > 6);
@@ -196,7 +208,7 @@ assert(
 	snapshot.engines.every((engine) => engine.analysisReason.includes('[치명적]') && engine.analysisReason.includes('HTTPS')),
 	snapshot.engines.map((e) => e.analysisReason).join(' | '),
 );
-assert('snapshot measured cannot be S/A', snapshot.measuredScore < 80);
+assert('snapshot measured grade cannot be S/A', snapshot.grade !== 'S' && snapshot.grade !== 'A');
 assert('snapshot exposes HTTPS alert', Boolean(snapshot.securityCriticalAlert));
 assert('snapshot isHttps is false', snapshot.isHttps === false);
 

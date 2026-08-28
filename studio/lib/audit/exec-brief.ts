@@ -8,6 +8,7 @@ import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import { extractSignalsFromReport } from '@/lib/audit/geo-score';
 import { resolveHasLlmsTxt } from '@/lib/audit/llms-txt-check';
 import { siteLabelFromUrl } from '@/lib/audit/report-url';
+import { resolveProjectSiteName } from '@/lib/audit/project-site-name';
 import { resolveIsHttps } from '@/lib/audit/scoreCalculator';
 import { buildGeoDiagnosticReportFromAudit } from '@/lib/geo/from-visibility';
 import { withJosa } from '@/lib/korean-josa';
@@ -147,11 +148,7 @@ const EXEC_BRIEF_ENGINE_NAME: Record<string, string> = {
 };
 
 export function resolveAuditSiteName(report: AuditReport): string {
-	const brand = report.siteMeta?.brandName?.trim();
-	if (brand) return brand;
-	const title = report.metrics?.pageTitle?.trim() || report.metrics?.documentTitle?.trim();
-	if (title) return title;
-	return siteLabelFromUrl(report.url);
+	return resolveProjectSiteName(report) || siteLabelFromUrl(report.url);
 }
 
 export function resolveExecBriefStatusTone(summary: GeoDiagnosticSummary): ExecBriefStatusTone {

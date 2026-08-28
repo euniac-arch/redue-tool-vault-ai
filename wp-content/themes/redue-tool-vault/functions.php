@@ -34,10 +34,72 @@ function redue_tv_setup() {
 add_action( 'after_setup_theme', 'redue_tv_setup' );
 
 /**
+ * Absolute theme path → filemtime string for cache-busting (?v=mtime).
+ *
+ * @param string $absolute_path Filesystem path to a theme CSS/JS file.
+ * @return string Unix mtime, or the theme version fallback.
+ */
+function redue_tv_asset_filemtime( $absolute_path ) {
+	if ( is_string( $absolute_path ) && is_readable( $absolute_path ) ) {
+		$mtime = @filemtime( $absolute_path );
+		if ( $mtime ) {
+			return (string) $mtime;
+		}
+	}
+
+	return REDUE_TV_VERSION;
+}
+
+/**
+ * Append ?v={filemtime} to theme CSS/JS so long-lived Cache-Control
+ * (1 month) can stay enabled without serving stale assets after edits.
+ *
+ * Core / plugin handles are left unchanged (WordPress already versions them).
+ *
+ * @param string $src Script or stylesheet URL.
+ * @return string
+ */
+function redue_tv_cache_bust_src( $src ) {
+	if ( ! is_string( $src ) || '' === $src ) {
+		return $src;
+	}
+
+	$clean = strtok( $src, '?' );
+	$roots = array(
+		array( untrailingslashit( get_stylesheet_directory_uri() ), get_stylesheet_directory() ),
+		array( untrailingslashit( get_template_directory_uri() ), get_template_directory() ),
+	);
+
+	$absolute = '';
+	foreach ( $roots as $root ) {
+		list( $theme_uri, $theme_dir ) = $root;
+		if ( 0 === strpos( $clean, $theme_uri ) ) {
+			$relative = ltrim( substr( $clean, strlen( $theme_uri ) ), '/' );
+			$absolute = trailingslashit( $theme_dir ) . $relative;
+			break;
+		}
+	}
+
+	if ( '' === $absolute ) {
+		return $src;
+	}
+
+	$src = remove_query_arg( array( 'ver', 'v' ), $src );
+
+	return add_query_arg( 'v', redue_tv_asset_filemtime( $absolute ), $src );
+}
+add_filter( 'style_loader_src', 'redue_tv_cache_bust_src', 15 );
+add_filter( 'script_loader_src', 'redue_tv_cache_bust_src', 15 );
+
+/**
  * Enqueue theme styles and scripts.
  */
 function redue_tv_enqueue_assets() {
-	wp_enqueue_style( 'redue-tv-style', get_stylesheet_uri(), array(), REDUE_TV_VERSION );
+	$style_path = trailingslashit( get_stylesheet_directory() ) . 'style.css';
+	$style_uri  = add_query_arg( 'v', redue_tv_asset_filemtime( $style_path ), get_stylesheet_uri() );
+
+	// null = do not also append WordPress ?ver= (we already set ?v=filemtime).
+	wp_enqueue_style( 'redue-tv-style', $style_uri, array(), null );
 }
 add_action( 'wp_enqueue_scripts', 'redue_tv_enqueue_assets' );
 

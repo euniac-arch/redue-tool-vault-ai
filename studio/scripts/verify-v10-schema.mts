@@ -89,8 +89,9 @@ assert(!knows.includes('2페이지'), 'knowsAbout purged 2페이지');
 assert(!knows.includes('Page 2'), 'knowsAbout purged Page 2');
 assert(!php.includes("'2페이지'"), 'generated head.sub.php has no 2페이지');
 assert(php.includes('v30'), 'v30 engine marker');
-assert(php.includes('ob_start'), 'v30 Universal Master Engine registers ob_start');
-assert(php.includes('REDUE_UNIVERSAL_ENGINE_ACTIVE'), 'v30 OB guard constant');
+assert(!php.includes('ob_start('), 'v35 engine does not register ob_start');
+assert(php.includes('REDUE_UNIVERSAL_ENGINE_ACTIVE'), 'v35 engine guard constant');
+assert(php.includes('redue_detect_site_protocol'), 'v35 protocol detect');
 assert(php.includes('redue_get_exact_canonical'), 'v30 canonical helper');
 assert(
 	php.includes('$final_canonical') ||
@@ -111,7 +112,10 @@ assert(
 );
 assert(php.includes("'idx'") || php.includes("'page_id'") || php.includes("'wr_id'"), 'v30 CMS identity keys');
 assert(php.includes("'id'"), 'v30 identity key includes id');
-assert(php.includes("'sameAs' => array($origin"), 'Organization sameAs');
+assert(
+	php.includes("'sameAs' => $same_as_array") || php.includes("'sameAs' => array($origin"),
+	'Organization sameAs',
+);
 assert(php.includes("$origin . '/#person'"), 'Person E-E-A-T @id');
 assert(php.includes('Description Extender'), 'Description Extender');
 assert(php.includes("v14 Schema Auto-Filler"), 'Article/FAQ auto-filler comment');
@@ -122,9 +126,10 @@ assert(
 	'main Article/NewsArticle auto-fill',
 );
 assert(php.includes('v31 NewsArticle Auto-Detect'), 'v31 NewsArticle Auto-Detect');
-assert(php.includes("'@type' => 'FAQPage'"), 'main FAQPage auto-fill');
-assert(php.includes('관련 안내 및 상담은 어떻게 신청하나요?'), 'default FAQ Q1');
-assert(php.includes('서비스 이용 문의처는 어디인가요?'), 'default FAQ Q2');
+assert(php.includes("'@type' => 'FAQPage'"), 'FAQPage node available for live Q&A');
+assert(!php.includes('진료시간은 어떻게 되나요'), 'no invented FAQ hours');
+assert(!php.includes('주차할 수 있나요'), 'no invented FAQ parking');
+assert(php.includes('schema_faq_items'), 'FAQ binds from live items only');
 assert(php.includes('redue-alt-autofix'), 'Alt Auto-Fixer script id');
 assert(php.includes('querySelectorAll("img")'), 'Alt Auto-Fixer img scan');
 assert(php.includes('redue-js-defer-fix'), 'JS Defer Auto-Fixer script id');
@@ -150,9 +155,9 @@ assert(
 assert(typeA.includes('REDUE v30 PRECISION SEO START'), 'Type A PRECISION SEO START marker');
 assert(typeA.includes('SEO Standard Canonical Pair'), 'Type A SEO Standard Canonical Pair marker');
 assert(typeA.includes("</title>") && typeA.includes('preg_match'), 'Type A Title-Below Injection after </title>');
-assert(!/^\s*echo '<link rel="canonical"/m.test(typeA), 'Type A has no live controller canonical echo');
-assert(typeA.includes('ob_start'), 'Type A v30 uses ob_start for canonical/defer');
-assert(typeA.includes('preg_replace_callback'), 'Type A v30 server-side script defer');
+assert(typeA.includes('redue_echo_canonical_pair'), 'Type A echoes canonical directly');
+assert(!typeA.includes('ob_start('), 'Type A v35 has no ob_start buffer rewrite');
+assert(typeA.includes('redue_detect_site_protocol'), 'Type A matches live http/https');
 assert(
 	typeA.includes("$redue_is_news_context ? 'NewsArticle' : 'Article'") ||
 		typeA.includes("'@type' => 'Article'") ||

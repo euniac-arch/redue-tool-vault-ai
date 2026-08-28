@@ -224,6 +224,38 @@ assert(
 	extractPlaceCid('https://place.naver.com/hospital/123456789012345') === '123456789012345',
 );
 assert('place CID from Google cid=', extractPlaceCid('https://maps.google.com/?cid=987654321000') === '987654321000');
+assert(
+	'place CID from Kakao place URL',
+	extractPlaceCid('https://place.map.kakao.com/135792468') === '135792468',
+);
+assert(
+	'place identity from goo.gl/maps is present',
+	Boolean(extractPlaceCid('https://goo.gl/maps/abcdEFGHijkl')),
+);
+assert('schema taxID field', extractTaxId('{"@type":"MedicalClinic","taxID":"120-81-47521"}') === '120-81-47521');
+assert('vatID field', extractTaxId('{"vatID":"1208147521"}') === '120-81-47521');
+
+const kgLinked = computeEntityDisambiguation({
+	jsonLdCorpus: JSON.stringify({
+		'@graph': [
+			{ '@type': 'Person', '@id': '#person', name: '배우리', worksFor: { '@id': '#org' } },
+			{ '@type': 'MedicalClinic', '@id': '#org', founder: { '@id': '#person' } },
+		],
+	}),
+});
+assert('Person KG 20점', kgLinked.breakdown.representativeKg.linked && kgLinked.breakdown.representativeKg.score === 20);
+
+const kgUnlinked = computeEntityDisambiguation({
+	jsonLdCorpus: JSON.stringify({ '@type': 'Person', name: '배우리', jobTitle: '대표원장' }),
+});
+assert('Person without worksFor/founder is 0 KG', kgUnlinked.breakdown.representativeKg.linked === false);
+
+const mapDom = computeEntityDisambiguation({
+	html: '<a href="https://map.naver.com/p/entry/place/123456789012345">place</a><a href="https://www.instagram.com/clinic">sns</a>',
+});
+assert('DOM map+SNS count as sameAs', mapDom.breakdown.sameAs.count >= 2, String(mapDom.breakdown.sameAs.count));
+assert('DOM sameAs urls stored', mapDom.breakdown.sameAs.urls.length >= 2, String(mapDom.breakdown.sameAs.urls.length));
+assert('DOM naver place CID present', mapDom.breakdown.placeCid.present === true);
 
 const html =
 	'<html><head><style>.x{color:red}</style></head><body><main><article><section><p>월요일 오전 9:00부터 진료합니다. 초진 15,000원, 야간진료 주 3회, 본인부담 30%입니다.</p></section></article></main></body></html>';
@@ -543,6 +575,32 @@ assert('soften token 후기', softenQueryToken('후기') === '정보 안내');
 assert(
 	'soften combo + 후기',
 	softenComparativeQuery('대구 + 성형외과 + 후기') === '대구 + 성형외과 + 정보 안내',
+);
+
+const dirtyPrimaryKeywordMetrics = computeAdvancedGeoMetrics({
+	lang: 'ko',
+	brandName: '마음반려동물의료원',
+	primaryKeyword: '병원장 인사말 병원 둘러보기 반려동물 병원',
+	location: '수원',
+});
+const dirtyTargetQuery = dirtyPrimaryKeywordMetrics.shareOfVoice.targetQuery || '';
+assert(
+	'targetQuery strips GNB chrome from a dirty primaryKeyword',
+	!/인사말|둘러보기/.test(dirtyTargetQuery),
+	dirtyTargetQuery,
+);
+assert(
+	'targetQuery never repeats 병원',
+	(dirtyTargetQuery.match(/병원/g) || []).length <= 1,
+	dirtyTargetQuery,
+);
+assert(
+	'targetQuery stays within 2-5 tokens',
+	(() => {
+		const count = dirtyTargetQuery.split(/\s+/).filter(Boolean).length;
+		return count >= 2 && count <= 5;
+	})(),
+	dirtyTargetQuery,
 );
 
 if (failed) {

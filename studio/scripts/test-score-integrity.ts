@@ -1,6 +1,7 @@
 /**
  * Score-integrity SSOT: 122↔100 proportion, no double HTTPS penalty,
- * composite Hard Cap 78, checklist raw === card raw, radar security shrinks on HTTP.
+ * Track1/Track2/CWV blend with a fixed security penalty (not a hard cap),
+ * checklist raw === card raw, radar security shrinks on HTTP.
  * Run: npx tsx scripts/test-score-integrity.ts
  */
 import { buildDiagnosisScoreSnapshot } from '../lib/audit/diagnosis-scores';
@@ -15,11 +16,13 @@ import {
 import {
 	HTTPS_CHECK_ID,
 	HTTPS_ENGINE_SCORE_CAP,
-	HTTPS_GRADE_HARD_CAP,
 	HTTPS_PERCENTILE_FLOOR,
 	HTTPS_RAW_POINTS,
+	HTTPS_SECURITY_PENALTY,
+	blendMeasuredScore,
 	calculateComprehensiveScores,
 	resolveIsHttps,
+	topPercentileFromScore,
 } from '../lib/audit/scoreCalculator';
 import type { AuditCategory, AuditCheckItem, AuditReport } from '../lib/site-auditor';
 
@@ -118,7 +121,11 @@ const httpsConverted = calculateComprehensiveScores({
 });
 assert('HTTPS raw 122 stays 122', httpsConverted.rawTechnicalScore === 122);
 assert('HTTPS 122/122 → technical 100', httpsConverted.technicalScore === 100);
-assert('HTTPS total is 50:50 blend', httpsConverted.totalScore === 95, String(httpsConverted.totalScore));
+assert(
+	'HTTPS total is the 40/40/20 blend (cwv falls back to ragScore=80 → 92)',
+	httpsConverted.totalScore === 92,
+	String(httpsConverted.totalScore),
+);
 assert('HTTPS grade is S', httpsConverted.grade === 'S');
 assert('HTTPS radar security is 95', httpsConverted.radarScores.security === 95);
 assert('HTTPS penalty flag is off', httpsConverted.securityPenaltyApplied === false);
@@ -148,8 +155,8 @@ assert(
 	String(httpConverted.geoScore),
 );
 assert(
-	'HTTP composite is hard-capped at 78',
-	httpConverted.totalScore === HTTPS_GRADE_HARD_CAP && httpConverted.grade === 'B',
+	'HTTP composite applies a fixed −15 penalty (89 → 74), not a hard cap to 78',
+	httpConverted.totalScore === 74 && httpConverted.grade === 'B',
 	`${httpConverted.totalScore} ${httpConverted.grade}`,
 );
 assert('HTTP security cap flag is on', httpConverted.securityCapped === true);
@@ -159,9 +166,19 @@ assert('HTTP radar seo matches unpenalized technical', httpConverted.radarScores
 assert('HTTP radar geoSignal matches geo', httpConverted.radarScores.geoSignal === httpConverted.geoScore);
 assert('HTTP penalty flag is on', httpConverted.securityPenaltyApplied === true);
 assert(
-	'HTTP percentile is floored at 25',
-	httpConverted.percentile === HTTPS_PERCENTILE_FLOOR,
+	'HTTP percentile reflects the real composite (74) — the 25 floor only raises weaker percentiles, so 26 stays 26',
+	httpConverted.percentile === Math.max(HTTPS_PERCENTILE_FLOOR, topPercentileFromScore(74)),
 	String(httpConverted.percentile),
+);
+
+// Regression guard for the "항상 78점" bug: two different Track1/Track2/CWV
+// inputs must not collapse onto an identical composite once both exceed 78.
+const siteA = blendMeasuredScore({ track1: 92, track2: 84, isHttps: false });
+const siteB = blendMeasuredScore({ track1: 84, track2: 82, isHttps: false });
+assert(
+	'different Track1/Track2 inputs no longer collapse onto an identical composite',
+	siteA.totalScore !== siteB.totalScore,
+	`siteA=${siteA.totalScore} siteB=${siteB.totalScore}`,
 );
 
 const httpDoublePenaltyCase = calculateComprehensiveScores({
@@ -177,8 +194,8 @@ assert(
 	String(httpDoublePenaltyCase.technicalScore),
 );
 assert(
-	'100/122 composite is capped at 78, not 67',
-	httpDoublePenaltyCase.totalScore === HTTPS_GRADE_HARD_CAP && httpDoublePenaltyCase.grade === 'B',
+	'100/122 composite blends to 68 via the fixed −15 penalty, not double-penalized to 67 nor capped at 78',
+	httpDoublePenaltyCase.totalScore === 68 && httpDoublePenaltyCase.grade === 'C/D',
 	`${httpDoublePenaltyCase.totalScore} ${httpDoublePenaltyCase.grade}`,
 );
 
@@ -223,13 +240,18 @@ assert(
 	httpSnap.technicalScore === expectedTech,
 	String(httpSnap.technicalScore),
 );
-const httpSnapBlend = Math.round(httpSnap.technicalScore * 0.5 + httpSnap.externalTrustScore * 0.5);
+const httpSnapExpectedBlend = blendMeasuredScore({
+	track1: httpSnap.technicalScore,
+	track2: httpSnap.externalTrustScore,
+	coreWebVitals: httpSnap.scoreBreakdown.coreWebVitals,
+	isHttps: httpSnap.isHttps,
+});
 assert(
-	'snapshot securityCapped only when the blend exceeded 78',
-	httpSnap.securityCapped === httpSnapBlend > HTTPS_GRADE_HARD_CAP,
-	`${httpSnap.securityCapped} blend=${httpSnapBlend} measured=${httpSnap.measuredScore}`,
+	'snapshot measured matches the Track1/Track2/CWV blend minus the fixed security penalty',
+	httpSnap.measuredScore === httpSnapExpectedBlend.totalScore,
+	`snapshot=${httpSnap.measuredScore} expected=${httpSnapExpectedBlend.totalScore}`,
 );
-assert('snapshot measured ≤ 78', httpSnap.measuredScore <= HTTPS_GRADE_HARD_CAP, String(httpSnap.measuredScore));
+assert('snapshot securityCapped flag is on for HTTP', httpSnap.securityCapped === true);
 assert('snapshot grade is B or below', httpSnap.grade === 'B' || httpSnap.grade === 'C/D');
 assert('snapshot radar security is 5/15 = 33', httpSnap.radarScores.security === 33);
 assert('snapshot onpage is the same 122 packet', httpSnap.onpage.totalRawScore === httpOnpage.totalRawScore);
@@ -241,7 +263,18 @@ assert(
 	'snapshot measured equals detailed.totalScore',
 	httpSnap.measuredScore === httpSnap.detailed.totalScore,
 );
-assert('HTTPS snapshot keeps S/A possible', httpsSnap.measuredScore > HTTPS_GRADE_HARD_CAP || httpsSnap.grade === 'S' || httpsSnap.grade === 'A' || httpsSnap.grade === 'B');
+const httpsSnapExpectedBlend = blendMeasuredScore({
+	track1: httpsSnap.technicalScore,
+	track2: httpsSnap.externalTrustScore,
+	coreWebVitals: httpsSnap.scoreBreakdown.coreWebVitals,
+	isHttps: httpsSnap.isHttps,
+});
+assert(
+	'HTTPS snapshot measured matches the blend with no security penalty (no hard cap involved)',
+	httpsSnap.measuredScore === httpsSnapExpectedBlend.totalScore && httpsSnapExpectedBlend.securityPenalty === 0,
+	`snapshot=${httpsSnap.measuredScore} expected=${httpsSnapExpectedBlend.totalScore}`,
+);
+assert('HTTPS snapshot keeps S/A possible', httpsSnap.grade === 'S' || httpsSnap.grade === 'A' || httpsSnap.grade === 'B');
 assert('HTTPS snapshot radar security matches perf/infra 100', httpsSnap.radarScores.security === 100);
 assert('HTTPS snapshot radar seo matches SEO category 100', httpsSnap.radarScores.seo === 100);
 assert('HTTPS snapshot radar schema matches schema category 100', httpsSnap.radarScores.schema === 100);

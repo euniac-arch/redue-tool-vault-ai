@@ -1,32 +1,25 @@
 'use client';
 
-import { useState } from 'react';
-import dynamic from 'next/dynamic';
+import { Component, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
 import type { AuditReport } from '@/lib/site-auditor';
+import { ActualAuditHistoryTracker } from '@/components/audit/ActualAuditHistoryTracker';
+import { TimelineRankForecastDashboard } from '@/components/audit/TimelineRankForecastDashboard';
 
-const ActualAuditHistoryTracker = dynamic(
-	() => import('@/components/audit/ActualAuditHistoryTracker').then((mod) => mod.ActualAuditHistoryTracker),
-	{
-		ssr: false,
-		loading: () => (
-			<div className="h-52 animate-pulse rounded-xl bg-slate-100 dark:bg-white/[0.04]" />
-		),
-	},
-);
+class TimelinePanelBoundary extends Component<
+	{ children: ReactNode; fallback: ReactNode },
+	{ hasError: boolean }
+> {
+	state = { hasError: false };
 
-const TimelineRankForecastDashboard = dynamic(
-	() =>
-		import('@/components/audit/TimelineRankForecastDashboard').then(
-			(mod) => mod.TimelineRankForecastDashboard,
-		),
-	{
-		ssr: false,
-		loading: () => (
-			<div className="h-52 animate-pulse rounded-xl bg-slate-100 dark:bg-white/[0.04]" />
-		),
-	},
-);
+	static getDerivedStateFromError(): { hasError: boolean } {
+		return { hasError: true };
+	}
+
+	render() {
+		return this.state.hasError ? this.props.fallback : this.props.children;
+	}
+}
 
 type TimelineMode = 'history' | 'forecast';
 
@@ -77,7 +70,15 @@ export function AuditTimelineSection({
 			</nav>
 
 			{mode === 'history' ? (
-				<ActualAuditHistoryTracker report={report} reportId={reportId} publicView={publicView} />
+				<TimelinePanelBoundary
+					fallback={
+						<p className="rounded-xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-400">
+							{t('loadError')}
+						</p>
+					}
+				>
+					<ActualAuditHistoryTracker report={report} reportId={reportId} publicView={publicView} />
+				</TimelinePanelBoundary>
 			) : (
 				<TimelineRankForecastDashboard embedded />
 			)}

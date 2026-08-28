@@ -10,6 +10,8 @@ import type { AuditReport } from '@/lib/site-auditor';
 type PsiStrategy = 'desktop' | 'mobile';
 
 const AUDIT_TTL_MS = 90_000;
+/** Prevents `/audit/result?id=...` from hanging forever on a stalled connection. */
+const FETCH_AUDIT_BY_ID_TIMEOUT_MS = 30_000;
 
 const auditCache = new Map<string, { id: string; report: AuditReport; at: number }>();
 const auditInflight = new Map<string, Promise<{ id: string; report: AuditReport } | { error: string; status: number }>>();
@@ -48,14 +50,31 @@ export async function fetchAuditById(
 	if (inflight) return inflight;
 
 	const promise = (async () => {
-		const res = await fetch(`/api/audit/${encodeURIComponent(id)}`, {
-			cache: 'no-store',
-			headers: {
-				'Cache-Control': 'no-cache, no-store, must-revalidate',
-				Pragma: 'no-cache',
-			},
-		});
+		console.log('[audit/report-client-cache] fetchAuditById start', { id, force: opts?.force ?? false });
+		let res: Response;
+		try {
+			res = await fetch(`/api/audit/${encodeURIComponent(id)}`, {
+				cache: 'no-store',
+				headers: {
+					'Cache-Control': 'no-cache, no-store, must-revalidate',
+					Pragma: 'no-cache',
+				},
+				signal: AbortSignal.timeout(FETCH_AUDIT_BY_ID_TIMEOUT_MS),
+			});
+		} catch (err) {
+			const isTimeout = err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError');
+			console.error('[audit/report-client-cache] fetchAuditById failed', {
+				id,
+				isTimeout,
+				message: err instanceof Error ? err.message : String(err),
+			});
+			return {
+				error: isTimeout ? '요청이 지연되어 중단되었습니다. 잠시 후 다시 시도해 주세요.' : '네트워크 오류가 발생했습니다.',
+				status: 0,
+			};
+		}
 		const data = await res.json().catch(() => ({}));
+		console.log('[audit/report-client-cache] fetchAuditById response', { id, status: res.status, ok: res.ok });
 		if (res.ok && data.report) {
 			const next = { id: (data.id as string) || id, report: data.report as AuditReport };
 			rememberAudit(next.id, next.report);
