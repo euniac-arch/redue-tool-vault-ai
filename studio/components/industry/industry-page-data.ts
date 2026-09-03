@@ -410,7 +410,7 @@ export const RELATED_MODULES = [
 	{ href: '/audit', key: 'audit' as const, label: { ko: '진단 엔진', en: 'Audit engine' }, hint: { ko: '공통 SEO · GEO · AEO 진단', en: 'Shared SEO · GEO · AEO audit' } },
 	{ href: '/aeo-geo', key: 'aeoGeo' as const, label: { ko: 'AEO · GEO', en: 'AEO · GEO' }, hint: { ko: '답변 엔진·생성형 검색 구조', en: 'Answer and generative engine structure' } },
 	{ href: '/insights', key: 'insights' as const, label: { ko: '인사이트', en: 'Insights' }, hint: { ko: 'AI · GEO · Schema 리서치', en: 'AI · GEO · Schema research' } },
-	{ href: '/portfolio', key: 'portfolio' as const, label: { ko: '포트폴리오', en: 'Portfolio' }, hint: { ko: '업종별 적용 사례', en: 'Industry application cases' } },
+	{ href: '/portfolio', key: 'portfolio' as const, label: { ko: '도입 사례', en: 'Case Studies' }, hint: { ko: '실제 적용·업종별 실증 리포트', en: 'Verified and industry case reports' } },
 	{ href: '/contact', key: 'contact' as const, label: { ko: '작업 문의', en: 'Work inquiry' }, hint: { ko: '업종 전략 실행 상담', en: 'Industry strategy execution' } },
 ] as const;
 

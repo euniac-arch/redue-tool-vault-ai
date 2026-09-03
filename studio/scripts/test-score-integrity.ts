@@ -53,6 +53,7 @@ function liveCategories(httpsPass: boolean): AuditCategory[] {
 		check('canonical', 'pass', 5),
 		check('single-h1', 'pass', 4),
 		check('heading-skip', 'pass', 3),
+		check('rss-feed', 'pass', 3),
 		check('html-lang', 'pass', 2),
 	];
 	const securityChecks = [
@@ -67,7 +68,7 @@ function liveCategories(httpsPass: boolean): AuditCategory[] {
 	return [
 		category('security', httpsPass ? 15 : 5, 15, securityChecks),
 		category('performance', 12, 12, perfChecks),
-		category('seo', 29, 29, seoChecks),
+		category('seo', 32, 32, seoChecks),
 		category('schema', 36, 36, [
 			check('jsonld-present', 'pass', 8),
 			check('organization', 'pass', 7),
@@ -100,7 +101,7 @@ function liveReport(url: string): AuditReport {
 		responseTimeMs: 80,
 		pageSizeBytes: 20_000,
 		score,
-		maxScore: 122,
+		maxScore: ONPAGE_MAX_SCORE,
 		status: 'EXCELLENT',
 		statusLabel: '최적화 완료',
 		hasSsl: httpsPass,
@@ -204,9 +205,9 @@ const httpLive = liveReport('http://plain.example/');
 const httpsOnpage = buildOnPageDiagnostic(httpsLive);
 const httpOnpage = buildOnPageDiagnostic(httpLive);
 
-assert('live HTTPS raw is 122', httpsOnpage.totalRawScore === ONPAGE_MAX_SCORE, String(httpsOnpage.totalRawScore));
+assert('live HTTPS raw is ONPAGE_MAX', httpsOnpage.totalRawScore === ONPAGE_MAX_SCORE, String(httpsOnpage.totalRawScore));
 assert(
-	'live HTTP raw is 112',
+	'live HTTP raw is ONPAGE_MAX minus HTTPS points',
 	httpOnpage.totalRawScore === ONPAGE_MAX_SCORE - HTTPS_RAW_POINTS,
 	String(httpOnpage.totalRawScore),
 );
@@ -235,9 +236,10 @@ const httpsSnap = buildDiagnosisScoreSnapshot(httpsLive, null, 'ko');
 const httpSnap = buildDiagnosisScoreSnapshot(httpLive, null, 'ko');
 
 assert('snapshot raw matches onpage', httpSnap.rawTechnicalScore === httpOnpage.totalRawScore);
+const liveExpectedTech = normalizeScore100(httpOnpage.totalRawScore, httpOnpage.maxPossibleScore);
 assert(
 	'snapshot technical equals the raw/max proportion',
-	httpSnap.technicalScore === expectedTech,
+	httpSnap.technicalScore === liveExpectedTech,
 	String(httpSnap.technicalScore),
 );
 const httpSnapExpectedBlend = blendMeasuredScore({
@@ -254,7 +256,7 @@ assert(
 assert('snapshot securityCapped flag is on for HTTP', httpSnap.securityCapped === true);
 assert('snapshot grade is B or below', httpSnap.grade === 'B' || httpSnap.grade === 'C/D');
 assert('snapshot radar security is 5/15 = 33', httpSnap.radarScores.security === 33);
-assert('snapshot onpage is the same 122 packet', httpSnap.onpage.totalRawScore === httpOnpage.totalRawScore);
+assert('snapshot onpage raw matches live onpage', httpSnap.onpage.totalRawScore === httpOnpage.totalRawScore);
 assert(
 	'snapshot technical equals detailed.technicalScore',
 	httpSnap.technicalScore === httpSnap.detailed.technicalScore,

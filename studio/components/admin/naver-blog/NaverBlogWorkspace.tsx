@@ -60,6 +60,8 @@ const FALLBACK_PROJECTS: ProjectListItem[] = [
 		auditCount: 3,
 		createdAt: '2026-07-01T00:00:00.000Z',
 		userType: 'admin',
+		isCaseStudy: false,
+		caseStudyType: null,
 	},
 	{
 		id: 'demo-clinic',
@@ -78,6 +80,8 @@ const FALLBACK_PROJECTS: ProjectListItem[] = [
 		auditCount: 1,
 		createdAt: '2026-07-15T00:00:00.000Z',
 		userType: 'admin',
+		isCaseStudy: false,
+		caseStudyType: null,
 	},
 ];
 

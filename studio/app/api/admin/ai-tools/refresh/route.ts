@@ -51,7 +51,7 @@ function geminiGenerateUrl(model: string): string {
 
 /** Gemini with native Google Search grounding — best fit for "what's true on the web right now". */
 async function callGemini(prompt: string): Promise<string> {
-	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY');
+	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY');
 	if (!apiKey) throw new Error('GEMINI_API_KEY missing');
 	const model = envString('AI_TOOLS_REFRESH_GEMINI_MODEL') || envString('GEMINI_MODEL') || 'gemini-2.5-flash';
 
@@ -113,7 +113,7 @@ async function callOpenAi(prompt: string): Promise<string> {
 
 /** Perplexity `sonar` — proven real-time web search engine already used elsewhere in this app. */
 async function callPerplexity(prompt: string): Promise<string> {
-	const apiKey = envString('PERPLEXITY_API_KEY');
+	const apiKey = envString('PERPLEXITY_API_KEY') || envString('PPLX_API_KEY');
 	if (!apiKey) throw new Error('PERPLEXITY_API_KEY missing');
 
 	const res = await fetch(PERPLEXITY_URL, {
@@ -171,10 +171,10 @@ export async function POST() {
 	}
 
 	const hasGemini =
-		Boolean(envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY')) &&
+		Boolean(envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY')) &&
 		!isEnvTrue('MOCK_GEMINI');
 	const hasOpenAi = Boolean(envString('OPENAI_API_KEY')) && !isEnvTrue('MOCK_OPENAI');
-	const hasPerplexity = Boolean(envString('PERPLEXITY_API_KEY')) && !isEnvTrue('MOCK_PERPLEXITY');
+	const hasPerplexity = Boolean(envString('PERPLEXITY_API_KEY') || envString('PPLX_API_KEY')) && !isEnvTrue('MOCK_PERPLEXITY');
 
 	const prompt = buildAiToolsRefreshUserPrompt(targets);
 

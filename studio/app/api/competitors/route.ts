@@ -39,6 +39,10 @@ async function resolveCompetitorSov(input: {
 	lang?: unknown;
 	query?: unknown;
 	targetQuery?: unknown;
+	brandAliases?: unknown;
+	industryType?: unknown;
+	schemaTypes?: unknown;
+	productTokens?: unknown;
 }): Promise<CompetitorSovResult | { error: string }> {
 	const clientName = asString(input.clientName) || asString(input.brandName);
 	const region = asString(input.region) || asString(input.location) || asString(input.broadLocation);
@@ -46,6 +50,16 @@ async function resolveCompetitorSov(input: {
 		asString(input.mainService) || asString(input.primaryKeyword) || asString(input.category);
 	const categoryName = asString(input.categoryName) || asString(input.category) || '전문 기관';
 	const query = asString(input.query) || asString(input.targetQuery);
+	const brandAliases = Array.isArray(input.brandAliases)
+		? input.brandAliases.map((item) => String(item).trim()).filter((item) => item.length >= 2)
+		: undefined;
+	const schemaTypes = Array.isArray(input.schemaTypes)
+		? input.schemaTypes.map((item) => String(item).trim()).filter(Boolean)
+		: undefined;
+	const industryType = asString(input.industryType) || undefined;
+	const productTokens = Array.isArray(input.productTokens)
+		? input.productTokens.map((item) => String(item).trim()).filter((item) => item.length >= 2)
+		: undefined;
 	if (!clientName || !region || !mainService) {
 		return { error: 'clientName, region, mainService가 필요합니다.' };
 	}
@@ -56,6 +70,8 @@ async function resolveCompetitorSov(input: {
 		categoryName,
 		parseLang(input.lang),
 		query || undefined,
+		brandAliases,
+		{ industryType, schemaTypes, productTokens },
 	);
 }
 
@@ -85,6 +101,8 @@ export async function GET(request: Request) {
 		lang: url.searchParams.get('lang'),
 		query: url.searchParams.get('query'),
 		targetQuery: url.searchParams.get('targetQuery'),
+		industryType: url.searchParams.get('industryType'),
+		schemaTypes: url.searchParams.getAll('schemaType'),
 	});
 	if ('error' in result) return noStoreJson(result, { status: 400 });
 	return noStoreJson({ ...result, snapshot: competitorSovToSnapshot(result) });

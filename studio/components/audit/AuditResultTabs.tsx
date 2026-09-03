@@ -16,9 +16,9 @@ export const DEFAULT_AUDIT_RESULT_TAB: AuditResultTabId = 'onpage';
 
 /** Left-to-right order matches the three-track diagnosis model (Track 1 → 2 → 3). */
 export const AUDIT_RESULT_TAB_ORDER = [
-	{ id: 'onpage' as const, track: 1 },
-	{ id: 'geo' as const, track: 2 },
-	{ id: 'cwv' as const, track: 3 },
+	{ id: 'onpage' as const, track: 1, subTitle: 'Technical SEO' },
+	{ id: 'geo' as const, track: 2, subTitle: 'GEO / AEO' },
+	{ id: 'cwv' as const, track: 3, subTitle: 'CWV' },
 ] as const;
 
 /** Track-domain id shared by the top summary cards and the bottom tab nav (single source of truth). */
@@ -56,6 +56,12 @@ const TRACK_WEIGHT_PCT: Record<1 | 2 | 3, number> = {
  * track's own accent color (Track 1 cyan, Track 2 purple, Track 3 emerald)
  * with a high-contrast neon glow (outer shadow + inset tint).
  */
+const TRACK_ACTIVE_SUBTITLE: Record<1 | 2 | 3, string> = {
+	1: 'text-cyan-400 font-bold',
+	2: 'text-purple-300 font-bold',
+	3: 'text-emerald-400 font-bold',
+};
+
 const TRACK_ACTIVE_THEME: Record<
 	1 | 2 | 3,
 	{ border: string; glow: string; bg: string; badge: string }
@@ -237,9 +243,9 @@ export function AuditResultTabs({
 	const renderCwv = mountAllTracks || mountedTabs.cwv || cwvActive;
 
 	const navItems = [
-		{ id: 'onpage' as const, track: 1 as const, label: onpageLabel },
-		{ id: 'geo' as const, track: 2 as const, label: geoLabel },
-		{ id: 'cwv' as const, track: 3 as const, label: cwvLabel },
+		{ id: 'onpage' as const, track: 1 as const, label: onpageLabel, subTitle: t('onpageSub') },
+		{ id: 'geo' as const, track: 2 as const, label: geoLabel, subTitle: t('geoSub') },
+		{ id: 'cwv' as const, track: 3 as const, label: cwvLabel, subTitle: t('cwvSub') },
 	];
 
 	return (
@@ -275,11 +281,11 @@ export function AuditResultTabs({
 							type="button"
 							onClick={() => setTab(item.id)}
 							aria-pressed={isActive}
-							className={`flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-2 px-4 py-3.5 text-center text-sm font-extrabold transition-all duration-300 ease-out sm:text-base ${
-								isActive ? `${theme.border} ${theme.bg} text-white ${theme.glow}` : INACTIVE_TAB_CLASS
+							className={`group flex w-full flex-col items-center justify-center gap-1 rounded-xl border-2 px-4 py-2.5 text-center transition-all duration-300 ease-out ${
+								isActive ? `${theme.border} ${theme.bg} ${theme.glow}` : INACTIVE_TAB_CLASS
 							}`}
 						>
-							<span className="flex items-center gap-1.5">
+							<span className="flex items-center justify-center gap-1.5">
 								<span
 									className={`flex h-6 shrink-0 items-center justify-center rounded-full px-2 text-[10px] tracking-wide ${
 										isActive ? theme.badge : 'font-extrabold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400'
@@ -297,7 +303,24 @@ export function AuditResultTabs({
 									{t('weightBadge', { pct: TRACK_WEIGHT_PCT[item.track] })}
 								</span>
 							</span>
-							{item.label}
+							<span className="flex flex-col items-center justify-center text-center gap-0.5">
+								<span
+									className={`text-sm font-semibold sm:text-base ${
+										isActive ? 'text-slate-100' : 'text-slate-300 group-hover:text-slate-100'
+									}`}
+								>
+									{item.label}
+								</span>
+								<span
+									className={`text-[11px] font-mono font-medium uppercase tracking-wider sm:text-xs ${
+										isActive
+											? TRACK_ACTIVE_SUBTITLE[item.track]
+											: 'text-slate-400 group-hover:text-slate-300'
+									}`}
+								>
+									{item.subTitle}
+								</span>
+							</span>
 						</button>
 					);
 				})}

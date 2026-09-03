@@ -5,6 +5,7 @@ import { SessionProvider } from 'next-auth/react';
 import type { Session } from 'next-auth';
 import { AuditPayloadProvider } from '@/components/audit/AuditPayloadProvider';
 import { ThemeProvider } from '@/components/theme/ThemeProvider';
+import { applyInsightsLocalResetOnce, installInsightsResetConsoleUtil } from '@/lib/insights/insights-local-reset';
 
 /** Clear leftover service workers from other localhost apps / old PWA experiments. */
 function useClearStaleServiceWorkers() {
@@ -29,6 +30,10 @@ function useClearStaleServiceWorkers() {
 
 export function Providers({ session, children }: { session: Session | null; children: React.ReactNode }) {
 	useClearStaleServiceWorkers();
+	useEffect(() => {
+		applyInsightsLocalResetOnce();
+		installInsightsResetConsoleUtil();
+	}, []);
 	return (
 		<SessionProvider session={session} refetchOnWindowFocus={false}>
 			<ThemeProvider>

@@ -138,11 +138,12 @@ async function fetchAuxSitemap(url: string, forceRefresh?: boolean): Promise<Fet
 export async function enumerateSitemapUrls(
 	origin: string,
 	robotsText: string,
-	opts?: { forceRefresh?: boolean; maxSitemaps?: number; maxLocs?: number },
+	opts?: { forceRefresh?: boolean; maxSitemaps?: number; maxLocs?: number; timeBudgetMs?: number },
 ): Promise<EnumeratedSitemap> {
 	try {
-		const maxSitemaps = opts?.maxSitemaps ?? 12;
-		const maxLocs = opts?.maxLocs ?? 2_000;
+		const maxSitemaps = opts?.maxSitemaps ?? 4;
+		const maxLocs = opts?.maxLocs ?? 400;
+		const deadlineAt = Date.now() + (opts?.timeBudgetMs ?? 2_000);
 		const declared = extractSitemapUrlsFromRobots(robotsText);
 		const root = origin.replace(/\/+$/, '');
 		const fallbacks = [`${root}/sitemap.xml`, `${root}/sitemap_index.xml`];
@@ -154,6 +155,12 @@ export async function enumerateSitemapUrls(
 		let lastError: string | null = null;
 
 		while (queue.length > 0 && fetched.size < maxSitemaps && pageLocs.length < maxLocs) {
+			if (Date.now() > deadlineAt) {
+				console.warn(
+					`[sitemap] enumerate time budget exceeded after ${fetched.size} sitemap(s) / ${pageLocs.length} loc(s) — returning partial set.`,
+				);
+				break;
+			}
 			const batch: string[] = [];
 			while (queue.length > 0 && batch.length < 4 && fetched.size + batch.length < maxSitemaps) {
 				const url = queue.shift();

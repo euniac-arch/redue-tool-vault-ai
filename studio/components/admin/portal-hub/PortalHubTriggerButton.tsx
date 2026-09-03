@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Rocket } from 'lucide-react';
+import { HEADER_ICON_BUTTON_CLASS } from '@/lib/ui/header-chrome';
 import { PortalHubModal } from './PortalHubModal';
 
 interface PortalHubTriggerButtonProps {
@@ -31,8 +32,7 @@ export function PortalHubTriggerButton({
 
 	const adminClass =
 		'inline-flex items-center gap-1.5 rounded-lg border border-cyan-200 bg-cyan-50 px-2.5 py-1.5 text-xs font-bold text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300 dark:hover:bg-cyan-500/20';
-	const publicClass =
-		'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-cyan-600/30 bg-cyan-50 text-cyan-700 transition-colors hover:bg-cyan-100 dark:border-cyan-400/30 dark:bg-cyan-400/10 dark:text-cyan-300 dark:hover:bg-cyan-400/20';
+	const publicClass = `${HEADER_ICON_BUTTON_CLASS} text-cyan-600 dark:text-cyan-300`;
 	const menuClass =
 		'flex w-full items-center gap-1.5 rounded-lg px-3 py-2 text-left text-sm font-semibold text-cyan-700 transition-colors duration-200 hover:bg-slate-50 dark:text-cyan-300 dark:hover:bg-white/5';
 

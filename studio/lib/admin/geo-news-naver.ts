@@ -33,16 +33,8 @@ type NaverNewsItem = {
 };
 
 function readNaverCredentials(): { clientId: string; clientSecret: string } | null {
-	const clientId = (
-		process.env.NAVER_CLIENT_ID ||
-		process.env.NEXT_PUBLIC_NAVER_CLIENT_ID ||
-		''
-	).trim();
-	const clientSecret = (
-		process.env.NAVER_CLIENT_SECRET ||
-		process.env.NEXT_PUBLIC_NAVER_CLIENT_SECRET ||
-		''
-	).trim();
+	const clientId = (process.env.NAVER_CLIENT_ID || '').trim();
+	const clientSecret = (process.env.NAVER_CLIENT_SECRET || '').trim();
 	if (!clientId || !clientSecret) return null;
 	return { clientId, clientSecret };
 }

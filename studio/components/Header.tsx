@@ -32,8 +32,10 @@ function navLinkClass(active: boolean, variant: 'desktop' | 'mobile'): string {
 
 function ctaClass(variant: 'desktop' | 'mobile'): string {
 	const base =
-		'inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:shadow-md hover:shadow-primary/25 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40';
-	return variant === 'desktop' ? `${base} px-4 py-2` : `${base} mt-2 w-full px-4 py-3 text-base`;
+		'inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 font-bold text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all duration-200 hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+	return variant === 'desktop'
+		? `${base} h-9 px-4 text-sm`
+		: `${base} mt-2 w-full px-4 py-3 text-base`;
 }
 
 function HeaderNav({
@@ -62,7 +64,7 @@ function HeaderNav({
 	if (variant === 'desktop') {
 		return (
 			<nav
-				className="hidden flex-nowrap items-center gap-x-8 whitespace-nowrap text-[13px] font-semibold min-[1320px]:flex"
+				className="absolute left-1/2 top-0 z-20 hidden h-full -translate-x-1/2 flex-nowrap items-center gap-x-5 whitespace-nowrap text-[13px] font-semibold min-[1320px]:flex min-[1480px]:gap-x-8"
 				aria-label="Primary"
 			>
 				{PUBLIC_NAV.map((item) => (
@@ -124,10 +126,13 @@ function DesktopNavItem({
 		setOpen(false);
 	}, [pathname, search]);
 
+	const itemTitle = item.key === 'aiSearchIntelligence' ? t('aiSearchIntelligenceFull') : undefined;
+
 	if (!children?.length) {
 		return (
 			<Link
 				href={item.href}
+				title={itemTitle}
 				aria-current={active ? 'page' : undefined}
 				onClick={onNavigate}
 				className={navLinkClass(active, 'desktop')}
@@ -159,6 +164,7 @@ function DesktopNavItem({
 		>
 			<Link
 				href={item.href}
+				title={itemTitle}
 				aria-current={active ? 'page' : undefined}
 				aria-expanded={open}
 				aria-haspopup="true"
@@ -216,11 +222,13 @@ function MobileNavItem({
 }) {
 	const active = isPublicNavItemActive(pathname, item);
 	const children = item.children;
+	const itemTitle = item.key === 'aiSearchIntelligence' ? t('aiSearchIntelligenceFull') : undefined;
 
 	if (!children?.length) {
 		return (
 			<Link
 				href={item.href}
+				title={itemTitle}
 				aria-current={active ? 'page' : undefined}
 				onClick={onNavigate}
 				className={navLinkClass(active, 'mobile')}
@@ -234,6 +242,7 @@ function MobileNavItem({
 		<div className="flex flex-col">
 			<button
 				type="button"
+				title={itemTitle}
 				aria-expanded={open}
 				aria-controls={`gnb-mobile-${item.key}`}
 				onClick={onToggle}
@@ -351,26 +360,27 @@ export function Header() {
 					</span>
 				</Link>
 
-				<Suspense fallback={<nav className="hidden min-[1320px]:flex" aria-hidden />}>
-					<div className="hidden min-[1320px]:block">
-						<HeaderNav
-							variant="desktop"
-							isMenuOpen={false}
-							openMenu={null}
-							setOpenMenu={setOpenMenu}
-							onNavigate={closeAll}
-						/>
-					</div>
+				<Suspense fallback={null}>
+					<HeaderNav
+						variant="desktop"
+						isMenuOpen={false}
+						openMenu={null}
+						setOpenMenu={setOpenMenu}
+						onNavigate={closeAll}
+					/>
 				</Suspense>
 
 				<div className="relative z-10 flex min-w-0 items-center gap-1.5 sm:gap-2">
-					<div className="hidden items-center gap-1.5 min-[1320px]:flex sm:gap-2">
+					<div className="hidden items-center gap-3 min-[1320px]:flex">
 						<Link href={PUBLIC_NAV_CTA.href} className={ctaClass('desktop')}>
 							{t(PUBLIC_NAV_CTA.key)}
 						</Link>
-						<ThemeToggle />
-						<LocaleSwitcher />
-						<HeaderAuth />
+						<div className="h-6 w-px shrink-0 bg-slate-200 dark:bg-slate-700/60" aria-hidden />
+						<div className="flex items-center gap-2">
+							<ThemeToggle />
+							<LocaleSwitcher />
+							<HeaderAuth />
+						</div>
 					</div>
 
 					<button

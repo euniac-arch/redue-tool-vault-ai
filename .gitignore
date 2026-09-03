@@ -4,9 +4,15 @@ studio/.next
 studio/.data
 studio/next-env.d.ts
 
-# Auth / payments secrets & local DB (Step 5)
+# Local secrets — never commit. Keep .env.example tracked.
+.env
+.env.local
+.env.*.local
 studio/.env
 studio/.env.local
+studio/.env.*.local
+
+# Auth / payments secrets & local DB (Step 5)
 studio/prisma/dev.db
 studio/prisma/dev.db-journal
 

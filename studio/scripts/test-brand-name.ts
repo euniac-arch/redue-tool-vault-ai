@@ -74,5 +74,26 @@ const $samsam = cheerio.load(ogSiteHtml);
 const samsamMeta = extractSiteMetadata($samsam, 'https://samsammulsan.com/', 'ko', ogSiteHtml);
 assert(samsamMeta.ogSiteName === '삼삼물산', `ogSiteName stored ${samsamMeta.ogSiteName}`);
 assert(samsamMeta.brandName === '삼삼물산', `samsam brand=${samsamMeta.brandName}`);
+assert(
+	(samsamMeta.brandAliases ?? []).some((alias) => alias.includes('삼삼물산')),
+	`samsam aliases=${samsamMeta.brandAliases?.join(',')}`,
+);
+
+const medicalHtml = `<!DOCTYPE html><html><head>
+<title>그린동물병원</title>
+<meta property="og:site_name" content="그린동물병원">
+<script type="application/ld+json">${JSON.stringify({
+	'@context': 'https://schema.org',
+	'@type': 'MedicalBusiness',
+	name: '그린동물병원',
+})}</script>
+</head><body></body></html>`;
+const $vet = cheerio.load(medicalHtml);
+const vetMeta = extractSiteMetadata($vet, 'https://greenvet.example.com/', 'ko', medicalHtml);
+assert(vetMeta.organizationName === '그린동물병원', `medical business name=${vetMeta.organizationName}`);
+assert(
+	(vetMeta.schemaOrganizationNames ?? []).includes('그린동물병원'),
+	`schema names=${vetMeta.schemaOrganizationNames?.join(',')}`,
+);
 
 console.log('test-brand-name: ok');

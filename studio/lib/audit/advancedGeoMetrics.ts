@@ -7,9 +7,8 @@
  * leftover verticals.
  */
 
-import { anonymizedCompetitorLabel } from '@/lib/audit/anonymize-competitor';
 import { composeSearchQuery, dedupeQueryTokens } from '@/lib/geo/search-query-normalize';
-import { buildSovMarketAnalysis, industryCategoryLabel, resolveIndustryVoice } from '@/lib/audit/universal-compliant-engine';
+import { buildSovMarketAnalysis } from '@/lib/audit/universal-compliant-engine';
 import { matchCompetitorRoster } from '@/lib/audit/competitor-match';
 import {
 	SOV_LEADER_RESIDUAL_RATIO,
@@ -21,7 +20,19 @@ import {
 	resolveLiveCompetitorNames,
 	toSearchRankList,
 } from '@/lib/audit/realCompetitors';
-import { resolveKeywordSovShares, type SovShareTable } from '@/lib/audit/sovLeaderboardData';
+import {
+	normalizeSovKeyword,
+	resolveKeywordSovShares,
+	type ResolveKeywordSovOptions,
+	type SovShareTable,
+} from '@/lib/audit/sovLeaderboardData';
+import { buildTargetBrandTokens, classifyQuerySovIntent, type QuerySovIntent } from '@/lib/audit/universal-sov-engine';
+import {
+	buildNicheLeadershipInsight,
+	genericSearchDispersionLabels,
+	listingMentionsNiche,
+	resolveNicheOfferingMatch,
+} from '@/lib/audit/sov-niche-entity';
 import {
 	detectIndustry,
 	getIndustryProfile,
@@ -147,6 +158,12 @@ export interface ShareOfVoiceInput {
 	rawSearchResults?: readonly string[];
 	/** Live search query, e.g. `안성 도수치료 추천`. */
 	targetQuery?: string;
+	/** Dynamic brand aliases extracted from the audited site metadata. */
+	brandAliases?: readonly string[];
+	/** Equipment / product tokens used to classify specialized queries. */
+	productTokens?: readonly string[];
+	/** JSON-LD @types from the audited page (MedicalBusiness, LegalService, …). */
+	schemaTypes?: readonly string[];
 	/** Narrative used on the SoV gap card when live names are bound. */
 	lossInsight?: string;
 	/** Override for the vulnerability / recapture-strategy callout. */
@@ -236,13 +253,21 @@ export interface LeaderboardItem {
 export interface UnifiedSovResult {
 	targetQuery: string;
 	brandName: string;
-	/** 1, 2, 3, or 4 (outside top 3). */
+	/** Intent-adjusted display rank (navigational brand queries are always 1). */
 	clientRank: number;
+	/** Live search rank before intent override. */
+	liveClientRank: number;
+	queryIntent?: QuerySovIntent;
 	asIsShare: number;
 	toBeShare: number;
 	reclaimGain: number;
 	leaderboard: LeaderboardItem[];
 	lossInsight: string;
+	placeMonopoly?: boolean;
+	targetIndustry?: string;
+	nicheLeadership?: boolean;
+	nicheItemToken?: string;
+	hasNicheItem?: boolean;
 }
 
 export interface CalculateUnifiedSovOptions {
@@ -251,6 +276,9 @@ export interface CalculateUnifiedSovOptions {
 	lang?: AdvancedGeoLang;
 	targetQuery?: string;
 	brandAliases?: readonly string[];
+	productTokens?: readonly string[];
+	industryType?: string;
+	schemaTypes?: readonly string[];
 }
 
 export interface DynamicSovResult {
@@ -262,8 +290,11 @@ export interface DynamicSovResult {
 	toBeShare: number;
 	/** 포털 블로그·카페·지도 리뷰 3자 분산 — 키워드별 실측 (추천 칩 기본 52) */
 	directoryShare: number;
-	/** 1-based live search rank; 4 when the brand is outside the top 3. */
+	/** Intent-adjusted display rank (navigational brand queries are always 1). */
 	clientRank: number;
+	/** Live search rank before intent override — used when switching back to generic chips. */
+	liveClientRank?: number;
+	queryIntent?: QuerySovIntent;
 	/** 1위와의 격차 (자사가 1위이면 0) */
 	gapToLeader: number;
 	/** To-Be − As-Is 탈환 잠재력 (%p) */
@@ -276,6 +307,11 @@ export interface DynamicSovResult {
 	competitors: CompetitorItem[];
 	lossInsight: string;
 	vulnerabilityInsight: string;
+	placeMonopoly?: boolean;
+	targetIndustry?: string;
+	nicheLeadership?: boolean;
+	nicheItemToken?: string;
+	hasNicheItem?: boolean;
 }
 
 export interface CalculateDynamicSovOptions {
@@ -285,6 +321,10 @@ export interface CalculateDynamicSovOptions {
 	targetQuery?: string;
 	/** Audited site's display name — binds the vulnerability callout to the real target instead of a generic pronoun. */
 	targetSiteName?: string;
+	brandAliases?: readonly string[];
+	productTokens?: readonly string[];
+	industryType?: string;
+	schemaTypes?: readonly string[];
 }
 
 export type RegionCompetitionTier = 'high' | 'mid' | 'local';
@@ -689,13 +729,137 @@ function buildUnifiedLossInsight(input: {
 	return `${loc} 지역 "${service}" 검색 시장에서 자사는 현재 ${rankLabel}(${input.asIsShare}%)이며, ${directoryShare}%의 트래픽이 3자 블로그로 분산되고 있습니다.`;
 }
 
-function rankShareSlots(table: SovShareTable): readonly [number, number, number] {
-	return [table.rank1, table.rank2, table.own];
+function peerDisplayName(
+	slot: { name?: string; isRealData?: boolean } | undefined,
+	rank: number,
+	region: string,
+	lang: AdvancedGeoLang,
+): string {
+	const name = cleanPhrase(slot?.name);
+	if (name) return name;
+	return unifiedFallbackName(region, rank, lang);
+}
+
+function composeIntentLeaderboard(input: {
+	clientName: string;
+	clientRank: number;
+	shareTable: SovShareTable;
+	peers: ReadonlyArray<{ name: string; isRealData?: boolean }>;
+	region: string;
+	lang: AdvancedGeoLang;
+	liveFoundIndex: number;
+}): LeaderboardItem[] {
+	const { clientName, clientRank, shareTable, peers, region, lang, liveFoundIndex } = input;
+
+	let items: LeaderboardItem[];
+	if (clientRank === 1) {
+		items = [
+			{ rank: 1, name: clientName, share: shareTable.own, isClient: true, isRealData: true },
+			{
+				rank: 2,
+				name: peerDisplayName(peers[0], 2, region, lang),
+				share: shareTable.rank1,
+				isClient: false,
+				isRealData: peers[0]?.isRealData === true,
+			},
+			{
+				rank: 3,
+				name: peerDisplayName(peers[1], 3, region, lang),
+				share: shareTable.rank2,
+				isClient: false,
+				isRealData: peers[1]?.isRealData === true,
+			},
+		];
+	} else if (clientRank === 2) {
+		items = [
+			{
+				rank: 1,
+				name: peerDisplayName(peers[0], 1, region, lang),
+				share: shareTable.rank1,
+				isClient: false,
+				isRealData: peers[0]?.isRealData === true,
+			},
+			{ rank: 2, name: clientName, share: shareTable.own, isClient: true, isRealData: true },
+			{
+				rank: 3,
+				name: peerDisplayName(peers[1], 3, region, lang),
+				share: shareTable.rank2,
+				isClient: false,
+				isRealData: peers[1]?.isRealData === true,
+			},
+		];
+	} else if (clientRank === 3) {
+		items = [
+			{
+				rank: 1,
+				name: peerDisplayName(peers[0], 1, region, lang),
+				share: shareTable.rank1,
+				isClient: false,
+				isRealData: peers[0]?.isRealData === true,
+			},
+			{
+				rank: 2,
+				name: peerDisplayName(peers[1], 2, region, lang),
+				share: shareTable.rank2,
+				isClient: false,
+				isRealData: peers[1]?.isRealData === true,
+			},
+			{ rank: 3, name: clientName, share: shareTable.own, isClient: true, isRealData: true },
+		];
+	} else {
+		items = [
+			{
+				rank: 1,
+				name: peerDisplayName(peers[0], 1, region, lang),
+				share: shareTable.rank1,
+				isClient: false,
+				isRealData: peers[0]?.isRealData === true,
+			},
+			{
+				rank: 2,
+				name: peerDisplayName(peers[1], 2, region, lang),
+				share: shareTable.rank2,
+				isClient: false,
+				isRealData: peers[1]?.isRealData === true,
+			},
+			{
+				rank: 3,
+				name: clientOutsideLabel(clientName, lang, liveFoundIndex),
+				share: shareTable.own,
+				isClient: true,
+				isRealData: liveFoundIndex !== -1,
+			},
+		];
+	}
+
+	return items.filter((item) => item.isClient || item.share > 0);
+}
+
+function collectPeerSlots(
+	matched: { slots: ReadonlyArray<{ name: string; isClient: boolean; isRealData: boolean }> },
+	existing?: ReadonlyArray<LeaderboardItem>,
+): Array<{ name: string; isRealData?: boolean }> {
+	const fromMatch = matched.slots.filter((slot) => !slot.isClient).map((slot) => ({
+		name: slot.name,
+		isRealData: slot.isRealData,
+	}));
+	if (fromMatch.length >= 2) return fromMatch;
+	const fromExisting = (existing ?? [])
+		.filter((row) => !row.isClient && !row.isThirdParty)
+		.map((row) => ({ name: row.name, isRealData: row.isRealData }));
+	const seen = new Set(fromMatch.map((row) => row.name.replace(/\s+/g, '').toLowerCase()));
+	for (const row of fromExisting) {
+		const key = row.name.replace(/\s+/g, '').toLowerCase();
+		if (!key || seen.has(key)) continue;
+		seen.add(key);
+		fromMatch.push(row);
+	}
+	return fromMatch;
 }
 
 /**
- * 검색 API 원본 1~5위를 키워드별 실측 점유율로 매핑하고, 자사를 실제 슬롯에 남긴다.
- * `{region} {service} 추천` 기본 칩은 27 / 16 / 5 / 52 베이스라인을 유지한다.
+ * 검색 API 원본 1~5위를 질의 유형별 SoV로 매핑하고, 자사를 실제 슬롯에 남긴다.
+ * 브랜드 직검색(navigational)이면 자사는 무조건 1위 / 85~95% 이다.
  * 3위 밖이면 상위 2곳 + `자사(순위 밖)`로 3위를 대체한다.
  */
 export function calculateUnifiedMarketSov(
@@ -710,12 +874,8 @@ export function calculateUnifiedMarketSov(
 	const service = sanitizeServicePhrase(mainService);
 	const brand = cleanPhrase(clientName);
 	const targetQuery = cleanPhrase(options?.targetQuery) || buildUnifiedTargetQuery(loc, service, lang);
-	// Bottom summary must echo the *selected* keyword chip, not the site's
-	// static main service — falls back to mainService only when no explicit
-	// query was chosen yet (first render / loading state).
 	const insightKeyword = cleanPhrase(options?.targetQuery) || service;
-	const shareTable = resolveKeywordSovShares(targetQuery);
-	const rankShares = rankShareSlots(shareTable);
+	const brandTokens = buildTargetBrandTokens(options?.brandAliases ?? [], brand);
 	const ranked = toSearchRankList(rawSearchResults);
 	const matched = matchCompetitorRoster({
 		clientName: brand,
@@ -725,72 +885,39 @@ export function calculateUnifiedMarketSov(
 		mainService: service,
 		region: loc,
 		lang,
-		brandAliases: options?.brandAliases,
+		brandAliases: brandTokens,
+		industryType: options?.industryType || options?.industryConfig?.type,
+		schemaTypes: options?.schemaTypes || (options?.industryConfig?.schemaType ? [options.industryConfig.schemaType] : undefined),
+		productTokens: options?.productTokens,
 	});
 	const foundIndex = matched.clientIndex;
+	const liveClientRank = foundIndex !== -1 ? foundIndex + 1 : CLIENT_UNRANKED_RANK;
+	const shareOptions: ResolveKeywordSovOptions = {
+		brandTokens,
+		brandName: brand,
+		productTokens: options?.productTokens,
+		clientRank: liveClientRank,
+		cited: foundIndex !== -1,
+		placeMonopoly: matched.placeMonopoly,
+		nicheLeadership: matched.nicheLeadership,
+	};
+	const shareTable = resolveKeywordSovShares(targetQuery, shareOptions);
+	const queryIntent = shareTable.intent ?? classifyQuerySovIntent(targetQuery, brandTokens, options?.productTokens);
+	const clientRank = shareTable.clientRank ?? (queryIntent === 'navigational' ? 1 : liveClientRank);
 	const fallbackBrand = brand || (lang === 'en' ? 'This business' : '자사');
-	const industryLabel =
-		options?.industryConfig?.profile.label[lang] ||
-		industryCategoryLabel(
-			resolveIndustryVoice({
-				industryType: options?.industryConfig?.type,
-				category: options?.categoryName || service,
-				keywords: [service, targetQuery],
-			}),
-			lang,
-		);
-	const slotName = (idx: number, fallbackRank: number, isClient: boolean) =>
-		isClient
-			? matched.slots[idx]?.name || fallbackBrand
-			: anonymizedCompetitorLabel(fallbackRank, lang, industryLabel);
+	const items = composeIntentLeaderboard({
+		clientName: fallbackBrand,
+		clientRank,
+		shareTable,
+		peers: collectPeerSlots(matched),
+		region: loc,
+		lang,
+		liveFoundIndex: foundIndex,
+	});
 
-	let items: LeaderboardItem[];
-	let clientRank: number;
-
-	if (foundIndex !== -1 && foundIndex < 3) {
-		items = [0, 1, 2].map((idx) => {
-			const slot = matched.slots[idx];
-			const isClient = slot?.isClient === true || idx === foundIndex;
-			return {
-				rank: idx + 1,
-				name: slotName(idx, idx + 1, isClient),
-				share: rankShares[idx],
-				isClient,
-				isRealData: slot?.isRealData === true || (slot?.isClient === true && foundIndex !== -1),
-			};
-		});
-		clientRank = foundIndex + 1;
-	} else {
-		items = [
-			{
-				rank: 1,
-				name: slotName(0, 1, false),
-				share: shareTable.rank1,
-				isClient: false,
-				isRealData: matched.slots[0]?.isRealData === true,
-			},
-			{
-				rank: 2,
-				name: slotName(1, 2, false),
-				share: shareTable.rank2,
-				isClient: false,
-				isRealData: matched.slots[1]?.isRealData === true,
-			},
-			{
-				rank: 3,
-				name: clientOutsideLabel(fallbackBrand, lang, foundIndex),
-				share: shareTable.own,
-				isClient: true,
-				isRealData: foundIndex !== -1 || ranked.length > 0,
-			},
-		];
-		clientRank = foundIndex !== -1 ? foundIndex + 1 : CLIENT_UNRANKED_RANK;
-	}
-
-	const clientItem = items.find((item) => item.isClient) || items[2];
-	const asIsShare = clientItem.share;
-	const toBeShare =
-		asIsShare === shareTable.own ? shareTable.targetSov : calculateUnifiedToBeShare(asIsShare);
+	const clientItem = items.find((item) => item.isClient) || items[items.length - 1];
+	const asIsShare = clientItem?.share ?? shareTable.own;
+	const toBeShare = shareTable.targetSov;
 	const reclaimGain = toBeShare - asIsShare;
 	const leaderboard: LeaderboardItem[] = [
 		...items,
@@ -808,21 +935,30 @@ export function calculateUnifiedMarketSov(
 		targetQuery,
 		brandName: brand,
 		clientRank,
+		liveClientRank,
+		queryIntent,
 		asIsShare,
 		toBeShare,
 		reclaimGain,
 		leaderboard,
-		lossInsight: buildSovMarketAnalysis({
-			location: loc,
-			primaryKeywords: [insightKeyword],
-			metrics: {
-				currentShare: asIsShare,
-				targetShare: toBeShare,
-				directoryShare: shareTable.thirdParty,
-				clientRank,
-			},
-			lang,
-		}),
+		lossInsight: matched.nicheLeadership
+			? buildNicheLeadershipInsight(loc, matched.nicheItemToken, lang)
+			: buildSovMarketAnalysis({
+					location: loc,
+					primaryKeywords: [insightKeyword],
+					metrics: {
+						currentShare: asIsShare,
+						targetShare: toBeShare,
+						directoryShare: shareTable.thirdParty,
+						clientRank,
+					},
+					lang,
+				}),
+		placeMonopoly: matched.placeMonopoly,
+		targetIndustry: matched.targetIndustry,
+		nicheLeadership: matched.nicheLeadership,
+		nicheItemToken: matched.nicheItemToken,
+		hasNicheItem: matched.hasNicheItem,
 	};
 }
 
@@ -834,7 +970,7 @@ export function unifiedToDynamicSov(
 	const ranking = unified.leaderboard.filter((item) => !item.isThirdParty);
 	const directory = unified.leaderboard.find((item) => item.isThirdParty);
 	const leader = ranking.find((item) => !item.isClient) ?? ranking[0];
-	const leaderShare = leader?.share ?? RANK_1_SHARE;
+	const leaderShare = leader?.share ?? 0;
 	const gapToLeader = unified.clientRank === 1 ? 0 : Math.max(0, leaderShare - unified.asIsShare);
 
 	return {
@@ -842,8 +978,10 @@ export function unifiedToDynamicSov(
 		brandName: unified.brandName,
 		asIsShare: unified.asIsShare,
 		toBeShare: unified.toBeShare,
-		directoryShare: directory?.share ?? THIRD_PARTY_SHARE,
+		directoryShare: directory?.share ?? 0,
 		clientRank: unified.clientRank,
+		liveClientRank: unified.liveClientRank,
+		queryIntent: unified.queryIntent,
 		gapToLeader,
 		reclaimPotential: unified.reclaimGain,
 		reclaimGain: unified.reclaimGain,
@@ -858,6 +996,11 @@ export function unifiedToDynamicSov(
 				isDirectory: item.isThirdParty === true,
 			})),
 		lossInsight: unified.lossInsight,
+		placeMonopoly: unified.placeMonopoly,
+		targetIndustry: unified.targetIndustry,
+		nicheLeadership: unified.nicheLeadership,
+		nicheItemToken: unified.nicheItemToken,
+		hasNicheItem: unified.hasNicheItem,
 		vulnerabilityInsight: buildVulnerabilityInsight({
 			leaderName: leader?.name || '',
 			leaderShare,
@@ -875,8 +1018,9 @@ export interface ApplyKeywordSovOptions extends CalculateDynamicSovOptions {
 }
 
 /**
- * Rebind leaderboard percents (and To-Be / recapture) to the selected keyword
- * while keeping live competitor names and client rank.
+ * Rebind the leaderboard 1:1 to the selected keyword.
+ * Navigational (brand) queries force rank 1 / 85–95% own share.
+ * Generic chips do not inherit a previous brand-query rank.
  */
 export function applyKeywordSovToDynamic(
 	sov: DynamicSovResult,
@@ -885,45 +1029,72 @@ export function applyKeywordSovToDynamic(
 ): DynamicSovResult {
 	const lang = langOf(options?.lang ?? options?.industryConfig?.lang);
 	const query = cleanPhrase(keyword).replace(/^#+\s*/, '');
-	const shareTable = resolveKeywordSovShares(query);
-	const ranking = (sov.leaderboard?.length ? sov.leaderboard : []).filter((item) => !item.isThirdParty);
-	const directory = sov.leaderboard?.find((item) => item.isThirdParty);
-	const nextRanking = ranking.map((item) => {
-		if (item.rank === 1) return { ...item, share: shareTable.rank1 };
-		if (item.rank === 2) return { ...item, share: shareTable.rank2 };
-		return { ...item, share: shareTable.own };
+	const brand = cleanPhrase(options?.targetSiteName || sov.brandName);
+	const brandTokens = buildTargetBrandTokens(options?.brandAliases ?? [], brand);
+	const sameQuery = normalizeSovKeyword(sov.targetQuery) === normalizeSovKeyword(query);
+	const intent = classifyQuerySovIntent(query, brandTokens, options?.productTokens);
+	const liveClientRank = sov.liveClientRank ?? (sameQuery ? sov.clientRank : CLIENT_UNRANKED_RANK);
+	const placeMonopoly = sameQuery && sov.placeMonopoly === true;
+	const niche = resolveNicheOfferingMatch({
+		query,
+		region: options?.region,
+		mainService: options?.mainService,
+		productTokens: options?.productTokens,
+		lang,
 	});
-	const nextDirectory: LeaderboardItem = directory
-		? { ...directory, share: shareTable.thirdParty }
-		: {
-				rank: 0,
-				name: thirdPartyShareLabel(lang),
-				share: shareTable.thirdParty,
-				isClient: false,
-				isRealData: false,
-				isThirdParty: true,
-			};
+	const nicheLeadership = niche.nicheLeadership || (sameQuery && sov.nicheLeadership === true);
+	const shareTable = resolveKeywordSovShares(query, {
+		brandTokens,
+		brandName: brand,
+		productTokens: options?.productTokens,
+		clientRank: intent === 'navigational' || placeMonopoly || nicheLeadership ? 1 : sameQuery ? liveClientRank : undefined,
+		cited: intent === 'specialized' && sameQuery && liveClientRank <= 3,
+		placeMonopoly,
+		nicheLeadership,
+	});
+	const clientRank = shareTable.clientRank ?? (intent === 'navigational' || nicheLeadership ? 1 : sameQuery ? liveClientRank : 4);
+	const rawPeers = (sov.leaderboard ?? [])
+		.filter((row) => !row.isClient && !row.isThirdParty)
+		.map((row) => ({ name: row.name, isRealData: row.isRealData }));
+	const peers = niche.isNicheQuery
+		? [
+				...rawPeers.filter((row) => listingMentionsNiche(row.name, niche.nicheItemTokens)),
+				...genericSearchDispersionLabels(lang, niche.nicheItemToken).map((name) => ({ name, isRealData: false })),
+			]
+		: rawPeers;
+	const nextRanking = composeIntentLeaderboard({
+		clientName: brand || (lang === 'en' ? 'This business' : '자사'),
+		clientRank,
+		shareTable,
+		peers,
+		region: cleanPhrase(options?.region),
+		lang,
+		liveFoundIndex: liveClientRank >= 1 && liveClientRank <= 5 ? liveClientRank - 1 : -1,
+	});
+	const nextDirectory: LeaderboardItem = {
+		rank: 0,
+		name: sov.leaderboard?.find((item) => item.isThirdParty)?.name || thirdPartyShareLabel(lang),
+		share: shareTable.thirdParty,
+		isClient: false,
+		isRealData: false,
+		isThirdParty: true,
+	};
 	const leaderboard = [...nextRanking, nextDirectory];
-	const clientItem = nextRanking.find((item) => item.isClient);
-	const asIsShare = clientItem?.share ?? shareTable.own;
-	const toBeShare =
-		asIsShare === shareTable.own ? shareTable.targetSov : calculateUnifiedToBeShare(asIsShare);
+	const asIsShare = nextRanking.find((item) => item.isClient)?.share ?? shareTable.own;
+	const toBeShare = shareTable.targetSov;
 	const reclaimGain = toBeShare - asIsShare;
 	const leader = nextRanking.find((item) => !item.isClient) ?? nextRanking[0];
 	const leaderShare = leader?.share ?? shareTable.rank1;
 	const region = cleanPhrase(options?.region);
 	const service = cleanPhrase(options?.mainService);
-	// Bottom summary must track whichever keyword chip is active — never the
-	// site's static main service — so it stays 1:1 in sync with the leaderboard
-	// above. Falls back to mainService, then the previous query, when the
-	// selected chip text is still empty (initial render / loading state).
 	const insightKeyword = query || service || cleanPhrase(sov.targetQuery);
-	const lossInsight =
-		region || insightKeyword
+	const lossInsight = nicheLeadership
+		? buildNicheLeadershipInsight(region, niche.nicheItemToken || sov.nicheItemToken || '', lang)
+		: region || insightKeyword
 			? buildUnifiedLossInsight({
 					region,
 					service: insightKeyword,
-					clientRank: sov.clientRank,
+					clientRank,
 					asIsShare,
 					directoryShare: shareTable.thirdParty,
 					lang,
@@ -936,7 +1107,10 @@ export function applyKeywordSovToDynamic(
 		asIsShare,
 		toBeShare,
 		directoryShare: shareTable.thirdParty,
-		gapToLeader: sov.clientRank === 1 ? 0 : Math.max(0, leaderShare - asIsShare),
+		clientRank,
+		liveClientRank,
+		queryIntent: shareTable.intent ?? intent,
+		gapToLeader: clientRank === 1 ? 0 : Math.max(0, leaderShare - asIsShare),
 		reclaimPotential: reclaimGain,
 		reclaimGain,
 		leaderboard,
@@ -945,11 +1119,15 @@ export function applyKeywordSovToDynamic(
 			.map((item) => ({
 				name: item.name,
 				share: item.share,
-				isDominant: item.isThirdParty !== true && item.rank === 1 && sov.clientRank !== 1,
+				isDominant: item.isThirdParty !== true && item.rank === 1 && clientRank !== 1,
 				isRealData: item.isRealData,
 				isDirectory: item.isThirdParty === true,
 			})),
 		lossInsight,
+		placeMonopoly,
+		nicheLeadership,
+		nicheItemToken: niche.nicheItemToken || sov.nicheItemToken,
+		hasNicheItem: niche.hasNicheItem || (sameQuery && sov.hasNicheItem === true),
 		vulnerabilityInsight: buildVulnerabilityInsight({
 			leaderName: leader?.name || '',
 			leaderShare,
@@ -1002,9 +1180,16 @@ export async function resolveDynamicSov(
 	geoReadinessScore: GeoReadinessScore,
 	options?: CalculateDynamicSovOptions,
 ): Promise<DynamicSovResult> {
-	const query = buildCompetitorSearchQuery(region, mainService);
+	const query = cleanPhrase(options?.targetQuery) || buildCompetitorSearchQuery(region, mainService);
 	const live = query
-		? await resolveLiveCompetitorNames(query, clientName)
+		? await resolveLiveCompetitorNames(query, clientName, {
+				categoryName: options?.categoryName || mainService,
+				mainService,
+				region,
+				query,
+				industryType: options?.industryType || options?.industryConfig?.type,
+				schemaTypes: options?.schemaTypes || (options?.industryConfig?.schemaType ? [options.industryConfig.schemaType] : undefined),
+			})
 		: { names: [] as string[], rankedNames: [] as string[] };
 	return calculateSymmetricSov(
 		clientName,
@@ -1047,6 +1232,7 @@ export function toDynamicSovResult(sov: ShareOfVoiceResult): DynamicSovResult {
 		toBeShare: sov.toBeShare,
 		directoryShare: sov.directoryShare,
 		clientRank: sov.clientRank ?? CLIENT_UNRANKED_RANK,
+		liveClientRank: sov.clientRank,
 		gapToLeader: sov.gapToLeader,
 		reclaimPotential,
 		reclaimGain: reclaimPotential,
@@ -1090,9 +1276,13 @@ export function computeShareOfVoice(input: ShareOfVoiceInput = {}): ShareOfVoice
 		industryConfig: config,
 		categoryName: config.defaultCategory,
 		targetQuery: input.targetQuery,
+		brandAliases: input.brandAliases,
+		productTokens: input.productTokens,
+		industryType: config.type,
+		schemaTypes: input.schemaTypes || (config.schemaType ? [config.schemaType] : undefined),
 	});
 	const ownSharePct = Number.isFinite(input.ownSharePct)
-		? clamp(Math.round(Number(input.ownSharePct)), AS_IS_SHARE_MIN, AS_IS_SHARE_MAX)
+		? clamp(Math.round(Number(input.ownSharePct)), 0, 100)
 		: unified.asIsShare;
 	const asIsShare = ownSharePct;
 	const toBeShare = Number.isFinite(input.ownSharePct) ? calculateUnifiedToBeShare(asIsShare) : unified.toBeShare;

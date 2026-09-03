@@ -10,7 +10,7 @@ import {
 	type DiagnosticRecord,
 } from '../lib/admin/diagnostic-management';
 import { buildDiagnosticFromReport } from '../lib/admin/diagnostic-from-audit';
-import { liveResultToDiagnosticInput } from '../lib/admin/live-diagnostic-persist';
+import { liveResultToDiagnosticInput } from '../lib/admin/live-diagnostic-map';
 import {
 	composeLiveDiagnosticScores,
 	LIVE_SCORE_WEIGHTS,

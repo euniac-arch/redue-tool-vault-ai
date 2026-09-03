@@ -13,6 +13,9 @@ export interface BrandEntitySeed {
 	title?: string;
 	ogTitle?: string;
 	ogSiteName?: string;
+	/** JSON-LD Organization / MedicalBusiness / LocalBusiness `name` values. */
+	schemaOrganizationNames?: readonly string[];
+	organizationName?: string;
 	keywords?: string;
 	keywordList?: readonly string[];
 	description?: string;
@@ -76,6 +79,10 @@ const EN_KO_WORDS: Record<string, string> = {
 	star: '스타',
 	event: '이벤트',
 	agency: '에이전시',
+	example: '익스플',
+	clinic: '클리닉',
+	hospital: '호스피탈',
+	dental: '덴탈',
 	lee: '이',
 	kim: '김',
 	park: '박',
@@ -323,8 +330,11 @@ export function expandBrandAliases(name: string): string[] {
 
 function domainHead(domain?: string): string {
 	if (!domain) return '';
-	const host = domain.replace(/^www\./i, '').split('.')[0] || '';
-	return host.length >= 3 ? host : '';
+	const host = domain.replace(/^www\./i, '').split('/')[0]?.split(':')[0] || '';
+	const labels = host.split('.').filter(Boolean);
+	const skip = new Set(['com', 'co', 'kr', 'net', 'org', 'io', 'ai', 'gg', 'me', 'info', 'biz', 'www']);
+	const head = labels.find((label) => !skip.has(label.toLowerCase()) && label.length >= 2) || labels[0] || '';
+	return head.length >= 2 ? head : '';
 }
 
 /** Collect brand + person stopwords from title / name / keywords / representative. */
@@ -339,16 +349,22 @@ export function collectBrandEntities(seed: BrandEntitySeed | null | undefined): 
 		],
 		8,
 	);
+	const schemaNames = uniqPhrases(
+		[cleanEntityPhrase(seed?.organizationName, 80), ...(seed?.schemaOrganizationNames ?? [])],
+		8,
+	);
+	const hostHead = domainHead(seed?.domain);
 	const seeds = uniqPhrases(
 		[
 			brandName,
 			cleanEntityPhrase(seed?.ogSiteName, 80),
 			titleHead(seed?.title),
 			titleHead(seed?.ogTitle),
-			domainHead(seed?.domain),
+			...schemaNames,
+			hostHead,
 			...people,
 		],
-		12,
+		16,
 	);
 	const aliases = uniqPhrases(seeds.flatMap(expandBrandAliases), 32);
 	const keys = [...new Set(aliases.map(foldEntityKey).filter((k) => k.length >= 2))];

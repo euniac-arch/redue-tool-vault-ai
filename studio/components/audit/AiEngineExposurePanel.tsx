@@ -689,6 +689,7 @@ export function AiEngineExposurePanel({
 					targetQuery,
 					location,
 					category,
+					brandAliases: report.siteMeta?.brandAliases,
 					ruleScores,
 				}),
 			});
@@ -710,7 +711,7 @@ export function AiEngineExposurePanel({
 		} finally {
 			checkingRef.current = false;
 		}
-	}, [category, engineResults, location, siteName, siteUrl, t, targetQuery]);
+	}, [category, engineResults, location, siteName, siteUrl, t, targetQuery, report.siteMeta?.brandAliases]);
 
 	const tabClass = (tab: ExposurePanelTab) =>
 		`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-extrabold transition ${

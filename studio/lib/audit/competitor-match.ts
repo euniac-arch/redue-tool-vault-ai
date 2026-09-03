@@ -9,6 +9,18 @@ import {
 	type BrandEntitySeed,
 	type BrandEntitySet,
 } from '@/lib/geo/brand-entities';
+import {
+	detectSovIndustryFamily,
+	isOffIndustryListing,
+	looksLikePlaceOrBuildingQuery,
+	nearbyIndustryPeerLabels,
+	resolveTargetIndustry,
+} from '@/lib/audit/sov-industry-guard';
+import {
+	filterGenericNonNicheNames,
+	genericSearchDispersionLabels,
+	resolveNicheOfferingMatch,
+} from '@/lib/audit/sov-niche-entity';
 
 export type CompetitorMatchLang = 'ko' | 'en';
 
@@ -22,6 +34,11 @@ export interface CompetitorMatchInput {
 	lang?: CompetitorMatchLang;
 	brandAliases?: readonly string[];
 	brandSeed?: BrandEntitySeed;
+	industryType?: string;
+	schemaTypes?: readonly string[];
+	productTokens?: readonly string[];
+	offerings?: readonly string[];
+	offeringCorpus?: string;
 }
 
 export interface RankedCompetitorSlot {
@@ -38,6 +55,12 @@ export interface CompetitorMatchResult {
 	/** 1–3 display slots (self at most once; peers fill the rest). */
 	slots: RankedCompetitorSlot[];
 	entities: BrandEntitySet;
+	/** Building/floor query where the target is the only same-industry occupant. */
+	placeMonopoly: boolean;
+	targetIndustry: string;
+	nicheLeadership: boolean;
+	nicheItemToken: string;
+	hasNicheItem: boolean;
 }
 
 const CATEGORY_PEER_RULES: Array<{
@@ -69,6 +92,20 @@ const CATEGORY_PEER_RULES: Array<{
 		test: /법률|변호사|법무|law|attorney|legal/i,
 		ko: ['법무법인 바른', '법무법인 태평양', '법무법인 광장'],
 		en: ['Barun Law', 'Bae Kim & Lee', 'Lee & Ko'],
+	},
+];
+
+const REGION_PEER_RULES: Array<{
+	region: RegExp;
+	industry: RegExp;
+	ko: readonly string[];
+	en: readonly string[];
+}> = [
+	{
+		region: /대구|동구|신천|동대구역/,
+		industry: /피부|성형|미용|에스테틱|dermatol|plastic|aesthetic|clinic|의원|의료/,
+		ko: ['신천고운피부과의원', '동대구역피부과의원', '더페이스의원 대구점'],
+		en: ['Sincheon Dermatology Clinic', 'Dongdaegu Dermatology Clinic', 'The Face Clinic Daegu'],
 	},
 ];
 
@@ -130,8 +167,14 @@ export function categoryPeerNames(
 	query: string,
 	lang: CompetitorMatchLang = 'ko',
 	limit = 4,
+	region = '',
 ): string[] {
 	const corpus = query || '';
+	const loc = region || '';
+	for (const rule of REGION_PEER_RULES) {
+		if (!rule.region.test(`${loc} ${corpus}`) || !rule.industry.test(corpus)) continue;
+		return [...(lang === 'en' ? rule.en : rule.ko)].slice(0, limit);
+	}
 	for (const rule of CATEGORY_PEER_RULES) {
 		if (!rule.test.test(corpus)) continue;
 		return [...(lang === 'en' ? rule.en : rule.ko)].slice(0, limit);
@@ -147,7 +190,34 @@ function fillCategoryPeers(
 ): string[] {
 	if (need <= 0) return [...others];
 	const lang: CompetitorMatchLang = input.lang === 'en' ? 'en' : 'ko';
-	const peers = categoryPeerNames(matchCorpus(input), lang, 6);
+	const niche = resolveNicheOfferingMatch({
+		query: input.query,
+		region: input.region,
+		categoryName: input.categoryName,
+		mainService: input.mainService,
+		productTokens: input.productTokens,
+		offerings: input.offerings,
+		offeringCorpus: input.offeringCorpus,
+		lang,
+	});
+	const peers = niche.isNicheQuery
+		? [...genericSearchDispersionLabels(lang, niche.nicheItemToken)]
+		: [
+				...categoryPeerNames(matchCorpus(input), lang, 6, input.region),
+				...nearbyIndustryPeerLabels(
+					{
+						categoryName: input.categoryName,
+						mainService: input.mainService,
+						region: input.region,
+						query: input.query,
+						industryType: input.industryType,
+						schemaTypes: input.schemaTypes,
+						lang,
+					},
+					lang,
+					2,
+				),
+			];
 	const out = [...others];
 	for (const peer of peers) {
 		if (out.length >= others.length + need) break;
@@ -165,7 +235,41 @@ function fillCategoryPeers(
 export function matchCompetitorRoster(input: CompetitorMatchInput): CompetitorMatchResult {
 	const entities = resolveBrandEntities(input);
 	const canonical = cleanName(input.clientName) || entities.canonical;
-	const unifiedNames = collapseSelfVariants(input.rankedNames ?? [], entities, canonical);
+	const industryCtx = {
+		categoryName: input.categoryName,
+		mainService: input.mainService,
+		region: input.region,
+		query: input.query,
+		industryType: input.industryType,
+		schemaTypes: input.schemaTypes,
+		lang: input.lang,
+	};
+	const target = resolveTargetIndustry(industryCtx);
+	const family = detectSovIndustryFamily(industryCtx);
+	const niche = resolveNicheOfferingMatch({
+		query: input.query,
+		region: input.region,
+		categoryName: input.categoryName,
+		mainService: input.mainService,
+		productTokens: input.productTokens,
+		offerings: input.offerings,
+		offeringCorpus: input.offeringCorpus,
+		lang: input.lang,
+	});
+	const industryGuarded = (input.rankedNames ?? []).filter(
+		(name) => !isOffIndustryListing(name, family, '', industryCtx),
+	);
+	const guardedRanked = niche.isNicheQuery
+		? filterGenericNonNicheNames(industryGuarded, niche.nicheItemTokens)
+		: industryGuarded;
+	let unifiedNames = collapseSelfVariants(guardedRanked, entities, canonical);
+	const placeQuery = looksLikePlaceOrBuildingQuery(input.query || '', industryCtx);
+	if (placeQuery || niche.nicheLeadership) {
+		const livePeers = unifiedNames.filter((name) => !isSelfListing(name, entities));
+		if (livePeers.length === 0 || niche.nicheLeadership) {
+			unifiedNames = [canonical, ...livePeers.filter((name) => !isSelfListing(name, entities))];
+		}
+	}
 	const clientIndex = unifiedNames.findIndex((name) => isSelfListing(name, entities));
 	const liveOthers = unifiedNames.filter((name) => !isSelfListing(name, entities));
 	const others = fillCategoryPeers(liveOthers, entities, input, Math.max(0, 2 - liveOthers.length));
@@ -196,5 +300,16 @@ export function matchCompetitorRoster(input: CompetitorMatchInput): CompetitorMa
 		pushOther();
 	}
 
-	return { unifiedNames, clientIndex, slots: slots.slice(0, 3), entities };
+	const placeMonopoly = placeQuery && liveOthers.length === 0 && clientIndex === 0 && !niche.nicheLeadership;
+	return {
+		unifiedNames,
+		clientIndex,
+		slots: slots.slice(0, 3),
+		entities,
+		placeMonopoly,
+		targetIndustry: target.label,
+		nicheLeadership: niche.nicheLeadership,
+		nicheItemToken: niche.nicheItemToken,
+		hasNicheItem: niche.hasNicheItem,
+	};
 }

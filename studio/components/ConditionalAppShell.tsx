@@ -16,12 +16,14 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 	const pathname = usePathname();
 	const isAdmin = pathname === '/admin' || pathname.startsWith('/admin/');
 	const isPublicReport = pathname === '/report' || pathname.startsWith('/report/');
+	const isPublicGuide = pathname === '/guide' || pathname.startsWith('/guide/');
 	const isAuditResult =
 		pathname === '/audit/result' || pathname.startsWith('/audit/result/');
 	const isStrategyStudio = pathname === '/strategy' || pathname.startsWith('/strategy/');
 	const isHome = pathname === '/';
+	const isIntelligence = pathname === '/intelligence' || pathname.startsWith('/intelligence/');
 
-	if (isAdmin || isPublicReport) {
+	if (isAdmin || isPublicReport || isPublicGuide) {
 		return <>{children}</>;
 	}
 
@@ -51,7 +53,11 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 				    can be full-bleed while its inner wrapper reuses this same `max-w-5xl px-6`. */}
 				{/* No z-index here: a stacking context would trap `position:fixed` overlays
 				    (guide modal, audit share bar, scrollspy) below the Footer sibling. */}
-				<div className="relative mx-auto flex w-full max-w-5xl flex-1 flex-col px-6 pt-10">
+				<div
+					className={`relative mx-auto flex w-full min-w-0 flex-1 flex-col px-6 pt-10 ${
+						isIntelligence ? 'max-w-7xl' : 'max-w-5xl'
+					}`}
+				>
 					<div className={`flex-1 ${isAuditResult || isStrategyStudio ? 'pb-[50px]' : 'pb-16'}`}>{children}</div>
 				</div>
 				<Footer clearFloatingBar={!isAuditResult && !isStrategyStudio} />

@@ -1,7 +1,9 @@
+import { Suspense } from 'react';
 import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
 import { authOptions } from '@/lib/auth';
+import { MypageAsiUsageCard } from '@/components/mypage/MypageAsiUsageCard';
 import { MypageSections } from '@/components/MypageSections';
 import { MypageHistoryTable, type HistoryRow } from '@/components/MypageHistoryTable';
 import { PLANS } from '@/lib/plans';
@@ -58,6 +60,7 @@ export default async function MypagePage() {
 				<SummaryCard label={t('remainingCredits')} value={`${user.creditsRemaining}`} accent="text-cyan-300" />
 				*/}
 				<SummaryCard label={t('totalInjections')} value={`${historyRecords.length}`} accent="text-emerald-400" />
+				<MypageAsiUsageCard />
 			</section>
 
 			<div className="grid gap-3 sm:grid-cols-2">
@@ -149,7 +152,15 @@ export default async function MypagePage() {
 
 	return (
 		<main className="flex flex-col gap-8">
-			<MypageSections overview={overview} initialDomain={latestDomain} />
+			<Suspense fallback={<p className="text-sm text-slate-500">마이페이지를 불러오는 중…</p>}>
+				<MypageSections
+					overview={overview}
+					initialDomain={latestDomain}
+					userId={user.id}
+					userName={user.name || session.user.name || '회원'}
+					userEmail={user.email || session.user.email || ''}
+				/>
+			</Suspense>
 		</main>
 	);
 }

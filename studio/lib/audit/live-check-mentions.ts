@@ -4,7 +4,7 @@
  * files can import them without a circular dependency.
  */
 
-export function brandAliases(siteName: string, siteUrl: string): string[] {
+export function brandAliases(siteName: string, siteUrl: string, extraAliases: readonly string[] = []): string[] {
 	const aliases = new Set<string>();
 	const name = siteName.trim();
 	if (name) {
@@ -20,6 +20,10 @@ export function brandAliases(siteName: string, siteUrl: string): string[] {
 		if (head.length >= 3) aliases.add(head);
 	} catch {
 		/* ignore malformed URLs */
+	}
+	for (const extra of extraAliases) {
+		const value = extra.trim();
+		if (value.length >= 2) aliases.add(value);
 	}
 	return [...aliases].filter((alias) => alias.length >= 2);
 }
@@ -106,10 +110,15 @@ function hasPositiveMention(hayLower: string, aliasLower: string): boolean {
  * "나인원의원이 언급되지 않았습니다."), which was the root cause of ChatGPT
  * live-check false positives (isCited flipping to true on negative answers).
  */
-export function mentionsBrandOrSite(text: string, siteName: string, siteUrl: string): boolean {
+export function mentionsBrandOrSite(
+	text: string,
+	siteName: string,
+	siteUrl: string,
+	extraAliases: readonly string[] = [],
+): boolean {
 	const hay = text.toLowerCase();
 	if (!hay) return false;
-	return brandAliases(siteName, siteUrl).some((alias) => hasPositiveMention(hay, alias.toLowerCase()));
+	return brandAliases(siteName, siteUrl, extraAliases).some((alias) => hasPositiveMention(hay, alias.toLowerCase()));
 }
 
 export function urlMatchesSite(url: string, siteUrl: string): boolean {
@@ -126,9 +135,14 @@ export function urlMatchesSite(url: string, siteUrl: string): boolean {
 	}
 }
 
-export function detectCitedRank(text: string, siteName: string, siteUrl: string): 1 | 2 | 3 | null {
-	if (!mentionsBrandOrSite(text, siteName, siteUrl)) return null;
-	const aliases = brandAliases(siteName, siteUrl)
+export function detectCitedRank(
+	text: string,
+	siteName: string,
+	siteUrl: string,
+	extraAliases: readonly string[] = [],
+): 1 | 2 | 3 | null {
+	if (!mentionsBrandOrSite(text, siteName, siteUrl, extraAliases)) return null;
+	const aliases = brandAliases(siteName, siteUrl, extraAliases)
 		.map((alias) => alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
 		.join('|');
 	if (!aliases) return null;

@@ -13,6 +13,10 @@ export type DiagnosisUserType = 'admin' | 'user' | 'guest';
 /** Admin list filter: ALL / admin-only / public (guest + user). */
 export type DiagnosisTypeFilter = 'ALL' | 'ADMIN' | 'PUBLIC';
 
+/** Public "도입 사례" listing type: real client proof vs. an industry
+ *  simulation model. Mirrors `CaseStudyKind` in `lib/case-study-types.ts`. */
+export type CaseStudyType = 'verified' | 'simulation';
+
 export interface ProjectListItem {
 	id: string;
 	name: string;
@@ -37,6 +41,18 @@ export interface ProjectListItem {
 	defectCount?: number | null;
 	/** True when row exists only in browser localStorage (DB not yet synced) */
 	isLocalOnly?: boolean;
+	/** Admin-controlled public "도입 사례" exposure toggle. */
+	isCaseStudy: boolean;
+	/** "verified" | "simulation". Null while isCaseStudy is false. */
+	caseStudyType: CaseStudyType | null;
+	/** Admin-authored pre-optimization Before scores for 도입사례 cards. */
+	customBaseline?: {
+		overall: number;
+		seo?: number | null;
+		performance?: number | null;
+		schema?: number | null;
+		geo?: number | null;
+	} | null;
 }
 
 export interface AuditHistoryItem {
@@ -76,7 +92,45 @@ export function mapProjectRow(row: Project): ProjectListItem {
 		auditCount: row.auditCount,
 		createdAt: row.createdAt.toISOString(),
 		userType: normalizeUserType(row.latestUserType),
+		isCaseStudy: Boolean(row.isCaseStudy),
+		caseStudyType: normalizeCaseStudyType(row.caseStudyType),
+		customBaseline: parseProjectCustomBaseline(
+			(row as Project & { customBaseline?: unknown }).customBaseline,
+		),
 	};
+}
+
+export function parseProjectCustomBaseline(
+	raw: unknown,
+): ProjectListItem['customBaseline'] {
+	if (typeof raw === 'string') {
+		try {
+			raw = JSON.parse(raw);
+		} catch {
+			return null;
+		}
+	}
+	if (!raw || typeof raw !== 'object') return null;
+	const row = raw as Record<string, unknown>;
+	const overall =
+		typeof row.overall === 'number' && Number.isFinite(row.overall) ? Math.round(row.overall) : null;
+	if (overall == null || overall < 0 || overall > 100) return null;
+	const asScore = (value: unknown) =>
+		typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100
+			? Math.round(value)
+			: null;
+	return {
+		overall,
+		seo: asScore(row.seo),
+		performance: asScore(row.performance ?? row.cwv),
+		schema: asScore(row.schema),
+		geo: asScore(row.geo ?? row.eeat),
+	};
+}
+
+export function normalizeCaseStudyType(raw: unknown): CaseStudyType | null {
+	const value = String(raw || '').trim().toLowerCase();
+	return value === 'verified' || value === 'simulation' ? (value as CaseStudyType) : null;
 }
 
 export function projectDisplayName(

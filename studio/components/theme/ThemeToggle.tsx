@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Moon, Sun } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { HEADER_ICON_BUTTON_CLASS } from '@/lib/ui/header-chrome';
 import { useTheme } from './ThemeProvider';
 
 export function ThemeToggle() {
@@ -19,7 +20,7 @@ export function ThemeToggle() {
 		return (
 			<button
 				type="button"
-				className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-transparent opacity-0 pointer-events-none"
+				className={`${HEADER_ICON_BUTTON_CLASS} overflow-hidden border-transparent opacity-0`}
 				aria-hidden="true"
 				tabIndex={-1}
 			/>
@@ -32,10 +33,10 @@ export function ThemeToggle() {
 			onClick={toggleTheme}
 			aria-pressed={isDark}
 			aria-label={isDark ? t('themeToLight') : t('themeToDark')}
-			className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg transition-all duration-300 ${
+			className={`relative overflow-hidden ${HEADER_ICON_BUTTON_CLASS} ${
 				isDark
-					? 'border border-slate-800 bg-slate-900 text-slate-300 hover:border-cyan-500/40 hover:bg-[#0E162B] hover:text-cyan-300'
-					: 'border border-slate-200 bg-white text-slate-600 shadow-sm hover:border-slate-300 hover:bg-slate-50 hover:text-amber-500'
+					? 'text-slate-300 hover:text-cyan-300'
+					: 'text-slate-600 hover:text-amber-500'
 			}`}
 		>
 			<span className="sr-only">{isDark ? t('themeToLight') : t('themeToDark')}</span>

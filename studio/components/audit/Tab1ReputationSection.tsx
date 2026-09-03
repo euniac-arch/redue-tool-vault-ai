@@ -66,6 +66,8 @@ function Tab1ReputationSectionInner({
 		const sovPresets = resolveDiagnosticSovPresets({
 			brandName: clientName,
 			siteUrl: report.url || report.siteMeta?.targetUrl,
+			location: region,
+			brandAliases: report.siteMeta?.brandAliases,
 			fallback: queryMatrix.sovPresets,
 		});
 		return {
@@ -74,17 +76,20 @@ function Tab1ReputationSectionInner({
 			mainService,
 			subService,
 			categoryName: report.siteMeta?.category || mainService,
+			industryType: report.siteMeta?.industryType,
+			schemaTypes: report.siteMeta?.schemaEntityTypes || report.metrics?.schemaTypes,
+			productTokens: report.siteMeta?.coreSpecialties,
 			sovPresets,
 			defaultQuery: sovPresets[0] || queryMatrix.sovPresets[1],
 		};
-	}, [queryMatrix, report.siteMeta?.category, report.url, report.siteMeta?.targetUrl]);
+	}, [queryMatrix, report.siteMeta, report.metrics?.schemaTypes, report.url]);
 	const [liveSnapshot, setLiveSnapshot] = useState<RealCompetitorSnapshot | null>(
 		() => report.realCompetitors ?? null,
 	);
 	useEffect(() => {
 		setLiveSnapshot(report.realCompetitors ?? null);
 		if (snapshotHasRealCompetitors(report.realCompetitors)) return;
-		const { clientName, region, mainService, categoryName } = queryContext;
+		const { clientName, region, mainService, categoryName, industryType, schemaTypes, productTokens } = queryContext;
 		if (!clientName || !region || !mainService) return;
 		const defaultQuery = queryContext.defaultQuery;
 		let cancelled = false;
@@ -99,7 +104,11 @@ function Tab1ReputationSectionInner({
 						mainService,
 						query: defaultQuery,
 						categoryName,
+						industryType,
+						schemaTypes,
+						productTokens,
 						lang,
+						brandAliases: report.siteMeta?.brandAliases,
 					}),
 				});
 				const data = (await res.json()) as { snapshot?: RealCompetitorSnapshot };
@@ -122,7 +131,7 @@ function Tab1ReputationSectionInner({
 
 	const handleQueryChange = useCallback(
 		async (newQuery: string): Promise<DynamicSovResult> => {
-			const { clientName, region, mainService, categoryName } = queryContext;
+			const { clientName, region, mainService, categoryName, industryType, schemaTypes, productTokens } = queryContext;
 			const res = await fetch('/api/competitors', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -132,7 +141,11 @@ function Tab1ReputationSectionInner({
 					mainService,
 					query: newQuery,
 					categoryName,
+					industryType,
+					schemaTypes,
+					productTokens,
 					lang,
+					brandAliases: report.siteMeta?.brandAliases,
 				}),
 			});
 			const data = (await res.json()) as { snapshot?: RealCompetitorSnapshot; error?: string };
@@ -156,6 +169,8 @@ function Tab1ReputationSectionInner({
 				subService={queryContext.subService}
 				queryPresets={queryContext.sovPresets}
 				siteUrl={report.url || report.siteMeta?.targetUrl}
+				brandAliases={report.siteMeta?.brandAliases}
+				productTokens={report.siteMeta?.coreSpecialties}
 				onQueryChange={handleQueryChange}
 			/>
 

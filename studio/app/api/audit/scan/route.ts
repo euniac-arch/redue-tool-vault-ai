@@ -533,14 +533,14 @@ function clientErrorPayload(err: unknown): { status: number; error: string; stag
  * (default true) cache-busts the live crawl and overwrites the existing audit
  * row (replaceId or latest same-URL doc) instead of returning stored cache.
  */
-/** Hard ceiling on Track 1/2 (crawl + AI/schema analysis) — well under `maxDuration=90`
- *  so there is always headroom left for the persistence stage below before the platform
- *  kills the function. If the real `auditSite()` call is still running when this fires,
- *  it is left to finish in the background (its result is discarded) while the response
- *  proceeds with a degraded report instead of leaving the client's fetch hanging. */
-const TRACK_1_2_DEADLINE_MS = 60_000;
+/** Hard ceiling on Track 1/2 for the public *quick* scan (40 pages). Sized for a
+ *  5–15s dashboard — well under `maxDuration=90` so persistence + background PSI
+ *  still have headroom. Admin recrawl uses `fullAuditDepth: 'deep'` and does not
+ *  share this deadline. If `auditSite()` is still running when this fires, the
+ *  response proceeds with a degraded report. */
+const TRACK_1_2_DEADLINE_MS = 16_000;
 /** Hard ceiling on each individual Firestore/Prisma persistence call. */
-const PERSIST_DEADLINE_MS = 12_000;
+const PERSIST_DEADLINE_MS = 5_000;
 
 export async function POST(request: Request) {
 	let rawUrl = '';
@@ -601,10 +601,18 @@ export async function POST(request: Request) {
 		// throwing synchronously) — never left "used before assigned".
 		let desktopPsiPromise: Promise<PageSpeedSnapshot | null> = Promise.resolve(null);
 		let mobilePsiPromise: Promise<PageSpeedSnapshot | null> = Promise.resolve(null);
+		const sessionPromise = getServerSession(authOptions).catch((err) => {
+			console.error('[audit/scan] session lookup failed:', errorMessage(err), errorStack(err));
+			return null;
+		});
+		const jwtActorPromise = readJwtActor(request).catch((err) => {
+			console.error('[audit/scan] JWT actor read failed:', errorMessage(err), errorStack(err));
+			return { userId: null, email: null, role: null };
+		});
 		try {
 			// Track 1/2 (HTML meta + schema) is the only thing this response waits on —
 			// Track 3 (PageSpeed/Lighthouse) is fired here but never awaited, so the
-			// result screen can enter the dashboard in ~2-3s instead of up to ~45s. Both
+			// result screen can enter the dashboard in ~5-15s instead of ~45-60s. Both
 			// PSI reads keep running in the background: `fetchPageSpeedDeduped` warms the
 			// shared cache/in-flight map so the client's own `/api/audit/pagespeed` call
 			// (fired by `useAuditReportEnrichment` once it notices `pageSpeedDesktop`/
@@ -636,7 +644,7 @@ export async function POST(request: Request) {
 			console.log('[audit/scan][Track 1-2] 크롤링 + AI/스키마 분석 시작:', { url: rawUrl, forceRefresh, fullAudit });
 			const track12StartedAt = Date.now();
 			report = await withDeadline(
-				auditSite(rawUrl, lang, { forceRefresh, fullAudit, useDeltaCache }),
+				auditSite(rawUrl, lang, { forceRefresh, fullAudit, useDeltaCache, fullAuditDepth: 'quick' }),
 				TRACK_1_2_DEADLINE_MS,
 				'Track 1-2 auditSite (크롤링+분석)',
 			);
@@ -664,15 +672,19 @@ export async function POST(request: Request) {
 			report = buildDegradedAuditReport(psiTargetUrl || rawUrl, lang, err);
 		}
 		completedReport = report;
+		const quotaIncPromise = incrementAuditUsage(quota).catch((err) => {
+			console.error('[audit/scan] incrementAuditUsage failed — using prior quota snapshot:', errorMessage(err));
+			return quota;
+		});
 
 		let session: Awaited<ReturnType<typeof getServerSession>> = null;
 		try {
-			session = await withDeadline(getServerSession(authOptions), 5_000, 'getServerSession');
+			session = await withDeadline(sessionPromise, 2_000, 'getServerSession');
 		} catch (err) {
 			console.error('[audit/scan] session lookup failed/timed out:', errorMessage(err), errorStack(err));
 		}
 		const sessionUser = (session as { user?: { id?: string; email?: string; role?: string } } | null)?.user;
-		const jwtActor = await readJwtActor(request);
+		const jwtActor = await jwtActorPromise;
 		const actor = resolveDiagnosisActor({
 			sessionUserId: sessionUser?.id || jwtActor.userId,
 			sessionEmail: sessionUser?.email || jwtActor.email,
@@ -797,7 +809,7 @@ export async function POST(request: Request) {
 			auditId,
 			elapsedMsSoFar: Date.now() - requestStartedAt,
 		});
-		const nextQuota = await withDeadline(incrementAuditUsage(quota), 5_000, 'incrementAuditUsage').catch((err) => {
+		const nextQuota = await withDeadline(quotaIncPromise, 2_000, 'incrementAuditUsage').catch((err) => {
 			console.error('[audit/scan] incrementAuditUsage failed/timed out — using prior quota snapshot:', errorMessage(err));
 			return quota;
 		});

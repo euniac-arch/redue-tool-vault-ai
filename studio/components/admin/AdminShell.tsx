@@ -25,6 +25,7 @@ const FULL_WIDTH_PATHS = [
 	'/admin/settings/logs',
 	'/admin/api-settings',
 	'/admin/settings/api',
+	'/admin/guides',
 ] as const;
 
 interface AdminShellProps {

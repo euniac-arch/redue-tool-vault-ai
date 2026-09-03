@@ -1,12 +1,52 @@
+import { ASI_PILLARS, getAsiPillar, getAsiTool, resolveAsiPathname } from '@/lib/ai-search-intelligence/routes';
+
 export type PublicNavChildKey =
 	| 'liveDiagnose'
 	| 'auditHistory'
+	| 'asiWarRoom'
+	| 'asiBrandPerception'
+	| 'asiReputationRadar'
+	| 'asiBrandSnapshot'
+	| 'asiRecommendationTest'
+	| 'asiRecommendationSimulator'
+	| 'asiShareOfVoice'
+	| 'asiCompetitorAnalysis'
+	| 'asiCitationExplorer'
+	| 'asiQueryGenerator'
+	| 'asiVisibilityMonitor'
+	| 'asiAgentReadiness'
+	| 'asiOpportunityFinder'
+	| 'asiEvidenceExplorer'
+	| 'asiCompetitorGap'
+	| 'asiNextBestAction'
+	| 'asiPerception'
+	| 'asiRecommendation'
+	| 'asiEvidence'
+	| 'asiFuture'
+	| 'asiDiscover'
+	| 'asiMeasure'
+	| 'asiExplain'
+	| 'asiCompete'
+	| 'asiAct'
+	| 'asiMonitor'
+	| 'asiGnbShareOfVoice'
+	| 'asiGnbBrandKnowledgeGraph'
+	| 'asiGnbLiveGrounding'
+	| 'asiGnbCitationBottleneck'
+	| 'asiGnbGeoKeywords'
+	| 'asiGnbActionGuide'
 	| 'aeoGeoGuide'
 	| 'globalAiTools'
 	| 'aiPromptHub'
 	| 'insightsColumn';
 
-export type PublicNavItemKey = 'scanner' | 'strategyStudio' | 'industry' | 'insightsHub' | 'portfolio';
+export type PublicNavItemKey =
+	| 'scanner'
+	| 'aiSearchIntelligence'
+	| 'strategyStudio'
+	| 'industry'
+	| 'insightsHub'
+	| 'portfolio';
 
 export type PublicNavChild = {
 	href: string;
@@ -20,6 +60,20 @@ export type PublicNavItem = {
 	children?: readonly PublicNavChild[];
 };
 
+/**
+ * Compact vertical GNB list for the "AI 인텔리전스" mega-menu — 6 core tools
+ * only (title + href), matching the slim single-column style used by the
+ * other GNB items. Keep this list at exactly 6 entries.
+ */
+const AI_INTELLIGENCE_GNB_MENUS: readonly PublicNavChild[] = [
+	{ href: getAsiTool('sov').href, key: 'asiGnbShareOfVoice' },
+	{ href: getAsiTool('brand').href, key: 'asiGnbBrandKnowledgeGraph' },
+	{ href: getAsiTool('visibility').href, key: 'asiGnbLiveGrounding' },
+	{ href: getAsiTool('citations').href, key: 'asiGnbCitationBottleneck' },
+	{ href: getAsiTool('questions').href, key: 'asiGnbGeoKeywords' },
+	{ href: getAsiTool('action').href, key: 'asiGnbActionGuide' },
+];
+
 export const PUBLIC_NAV: readonly PublicNavItem[] = [
 	{
 		href: '/audit',
@@ -29,6 +83,12 @@ export const PUBLIC_NAV: readonly PublicNavItem[] = [
 			{ href: '/audit', key: 'liveDiagnose' },
 			{ href: '/audit?tab=history', key: 'auditHistory' },
 		],
+	},
+	{
+		href: getAsiPillar('discover').href,
+		key: 'aiSearchIntelligence',
+		match: ['/intelligence'],
+		children: AI_INTELLIGENCE_GNB_MENUS,
 	},
 	{
 		href: '/strategy',
@@ -54,7 +114,7 @@ export const PUBLIC_NAV: readonly PublicNavItem[] = [
 	{
 		href: '/portfolio',
 		key: 'portfolio',
-		match: ['/portfolio'],
+		match: ['/portfolio', '/cases'],
 	},
 ] as const;
 
@@ -80,6 +140,18 @@ export function isPublicNavChildActive(
 ): boolean {
 	const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
 	const tab = params.get('tab')?.trim() || '';
+
+	if (child.href.startsWith('/intelligence')) {
+		const route = resolveAsiPathname(pathname);
+		const group = ASI_PILLARS.find((item) => item.navKey === child.key);
+		if (group) {
+			return route.pillar.id === group.id;
+		}
+		if (child.key === 'asiWarRoom') {
+			return route.tool.id === 'war-room';
+		}
+		return route.tool.href === child.href.split('#')[0];
+	}
 
 	if (child.key === 'liveDiagnose') {
 		return (

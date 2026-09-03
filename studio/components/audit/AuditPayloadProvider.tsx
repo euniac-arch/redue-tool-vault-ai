@@ -12,6 +12,7 @@ import {
 import {
 	buildLatestAuditPayload,
 	loadLatestAuditPayload,
+	saveLatestAuditPayload,
 	type LatestAuditPayload,
 } from '@/lib/audit/latest-audit-payload';
 import {
@@ -127,7 +128,7 @@ export function AuditPayloadProvider({ children }: { children: ReactNode }) {
 			report: AuditReport,
 			opts?: { auditId?: string | null; cmsType?: string; archiveProject?: boolean },
 		) => {
-			const next = buildLatestAuditPayload(report, opts);
+			const next = saveLatestAuditPayload(report, opts) ?? buildLatestAuditPayload(report, opts);
 			setLatest((prev) => {
 				const identityChanged = Boolean(prev && !sameAuditIdentity(prev.report, report));
 				if (identityChanged) {

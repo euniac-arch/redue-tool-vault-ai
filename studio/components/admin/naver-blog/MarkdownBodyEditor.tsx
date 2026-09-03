@@ -32,6 +32,37 @@ function bindEditorContent(editor: ToastEditor, content: string) {
 }
 
 /**
+ * TOAST UI Editor manages its own DOM subtree (toolbar popups, tooltips, etc.) outside of
+ * React's reconciliation, and some of it can reference nodes that React has already detached
+ * (e.g. `el.parentNode`) by the time our passive-effect cleanup runs. Swallow teardown errors
+ * here so a stale internal reference inside the library can never surface as an uncaught
+ * "removeChild"/commit-phase crash in the host page.
+ */
+function safeDestroy(editor: ToastEditor | null) {
+	if (!editor) return;
+	try {
+		editor.destroy();
+	} catch (err) {
+		if (process.env.NODE_ENV !== 'production') {
+			// eslint-disable-next-line no-console
+			console.warn('[MarkdownBodyEditor] editor.destroy() threw during teardown (ignored):', err);
+		}
+	}
+}
+
+/** Same rationale as safeDestroy(): guard external content sync against a mid-teardown editor. */
+function safeBindEditorContent(editor: ToastEditor, content: string) {
+	try {
+		bindEditorContent(editor, content);
+	} catch (err) {
+		if (process.env.NODE_ENV !== 'production') {
+			// eslint-disable-next-line no-console
+			console.warn('[MarkdownBodyEditor] failed to sync external content (ignored):', err);
+		}
+	}
+}
+
+/**
  * Naver Blog body editor powered by NHN TOAST UI Editor.
  * WYSIWYG-first with Markdown tab, Korean UI, and image upload hooks.
  */
@@ -103,12 +134,26 @@ export function MarkdownBodyEditor({ value, onChange, disabled }: Props) {
 					change: () => {
 						const instance = editorRef.current;
 						if (!instance) return;
-						const md = instance.getMarkdown();
-						lastSyncedRef.current = md;
-						onChangeRef.current(md);
+						try {
+							const md = instance.getMarkdown();
+							lastSyncedRef.current = md;
+							onChangeRef.current(md);
+						} catch (err) {
+							if (process.env.NODE_ENV !== 'production') {
+								// eslint-disable-next-line no-console
+								console.warn('[MarkdownBodyEditor] change handler failed (ignored):', err);
+							}
+						}
 					},
 				},
 			});
+
+			// Guard against the effect having been cancelled (unmounted / key-remounted)
+			// while the dynamic imports above were in flight — never adopt a stale instance.
+			if (cancelled) {
+				safeDestroy(editor);
+				return;
+			}
 
 			editorRef.current = editor;
 			lastSyncedRef.current = value || '';
@@ -119,7 +164,7 @@ export function MarkdownBodyEditor({ value, onChange, disabled }: Props) {
 
 		return () => {
 			cancelled = true;
-			editor?.destroy();
+			safeDestroy(editor);
 			editorRef.current = null;
 			setReady(false);
 		};
@@ -134,7 +179,7 @@ export function MarkdownBodyEditor({ value, onChange, disabled }: Props) {
 		if (value === lastSyncedRef.current) return;
 
 		lastSyncedRef.current = value;
-		bindEditorContent(editor, value);
+		safeBindEditorContent(editor, value);
 	}, [value, ready]);
 
 	useEffect(() => {

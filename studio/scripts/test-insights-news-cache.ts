@@ -12,6 +12,8 @@ import {
 	parseInsightsNewsTab,
 	type InsightsNewsItem,
 } from '../lib/insights/insights-news-types';
+import { toggleSavedNewsId } from '../lib/insights/saved-news';
+import { expandTruncatedNewsTitle, looksTruncatedNewsTitle } from '../lib/insights/insights-news-title';
 
 let failed = 0;
 
@@ -234,6 +236,56 @@ assert(
 	'classify Naver Cue is aeo_geo_search',
 	classifyArticle('네이버 큐 대화형 검색 확대', 'Cue: 답변 엔진') === 'aeo_geo_search',
 );
+
+assert(
+	'expand truncated title from snippet',
+	expandTruncatedNewsTitle(
+		'삼성30주년 기념주화 110만개 중 25만개, 1370원 차익...',
+		'삼성30주년 기념주화 110만개 중 25만개, 1370원 차익 발생으로 논란이 커지고 있다.',
+	) === '삼성30주년 기념주화 110만개 중 25만개, 1370원 차익 발생으로 논란이 커지고 있다.',
+);
+assert(
+	'keep complete title',
+	expandTruncatedNewsTitle('AI 검색, 브랜드가 인용되는 법', '본문 요약') === 'AI 검색, 브랜드가 인용되는 법',
+);
+assert(
+	'strip ellipsis when snippet has no continuation',
+	expandTruncatedNewsTitle('짧은 제목만 잘림...', '전혀 다른 요약입니다.') === '짧은 제목만 잘림',
+);
+assert(
+	'detect mid-word Korean cut without ellipsis',
+	looksTruncatedNewsTitle('"생명·평화·민주주의 가치, 숫자로 읽는다"… LPDI 개발 첫 공론장 열'),
+);
+assert(
+	'complete mid-title ellipsis from snippet',
+	expandTruncatedNewsTitle(
+		'"생명·평화·민주주의 가치, 숫자로 읽는다"… LPDI 개발 첫 공론장 열',
+		'"생명·평화·민주주의 가치, 숫자로 읽는다"… LPDI 개발 첫 공론장 열려. 본문이 이어집니다.',
+	) === '"생명·평화·민주주의 가치, 숫자로 읽는다"… LPDI 개발 첫 공론장 열려',
+);
+assert(
+	'complete cut title from publisher og:title',
+	expandTruncatedNewsTitle(
+		'"생명·평화·민주주의 가치, 숫자로 읽는다"… LPDI 개발 첫 공론장 열',
+		'이로운넷 = 편집위원 김성환국내총생산(GDP)이 한 사회의 경제적 규모만 보여준다.',
+		'“생명·평화·민주주의 가치, 숫자로 읽는다”… LPDI 개발 첫 공론장 열려 | 이로운넷',
+	) === '“생명·평화·민주주의 가치, 숫자로 읽는다”… LPDI 개발 첫 공론장 열려',
+);
+assert(
+	'keep complete Korean title ending with 열려',
+	!looksTruncatedNewsTitle('“생명·평화·민주주의 가치, 숫자로 읽는다”… LPDI 개발 첫 공론장 열려'),
+);
+assert(
+	'restore baseball title cut at 페덱·K',
+	expandTruncatedNewsTitle(
+		"[AI프리뷰] 29일 대구 삼성-KT전, 선두 자리 가를 '에이스' 삼성 페덱·K",
+		'선발 맞대결',
+		"[AI프리뷰] 29일 대구 삼성-KT전, 선두 자리 가를 '에이스' 삼성 페덱·KT 로건 맞대결 | 스포츠서울",
+	) === "[AI프리뷰] 29일 대구 삼성-KT전, 선두 자리 가를 '에이스' 삼성 페덱·KT 로건 맞대결",
+);
+
+assert('saved news toggle add', toggleSavedNewsId('news-1', []).includes('news-1'));
+assert('saved news toggle remove', toggleSavedNewsId('news-1', ['news-1']).length === 0);
 
 if (failed > 0) {
 	console.error(`\n${failed} assertion(s) failed`);

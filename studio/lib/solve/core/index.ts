@@ -185,3 +185,16 @@ export {
 	resolveGnuboardHeadSubPath,
 	GNUBOARD_EXTEND_ENGINE_PATH,
 } from '@/lib/solve/gnuboard-site-recon';
+
+export {
+	extractSiteFacts,
+	detectSiteCms,
+	buildSchemaTemplate,
+	buildSchemaTemplatesForSite,
+	planUniversalCmsInjection,
+	runUniversalSchemaEngine,
+	deployLocalWorkspace,
+	deployViaFtp,
+	siblingBackupPath,
+	preparePatchedSource,
+} from '@/lib/solve/universal-schema';

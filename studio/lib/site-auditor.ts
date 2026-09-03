@@ -8,8 +8,10 @@ import {
 	type CrawledPageMeta,
 } from '@/lib/audit/crawl-page-metas';
 import {
+	resolveFullAuditLimits,
 	runFullAudit,
 	toFullAuditReportSlice,
+	type FullAuditDepth,
 	type FullAuditProgress,
 	type FullAuditReportSlice,
 } from '@/lib/audit/full-audit-engine';
@@ -93,9 +95,15 @@ import {
 import { assertPublicHttpUrl } from './ssrf-guard';
 
 /** [CONNECT] main DOM fetch — hard cap so slow/hung hosts (e.g. Cafe24) never stall the pipeline. */
-const FETCH_TIMEOUT_MS = 6_000;
+const FETCH_TIMEOUT_MS = 5_000;
 /** `/robots.txt`, `/llms.txt` and other auxiliary same-origin resources. */
 const AUX_FETCH_TIMEOUT_MS = 3_000;
+/** Isolated sub-analysis (greeting/doctor/location/SoV/logo) — fail open after this. */
+const SUBTASK_TIMEOUT_MS = 5_000;
+/** Whole `auditSite()` wall-clock target (main fetch + parallel crawl + CPU score). */
+const AUDIT_SITE_BUDGET_MS = 12_000;
+/** Full-audit / shallow crawl ceiling, including one in-flight fetch overshoot. */
+const PAGE_METAS_TIMEOUT_MS = 10_000;
 
 type FetchedPageResult = Awaited<ReturnType<typeof fetchPageResource>>;
 
@@ -130,6 +138,46 @@ function emptyFetchedPageFallback(requestedUrl: string): FetchedPageResult {
 		error: 'timeout_or_failed',
 	};
 }
+
+/**
+ * Fail-isolate a sub-promise: on reject or timeout, return `fallback` so one
+ * hung specialty crawl / SoV / logo probe never blocks the diagnosis.
+ */
+function withTimeoutFallback<T>(
+	promise: Promise<T>,
+	ms: number,
+	label: string,
+	fallback: T,
+): Promise<T> {
+	const safe = promise.catch((err) => {
+		console.error(`[auditSite] ${label} failed:`, err);
+		return fallback;
+	});
+	if (ms <= 0) return safe;
+	let settled = false;
+	safe.then(
+		() => {
+			settled = true;
+		},
+		() => {
+			settled = true;
+		},
+	);
+	return Promise.race([
+		safe,
+		new Promise<T>((resolve) => {
+			setTimeout(() => {
+				if (settled) return;
+				console.warn(
+					`[auditSite] ⏱ ${label} exceeded ${ms}ms — using fallback so the diagnosis is never blocked.`,
+				);
+				resolve(fallback);
+			}, ms);
+		}),
+	]);
+}
+
+const EMPTY_SPECIALTY_PAGES = { html: '', urls: [] as string[], pages: [] };
 
 /** Fail-safe stand-in when the sitemap check task rejects instead of resolving with its own not-found result. */
 function emptySitemapResultFallback(origin: string): SitemapCheckResult {
@@ -930,8 +978,14 @@ function resolveIndexStatus(args: {
 export interface AuditSiteOptions {
 	/** Bypass CDN/proxy & prior HTML caches; append `?_redue_nocache=` on fetches. */
 	forceRefresh?: boolean;
-	/** Enumerate every public page (sitemap/GNB/CMS) instead of the 60-URL hop. Default true. */
+	/** Enumerate public pages (sitemap/GNB/CMS) instead of the shallow GNB hop. Default true. */
 	fullAudit?: boolean;
+	/**
+	 * Crawl depth when `fullAudit` is on.
+	 * `quick` (default) = public 40-page / 8s precision scan.
+	 * `deep` = admin recrawl ceiling (500 / 45s). Does not change checklist score meaning.
+	 */
+	fullAuditDepth?: FullAuditDepth;
 	/** Reuse unchanged pages via content_hash. Default true. */
 	useDeltaCache?: boolean;
 	/** Live census/analyze progress (NDJSON stream or server logs). */
@@ -1301,6 +1355,9 @@ export async function auditSite(
 	const url = await assertPublicHttpUrl(targetUrl);
 	const forceRefresh = options?.forceRefresh === true;
 	const useFullAudit = options?.fullAudit !== false;
+	const fullAuditLimits = resolveFullAuditLimits(options?.fullAuditDepth === 'deep' ? 'deep' : 'quick');
+	const pageMetasTimeoutMs =
+		options?.fullAuditDepth === 'deep' ? fullAuditLimits.timeBudgetMs + 5_000 : PAGE_METAS_TIMEOUT_MS;
 	const useDeltaCache = options?.useDeltaCache !== false;
 	const fetchOpts = { forceRefresh };
 	const pipelineStart = Date.now();
@@ -1412,63 +1469,8 @@ export async function auditSite(
 		siteMeta = fallbackSiteMetadata(finalUrl.toString(), lang);
 	}
 
-	// Gather the auxiliary fetches now that the synchronous parse above has
-	// already run — `allSettled` means one hung/erroring resource (robots
-	// 500, llms.txt 404, sitemap timeout) never sinks the other two.
-	const [robotsSettled, llmsSettled, sitemapSettled, rssSettled] = await Promise.allSettled([
-		robotsPromise,
-		llmsPromise,
-		sitemapPromise,
-		rssPromise,
-	]);
-	if (robotsSettled.status === 'rejected') {
-		console.error('[auditSite] robots.txt fetch failed:', robotsSettled.reason);
-	}
-	if (llmsSettled.status === 'rejected') {
-		console.error('[auditSite] llms.txt fetch failed:', llmsSettled.reason);
-	}
-	if (sitemapSettled.status === 'rejected') {
-		console.error('[auditSite] sitemap check failed:', sitemapSettled.reason);
-	}
-	if (rssSettled.status === 'rejected') {
-		console.error('[auditSite] rss.php fetch failed:', rssSettled.reason);
-	}
-	const robots =
-		robotsSettled.status === 'fulfilled'
-			? robotsSettled.value
-			: emptyFetchedPageFallback(new URL('/robots.txt', origin).toString());
-	const llms =
-		llmsSettled.status === 'fulfilled'
-			? llmsSettled.value
-			: emptyFetchedPageFallback(new URL('/llms.txt', origin).toString());
-	const sitemapResult =
-		sitemapSettled.status === 'fulfilled' ? sitemapSettled.value : emptySitemapResultFallback(origin);
-	const rssPage =
-		rssSettled.status === 'fulfilled'
-			? rssSettled.value
-			: emptyFetchedPageFallback(new URL('/rss.php', origin).toString());
-	const rssContentType = rssPage.security?.contentType || rssPage.headers['content-type'] || null;
-	const rssFileOk = isRssFeedDocument(rssPage.text, rssPage.status, rssContentType);
-	const rssLinkHrefs = extractRssAlternateHrefs(html, finalUrl.toString());
-	const hasRssFeed = rssFileOk || rssLinkHrefs.length > 0;
-	const rssFeedEvidence = rssFileOk
-		? `GET /rss.php — ${rssPage.status ?? '200'} · ${rssContentType || 'text/xml'}${isRssXmlContentType(rssContentType) ? '' : ' · XML body'}`
-		: rssLinkHrefs.length > 0
-			? `RSS link rel=alternate href="${rssLinkHrefs[0]}"`
-			: `GET /rss.php — ${rssPage.status ?? 'unreachable'} · Content-Type ${rssContentType || 'n/a'}`;
-	const hasLlmsTxt = isLlmsTxtDocument(llms.text, llms.status);
-	const llmsTxtEvidence = hasLlmsTxt
-		? `GET /llms.txt — ${llms.status ?? '200'} · ${llms.bytes}B`
-		: `GET /llms.txt — ${llms.status ?? 'unreachable'}`;
-	console.timeEnd('[Audit Timer] 2. Parallel Analysis (Semantic + Schema + llms.txt)');
-
-	const logoTask = resolveSiteLogo(html, finalUrl.toString(), siteMeta.domain, {
-		$,
-		ogImage: siteMeta.ogImage,
-	}).catch((error) => {
-		console.error('[auditSite] deep logo resolve failed:', error);
-		return siteMeta.logoUrl ?? null;
-	});
+	// CPU-only signals from the homepage DOM — available immediately so
+	// specialty crawls / SoV / logo can start without waiting on robots/sitemap.
 	const pageSpecificTitle = sanitizeMainPageTitle(
 		splitPageTitle(parsed.meta.title, siteMeta.brandName) ||
 			parsed.meta.pageTitle ||
@@ -1482,6 +1484,19 @@ export async function auditSite(
 	const navItems = extractNavItems($, finalUrl.toString());
 	const gnbCollectedUrls = navItems.map((item) => item.url).filter(Boolean);
 	const footerText = extractFooterLegalText($, 2500);
+	const emptyPageMetaPack = {
+		pageMetas: [] as CrawledPageMeta[],
+		collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+		fullAudit: undefined as FullAuditReportSlice | undefined,
+	};
+
+	const logoTask = resolveSiteLogo(html, finalUrl.toString(), siteMeta.domain, {
+		$,
+		ogImage: siteMeta.ogImage,
+	}).catch((error) => {
+		console.error('[auditSite] deep logo resolve failed:', error);
+		return siteMeta.logoUrl ?? null;
+	});
 	const competitorRegion = siteMeta.location || siteMeta.broadLocation;
 	const competitorIndustry = resolveIndustryConfigFromSite({
 		lang,
@@ -1535,6 +1550,10 @@ export async function auditSite(
 		categoryName: siteMeta.category,
 		lang,
 		query: competitorPresets[0] || competitorPresets[1],
+		brandAliases: siteMeta.brandAliases,
+		industryType: siteMeta.industryType,
+		schemaTypes: siteMeta.schemaEntityTypes,
+		productTokens: siteMeta.coreSpecialties,
 	})
 		.then((result) => {
 			console.log(`[Audit Timer] 3. External SoV Search API: ${Date.now() - sovStart}ms`);
@@ -1545,103 +1564,145 @@ export async function auditSite(
 			console.log(`[Audit Timer] 3. External SoV Search API (failed): ${Date.now() - sovStart}ms`);
 			return undefined;
 		});
+	const shallowPageMetas = () =>
+		crawlCollectedPageMetas({
+			origin: finalUrl.origin,
+			mainUrl: finalUrl.toString(),
+			collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+			siteName: siteMeta.brandName,
+			mainTitle: pageSpecificTitle,
+			mainDescription: parsed.meta.metaDescription,
+			navItems,
+			industryType: siteMeta.industryType,
+			forceRefresh,
+			limit: 20,
+		}).then((pageMetas) => ({
+			pageMetas,
+			collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+			fullAudit: undefined as FullAuditReportSlice | undefined,
+		}));
+
 	const pageMetasTask = (
 		useFullAudit
-			? runFullAudit({
-					origin: finalUrl.origin,
-					mainUrl: finalUrl.toString(),
-					homepageHtml: html,
-					robotsText: robots.text,
-					navItems,
-					siteName: siteMeta.brandName,
-					mainTitle: pageSpecificTitle,
-					mainDescription: parsed.meta.metaDescription,
-					industryType: siteMeta.industryType,
-					cmsHint: detectCmsFromHtml(html),
-					forceRefresh,
-					useDeltaCache,
-					lang,
-					onProgress: options?.onProgress,
-				})
-					.then((result) => ({
+			? Promise.all([
+					withTimeoutFallback(
+						robotsPromise,
+						AUX_FETCH_TIMEOUT_MS + 200,
+						'robots-for-audit',
+						emptyFetchedPageFallback(new URL('/robots.txt', origin).toString()),
+					),
+					withTimeoutFallback(
+						sitemapPromise,
+						AUX_FETCH_TIMEOUT_MS + 200,
+						'sitemap-for-audit',
+						emptySitemapResultFallback(origin),
+					),
+				]).then(([robotsPage, sitemap]) =>
+					runFullAudit({
+						origin: finalUrl.origin,
+						mainUrl: finalUrl.toString(),
+						homepageHtml: html,
+						robotsText: robotsPage.text,
+						sitemapLocs: sitemap.urls,
+						skipSitemapEnum: true,
+						navItems,
+						siteName: siteMeta.brandName,
+						mainTitle: pageSpecificTitle,
+						mainDescription: parsed.meta.metaDescription,
+						industryType: siteMeta.industryType,
+						cmsHint: detectCmsFromHtml(html),
+						forceRefresh,
+						useDeltaCache,
+						lang,
+						maxPages: fullAuditLimits.maxPages,
+						timeBudgetMs: fullAuditLimits.timeBudgetMs,
+						maxBfsRounds: fullAuditLimits.maxBfsRounds,
+						onProgress: options?.onProgress,
+					}).then((result) => ({
 						pageMetas: result.pageMetas,
 						collectedUrls: result.discoveredUrls,
 						fullAudit: toFullAuditReportSlice(result),
-					}))
+					})),
+				)
 					.catch((error) => {
 						console.error('[auditSite] full audit failed, falling back to shallow crawl:', error);
-						return crawlCollectedPageMetas({
-							origin: finalUrl.origin,
-							mainUrl: finalUrl.toString(),
-							collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
-							siteName: siteMeta.brandName,
-							mainTitle: pageSpecificTitle,
-							mainDescription: parsed.meta.metaDescription,
-							navItems,
-							industryType: siteMeta.industryType,
-							forceRefresh,
-						}).then((pageMetas) => ({
-							pageMetas,
-							collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
-							fullAudit: undefined as FullAuditReportSlice | undefined,
-						}));
+						return shallowPageMetas();
 					})
-			: crawlCollectedPageMetas({
-					origin: finalUrl.origin,
-					mainUrl: finalUrl.toString(),
-					collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
-					siteName: siteMeta.brandName,
-					mainTitle: pageSpecificTitle,
-					mainDescription: parsed.meta.metaDescription,
-					navItems,
-					industryType: siteMeta.industryType,
-					forceRefresh,
-				}).then((pageMetas) => ({
-					pageMetas,
-					collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
-					fullAudit: undefined as FullAuditReportSlice | undefined,
-				}))
+			: shallowPageMetas()
 	).catch((error) => {
 		console.error('[auditSite] subpage crawl failed:', error);
-		return {
-			pageMetas: [] as CrawledPageMeta[],
-			collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
-			fullAudit: undefined as FullAuditReportSlice | undefined,
-		};
+		return emptyPageMetaPack;
 	});
 	const greetingTask = crawlGreetingPagesHtml({
 		origin: finalUrl.origin,
 		collectedUrls: parsed.internalLinks,
 		navItems,
 		forceRefresh,
-	}).catch((error) => {
-		console.error('[auditSite] greeting crawl failed:', error);
-		return { html: '', urls: [], pages: [] };
 	});
 	const doctorTask = crawlDoctorPagesHtml({
 		origin: finalUrl.origin,
 		collectedUrls: parsed.internalLinks,
 		navItems,
 		forceRefresh,
-	}).catch((error) => {
-		console.error('[auditSite] doctor crawl failed:', error);
-		return { html: '', urls: [], pages: [] };
 	});
 	const locationTask = crawlLocationPagesHtml({
 		origin: finalUrl.origin,
 		collectedUrls: parsed.internalLinks,
 		navItems,
 		forceRefresh,
-	}).catch((error) => {
-		console.error('[auditSite] location crawl failed:', error);
-		return { html: '', urls: [], pages: [] };
 	});
-	const [pageMetaPack, greetingPages, doctorPages, locationPages] = await Promise.all([
-		pageMetasTask,
-		greetingTask,
-		doctorTask,
-		locationTask,
+
+	// Aux fetches + specialty crawls + page census all race in parallel.
+	// `Promise.all` + per-task timeout means one hung hop never blocks the rest.
+	const [
+		robots,
+		llms,
+		sitemapResult,
+		rssPage,
+		pageMetaPack,
+		greetingPages,
+		doctorPages,
+		locationPages,
+	] = await Promise.all([
+		withTimeoutFallback(
+			robotsPromise,
+			AUX_FETCH_TIMEOUT_MS + 200,
+			'robots.txt',
+			emptyFetchedPageFallback(new URL('/robots.txt', origin).toString()),
+		),
+		withTimeoutFallback(
+			llmsPromise,
+			AUX_FETCH_TIMEOUT_MS + 200,
+			'llms.txt',
+			emptyFetchedPageFallback(new URL('/llms.txt', origin).toString()),
+		),
+		withTimeoutFallback(sitemapPromise, AUX_FETCH_TIMEOUT_MS + 200, 'sitemap', emptySitemapResultFallback(origin)),
+		withTimeoutFallback(
+			rssPromise,
+			AUX_FETCH_TIMEOUT_MS + 200,
+			'rss.php',
+			emptyFetchedPageFallback(new URL('/rss.php', origin).toString()),
+		),
+		withTimeoutFallback(pageMetasTask, pageMetasTimeoutMs, 'pageMetas/fullAudit', emptyPageMetaPack),
+		withTimeoutFallback(greetingTask, SUBTASK_TIMEOUT_MS, 'greeting crawl', EMPTY_SPECIALTY_PAGES),
+		withTimeoutFallback(doctorTask, SUBTASK_TIMEOUT_MS, 'doctor crawl', EMPTY_SPECIALTY_PAGES),
+		withTimeoutFallback(locationTask, SUBTASK_TIMEOUT_MS, 'location crawl', EMPTY_SPECIALTY_PAGES),
 	]);
+	const rssContentType = rssPage.security?.contentType || rssPage.headers['content-type'] || null;
+	const rssFileOk = isRssFeedDocument(rssPage.text, rssPage.status, rssContentType);
+	const rssLinkHrefs = extractRssAlternateHrefs(html, finalUrl.toString());
+	const hasRssFeed = rssFileOk || rssLinkHrefs.length > 0;
+	const rssFeedEvidence = rssFileOk
+		? `GET /rss.php — ${rssPage.status ?? '200'} · ${rssContentType || 'text/xml'}${isRssXmlContentType(rssContentType) ? '' : ' · XML body'}`
+		: rssLinkHrefs.length > 0
+			? `RSS link rel=alternate href="${rssLinkHrefs[0]}"`
+			: `GET /rss.php — ${rssPage.status ?? 'unreachable'} · Content-Type ${rssContentType || 'n/a'}`;
+	const hasLlmsTxt = isLlmsTxtDocument(llms.text, llms.status);
+	const llmsTxtEvidence = hasLlmsTxt
+		? `GET /llms.txt — ${llms.status ?? '200'} · ${llms.bytes}B`
+		: `GET /llms.txt — ${llms.status ?? 'unreachable'}`;
+	console.timeEnd('[Audit Timer] 2. Parallel Analysis (Semantic + Schema + llms.txt)');
+
 	const pageMetas = pageMetaPack.pageMetas;
 	const censusUrls = pageMetaPack.collectedUrls;
 	const fullAuditSlice = pageMetaPack.fullAudit;
@@ -2074,7 +2135,14 @@ export async function auditSite(
 		.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'critical' ? -1 : 1))
 		.slice(0, 8);
 
-	const [fetchedCompetitors, resolvedLogo] = await Promise.all([competitorTask, logoTask]);
+	const tailMs = Math.max(
+		200,
+		Math.min(SUBTASK_TIMEOUT_MS, AUDIT_SITE_BUDGET_MS - (Date.now() - pipelineStart)),
+	);
+	const [fetchedCompetitors, resolvedLogo] = await Promise.all([
+		withTimeoutFallback(competitorTask, tailMs, 'competitor SoV', undefined),
+		withTimeoutFallback(logoTask, tailMs, 'logo resolve', siteMeta.logoUrl ?? null),
+	]);
 	const realCompetitors = snapshotHasRealCompetitors(fetchedCompetitors)
 		? fetchedCompetitors
 		: undefined;

@@ -56,20 +56,51 @@ import {
 import { enumerateSitemapUrls, extractSitemapUrlsFromRobots } from '@/lib/audit/sitemap';
 import { detectCmsFromHtml, isGnuboardHtml } from '@/lib/crawling/cms-from-html';
 
-export const FULL_AUDIT_CONCURRENCY = 8;
-export const FULL_AUDIT_FETCH_TIMEOUT_MS = 8_000;
-export const FULL_AUDIT_MAX_PAGES = 500;
+export const FULL_AUDIT_CONCURRENCY = 10;
+export const FULL_AUDIT_FETCH_TIMEOUT_MS = 4_000;
+/**
+ * Public lead-magnet scan: homepage + GNB + key CMS/sitemap pages.
+ * Not a 500-page census — that ceiling never finished inside the serverless budget.
+ */
+export const FULL_AUDIT_MAX_PAGES = 40;
+/** Admin / deep recrawl ceiling. Still time-boxed; not a guaranteed full-site walk. */
+export const FULL_AUDIT_DEEP_MAX_PAGES = 500;
 export const FULL_AUDIT_MAX_HTML_CHARS = 1_500_000;
-export const FULL_AUDIT_MAX_BFS_ROUNDS = 2;
+export const FULL_AUDIT_MAX_BFS_ROUNDS = 1;
+export const FULL_AUDIT_DEEP_MAX_BFS_ROUNDS = 2;
 /**
  * Wall-clock ceiling on the whole BFS crawl below. Each page fetch already has its own
  * `FULL_AUDIT_FETCH_TIMEOUT_MS` cap, but with up to `FULL_AUDIT_MAX_PAGES` pages that per-page
- * cap alone does not bound total runtime — a large site could still take several minutes and
- * leave `/api/audit/scan`'s caller hanging well past its own deadline. Once this budget is
- * exceeded the crawl stops picking up new pages and returns whatever it already parsed instead
- * of continuing indefinitely; kept comfortably under the scan route's `TRACK_1_2_DEADLINE_MS`.
+ * cap alone does not bound total runtime. Stop picking up new pages once this budget is
+ * exceeded and return whatever is already parsed — sized so Track 1/2 can finish in 5–15s
+ * even when a few in-flight fetches overshoot by one timeout.
  */
-export const FULL_AUDIT_TIME_BUDGET_MS = 45_000;
+export const FULL_AUDIT_TIME_BUDGET_MS = 8_000;
+/** Deep recrawl budget — matches the pre-quick-scan HEAD census window. */
+export const FULL_AUDIT_DEEP_TIME_BUDGET_MS = 45_000;
+/** Live sitemap index walk is optional; the scan path already fetched a urlset. */
+export const FULL_AUDIT_SITEMAP_BUDGET_MS = 2_000;
+
+export type FullAuditDepth = 'quick' | 'deep';
+
+export function resolveFullAuditLimits(depth: FullAuditDepth = 'quick'): {
+	maxPages: number;
+	timeBudgetMs: number;
+	maxBfsRounds: number;
+} {
+	if (depth === 'deep') {
+		return {
+			maxPages: FULL_AUDIT_DEEP_MAX_PAGES,
+			timeBudgetMs: FULL_AUDIT_DEEP_TIME_BUDGET_MS,
+			maxBfsRounds: FULL_AUDIT_DEEP_MAX_BFS_ROUNDS,
+		};
+	}
+	return {
+		maxPages: FULL_AUDIT_MAX_PAGES,
+		timeBudgetMs: FULL_AUDIT_TIME_BUDGET_MS,
+		maxBfsRounds: FULL_AUDIT_MAX_BFS_ROUNDS,
+	};
+}
 
 const ASSET_EXT_RE = /\.(css|js|mjs|map|png|jpe?g|gif|svg|webp|avif|ico|bmp|pdf|zip|rar|7z|mp4|mp3|woff2?|ttf|eot|otf|exe|dmg)(?:$|\?)/i;
 const ACCOUNT_RE =
@@ -225,6 +256,11 @@ export type RunFullAuditOptions = {
 	maxBfsRounds?: number;
 	/** Overrides `FULL_AUDIT_TIME_BUDGET_MS` — wall-clock ceiling on the whole BFS crawl. */
 	timeBudgetMs?: number;
+	/**
+	 * Skip a second live sitemap walk when the caller already fetched urlset locs
+	 * (or already confirmed there is no sitemap). Default false.
+	 */
+	skipSitemapEnum?: boolean;
 	lang?: 'ko' | 'en';
 	onProgress?: (progress: FullAuditProgress) => void;
 	fetchHtml?: FullAuditFetchHtml;
@@ -437,6 +473,36 @@ export function collectDiscoveredUrls(opts: {
 	}
 
 	return { urls, sources };
+}
+
+const SOURCE_PRIORITY: Record<FullAuditSource, number> = {
+	seed: 0,
+	gnb: 1,
+	gnuboard_contents: 2,
+	cms_pattern: 3,
+	sitemap: 4,
+	robots: 5,
+	html_link: 6,
+	gnuboard_board: 7,
+	bfs: 8,
+};
+
+/**
+ * Keep the time-boxed crawl on high-signal pages (homepage, GNB, CMS contents,
+ * sitemap) instead of burning the budget on footer/board/BFS leftovers.
+ */
+export function prioritizeDiscoveredUrls(
+	urls: string[],
+	sources: Map<string, FullAuditSource>,
+	maxPages: number,
+): string[] {
+	return [...urls]
+		.sort((a, b) => {
+			const ra = SOURCE_PRIORITY[sources.get(a.toLowerCase()) || 'html_link'] ?? 9;
+			const rb = SOURCE_PRIORITY[sources.get(b.toLowerCase()) || 'html_link'] ?? 9;
+			return ra - rb;
+		})
+		.slice(0, Math.max(1, maxPages));
 }
 
 export function extractPinpointBody($: CheerioAPI): string {
@@ -829,7 +895,7 @@ export async function runFullAudit(opts: RunFullAuditOptions): Promise<FullAudit
 	const timeBudgetMs = opts.timeBudgetMs ?? FULL_AUDIT_TIME_BUDGET_MS;
 	const deadlineAt = pipelineStartedAt + timeBudgetMs;
 	const origin = normalizeSiteOrigin(opts.origin);
-	const concurrency = Math.min(10, Math.max(5, opts.concurrency ?? FULL_AUDIT_CONCURRENCY));
+	const concurrency = Math.min(12, Math.max(5, opts.concurrency ?? FULL_AUDIT_CONCURRENCY));
 	const maxPages = opts.maxPages ?? FULL_AUDIT_MAX_PAGES;
 	const maxBfsRounds = opts.maxBfsRounds ?? FULL_AUDIT_MAX_BFS_ROUNDS;
 	const useDelta = opts.useDeltaCache !== false;
@@ -837,15 +903,19 @@ export async function runFullAudit(opts: RunFullAuditOptions): Promise<FullAudit
 	const fetchHtml = opts.fetchHtml || defaultFetchHtml(opts.forceRefresh === true);
 	const emit = opts.onProgress;
 
+	const suppliedLocs = (opts.sitemapLocs || []).filter(Boolean);
 	const sitemapLocs =
-		opts.sitemapLocs ||
-		(opts.fetchHtml
-			? []
+		suppliedLocs.length > 0 || opts.skipSitemapEnum || Boolean(opts.fetchHtml)
+			? suppliedLocs
 			: (
 					await enumerateSitemapUrls(origin, opts.robotsText || '', {
 						forceRefresh: opts.forceRefresh,
+						timeBudgetMs: Math.min(
+							FULL_AUDIT_SITEMAP_BUDGET_MS,
+							Math.max(0, deadlineAt - Date.now()),
+						),
 					}).catch(() => ({ locs: [] as string[] }))
-				).locs);
+				).locs;
 
 	const seed = collectDiscoveredUrls({
 		origin,
@@ -905,7 +975,7 @@ export async function runFullAudit(opts: RunFullAuditOptions): Promise<FullAudit
 		misses: 0,
 	});
 
-	const queue = seed.urls.slice(0, maxPages);
+	const queue = prioritizeDiscoveredUrls(seed.urls, seed.sources, maxPages);
 	const queued = new Set(queue.map((u) => u.toLowerCase()));
 	const htmlByPath = new Map<string, string>();
 	if (opts.homepageHtml) {
@@ -1080,7 +1150,7 @@ export async function runFullAudit(opts: RunFullAuditOptions): Promise<FullAudit
 	}
 	if (mode === 'full') nextCache.last_full_scan = Date.now();
 	if (opts.persistCache !== false) {
-		await saveDeltaCache(nextCache).catch((err) => {
+		void saveDeltaCache(nextCache).catch((err) => {
 			console.warn('[full-audit] cache persist skipped:', err instanceof Error ? err.message : err);
 		});
 	}

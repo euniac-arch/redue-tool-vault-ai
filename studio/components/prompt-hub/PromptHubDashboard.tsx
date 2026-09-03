@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Bookmark, LayoutGrid, Search, Sparkles, type LucideIcon } from 'lucide-react';
 import { resolveLucideIcon } from '@/components/admin/ai-tools/ai-tools-badges';
 import { PromptCard } from '@/components/prompt-hub/PromptCard';
-import { PromptHubNextSteps, PromptHubRoleMap } from '@/components/prompt-hub/PromptHubNextSteps';
+import { PromptHubNextSteps } from '@/components/prompt-hub/PromptHubNextSteps';
 import {
 	PROMPT_CATEGORIES,
 	PROMPT_SORT_OPTIONS,
@@ -56,8 +56,6 @@ export function PromptHubDashboard() {
 					SEO · GEO · AEO · Entity · Schema · Local 작업에 바로 사용할 수 있는 범용 프롬프트입니다. 특정 사이트
 					작업안이 아니라, AI에게 무엇을 시킬지를 제공합니다.
 				</p>
-
-				<PromptHubRoleMap />
 
 				<div className="relative mt-1 max-w-xl">
 					<Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

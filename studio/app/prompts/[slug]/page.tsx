@@ -57,11 +57,9 @@ export default function PromptDetailPage({ params }: PromptDetailPageProps) {
 	return (
 		<div className="flex min-h-full flex-col bg-transparent">
 			<script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-			<div className="flex w-full items-center justify-center bg-transparent">
-				<Suspense fallback={null}>
-					<InsightsHubTabs />
-				</Suspense>
-			</div>
+			<Suspense fallback={null}>
+				<InsightsHubTabs />
+			</Suspense>
 			<div className="flex flex-1 flex-col bg-transparent pt-8">
 				<Suspense fallback={<PageListLoader label={prompt.title} />}>
 					<PromptDetailView prompt={prompt} />

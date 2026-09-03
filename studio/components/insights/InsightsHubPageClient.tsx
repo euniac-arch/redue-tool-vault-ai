@@ -1,11 +1,29 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { AiHubDashboard } from '@/components/ai-hub/AiHubDashboard';
-import { AeoGeoGuideContent } from '@/components/aeo-geo/AeoGeoGuideContent';
-import { InsightsDashboard } from '@/components/insights/InsightsDashboard';
 import { InsightsHubTabs, resolveInsightsHubTab } from '@/components/insights/InsightsHubTabs';
-import { PromptHubDashboard } from '@/components/prompt-hub/PromptHubDashboard';
+import { PageListLoader } from '@/components/ui/PageListLoader';
+
+const InsightsDashboard = dynamic(
+	() => import('@/components/insights/InsightsDashboard').then((mod) => mod.InsightsDashboard),
+	{ ssr: false, loading: () => <PageListLoader label="인사이트 뉴스를 불러오는 중" /> },
+);
+
+const AiHubDashboard = dynamic(
+	() => import('@/components/ai-hub/AiHubDashboard').then((mod) => mod.AiHubDashboard),
+	{ ssr: false, loading: () => <PageListLoader label="AI 도구 허브" /> },
+);
+
+const PromptHubDashboard = dynamic(
+	() => import('@/components/prompt-hub/PromptHubDashboard').then((mod) => mod.PromptHubDashboard),
+	{ ssr: false, loading: () => <PageListLoader label="AI 프롬프트 허브" /> },
+);
+
+const AeoGeoGuideContent = dynamic(
+	() => import('@/components/aeo-geo/AeoGeoGuideContent').then((mod) => mod.AeoGeoGuideContent),
+	{ ssr: false, loading: () => <PageListLoader label="AEO · GEO" /> },
+);
 
 const KICKER =
 	'inline-flex w-fit items-center gap-2 rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-700 dark:border-[#1f3a5a] dark:bg-[#0b1726] dark:text-[#4fd1d9]';
@@ -38,9 +56,7 @@ export function InsightsHubPageClient() {
 
 	return (
 		<div className="flex min-h-full flex-col bg-transparent">
-			<div className="flex w-full items-center justify-center bg-transparent">
-				<InsightsHubTabs />
-			</div>
+			<InsightsHubTabs />
 			<div className="flex flex-1 flex-col bg-transparent pt-8">
 				{tab === 'aeo-geo' ? <AeoGeoGuideContent /> : null}
 				{tab === 'ai-hub' ? (

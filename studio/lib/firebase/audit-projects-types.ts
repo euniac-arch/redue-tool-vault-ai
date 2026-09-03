@@ -56,6 +56,10 @@ export interface AuditProjectPayload {
 /** Diagnosing party captured at scan time. */
 export type DiagnosisUserType = 'admin' | 'user' | 'guest';
 
+/** Public "도입 사례 (Case Studies)" listing type: real client proof vs. an
+ *  industry simulation model. Mirrors `CaseStudyKind` in `lib/case-study-types.ts`. */
+export type CaseStudyType = 'verified' | 'simulation';
+
 export interface AuditProjectDoc {
 	id: string;
 	url: string;
@@ -71,6 +75,18 @@ export interface AuditProjectDoc {
 	userId: string | null;
 	/** Optional: guest fingerprinting / abuse prevention. */
 	userAgent?: string | null;
+	/** Admin-controlled public "도입 사례" exposure toggle. Defaults to false for legacy docs. */
+	isCaseStudy: boolean;
+	/** "verified" | "simulation". Null while isCaseStudy is false. */
+	caseStudyType: CaseStudyType | null;
+	/** Admin-authored pre-optimization Before scores for case-study cards. */
+	customBaseline?: {
+		overall: number;
+		seo?: number | null;
+		performance?: number | null;
+		schema?: number | null;
+		geo?: number | null;
+	} | null;
 }
 
 export interface AuditProjectCreateInput {
@@ -234,6 +250,10 @@ export function mapAuditProjectDoc(
 		url,
 	);
 
+	const rawCaseStudyType = typeof data.caseStudyType === 'string' ? data.caseStudyType.trim() : '';
+	const caseStudyType: CaseStudyType | null =
+		rawCaseStudyType === 'verified' || rawCaseStudyType === 'simulation' ? rawCaseStudyType : null;
+
 	return {
 		id,
 		url,
@@ -248,6 +268,36 @@ export function mapAuditProjectDoc(
 		userType,
 		userId: typeof data.userId === 'string' ? data.userId : null,
 		userAgent: typeof data.userAgent === 'string' ? data.userAgent : null,
+		isCaseStudy: Boolean(data.isCaseStudy) && caseStudyType != null,
+		caseStudyType,
+		customBaseline: parseStoredCustomBaseline(data.customBaseline ?? data.custom_baseline),
+	};
+}
+
+function parseStoredCustomBaseline(
+	raw: unknown,
+): AuditProjectDoc['customBaseline'] {
+	if (typeof raw === 'string') {
+		try {
+			raw = JSON.parse(raw);
+		} catch {
+			return null;
+		}
+	}
+	if (!raw || typeof raw !== 'object') return null;
+	const row = raw as Record<string, unknown>;
+	const overall = typeof row.overall === 'number' && Number.isFinite(row.overall) ? Math.round(row.overall) : null;
+	if (overall == null || overall < 0 || overall > 100) return null;
+	const asScore = (value: unknown) =>
+		typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 100
+			? Math.round(value)
+			: null;
+	return {
+		overall,
+		seo: asScore(row.seo),
+		performance: asScore(row.performance ?? row.cwv),
+		schema: asScore(row.schema),
+		geo: asScore(row.geo ?? row.eeat),
 	};
 }
 

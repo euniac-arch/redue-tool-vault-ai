@@ -14,9 +14,11 @@ import {
 	mentionsBrandOrSite,
 	urlMatchesSite,
 } from '@/lib/audit/live-check-mentions';
+import { classifyCitations } from '@/lib/audit/universal-sov-engine';
 import type {
 	GroundingTier,
 	LiveCheckEngineId,
+	LiveCitationMention,
 	LiveEngineCheckResult,
 	LiveGroundedEngineId,
 	LiveReachLevel,
@@ -41,6 +43,7 @@ export interface LiveCheckParse {
 	evidenceSnippet: string;
 	citationUrl?: string;
 	reachLevel?: LiveReachLevel;
+	citations?: LiveCitationMention[];
 }
 
 /**
@@ -294,6 +297,7 @@ export function parseLLMResponse(
 	evidenceSnippet: string;
 	reachLevel: LiveReachLevel;
 	citationUrl?: string;
+	citations?: LiveCitationMention[];
 } {
 	const json = extractJsonFromText(rawText);
 	if (!json) {
@@ -306,6 +310,7 @@ export function parseLLMResponse(
 	const mentionType = parseMentionType(json.mentionType, isCited, rank);
 	const rawSnippet = asTrim(json.evidenceSnippet ?? json.evidence ?? json.snippet ?? json.reason);
 	const snippet = sanitizeEvidenceSnippet(rawSnippet, isCited, rawSnippet ? defaultSnippet : undefined);
+	const citations = parseCitationMentions(json.citations);
 	return {
 		isCited: mentionType !== 'none' && isCited,
 		mentionType,
@@ -313,7 +318,22 @@ export function parseLLMResponse(
 		evidenceSnippet: snippet,
 		reachLevel: parseReachLevel(json.reachLevel, isCited),
 		citationUrl: asTrim(json.citationUrl ?? json.url ?? json.sourceUrl) || undefined,
+		citations,
 	};
+}
+
+function parseCitationMentions(raw: unknown): LiveCitationMention[] | undefined {
+	if (!Array.isArray(raw)) return undefined;
+	const out: LiveCitationMention[] = [];
+	for (const item of raw) {
+		if (!item || typeof item !== 'object') continue;
+		const row = item as Record<string, unknown>;
+		const url = asTrim(row.url);
+		const title = asTrim(row.title);
+		if (!url && !title) continue;
+		out.push({ title, url, isTargetMention: row.isTargetMention === true });
+	}
+	return out.length ? out : undefined;
 }
 
 /**
@@ -330,26 +350,45 @@ export function parseLiveCheckPayload(
 	siteName: string,
 	siteUrl: string,
 	citationCandidates: readonly string[] = [],
+	extraAliases: readonly string[] = [],
 ): LiveCheckParse {
 	const parsed = parseLLMResponse(rawText, DEFAULT_UNCITED_SNIPPET);
-	const textCited = mentionsBrandOrSite(rawText, siteName, siteUrl);
+	const textCited = mentionsBrandOrSite(rawText, siteName, siteUrl, extraAliases);
 	const isCited = parsed.isCited || textCited;
 	const mentionType: MentionType =
 		parsed.mentionType !== 'none' ? parsed.mentionType : textCited ? 'simple_mention' : 'none';
-	const rank = mentionType === 'recommended' ? parsed.rank || detectCitedRank(rawText, siteName, siteUrl) : null;
+	const rank = mentionType === 'recommended' ? parsed.rank || detectCitedRank(rawText, siteName, siteUrl, extraAliases) : null;
 	const jsonUrl = parsed.citationUrl || '';
 	const matchedCitation =
 		(jsonUrl && urlMatchesSite(jsonUrl, siteUrl) ? jsonUrl : '') ||
 		citationCandidates.find((url) => urlMatchesSite(url, siteUrl)) ||
 		(jsonUrl || citationCandidates[0] || '');
+	const classified = classifyCitationList(parsed.citations, citationCandidates, siteUrl, extraAliases);
+	const earnedCited = classified?.some((row) => row.isTargetMention) === true;
 	return {
-		isCited,
-		mentionType,
+		isCited: isCited || earnedCited,
+		mentionType: earnedCited && mentionType === 'none' ? 'simple_mention' : mentionType,
 		rank,
-		evidenceSnippet: sanitizeEvidenceSnippet(parsed.evidenceSnippet, isCited),
+		evidenceSnippet: sanitizeEvidenceSnippet(parsed.evidenceSnippet, isCited || earnedCited),
 		citationUrl: matchedCitation || undefined,
 		reachLevel: parsed.reachLevel,
+		citations: classified,
 	};
+}
+
+function classifyCitationList(
+	parsed: LiveCitationMention[] | undefined,
+	candidates: readonly string[],
+	siteUrl: string,
+	brandAliases: readonly string[],
+): LiveCitationMention[] | undefined {
+	const rows = [
+		...(parsed ?? []),
+		...candidates.map((url) => ({ title: '', url, isTargetMention: false })),
+	];
+	const classified = classifyCitations(rows, siteUrl, brandAliases);
+	if (!classified.length) return parsed;
+	return classified.map(({ title, url, isTargetMention }) => ({ title, url, isTargetMention }));
 }
 
 export interface LiveResultContext {
@@ -357,6 +396,7 @@ export interface LiveResultContext {
 	targetBrand?: string;
 	targetDomain?: string;
 	citationCandidates?: readonly string[];
+	brandAliases?: readonly string[];
 }
 
 function composeGroundingText(parsed: LiveCheckParse, context?: LiveResultContext): string {
@@ -497,20 +537,22 @@ export function buildLiveEngineResult(
 						citationUrl: parsed.citationUrl,
 						mentionType: parsed.mentionType,
 						citationCandidates: context?.citationCandidates,
+						brandAliases: context?.brandAliases,
 					},
 				)
 			: undefined;
 
 	if (evaluation) {
-		const isCited = evaluation.tier !== 'NOT_FOUND';
-		const mentionType = mentionTypeForTier(evaluation.tier);
+		const earnedMention = parsed.citations?.some((row) => row.isTargetMention) === true;
+		const isCited = evaluation.tier !== 'NOT_FOUND' || earnedMention;
+		const mentionType = isCited && evaluation.tier === 'NOT_FOUND' ? 'simple_mention' : mentionTypeForTier(evaluation.tier);
 		const citationUrl = evaluation.citedUrl || parsed.citationUrl?.trim() || undefined;
 		return {
 			engine,
 			isLiveGrounded: true,
 			isCited,
 			mentionType,
-			reachLevel: reachLevelForTier(evaluation.tier, citationUrl),
+			reachLevel: reachLevelForTier(evaluation.tier === 'NOT_FOUND' && earnedMention ? 'NEUTRAL' : evaluation.tier, citationUrl),
 			liveScore: evaluation.liveScore,
 			evidenceSnippet: sanitizeEvidenceSnippet(
 				evaluation.citationExcerpt || parsed.evidenceSnippet,
@@ -519,9 +561,10 @@ export function buildLiveEngineResult(
 			),
 			citationUrl,
 			citedSources: collectCitedSources(citationUrl, context),
+			citations: parsed.citations,
 			fallbackToRuleScore: false,
-			citedRank: evaluation.tier === 'STRONG' ? parsed.rank || detectCitedRank(composedText, targetBrand, targetDomain) : null,
-			tier: evaluation.tier,
+			citedRank: evaluation.tier === 'STRONG' ? parsed.rank || detectCitedRank(composedText, targetBrand, targetDomain, context?.brandAliases) : null,
+			tier: evaluation.tier === 'NOT_FOUND' && earnedMention ? 'NEUTRAL' : evaluation.tier,
 			statusLabel: evaluation.statusLabel,
 			statusColor: evaluation.statusColor,
 			weaknessReasons: evaluation.weaknessReasons,
@@ -563,6 +606,7 @@ export function buildLiveEngineResult(
 		),
 		citationUrl,
 		citedSources: collectCitedSources(citationUrl, context),
+		citations: parsed.citations,
 		fallbackToRuleScore,
 		citedRank: inferredTier === 'STRONG' ? parsed.rank : null,
 		tier: inferredTier,

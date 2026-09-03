@@ -40,6 +40,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 			{ href: '/admin/self-healing', label: 'AI Self-Healing 관리', icon: '🤖', preserveId: true },
 			{ href: '/admin/schema-library', label: 'CMS별 주입 코드 라이브러리', icon: '📜' },
 			{ href: '/admin/naver-blog', label: '네이버 블로그 AI 포스팅', icon: '📝' },
+			{ href: '/admin/guides', label: '맞춤형 실행 가이드', icon: '📘' },
 		],
 	},
 	{

@@ -5956,6 +5956,9 @@ export function generateDynamicPhpSchema(
  * Emits the complete auto-injection PHP (protocol helpers + `$GLOBALS` interface
  * + Organization 5-core + Person KG + WebSite/WebPage + BreadcrumbList +
  * evidence-only HowTo/FAQPage) for Gnuboard, Youngcart, WordPress, Rhymix, or standalone PHP.
+ *
+ * Fact extraction + JSON-LD preview + CMS write plans live in
+ * `lib/solve/universal-schema` (`runUniversalSchemaEngine`).
  */
 export function generateSchemaInjector(
 	input: DynamicPhpSchemaInput,

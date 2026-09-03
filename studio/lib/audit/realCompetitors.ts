@@ -4,9 +4,14 @@
  * API failure / empty results fall back to statistical placeholder names.
  */
 
-import { anonymizedCompetitorLabel } from '@/lib/audit/anonymize-competitor';
-import { industryCategoryLabel, resolveIndustryVoice } from '@/lib/audit/universal-compliant-engine';
 import { matchCompetitorRoster } from '@/lib/audit/competitor-match';
+import {
+	filterIndustryListings,
+	filterIndustryNames,
+	looksLikePlaceOrBuildingQuery,
+	rewriteSovSearchQuery,
+	type SovIndustryContext,
+} from '@/lib/audit/sov-industry-guard';
 import { isSameBrandEntity } from '@/lib/geo/brand-entities';
 import { generateQueryMatrix } from '@/lib/geo/query-matrix';
 
@@ -21,6 +26,8 @@ export const SOV_LEADER_RESIDUAL_RATIO = 0.62;
 export const SOV_RUNNER_RESIDUAL_RATIO = 0.38;
 /** [Real-Time SoV] external search API budget — bounded per requirement (#4). */
 export const REAL_COMPETITOR_FETCH_TIMEOUT_MS = 4_000;
+/** Fetch extra local listings so industry filtering can still fill a top-5. */
+const SOV_SEARCH_DISPLAY = 15;
 
 const NAVER_LOCAL_ENDPOINT = 'https://openapi.naver.com/v1/search/local.json';
 const GOOGLE_TEXT_SEARCH_ENDPOINT = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
@@ -77,6 +84,10 @@ export interface CalculateCompetitorSovInput {
 	lang?: 'ko' | 'en';
 	/** Override the default `${region} ${mainService}` search query. */
 	query?: string;
+	brandAliases?: readonly string[];
+	industryType?: string;
+	schemaTypes?: readonly string[];
+	productTokens?: readonly string[];
 }
 
 type NaverLocalItem = {
@@ -89,6 +100,12 @@ type NaverLocalItem = {
 type GooglePlaceTextItem = {
 	name?: string;
 	formatted_address?: string;
+	types?: string[];
+};
+
+type LiveSearchListing = {
+	name: string;
+	category?: string;
 	types?: string[];
 };
 
@@ -207,11 +224,7 @@ export function buildLossInsight(region: string, mainService: string, leaderName
 }
 
 function resolveNaverCredentials(): { clientId: string; clientSecret: string } | null {
-	const clientId = (
-		process.env.NAVER_CLIENT_ID ||
-		process.env.NEXT_PUBLIC_NAVER_CLIENT_ID ||
-		''
-	).trim();
+	const clientId = (process.env.NAVER_CLIENT_ID || '').trim();
 	const clientSecret = (process.env.NAVER_CLIENT_SECRET || '').trim();
 	if (!clientId || !clientSecret) return null;
 	return { clientId, clientSecret };
@@ -241,8 +254,9 @@ export function toSearchRankList(rawSearchResults: readonly string[] | null | un
 export function findClientSearchIndex(
 	clientName: string,
 	rawSearchResults: readonly string[] | null | undefined,
+	brandAliases: readonly string[] = [],
 ): number {
-	return toSearchRankList(rawSearchResults).findIndex((name) => isSelfBrandName(name, clientName));
+	return toSearchRankList(rawSearchResults).findIndex((name) => isSelfBrandName(name, clientName, brandAliases));
 }
 
 /** 1-based search rank; 0 when the brand is not in the top 5. */
@@ -250,17 +264,14 @@ export function toClientRank(clientIndex: number): number {
 	return clientIndex >= 0 ? clientIndex + 1 : 0;
 }
 
-/**
- * Naver Local Search — raw top-5 titles for `${region} ${mainService}` (client included).
- */
-export async function fetchNaverSearchRankings(query: string): Promise<string[]> {
+async function fetchNaverListings(query: string): Promise<LiveSearchListing[]> {
 	const creds = resolveNaverCredentials();
 	if (!creds || !cleanPhrase(query)) return [];
 
 	try {
 		const url = new URL(NAVER_LOCAL_ENDPOINT);
 		url.searchParams.set('query', query);
-		url.searchParams.set('display', '5');
+		url.searchParams.set('display', String(SOV_SEARCH_DISPLAY));
 		url.searchParams.set('sort', 'comment');
 
 		const res = await fetch(url.toString(), {
@@ -276,11 +287,23 @@ export async function fetchNaverSearchRankings(query: string): Promise<string[]>
 			return [];
 		}
 		const data = (await res.json()) as { items?: NaverLocalItem[] };
-		return toSearchRankList((data.items || []).map((item) => item.title || ''));
+		return (data.items || [])
+			.map((item) => ({
+				name: cleanCompetitorName(item.title),
+				category: item.category || '',
+			}))
+			.filter((item) => item.name);
 	} catch (error) {
 		console.error('Failed to fetch Naver competitors:', error);
 		return [];
 	}
+}
+
+/**
+ * Naver Local Search — raw top-5 titles for `${region} ${mainService}` (client included).
+ */
+export async function fetchNaverSearchRankings(query: string): Promise<string[]> {
+	return toSearchRankList((await fetchNaverListings(query)).map((item) => item.name));
 }
 
 /**
@@ -291,10 +314,7 @@ export async function fetchNaverCompetitors(query: string): Promise<string[]> {
 	return fetchNaverSearchRankings(query);
 }
 
-/**
- * Google Places Text Search — raw top-5 names (client included).
- */
-export async function fetchGoogleSearchRankings(query: string): Promise<string[]> {
+async function fetchGoogleListings(query: string): Promise<LiveSearchListing[]> {
 	const apiKey = resolveGooglePlacesKey();
 	if (!apiKey || !cleanPhrase(query)) return [];
 
@@ -321,11 +341,23 @@ export async function fetchGoogleSearchRankings(query: string): Promise<string[]
 			console.warn('[realCompetitors] Google Places status:', data.status);
 			return [];
 		}
-		return toSearchRankList((data.results || []).map((item) => item.name || ''));
+		return (data.results || [])
+			.map((item) => ({
+				name: cleanCompetitorName(item.name),
+				types: item.types || [],
+			}))
+			.filter((item) => item.name);
 	} catch (error) {
 		console.error('Failed to fetch Google competitors:', error);
 		return [];
 	}
+}
+
+/**
+ * Google Places Text Search — raw top-5 names (client included).
+ */
+export async function fetchGoogleSearchRankings(query: string): Promise<string[]> {
+	return toSearchRankList((await fetchGoogleListings(query)).map((item) => item.name));
 }
 
 /**
@@ -345,14 +377,27 @@ export async function fetchGoogleCompetitors(query: string): Promise<string[]> {
  * preferred when it alone has enough listings (>=3); Google's result is
  * always awaited so it's available as a fallback/merge without a second hop.
  */
+function listingsToRankedNames(
+	listings: readonly LiveSearchListing[],
+	ctx?: SovIndustryContext,
+): string[] {
+	const guarded = ctx ? filterIndustryListings(listings, ctx) : listings;
+	return toSearchRankList(guarded.map((item) => item.name));
+}
+
 export async function resolveLiveSearchRankings(
 	query: string,
+	ctx?: SovIndustryContext,
 ): Promise<{ names: string[]; source: Exclude<RealCompetitorSource, 'fallback'> | 'fallback' }> {
+	const searchQuery = ctx ? rewriteSovSearchQuery(query, ctx) : query;
 	const [naverSettled, googleSettled] = await Promise.allSettled([
-		fetchNaverSearchRankings(query),
-		fetchGoogleSearchRankings(query),
+		fetchNaverListings(searchQuery),
+		fetchGoogleListings(searchQuery),
 	]);
-	const naverNames = naverSettled.status === 'fulfilled' ? naverSettled.value : [];
+	const naverNames = listingsToRankedNames(
+		naverSettled.status === 'fulfilled' ? naverSettled.value : [],
+		ctx,
+	);
 	if (naverSettled.status === 'rejected') {
 		console.error('[realCompetitors] Naver search rejected:', naverSettled.reason);
 	}
@@ -360,7 +405,10 @@ export async function resolveLiveSearchRankings(
 		return { names: naverNames.slice(0, 5), source: 'naver' };
 	}
 
-	const googleNames = googleSettled.status === 'fulfilled' ? googleSettled.value : [];
+	const googleNames = listingsToRankedNames(
+		googleSettled.status === 'fulfilled' ? googleSettled.value : [],
+		ctx,
+	);
 	if (googleSettled.status === 'rejected') {
 		console.error('[realCompetitors] Google search rejected:', googleSettled.reason);
 	}
@@ -375,12 +423,13 @@ export async function resolveLiveSearchRankings(
 export async function resolveLiveCompetitorNames(
 	query: string,
 	_excludeBrand?: string,
+	ctx?: SovIndustryContext,
 ): Promise<{
 	names: string[];
 	rankedNames: string[];
 	source: Exclude<RealCompetitorSource, 'fallback'> | 'fallback';
 }> {
-	const live = await resolveLiveSearchRankings(query);
+	const live = await resolveLiveSearchRankings(query, ctx);
 	return {
 		names: live.names,
 		rankedNames: live.names,
@@ -398,13 +447,29 @@ export function bindCompetitorSov(input: {
 	source: RealCompetitorSource;
 	lang?: 'ko' | 'en';
 	targetQuery?: string;
+	brandAliases?: readonly string[];
+	industryType?: string;
+	schemaTypes?: readonly string[];
+	productTokens?: readonly string[];
 }): CompetitorSovResult {
 	const lang = input.lang === 'en' ? 'en' : 'ko';
 	const region = cleanPhrase(input.region);
 	const mainService = cleanPhrase(input.mainService);
 	const categoryName = cleanPhrase(input.categoryName) || (lang === 'en' ? 'specialist' : '전문 기관');
 	const targetQuery = cleanPhrase(input.targetQuery) || buildCompetitorSearchQuery(region, mainService);
-	const rankedNames = toSearchRankList(input.rankedNames?.length ? input.rankedNames : input.realNames);
+	const industryCtx: SovIndustryContext = {
+		categoryName,
+		mainService,
+		region,
+		query: targetQuery,
+		industryType: input.industryType,
+		schemaTypes: input.schemaTypes,
+		lang,
+	};
+	let rankedNames = filterIndustryNames(
+		toSearchRankList(input.rankedNames?.length ? input.rankedNames : input.realNames),
+		industryCtx,
+	);
 	const matched = matchCompetitorRoster({
 		clientName: input.clientName,
 		rankedNames,
@@ -413,45 +478,50 @@ export function bindCompetitorSov(input: {
 		mainService,
 		region,
 		lang,
+		brandAliases: input.brandAliases,
+		industryType: input.industryType,
+		schemaTypes: input.schemaTypes,
+		productTokens: input.productTokens,
 	});
-	const realNames = matched.slots
-		.filter((slot) => !slot.isClient && slot.isRealData)
-		.map((slot) => slot.name)
-		.slice(0, 2);
+	if (
+		looksLikePlaceOrBuildingQuery(targetQuery, industryCtx) &&
+		matched.clientIndex === 0 &&
+		!rankedNames.some((name) => isSelfBrandName(name, input.clientName, input.brandAliases))
+	) {
+		rankedNames = uniqueCompetitorNames([input.clientName, ...rankedNames], input.clientName, input.brandAliases).slice(
+			0,
+			5,
+		);
+	}
+	const peerSlots = matched.slots.filter((slot) => !slot.isClient).slice(0, 2);
+	const liveNames = peerSlots.map((slot) => slot.name);
+	const fallbackNames = statisticalFallbackNames(region, categoryName, lang);
+	const displayNames = liveNames.length ? liveNames : [...fallbackNames];
 	const brandShare = 0;
 	const directoryShare = THIRD_PARTY_SHARE;
 	const remaining = Math.max(0, 100 - brandShare - directoryShare);
 	const leaderShare = Math.round(remaining * SOV_LEADER_RESIDUAL_RATIO);
 	const runnerShare = remaining - leaderShare;
-	const clientIndex = findClientSearchIndex(input.clientName, rankedNames);
-	const industryLabel = industryCategoryLabel(
-		resolveIndustryVoice({ category: mainService, keywords: [mainService, categoryName] }),
-		lang,
-	);
+	const clientIndex = matched.clientIndex >= 0
+		? matched.clientIndex
+		: findClientSearchIndex(input.clientName, rankedNames, input.brandAliases);
+	const hasLive = peerSlots.some((slot) => slot.isRealData);
 
 	return {
 		targetQuery,
 		brandName: cleanPhrase(input.clientName),
 		brandShare,
 		directoryShare,
-		competitors: [
-			{
-				name: anonymizedCompetitorLabel(1, lang, industryLabel),
-				share: leaderShare,
-				isDominant: true,
-				isRealData: Boolean(realNames[0]),
-			},
-			{
-				name: anonymizedCompetitorLabel(2, lang, industryLabel),
-				share: runnerShare,
-				isDominant: false,
-				isRealData: Boolean(realNames[1]),
-			},
-		],
+		competitors: displayNames.map((name, idx) => ({
+			name,
+			share: idx === 0 ? leaderShare : runnerShare,
+			isDominant: idx === 0,
+			isRealData: peerSlots[idx]?.isRealData === true,
+		})),
 		rankedNames,
 		clientRank: toClientRank(clientIndex),
-		lossInsight: buildLossInsight(region, mainService, anonymizedCompetitorLabel(1, lang, industryLabel), lang),
-		source: realNames.length > 0 ? input.source : 'fallback',
+		lossInsight: buildLossInsight(region, mainService, displayNames[0] || '', lang),
+		source: hasLive ? input.source : 'fallback',
 	};
 }
 
@@ -485,10 +555,21 @@ export async function calculateCompetitorSov(
 	categoryName = '전문 기관',
 	lang: 'ko' | 'en' = 'ko',
 	targetQuery?: string,
+	brandAliases?: readonly string[],
+	extras?: Pick<SovIndustryContext, 'industryType' | 'schemaTypes'> & { productTokens?: readonly string[] },
 ): Promise<CompetitorSovResult> {
 	const query = cleanPhrase(targetQuery) || buildCompetitorSearchQuery(region, mainService);
+	const industryCtx: SovIndustryContext = {
+		categoryName,
+		mainService,
+		region,
+		query,
+		industryType: extras?.industryType,
+		schemaTypes: extras?.schemaTypes,
+		lang,
+	};
 	const live = query
-		? await resolveLiveCompetitorNames(query, clientName)
+		? await resolveLiveCompetitorNames(query, clientName, industryCtx)
 		: { names: [] as string[], rankedNames: [] as string[], source: 'fallback' as const };
 
 	return bindCompetitorSov({
@@ -501,6 +582,10 @@ export async function calculateCompetitorSov(
 		source: live.source,
 		lang,
 		targetQuery: query,
+		brandAliases,
+		industryType: extras?.industryType,
+		schemaTypes: extras?.schemaTypes,
+		productTokens: extras?.productTokens,
 	});
 }
 
@@ -514,6 +599,8 @@ export async function fetchRealCompetitorSnapshot(
 		input.categoryName,
 		input.lang,
 		input.query,
+		input.brandAliases,
+		{ industryType: input.industryType, schemaTypes: input.schemaTypes, productTokens: input.productTokens },
 	);
 	return competitorSovToSnapshot(result);
 }

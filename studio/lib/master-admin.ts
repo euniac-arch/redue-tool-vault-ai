@@ -108,3 +108,19 @@ export function isAdminEmail(email: string): boolean {
 export function isDbAdminRole(role: string | null | undefined): boolean {
 	return (role || '').trim().toLowerCase() === 'admin';
 }
+
+/** Session / JWT / DB signals that already grant admin in this project. */
+export function isStudioAdminIdentity(input: {
+	id?: string | null;
+	email?: string | null;
+	role?: string | null;
+	isAdmin?: boolean;
+}): boolean {
+	if (input.isAdmin === true) return true;
+	if (isDbAdminRole(input.role) || (input.role || '').toUpperCase() === 'ADMIN') return true;
+	const email = (input.email || '').trim();
+	const id = (input.id || '').trim();
+	if (id && id === MASTER_ADMIN_ID) return true;
+	if (email && (isMasterAdminLoginId(email) || isAdminEmail(email))) return true;
+	return false;
+}

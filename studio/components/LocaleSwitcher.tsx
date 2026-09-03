@@ -34,10 +34,10 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 
 	return (
 		<div
-			className={`flex items-center rounded-full p-0.5 text-xs font-bold ${
+			className={`flex h-9 shrink-0 items-center gap-0.5 rounded-full border p-1 text-[11px] font-bold tracking-wide ${
 				forceLight
-					? 'border border-zinc-200 bg-zinc-50'
-					: 'border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900'
+					? 'border-zinc-200 bg-zinc-50'
+					: 'border-slate-200 bg-slate-100/80 dark:border-slate-700/60 dark:bg-slate-800/60'
 			}`}
 		>
 			{OPTIONS.map((option) => (
@@ -45,14 +45,15 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 					key={option.code}
 					onClick={() => switchTo(option.code)}
 					disabled={pending}
-					className={`rounded-full px-2.5 py-1 transition-colors duration-200 ${
+					aria-pressed={locale === option.code}
+					className={`flex h-7 min-w-[30px] items-center justify-center rounded-full px-2 transition-all duration-200 ${
 						locale === option.code
 							? forceLight
-								? 'bg-zinc-900 text-white'
-								: 'bg-cyan-500 text-slate-950'
+								? 'bg-white font-semibold text-zinc-900 shadow-sm'
+								: 'bg-white font-semibold text-slate-900 shadow-sm dark:bg-slate-700 dark:text-white'
 							: forceLight
-								? 'text-zinc-500 hover:text-zinc-900'
-								: 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white'
+								? 'text-zinc-400 hover:text-zinc-700'
+								: 'text-slate-400 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-200'
 					}`}
 				>
 					{option.label}

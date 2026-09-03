@@ -22,14 +22,19 @@ import {
 	projectDisplayName,
 	auditDisplayName,
 	type AuditHistoryItem,
+	type CaseStudyType,
 	type DiagnosisTypeFilter,
 	type ProjectListItem,
 } from '@/lib/projects';
 import { getLocalProjects, mergeAuditsWithLocal, mergeProjectsWithLocal } from '@/lib/projects-local';
 import { UserTypeBadge } from '@/components/admin/UserTypeBadge';
+import { CaseStudyToggleCell } from './CaseStudyToggleCell';
+import { ProjectEditModal } from './ProjectEditModal';
 
 const CMS_OPTIONS = ['UNKNOWN', 'Gnuboard', 'Cafe24', 'WordPress', 'Next.js'] as const;
 const PAGE_SIZE = 12;
+
+type Toast = { id: number; message: string; tone?: 'default' | 'error' };
 
 const TYPE_FILTER_TABS: { value: DiagnosisTypeFilter; label: string }[] = [
 	{ value: 'ALL', label: '전체' },
@@ -65,6 +70,10 @@ export function ProjectWorkspace() {
 	const [deleteConfirm, setDeleteConfirm] = useState<DeleteConfirm | null>(null);
 	const [deleting, setDeleting] = useState(false);
 	const [deleteError, setDeleteError] = useState<string | null>(null);
+	const [caseStudyPendingId, setCaseStudyPendingId] = useState<string | null>(null);
+	const [editingProject, setEditingProject] = useState<ProjectListItem | null>(null);
+	const [baselineSaving, setBaselineSaving] = useState(false);
+	const [toasts, setToasts] = useState<Toast[]>([]);
 
 	const [name, setName] = useState('');
 	const [url, setUrl] = useState('');
@@ -107,6 +116,81 @@ export function ProjectWorkspace() {
 	useEffect(() => {
 		void load();
 	}, [load]);
+
+	const pushToast = useCallback((message: string, tone: Toast['tone'] = 'default') => {
+		const id = Date.now() + Math.random();
+		setToasts((prev) => [...prev, { id, message, tone }]);
+		window.setTimeout(() => {
+			setToasts((prev) => prev.filter((toast) => toast.id !== id));
+		}, 2600);
+	}, []);
+
+	const handleCaseStudyChange = useCallback(
+		async (project: ProjectListItem, next: { isCaseStudy: boolean; caseStudyType: CaseStudyType | null }) => {
+			if (project.isLocalOnly) {
+				pushToast('로컬 전용 진단은 도입사례로 등록할 수 없습니다.', 'error');
+				return;
+			}
+			const previous = { isCaseStudy: project.isCaseStudy, caseStudyType: project.caseStudyType };
+			setCaseStudyPendingId(project.id);
+			// Optimistic update so the switch/select feel instant.
+			setProjects((prev) =>
+				prev.map((p) => (p.id === project.id ? { ...p, ...next } : p)),
+			);
+			try {
+				const res = await fetch(`/api/admin/projects/${encodeURIComponent(project.id)}/case-study`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(next),
+				});
+				const data = await res.json().catch(() => null);
+				if (!res.ok) throw new Error(data?.message || '도입사례 노출 설정 변경에 실패했습니다.');
+				pushToast('도입사례 노출 설정이 변경되었습니다.');
+			} catch (err) {
+				// Roll back the optimistic update on failure.
+				setProjects((prev) =>
+					prev.map((p) => (p.id === project.id ? { ...p, ...previous } : p)),
+				);
+				pushToast(err instanceof Error ? err.message : '도입사례 노출 설정 변경에 실패했습니다.', 'error');
+			} finally {
+				setCaseStudyPendingId(null);
+			}
+		},
+		[pushToast],
+	);
+
+	const handleBaselineSave = useCallback(
+		async (project: ProjectListItem, customBaseline: ProjectListItem['customBaseline']) => {
+			if (project.isLocalOnly) {
+				pushToast('로컬 전용 진단은 베이스라인을 저장할 수 없습니다.', 'error');
+				return;
+			}
+			setBaselineSaving(true);
+			try {
+				const res = await fetch(`/api/admin/projects/${encodeURIComponent(project.id)}/case-study`, {
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						isCaseStudy: project.isCaseStudy,
+						caseStudyType: project.caseStudyType,
+						customBaseline,
+					}),
+				});
+				const data = await res.json().catch(() => null);
+				if (!res.ok) throw new Error(data?.message || '초기 베이스라인 저장에 실패했습니다.');
+				setProjects((prev) =>
+					prev.map((row) => (row.id === project.id ? { ...row, customBaseline } : row)),
+				);
+				setEditingProject(null);
+				pushToast(customBaseline ? '초기 베이스라인 점수를 저장했습니다.' : '초기 베이스라인을 해제했습니다.');
+			} catch (err) {
+				pushToast(err instanceof Error ? err.message : '초기 베이스라인 저장에 실패했습니다.', 'error');
+			} finally {
+				setBaselineSaving(false);
+			}
+		},
+		[pushToast],
+	);
 
 	useEffect(() => {
 		const onVisible = () => {
@@ -601,18 +685,44 @@ export function ProjectWorkspace() {
 													<span>{new Date(project.createdAt).toLocaleString('ko-KR')}</span>
 												</div>
 												<div className="mt-3 flex flex-wrap gap-2">
+													<button
+														type="button"
+														disabled={project.isLocalOnly}
+														onClick={() => setEditingProject(project)}
+														className="rounded-md border border-cyan-300 bg-cyan-50 px-2.5 py-1.5 text-[11px] font-bold text-cyan-800 hover:bg-cyan-100 disabled:opacity-40 dark:border-cyan-700 dark:bg-cyan-950/40 dark:text-cyan-200"
+													>
+														✏️ 수정
+													</button>
 													<Link
 														href={`/admin/solve?id=${encodeURIComponent(project.latestAuditId || project.id)}`}
 														className="rounded-md bg-slate-900 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-slate-800"
 													>
-														🔧 해결 워크스페이스
-													</Link>
 													<Link
 														href={`/audit/result?id=${encodeURIComponent(project.latestAuditId || project.id)}`}
 														className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
 													>
 														🌐 프론트 결과 보기
 													</Link>
+												</div>
+												<div className="mt-2.5">
+													<CaseStudyToggleCell
+														isCaseStudy={project.isCaseStudy}
+														caseStudyType={project.caseStudyType}
+														pending={caseStudyPendingId === project.id}
+														disabled={project.isLocalOnly}
+														onToggle={(nextOn) =>
+															void handleCaseStudyChange(project, {
+																isCaseStudy: nextOn,
+																caseStudyType: nextOn ? project.caseStudyType || 'simulation' : null,
+															})
+														}
+														onTypeChange={(nextType) =>
+															void handleCaseStudyChange(project, {
+																isCaseStudy: true,
+																caseStudyType: nextType,
+															})
+														}
+													/>
 												</div>
 											</div>
 										</div>
@@ -870,6 +980,17 @@ export function ProjectWorkspace() {
 				) : null}
 			</section>
 
+			{editingProject ? (
+				<ProjectEditModal
+					project={editingProject}
+					saving={baselineSaving}
+					onClose={() => {
+						if (!baselineSaving) setEditingProject(null);
+					}}
+					onSave={(customBaseline) => void handleBaselineSave(editingProject, customBaseline)}
+				/>
+			) : null}
+
 			{deleteConfirm ? (
 				<div
 					className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
@@ -916,6 +1037,23 @@ export function ProjectWorkspace() {
 					</div>
 				</div>
 			) : null}
+
+			{toasts.length > 0 && (
+				<div className="pointer-events-none fixed bottom-5 right-5 z-[60] flex flex-col gap-2">
+					{toasts.map((toast) => (
+						<div
+							key={toast.id}
+							className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold shadow-lg ${
+								toast.tone === 'error'
+									? 'border-rose-200 bg-rose-50 text-rose-700'
+									: 'border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200'
+							}`}
+						>
+							{toast.message}
+						</div>
+					))}
+				</div>
+			)}
 		</div>
 	);
 }

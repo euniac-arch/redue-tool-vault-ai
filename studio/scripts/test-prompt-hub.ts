@@ -71,7 +71,7 @@ assert('blueprint injection keeps generic prompt', Boolean(composed && composed.
 assert('blueprint injection does not invent location', Boolean(composed && composed.includes('(미추출)')));
 
 const insights = PUBLIC_NAV.find((item) => item.key === 'insightsHub');
-assert('GNB still 5 top-level items', PUBLIC_NAV.length === 5, String(PUBLIC_NAV.length));
+assert('GNB has 6 top-level items', PUBLIC_NAV.length === 6, String(PUBLIC_NAV.length));
 assert(
 	'prompt hub is insights child, not 1-depth',
 	Boolean(insights?.children?.some((child) => child.key === 'aiPromptHub')),

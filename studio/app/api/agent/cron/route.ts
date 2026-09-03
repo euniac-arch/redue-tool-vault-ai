@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { runAutonomousCron } from '@/lib/agent-healer';
 import { requireAdmin } from '@/lib/admin';
+import { runDueAsiVisibilityJobs } from '@/lib/ai-search-intelligence/visibility/tick';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,7 +27,8 @@ export async function POST(request: Request) {
 	}
 
 	const result = await runAutonomousCron();
-	return NextResponse.json(result);
+	const visibility = await runDueAsiVisibilityJobs().catch(() => ({ ran: 0, skipped: 0 }));
+	return NextResponse.json({ ...result, visibility });
 }
 
 export async function GET(request: Request) {

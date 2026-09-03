@@ -60,7 +60,11 @@ export async function POST(request: Request, context: { params: { id: string } }
 	}
 
 	try {
-		const report = await auditSite(targetUrl, 'ko', { forceRefresh: true, fullAudit: true });
+		const report = await auditSite(targetUrl, 'ko', {
+			forceRefresh: true,
+			fullAudit: true,
+			fullAuditDepth: 'deep',
+		});
 		const session = await getServerSession(authOptions).catch(() => null);
 		const requestedBy = admin.email || session?.user?.email || existing?.requestedBy || 'Guest';
 

@@ -1,12 +1,20 @@
 /**
  * Full Audit + Incremental Delta Cache — discovery, pinpoint hash, cache reuse.
- * Run: npx tsx scripts/test-full-audit-engine.ts
+ * Run: npm run test:audit-engine
+ *      npx tsx scripts/test-full-audit-engine.ts
+ *
+ * This file imports the production engine. Persist stays off (`persistCache: false`)
+ * and cache I/O uses the in-memory fixture, so the Firestore server adapter is never loaded.
  */
 import * as cheerio from 'cheerio';
 import {
 	collectDiscoveredUrls,
 	computeContentHash,
 	extractGnuboardPublicRoutes,
+	prioritizeDiscoveredUrls,
+	resolveFullAuditLimits,
+	FULL_AUDIT_DEEP_MAX_PAGES,
+	FULL_AUDIT_MAX_PAGES,
 	extractPinpointBody,
 	extractPublicRoutePatterns,
 	formatFullAuditProgress,
@@ -124,6 +132,28 @@ assert(discovered.urls.includes('/s401.php'), 'sitemap-only page registered');
 assert(discovered.sources.get('/s401.php') === 'sitemap', 's401 source=sitemap');
 assert(discovered.urls.includes('/contents/intro.php'), 'contents page queued');
 assert(discovered.urls.includes('/bbs/board.php?bo_table=gallery'), 'JS board queued');
+
+const prioritized = prioritizeDiscoveredUrls(discovered.urls, discovered.sources, 5);
+assert(prioritized[0] === '/' || prioritized[0] === '', `seed first, got ${prioritized[0]}`);
+assert(prioritized.includes('/s101.php'), 'GNB kept under page cap');
+assert(prioritized.includes('/s201.php'), 'GNB 2 kept under page cap');
+const gnbIdx = prioritized.indexOf('/s101.php');
+const sitemapIdx = prioritized.indexOf('/s401.php');
+if (sitemapIdx >= 0 && gnbIdx >= 0) {
+	assert(gnbIdx < sitemapIdx, 'GNB ranks ahead of sitemap-only pages');
+}
+
+const quickLimits = resolveFullAuditLimits('quick');
+const deepLimits = resolveFullAuditLimits('deep');
+assert(FULL_AUDIT_MAX_PAGES === 40, 'public scan page cap is 40');
+assert(FULL_AUDIT_DEEP_MAX_PAGES === 500, 'deep recrawl page cap stays 500');
+assert(quickLimits.maxPages === FULL_AUDIT_MAX_PAGES, 'quick profile uses public cap');
+assert(deepLimits.maxPages === FULL_AUDIT_DEEP_MAX_PAGES, 'deep profile uses census cap');
+assert(deepLimits.timeBudgetMs > quickLimits.timeBudgetMs, 'deep budget is longer than quick');
+assert(
+	prioritizeDiscoveredUrls(discovered.urls, discovered.sources, quickLimits.maxPages).includes('/s101.php'),
+	'quick cap still keeps GNB',
+);
 
 // —— 3. Pinpoint body (chrome stripped) + hash ——
 const $home = cheerio.load(homeHtml);

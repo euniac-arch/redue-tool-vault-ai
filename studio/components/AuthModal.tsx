@@ -11,6 +11,8 @@ interface AuthModalProps {
 	onClose: () => void;
 	/** Feature-specific pitch shown above the CTA (e.g. "가입하고 PDF 다운로드하세요"). */
 	message?: string;
+	/** Hide the audit-specific benefit list (PDF / email / history). */
+	hideBenefits?: boolean;
 }
 
 /**
@@ -18,7 +20,7 @@ interface AuthModalProps {
  * Shown when a guest taps a member-only action (PDF / email report) so the
  * click still "does something" instead of the button silently failing.
  */
-export function AuthModal({ open, onClose, message }: AuthModalProps) {
+export function AuthModal({ open, onClose, message, hideBenefits }: AuthModalProps) {
 	const t = useTranslations('audit.authModal');
 	const [mounted, setMounted] = useState(false);
 	const [callbackUrl, setCallbackUrl] = useState('/');
@@ -89,17 +91,19 @@ export function AuthModal({ open, onClose, message }: AuthModalProps) {
 					{message ?? t('defaultMessage')}
 				</p>
 
-				<ul className="mt-4 flex flex-col gap-1.5 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-					<li className="flex items-center gap-2">
-						<span aria-hidden>📄</span> {t('benefit1')}
-					</li>
-					<li className="flex items-center gap-2">
-						<span aria-hidden>✉️</span> {t('benefit2')}
-					</li>
-					<li className="flex items-center gap-2">
-						<span aria-hidden>🗂️</span> {t('benefit3')}
-					</li>
-				</ul>
+				{hideBenefits ? null : (
+					<ul className="mt-4 flex flex-col gap-1.5 rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
+						<li className="flex items-center gap-2">
+							<span aria-hidden>📄</span> {t('benefit1')}
+						</li>
+						<li className="flex items-center gap-2">
+							<span aria-hidden>✉️</span> {t('benefit2')}
+						</li>
+						<li className="flex items-center gap-2">
+							<span aria-hidden>🗂️</span> {t('benefit3')}
+						</li>
+					</ul>
+				)}
 
 				<div className="mt-5 flex flex-col gap-2">
 					<Link

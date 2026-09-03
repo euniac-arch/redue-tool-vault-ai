@@ -6,6 +6,8 @@ import {
 	parseLiveCheckPayload,
 	ruleScoreFor,
 } from '@/lib/audit/live-check-score';
+import { buildSovIndustryPromptGuide } from '@/lib/audit/sov-industry-guard';
+import { buildSovNichePromptGuide } from '@/lib/audit/sov-niche-entity';
 import {
 	LIVE_GROUNDED_ENGINE_IDS,
 	type LiveCheckEngineId,
@@ -109,24 +111,36 @@ function geminiGenerateUrl(model: string): string {
 
 /** Human-readable schema shown inline in prompts (Perplexity + fallback text instructions). */
 const LIVE_JSON_SCHEMA =
-	'{"isCited":boolean,"mentionType":"none"|"simple_mention"|"recommended","rank":1|2|3|null,"evidenceSnippet":"한 줄 판정 요약(한국어)","reachLevel":"Level 1"|"Level 2"|"Level 3","citationUrl":"url or empty"}';
+	'{"isCited":boolean,"mentionType":"none"|"simple_mention"|"recommended","rank":1|2|3|null,"evidenceSnippet":"한 줄 판정 요약(한국어)","reachLevel":"Level 1"|"Level 2"|"Level 3","citationUrl":"url or empty","citations":[{"title":string,"url":string,"isTargetMention":boolean}]}';
 
-const LIVE_JSON_SYSTEM_PROMPT = [
-	'당신은 실시간 AI 검색 추천 분석기(LLM-as-a-Judge)입니다.',
-	'질의에 답할 때 대상 상호/공식 사이트가 답변 본문에 실제로 추천·인용되었는지 문맥과 감성까지 판별하세요.',
-	'"언급되지 않음", "포함되지 않음", "추천하지 않음", "정보 없음", "찾을 수 없음", "not mentioned", "no information" 등',
-	'부정 표현이 있는 경우, 대상 이름이 문장에 등장하더라도 절대 인용/추천으로 취급하지 말고 isCited=false, mentionType="none"으로 판정하세요.',
-	'"정황은 약", "노출이 적", "다른 곳이 주로 노출", "추천된 정황은", "확인이 어렵", "정보가 부족", "우선순위가 낮" 등',
-	'유보·약세 표현이 있으면 도메인/상호가 나와도 mentionType="simple_mention", rank=null 로 판정하세요. 강한 추천으로 올리지 마세요.',
-	'mentionType은 다음 세 가지 중 하나입니다:',
-	'"none"(전혀 언급/추천되지 않음),',
-	'"simple_mention"(이름·URL만 나열되거나 공식 정보 인용, 또는 추천 정황이 약함),',
-	'"recommended"(1~2순위로 직접 지목되거나 전문 기관/공식 파트너/적극 추천 등 강한 긍정 수식).',
-	'rank는 mentionType이 "recommended"이고 상위 2개 추천에 포함된 경우만 1/2, 그 외에는 null입니다.',
-	'evidenceSnippet은 판정 근거를 한국어 한 문장으로 작성하세요. JSON 원문이나 코드 블록을 넣지 마세요.',
-	'반드시 순수 JSON 객체 하나만 응답하세요. 마크다운 코드 블록(```), 서두 설명, 후속 설명 등 다른 텍스트는 절대 포함하지 마세요.',
-	`반환 형식(JSON): ${LIVE_JSON_SCHEMA}`,
-].join(' ');
+function liveJsonSystemPrompt(brandAliases: readonly string[] = [], targetUrl = ''): string {
+	const aliasLine = brandAliases.length
+		? `대상 브랜드 별칭(brandAliases): [${brandAliases.join(', ')}]. 본문/제목/스니펫에 이 중 하나라도 주체로 언급되면 자사 멘션입니다.`
+		: '대상 상호와 공식 URL을 brandAliases로 사용하세요.';
+	return [
+		'당신은 사이트에 종속되지 않는 범용 실시간 AI 검색 추천 분석기(LLM-as-a-Judge)입니다.',
+		aliasLine,
+		targetUrl ? `공식 사이트(targetUrl): ${targetUrl}` : '',
+		'질의에 답할 때 대상 상호/공식 사이트가 답변 본문에 실제로 추천·인용되었는지 문맥과 감성까지 판별하세요.',
+		'인용 분류: (1) Owned Citation = 출처 URL이 targetUrl 도메인과 일치. (2) Brand Earned Citation = 네이버 블로그·지도·카페·티스토리 등 3자 채널이지만 brandAliases가 주체로 추천/언급 → isTargetMention=true, 자사 SoV 합산. (3) Unbranded Third-Party = 브랜드 언급 없이 일반 정보/경쟁사만 나열 → isTargetMention=false.',
+		'"언급되지 않음", "포함되지 않음", "추천하지 않음", "정보 없음", "찾을 수 없음", "not mentioned", "no information" 등',
+		'부정 표현이 있는 경우, 대상 이름이 문장에 등장하더라도 절대 인용/추천으로 취급하지 말고 isCited=false, mentionType="none"으로 판정하세요.',
+		'"정황은 약", "노출이 적", "다른 곳이 주로 노출", "추천된 정황은", "확인이 어렵", "정보가 부족", "우선순위가 낮" 등',
+		'유보·약세 표현이 있으면 도메인/상호가 나와도 mentionType="simple_mention", rank=null 로 판정하세요. 강한 추천으로 올리지 마세요.',
+		'mentionType은 다음 세 가지 중 하나입니다:',
+		'"none"(전혀 언급/추천되지 않음),',
+		'"simple_mention"(이름·URL만 나열되거나 공식 정보 인용, 또는 추천 정황이 약함),',
+		'"recommended"(1~2순위로 직접 지목되거나 전문 기관/공식 파트너/적극 추천 등 강한 긍정 수식).',
+		'rank는 mentionType이 "recommended"이고 상위 2개 추천에 포함된 경우만 1/2, 그 외에는 null입니다.',
+		'evidenceSnippet은 판정 근거를 한국어 한 문장으로 작성하세요. JSON 원문이나 코드 블록을 넣지 마세요.',
+		'동일 업종 플레이스·브랜드만 1~3위 경쟁 비교군으로 인정하세요. 호텔·숙박·식당·카페·뷔페·쇼핑몰·일반 기업은 경쟁사에서 제외하세요.',
+		'고유 장비·시술·시그니처 서비스 키워드가 있으면 일반 대형 브랜드 인지도만으로 순위를 매기지 말고, 타겟이 해당 항목을 공식 보유하면 1위로 반영하세요.',
+		'반드시 순수 JSON 객체 하나만 응답하세요. 마크다운 코드 블록(```), 서두 설명, 후속 설명 등 다른 텍스트는 절대 포함하지 마세요.',
+		`반환 형식(JSON): ${LIVE_JSON_SCHEMA}`,
+	]
+		.filter(Boolean)
+		.join(' ');
+}
 
 /** Shared logical schema fields, expressed per-provider dialect below. */
 const MENTION_TYPE_VALUES = ['none', 'simple_mention', 'recommended'] as const;
@@ -216,24 +230,57 @@ export interface LiveCheckEngineInput {
 	targetQuery: string;
 	location?: string;
 	category?: string;
+	brandAliases?: readonly string[];
+	productTokens?: readonly string[];
 	ruleScores?: Partial<Record<LiveCheckEngineId, number>>;
 }
 
+function resolvedAliases(input: LiveCheckEngineInput): string[] {
+	return (input.brandAliases ?? []).map((alias) => alias.trim()).filter((alias) => alias.length >= 2);
+}
+
 function contextLines(input: LiveCheckEngineInput): string[] {
+	const aliases = resolvedAliases(input);
 	const lines = [
 		`질의: ${input.targetQuery}`,
 		`대상 상호: ${input.siteName}`,
-		`공식 사이트: ${input.siteUrl}`,
+		`공식 사이트(targetUrl): ${input.siteUrl}`,
 	];
+	if (aliases.length) lines.push(`brandAliases: ${JSON.stringify(aliases)}`);
 	if (input.location) lines.push(`지역: ${input.location}`);
 	if (input.category) lines.push(`업종: ${input.category}`);
+	if (input.category || input.location) {
+		lines.push(
+			buildSovIndustryPromptGuide(
+				{
+					categoryName: input.category,
+					region: input.location,
+					query: input.targetQuery,
+				},
+				input.targetQuery,
+			),
+		);
+	}
+	lines.push(
+		buildSovNichePromptGuide({
+			query: input.targetQuery,
+			region: input.location,
+			categoryName: input.category,
+			productTokens: input.productTokens,
+		}),
+	);
 	return lines;
+}
+
+function systemPromptFor(input: LiveCheckEngineInput): string {
+	return liveJsonSystemPrompt(resolvedAliases(input), input.siteUrl);
 }
 
 function userPrompt(input: LiveCheckEngineInput): string {
 	return [
 		...contextLines(input),
-		`위 질의에 대해 최신 추천 답변을 고려할 때, ${input.siteName}(${input.siteUrl})이 실제로 언급/인용되는지 분석하세요.`,
+		`위 질의에 대해 최신 추천 답변을 고려할 때, brandAliases 또는 ${input.siteName}(${input.siteUrl})이 실제로 언급/인용되는지 분석하세요.`,
+		'3자 채널(네이버 블로그·지도·티스토리 등)이라도 대상 브랜드가 주체로 추천되면 isTargetMention=true 로 자사 SoV에 합산하세요.',
 		`반드시 JSON으로만 응답해주세요. 형식: ${LIVE_JSON_SCHEMA}`,
 	].join('\n');
 }
@@ -243,7 +290,7 @@ function perplexityUserPrompt(input: LiveCheckEngineInput): string {
 	return [
 		...contextLines(input),
 		`${input.targetQuery}${localeHint ? ` (${localeHint})` : ''} 관련하여 국내 로컬 검색 기준으로 추천해 주세요.`,
-		`반드시 ${input.siteName}(${input.siteUrl})의 공식 웹사이트·네이버/구글 로컬 결과를 우선 확인하고,`,
+		`반드시 ${input.siteName}(${input.siteUrl})와 brandAliases를 공식 웹사이트·네이버/구글 로컬 결과에서 우선 확인하고,`,
 		'Reddit 등 해외 커뮤니티나 무관한 해외 사이트를 인용하지 마세요.',
 		`대상 사이트가 답변에 추천/인용되었는지 다음 JSON으로만 답하세요: ${LIVE_JSON_SCHEMA}`,
 	].join('\n');
@@ -373,11 +420,12 @@ function toLiveResult(
 	input: LiveCheckEngineInput,
 	ruleScore: number,
 ): LiveEngineCheckResult {
-	return buildLiveEngineResult(engine, parseLiveCheckPayload(text, input.siteName, input.siteUrl, urls), ruleScore, {
+	return buildLiveEngineResult(engine, parseLiveCheckPayload(text, input.siteName, input.siteUrl, urls, input.brandAliases), ruleScore, {
 		rawResponseText: text,
 		targetBrand: input.siteName,
 		targetDomain: input.siteUrl,
 		citationCandidates: urls,
+		brandAliases: input.brandAliases,
 	});
 }
 
@@ -415,7 +463,7 @@ async function runOpenAI(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 					messages: [
 						{
 							role: 'system',
-							content: `${LIVE_JSON_SYSTEM_PROMPT} 대상 업체('${input.siteName}', URL: ${input.siteUrl})가 추천/인용될 수 있는지 분석하여 반드시 JSON 포맷으로만 응답하세요.`,
+							content: `${systemPromptFor(input)} 대상 업체('${input.siteName}', URL: ${input.siteUrl})가 추천/인용될 수 있는지 분석하여 반드시 JSON 포맷으로만 응답하세요.`,
 						},
 						{
 							role: 'user',
@@ -486,14 +534,14 @@ async function runClaude(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 						model,
 						max_tokens: 400,
 						temperature: 0.1,
-						system:
-							'당신은 AI 검색 인용 분석기(LLM-as-a-Judge)입니다. 대상이 부정문("언급되지 않음", "정보 없음" 등)으로 언급된 경우 실제 추천으로 취급하지 마세요.',
+						system: systemPromptFor(input),
 						messages: [
 							{
 								role: 'user',
 								content: [
 									`질의: "${input.targetQuery}"`,
 									`대상 업체: "${input.siteName}" (${input.siteUrl})`,
+									resolvedAliases(input).length ? `brandAliases: ${JSON.stringify(resolvedAliases(input))}` : '',
 									input.location ? `지역: ${input.location}` : '',
 									input.category ? `업종: ${input.category}` : '',
 									'',
@@ -543,12 +591,12 @@ async function runGemini(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 		});
 	}
 	const ruleScore = ruleScoreFor(engine, input.ruleScores);
-	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY');
+	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY');
 	if (!apiKey) return buildFailedLiveResult(engine, ruleScore, 'GEMINI_API_KEY가 .env에 설정되지 않았습니다.');
 
 	const models = resolveGeminiModels();
 	const prompt = [
-		LIVE_JSON_SYSTEM_PROMPT,
+		systemPromptFor(input),
 		`질의: "${input.targetQuery}", 대상 업체: "${input.siteName}" (${input.siteUrl}).`,
 		'이 질의에 대해 대상 업체가 최신 웹 검색 추천에 인용되는지 판별하여 반드시 아래 JSON 형식으로만 답하세요. 설명 문구나 마크다운 없이 JSON 객체 하나만 출력하세요:',
 		LIVE_JSON_SCHEMA,
@@ -633,7 +681,7 @@ async function runPerplexity(input: LiveCheckEngineInput, signal: AbortSignal): 
 		});
 	}
 	const ruleScore = ruleScoreFor(engine, input.ruleScores);
-	const apiKey = process.env.PERPLEXITY_API_KEY?.trim();
+	const apiKey = envString('PERPLEXITY_API_KEY') || envString('PPLX_API_KEY');
 	if (!apiKey) return buildFailedLiveResult(engine, ruleScore, 'PERPLEXITY_API_KEY가 .env에 설정되지 않았습니다.');
 
 	console.info('[Perplexity Live Check] request', {
@@ -661,7 +709,7 @@ async function runPerplexity(input: LiveCheckEngineInput, signal: AbortSignal): 
 						model: 'sonar',
 						temperature: 0.1,
 						messages: [
-							{ role: 'system', content: LIVE_JSON_SYSTEM_PROMPT },
+							{ role: 'system', content: systemPromptFor(input) },
 							{ role: 'user', content: perplexityUserPrompt(input) },
 						],
 						...(attempt.withSchema ? { response_format: PERPLEXITY_CITATION_SCHEMA } : {}),

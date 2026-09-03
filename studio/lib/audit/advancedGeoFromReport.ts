@@ -87,6 +87,8 @@ export function advancedGeoInputFromReport(
 	return {
 		lang,
 		brandName: meta?.brandName,
+		brandAliases: meta?.brandAliases,
+		productTokens: meta?.coreSpecialties,
 		location: meta?.location || meta?.broadLocation,
 		industryType: undefined,
 		legacyIndustry: meta?.industryType || meta?.category,
@@ -121,6 +123,7 @@ export function advancedGeoInputFromReport(
 		hasSection: Boolean(metrics?.h2Texts?.length),
 		hasMain: (metrics?.bodyTextLength ?? 0) >= 300,
 		hasSchema,
+		schemaTypes,
 		...competitorSeedsFromReport(report),
 	};
 }

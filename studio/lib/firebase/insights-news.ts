@@ -188,3 +188,14 @@ export async function upsertInsightsNewsCache(articles: CollectedInsightsArticle
 	const cached = await listCachedInsightsNews();
 	return cached.length > 0 ? cached : articles.map(collectedToInsightsNewsItem);
 }
+
+export async function patchInsightsNewsTitles(updates: Array<{ id: string; title: string }>): Promise<void> {
+	if (!isFirebaseAdminConfigured() || updates.length === 0) return;
+	const db = getAdminFirestore();
+	const batch = db.batch();
+	for (const update of updates) {
+		if (!update.id || !update.title) continue;
+		batch.set(db.collection(INSIGHTS_NEWS_COLLECTION).doc(update.id), { title: update.title }, { merge: true });
+	}
+	await batch.commit();
+}

@@ -11,6 +11,7 @@ import {
 	type AuditProjectCreateInput,
 	type AuditProjectDoc,
 	type AuditProjectPageDetails,
+	type CaseStudyType,
 } from '@/lib/firebase/audit-projects-types';
 import type { Firestore } from 'firebase-admin/firestore';
 
@@ -42,6 +43,7 @@ export {
 	type AuditProjectCreateInput,
 	type AuditProjectDoc,
 	type AuditProjectPayload,
+	type CaseStudyType,
 	type DiagnosisUserType,
 } from '@/lib/firebase/audit-projects-types';
 
@@ -126,6 +128,50 @@ export async function updateAuditProject(
 	}
 	await batch.commit();
 	return { id };
+}
+
+/**
+ * Partial update of just the public "도입 사례" exposure flags on an
+ * `audit_projects` doc — does not touch `auditPayload` / score / etc.
+ * Returns null when the doc does not exist (or Admin SDK is unavailable) so
+ * callers can fall back to the Prisma `Project` table.
+ */
+export async function updateAuditProjectCaseStudyFields(
+	id: string,
+	input: {
+		isCaseStudy: boolean;
+		caseStudyType: CaseStudyType | null;
+		customBaseline?: AuditProjectDoc['customBaseline'];
+	},
+): Promise<{
+	id: string;
+	isCaseStudy: boolean;
+	caseStudyType: CaseStudyType | null;
+	customBaseline?: AuditProjectDoc['customBaseline'];
+} | null> {
+	if (!id || !isFirebaseAdminConfigured()) return null;
+
+	const db = getAdminFirestore();
+	const ref = db.collection(AUDIT_PROJECTS_COLLECTION).doc(id);
+	const snap = await ref.get();
+	if (!snap.exists) return null;
+
+	const caseStudyType = input.isCaseStudy ? input.caseStudyType : null;
+	const payload: Record<string, unknown> = {
+		isCaseStudy: input.isCaseStudy,
+		caseStudyType,
+		updatedAt: FieldValue.serverTimestamp(),
+	};
+	if (input.customBaseline !== undefined) {
+		payload.customBaseline = input.customBaseline;
+	}
+	await ref.update(payload);
+	return {
+		id,
+		isCaseStudy: input.isCaseStudy,
+		caseStudyType,
+		customBaseline: input.customBaseline,
+	};
 }
 
 /**

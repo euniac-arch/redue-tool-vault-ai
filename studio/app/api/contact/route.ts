@@ -1,29 +1,53 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
+import { authOptions } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 const INQUIRY_TYPES = new Set(['all', 'geo', 'seo', 'schema', 'audit', 'general']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function leadsFilePath() {
+	return path.join(process.cwd(), '.data', 'contact-leads.json');
+}
+
+function readContactLeads(): Record<string, unknown>[] {
+	try {
+		return JSON.parse(fs.readFileSync(leadsFilePath(), 'utf8')) as Record<string, unknown>[];
+	} catch {
+		return [];
+	}
+}
+
 function appendContactLead(lead: Record<string, unknown>): void {
 	const dataDir = path.join(process.cwd(), '.data');
-	if (!fs.existsSync(dataDir)) {
-		fs.mkdirSync(dataDir, { recursive: true });
-	}
-	const file = path.join(dataDir, 'contact-leads.json');
-	let list: Record<string, unknown>[] = [];
-	try {
-		list = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>[];
-	} catch {
-		list = [];
-	}
+	if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+	const list = readContactLeads();
 	list.unshift(lead);
-	fs.writeFileSync(file, JSON.stringify(list, null, 2), 'utf8');
+	fs.writeFileSync(leadsFilePath(), JSON.stringify(list, null, 2), 'utf8');
+}
+
+export async function GET() {
+	const session = await getServerSession(authOptions);
+	const email = session?.user?.email?.toLowerCase() || '';
+	const userId = session?.user?.id || '';
+	if (!email && !userId) {
+		return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
+	}
+
+	const inquiries = readContactLeads().filter((lead) => {
+		const leadEmail = String(lead.email || '').toLowerCase();
+		const leadUserId = String(lead.userId || '');
+		return (email && leadEmail === email) || (userId && leadUserId === userId);
+	});
+
+	return NextResponse.json({ inquiries });
 }
 
 export async function POST(request: Request) {
+	const session = await getServerSession(authOptions).catch(() => null);
 	let body: Record<string, unknown>;
 	try {
 		body = (await request.json()) as Record<string, unknown>;
@@ -31,18 +55,20 @@ export async function POST(request: Request) {
 		return NextResponse.json({ error: '잘못된 요청 본문입니다.' }, { status: 400 });
 	}
 
-	const name = String(body.name ?? '').trim();
+	const name = String(body.name ?? session?.user?.name ?? '').trim();
 	const company = String(body.company ?? '').trim();
-	const email = String(body.email ?? '').trim();
+	const email = String(body.email ?? session?.user?.email ?? '').trim();
 	const phone = String(body.phone ?? '').trim();
 	const inquiryType = String(body.inquiryType ?? body.type ?? '').trim();
-	const message = String(body.message ?? '').trim();
+	const title = String(body.title ?? '').trim();
+	const message = String(body.message ?? body.content ?? '').trim();
 	const pageUrl = String(body.pageUrl ?? body.url ?? '').trim();
+	const serviceType = String(body.serviceType ?? '').trim();
 
 	if (!name || !email || !message || !INQUIRY_TYPES.has(inquiryType)) {
 		return NextResponse.json(
 			{ error: '담당자명, 이메일, 문의 유형, 문의 내용은 필수입니다.' },
-			{ status: 400 }
+			{ status: 400 },
 		);
 	}
 	if (!EMAIL_RE.test(email)) {
@@ -51,13 +77,19 @@ export async function POST(request: Request) {
 
 	const lead = {
 		id: `contact_${Date.now().toString(36)}`,
+		userId: session?.user?.id || null,
 		name,
 		company: company || null,
 		email,
 		phone: phone || null,
 		inquiryType,
+		serviceType: serviceType || null,
+		title: title || null,
 		message,
 		pageUrl: pageUrl || null,
+		status: 'pending',
+		adminReply: null,
+		repliedAt: null,
 		createdAt: new Date().toISOString(),
 	};
 

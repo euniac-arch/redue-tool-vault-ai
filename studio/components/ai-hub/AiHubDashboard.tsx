@@ -74,7 +74,7 @@ export function AiHubDashboard() {
 						<button
 							type="button"
 							onClick={() => setRankModalOpen(true)}
-							className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs font-bold text-primary-foreground transition hover:bg-primary/90 sm:w-auto sm:self-stretch"
+							className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-cyan-400/50 bg-transparent px-4 py-2.5 text-xs font-bold text-cyan-400 transition hover:border-cyan-400/70 hover:text-cyan-300 sm:w-auto sm:self-stretch"
 						>
 							<BarChart3 className="h-4 w-4" aria-hidden />
 							오늘자 순위 분석 보기

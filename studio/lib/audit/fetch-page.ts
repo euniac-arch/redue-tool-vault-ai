@@ -279,6 +279,16 @@ async function fetchRedirectChain(
 	let current = requestedUrl;
 
 	for (let hop = 0; hop <= maxRedirects; hop += 1) {
+		const remainingMs = timeoutMs - (Date.now() - started);
+		if (remainingMs < 250) {
+			return {
+				...emptyResult(requestedUrl, Date.now() - started, 'timeout_or_failed'),
+				redirectChain: chain,
+				finalUrl: current,
+				unsafeRedirect: hasUnsafeRedirect(chain),
+			};
+		}
+
 		let currentUrl: URL;
 		try {
 			currentUrl = hop === 0 || opts?.skipSsrf ? new URL(current) : await assertPublicHttpUrl(current);
@@ -302,7 +312,7 @@ async function fetchRedirectChain(
 						: {}),
 				},
 				cache: 'no-store',
-				signal: AbortSignal.timeout(timeoutMs),
+				signal: AbortSignal.timeout(remainingMs),
 				redirect: 'manual',
 			});
 
@@ -397,12 +407,23 @@ export async function fetchPageResource(
 
 		const blocked = isBlockedStatus(result.status) || result.botChallenge;
 		const hardFail = Boolean(result.error);
+		const timeoutMs = opts?.timeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS;
+		const retryBudgetMs = timeoutMs - (Date.now() - started);
 		// UA retry is only for WAF / 401-403-429 — never for timeout or TLS refusal.
-		if (!opts?.skipUaRetry && blocked && !hardFail && primaryUa !== BROWSER_USER_AGENT) {
+		// Also skip when the first hop already burned the budget; a second 6s chain
+		// would push a single-page fetch past the 5–15s diagnosis target.
+		if (
+			!opts?.skipUaRetry &&
+			blocked &&
+			!hardFail &&
+			primaryUa !== BROWSER_USER_AGENT &&
+			retryBudgetMs >= 1_500
+		) {
 			console.warn('[fetch-page] retrying with browser User-Agent', {
 				url: requested.href,
 				status: result.status,
 				botChallenge: result.botChallenge,
+				retryBudgetMs,
 			});
 			const retry = await fetchRedirectChain(requested, opts, BROWSER_USER_AGENT, started);
 			if (retry.text || retry.status != null) {

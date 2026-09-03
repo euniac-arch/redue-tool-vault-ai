@@ -95,6 +95,8 @@ function mergeByHost(primary: ProjectListItem[], extra: ProjectListItem[]): Proj
 			latestAuditId: existing.latestAuditId || row.latestAuditId,
 			auditCount: Math.max(existing.auditCount || 0, row.auditCount || 0, 1),
 			defectCount: existing.defectCount ?? row.defectCount,
+			isCaseStudy: existing.isCaseStudy || row.isCaseStudy,
+			caseStudyType: existing.caseStudyType ?? row.caseStudyType,
 			name: preferProjectName(existing.name, row.name, existing.targetUrl || row.targetUrl),
 			siteName: preferProjectName(
 				existing.siteName || existing.name,
@@ -169,6 +171,9 @@ function firestoreProjectsToListItems(
 			createdAt: doc.createdAt,
 			userType: normalizeUserType(doc.userType, doc.userId),
 			defectCount: doc.issueCount,
+			isCaseStudy: doc.isCaseStudy,
+			caseStudyType: doc.caseStudyType,
+			customBaseline: doc.customBaseline ?? null,
 		};
 	});
 

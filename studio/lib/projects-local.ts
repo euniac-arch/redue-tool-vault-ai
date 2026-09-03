@@ -142,6 +142,10 @@ export function localArchiveToProjectListItem(row: LocalProjectArchive): Project
 		userType: row.userType || 'guest',
 		defectCount: row.defectCount,
 		isLocalOnly: true,
+		// Local-only rows aren't persisted server-side yet, so the case-study
+		// toggle stays disabled for them (see ProjectWorkspace).
+		isCaseStudy: false,
+		caseStudyType: null,
 	};
 }
 

@@ -6,6 +6,7 @@ import {
 	titleBrandHead,
 } from '@/lib/audit/brand-name';
 import { classifyMetaKeywords } from '@/lib/geo/brand-entities';
+import { extractBrandAliasesFromMeta } from '@/lib/audit/universal-sov-engine';
 import {
 	extractFooterLegalText,
 	extractJsonLdScriptBodies,
@@ -74,6 +75,10 @@ export interface SiteMetadata {
 	ogSiteName?: string;
 	/** JSON-LD Organization / LocalBusiness `name`. */
 	organizationName?: string;
+	/** All Organization / MedicalBusiness / LocalBusiness `name` / alternateName / legalName values. */
+	schemaOrganizationNames?: string[];
+	/** Normalized brand alias set used by universal SoV / citation matching. */
+	brandAliases?: string[];
 	/** Raw `og:description` for As-Is source audit (P4). */
 	ogDescription?: string;
 	/** Raw `og:image` used as the MedicalClinic / Organization logo fallback. */
@@ -415,6 +420,7 @@ const SPECIALTY_CLINIC_RULE: KeywordRule = {
 const SCHEMA_INDUSTRY: Record<string, { ko: string; en: string; industry: IndustryType; medicalKind?: KeywordRule['medicalKind'] }> = {
 	Dentist: { ko: '치과', en: 'dental clinic', industry: 'MEDICAL', medicalKind: 'dental' },
 	MedicalClinic: { ko: '의원', en: 'medical clinic', industry: 'MEDICAL', medicalKind: 'clinic' },
+	MedicalBusiness: { ko: '의원', en: 'medical business', industry: 'MEDICAL', medicalKind: 'clinic' },
 	Physician: { ko: '병원', en: 'physician practice', industry: 'MEDICAL', medicalKind: 'clinic' },
 	Hospital: { ko: '병원', en: 'hospital', industry: 'MEDICAL', medicalKind: 'clinic' },
 	VeterinaryCare: { ko: '반려동물 병원', en: 'pet hospital', industry: 'MEDICAL', medicalKind: 'vet' },
@@ -527,6 +533,16 @@ function typeList(node: Record<string, unknown>): string[] {
 function hasType(node: Record<string, unknown>, type: string): boolean {
 	const want = normalizeSchemaType(type);
 	return typeList(node).some((t) => t === want);
+}
+
+const SCHEMA_BRAND_TYPES = ['Organization', 'MedicalBusiness', 'LocalBusiness', 'MedicalClinic'] as const;
+
+function schemaNameFields(node: Record<string, unknown>): string[] {
+	return [node.name, node.alternateName, node.legalName].flatMap((value) =>
+		asArray(value)
+			.map((item) => cleanText(item, 80))
+			.filter(Boolean),
+	);
 }
 
 function cleanText(value: unknown, max = 120): string {
@@ -801,6 +817,27 @@ function normalizeLegacyMeta(meta: SiteMetadata): SiteMetadata {
 		ogDescription: meta?.ogDescription,
 		schemaKnowsAbout: meta?.schemaKnowsAbout,
 		schemaEntityTypes: meta?.schemaEntityTypes,
+		organizationName: meta?.organizationName,
+		schemaOrganizationNames: meta?.schemaOrganizationNames,
+		ogSiteName: meta?.ogSiteName,
+		brandAliases:
+			meta?.brandAliases?.length
+				? meta.brandAliases
+				: extractBrandAliasesFromMeta({
+						targetUrl: meta?.targetUrl,
+						domain: meta?.domain,
+						brandName,
+						pageTitle: meta?.title,
+						title: meta?.title,
+						ogTitle: meta?.ogTitle,
+						ogSiteName: meta?.ogSiteName,
+						organizationName: meta?.organizationName,
+						schemaOrganizationNames: meta?.schemaOrganizationNames,
+						representativeName: meta?.representativeName,
+						keywords: meta?.metaKeywords,
+						keywordList: meta?.detectedKeywords,
+						description: meta?.metaDescription,
+					}).brandAliases,
 		h2Texts: meta?.h2Texts,
 		navMenuTexts: meta?.navMenuTexts,
 		coreSpecialties: meta?.coreSpecialties?.length
@@ -856,10 +893,17 @@ export function extractSiteMetadata(
 		(n) =>
 			hasType(n, 'Organization') ||
 			hasType(n, 'LocalBusiness') ||
+			hasType(n, 'MedicalBusiness') ||
 			Object.keys(SCHEMA_INDUSTRY).some((t) => hasType(n, t)),
 	);
 
-	const schemaNames = orgLike.map((n) => cleanText(n.name, 80)).filter(Boolean);
+	const schemaNames = uniqDetectedKeywords(
+		[
+			...orgLike.filter((n) => SCHEMA_BRAND_TYPES.some((type) => hasType(n, type))).flatMap(schemaNameFields),
+			...orgLike.flatMap(schemaNameFields),
+		],
+		16,
+	);
 	const schemaDescriptions = orgLike.map((n) => cleanText(n.description, 200)).filter(Boolean);
 	const schemaKnowsAbout = orgLike.flatMap((n) =>
 		asArray(n.knowsAbout)
@@ -1101,12 +1145,30 @@ export function extractSiteMetadata(
 		title,
 		ogTitle,
 		ogSiteName,
+		organizationName: schemaNames[0],
+		schemaOrganizationNames: schemaNames,
 		keywords: metaKeywords,
 		keywordList: [...schemaKnowsAbout, ...schemaSpecialties, ...coreSpecialties],
 		description: [metaDescription, ogDescription].filter(Boolean).join(' '),
 		representativeName,
 		personNames: schemaPersonName ? [schemaPersonName] : [],
 		domain,
+	});
+	const brandContext = extractBrandAliasesFromMeta({
+		targetUrl: pageUrl,
+		domain,
+		brandName,
+		pageTitle: title,
+		title,
+		ogTitle,
+		ogSiteName,
+		organizationName: schemaNames[0],
+		schemaOrganizationNames: schemaNames,
+		representativeName,
+		personNames: schemaPersonName ? [schemaPersonName] : [],
+		keywords: metaKeywords,
+		keywordList: [...schemaKnowsAbout, ...schemaSpecialties, ...coreSpecialties],
+		description: [metaDescription, ogDescription].filter(Boolean).join(' '),
 	});
 	const detectedKeywords = uniqDetectedKeywords([
 		...classifiedKeywords.categoryNouns,
@@ -1161,6 +1223,8 @@ export function extractSiteMetadata(
 		ogTitle: ogTitle || undefined,
 		ogSiteName: ogSiteName || undefined,
 		organizationName: schemaNames[0] || undefined,
+		schemaOrganizationNames: schemaNames.length ? schemaNames : undefined,
+		brandAliases: brandContext.brandAliases.length ? brandContext.brandAliases : undefined,
 		ogDescription: ogDescription || undefined,
 		ogImage: ogImage || undefined,
 		logoUrl: logoUrl || undefined,

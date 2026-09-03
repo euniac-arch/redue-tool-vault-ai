@@ -2,96 +2,100 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { PortfolioCard } from '@/components/PortfolioCard';
 import { CaseStudyCard } from '@/components/portfolio/CaseStudyCard';
-import { SchemaValidationModal, type ModalMode } from '@/components/SchemaValidationModal';
+import { CaseStudyExecutiveSummaryModal } from '@/components/portfolio/CaseStudyExecutiveSummaryModal';
 import { PageListLoader } from '@/components/ui/PageListLoader';
-import { CASE_STUDIES } from '@/lib/case-studies';
-import type { PortfolioItem } from '@/lib/portfolio-types';
+import {
+	CASE_STUDY_FILTER_TABS,
+	matchesCaseStudyFilter,
+	type CaseStudyFilterTabId,
+} from '@/lib/case-studies/category-filter';
+import type { CaseStudyData } from '@/lib/case-study-types';
 
 export default function PortfolioPage() {
 	const t = useTranslations('portfolioPage');
-	const [items, setItems] = useState<PortfolioItem[]>([]);
+	const [liveCaseStudies, setLiveCaseStudies] = useState<CaseStudyData[]>([]);
 	const [loading, setLoading] = useState(true);
-	const [activeCategory, setActiveCategory] = useState('전체');
-	const [modalState, setModalState] = useState<{ item: PortfolioItem; mode: ModalMode } | null>(null);
+	const [activeCategory, setActiveCategory] = useState<CaseStudyFilterTabId>('all');
+	const [selectedCaseData, setSelectedCaseData] = useState<CaseStudyData | null>(null);
 
 	useEffect(() => {
-		fetch('/api/portfolio')
+		fetch('/api/case-studies')
 			.then((res) => res.json())
-			.then((data) => setItems(data.items as PortfolioItem[]))
+			.then((data) => setLiveCaseStudies((data.items as CaseStudyData[]) || []))
+			.catch(() => setLiveCaseStudies([]))
 			.finally(() => setLoading(false));
 	}, []);
 
-	const categories = useMemo(() => {
-		const set = new Set([
-			...CASE_STUDIES.map((item) => item.siteInfo.category),
-			...items.map((item) => item.category),
-		]);
-		return ['전체', ...Array.from(set)];
-	}, [items]);
-	const filteredCaseStudies = useMemo(
+	const filtered = useMemo(
 		() =>
-			activeCategory === '전체'
-				? CASE_STUDIES
-				: CASE_STUDIES.filter((item) => item.siteInfo.category === activeCategory),
-		[activeCategory]
+			liveCaseStudies.filter((item) => matchesCaseStudyFilter(item.siteInfo.category, activeCategory)),
+		[liveCaseStudies, activeCategory],
 	);
-	const filteredItems = useMemo(
-		() => (activeCategory === '전체' ? items : items.filter((item) => item.category === activeCategory)),
-		[items, activeCategory]
-	);
+
+	const verified = useMemo(() => filtered.filter((item) => item.kind === 'verified'), [filtered]);
+	const simulations = useMemo(() => filtered.filter((item) => item.kind === 'simulation'), [filtered]);
 
 	return (
 		<main className="flex flex-col gap-8">
 			<section>
-				<h1 className="text-2xl font-bold text-slate-900 dark:text-white">REDUE AI SEO & GEO 포트폴리오</h1>
+				<p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-600 dark:text-cyan-400">
+					Case Studies
+				</p>
+				<h1 className="mt-1.5 text-2xl font-bold text-slate-900 dark:text-white">
+					REDUE AI SEO & GEO 도입 사례
+				</h1>
 				<p className="mt-1 text-sm text-slate-600 dark:text-slate-300/80">
-					로컬 및 실제 호스팅 환경에서 스키마 주입 검증이 완료된 프로젝트를 정식 등록·관리합니다.
+					실제 사이트 환경에 REDUE 스키마 주입 및 GEO 최적화를 적용한 실증 리포트입니다.
 				</p>
 			</section>
 
 			<nav className="flex flex-wrap gap-2 border-b border-slate-200 pb-4 dark:border-slate-800/80">
-				{categories.map((category) => (
+				{CASE_STUDY_FILTER_TABS.map((tab) => (
 					<button
-						key={category}
-						onClick={() => setActiveCategory(category)}
+						key={tab.id}
+						type="button"
+						onClick={() => setActiveCategory(tab.id)}
 						className={`rounded-md border px-4 py-1.5 text-sm font-semibold transition-colors ${
-							activeCategory === category
+							activeCategory === tab.id
 								? 'border-cyan-500 bg-cyan-500 text-slate-950'
 								: 'border-slate-200 bg-white text-slate-600 hover:border-cyan-500/40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-[#0E162B]'
 						}`}
 					>
-						{category}
+						{tab.label}
 					</button>
 				))}
 			</nav>
 
 			{loading ? (
 				<PageListLoader label={t('loading')} />
-			) : filteredCaseStudies.length === 0 && filteredItems.length === 0 ? (
-				<p className="text-sm text-slate-500">등록된 프로젝트가 없습니다.</p>
+			) : verified.length === 0 && simulations.length === 0 ? (
+				<p className="text-sm text-slate-500">등록된 실증 사례가 없습니다.</p>
 			) : (
-				<div className="flex flex-col gap-5">
-					{filteredCaseStudies.map((item) => (
-						<CaseStudyCard key={item.id} data={item} />
-					))}
-					{filteredItems.map((item) => (
-						<PortfolioCard key={item.id} item={item} onVerify={(target, mode) => setModalState({ item: target, mode })} />
-					))}
+				<div className="flex flex-col gap-10">
+					{verified.length > 0 ? (
+						<section className="flex flex-col gap-5">
+							<h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">실제 실증</h2>
+							{verified.map((item) => (
+								<CaseStudyCard key={item.id} data={item} onViewResult={setSelectedCaseData} />
+							))}
+						</section>
+					) : null}
+					{simulations.length > 0 ? (
+						<section className="flex flex-col gap-5">
+							<h2 className="text-sm font-bold text-slate-800 dark:text-slate-200">업종별 시뮬레이션</h2>
+							{simulations.map((item) => (
+								<CaseStudyCard key={item.id} data={item} onViewResult={setSelectedCaseData} />
+							))}
+						</section>
+					) : null}
 				</div>
 			)}
 
-			{!loading && (filteredCaseStudies.length > 0 || filteredItems.length > 0) ? (
-				<p className="text-center text-[11px] leading-relaxed text-slate-500 dark:text-slate-500">
-					※ 위 사례는 테스트 및 시뮬레이션 기반 예시 데이터가 포함되어 있습니다.
-				</p>
-			) : null}
-
-			<SchemaValidationModal
-				item={modalState?.item ?? null}
-				mode={modalState?.mode ?? null}
-				onClose={() => setModalState(null)}
+			<CaseStudyExecutiveSummaryModal
+				isOpen={Boolean(selectedCaseData)}
+				data={selectedCaseData}
+				onClose={() => setSelectedCaseData(null)}
 			/>
 		</main>
 	);

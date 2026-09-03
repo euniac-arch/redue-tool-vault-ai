@@ -30,6 +30,7 @@ export interface GroundingEvalOptions {
 	citationUrl?: string;
 	mentionType?: MentionType;
 	citationCandidates?: readonly string[];
+	brandAliases?: readonly string[];
 }
 
 export const ENGINE_DISPLAY_NAME: Record<SupportedAiEngine, string> = {
@@ -116,8 +117,13 @@ function collectPatternHits<T extends { re: RegExp }>(text: string, patterns: re
 	});
 }
 
-function detectOrdinalRank(text: string, targetBrand: string, targetDomain: string): 1 | 2 | 3 | null {
-	if (!mentionsBrandOrSite(text, targetBrand, targetDomain)) return null;
+function detectOrdinalRank(
+	text: string,
+	targetBrand: string,
+	targetDomain: string,
+	extraAliases: readonly string[] = [],
+): 1 | 2 | 3 | null {
+	if (!mentionsBrandOrSite(text, targetBrand, targetDomain, extraAliases)) return null;
 	const escapedBrand = targetBrand.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	const host = targetDomain.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0] || '';
 	const escapedHost = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -224,8 +230,8 @@ export function evaluateAiGroundingResponse(
 	const engineName = ENGINE_DISPLAY_NAME[engine];
 	const safeTechnical = clamp(technicalScore, 0, 100);
 	const text = (aiResponseText || '').trim();
-	const mentioned = mentionsBrandOrSite(text, targetBrand, targetDomain);
-	const ordinalRank = detectOrdinalRank(text, targetBrand, targetDomain);
+	const mentioned = mentionsBrandOrSite(text, targetBrand, targetDomain, options.brandAliases);
+	const ordinalRank = detectOrdinalRank(text, targetBrand, targetDomain, options.brandAliases);
 	const rank = ordinalRank ?? options.rank ?? null;
 	const citedUrl = extractCitedUrl(text, targetDomain, options.citationUrl, options.citationCandidates);
 	const hasUrl = Boolean(citedUrl);

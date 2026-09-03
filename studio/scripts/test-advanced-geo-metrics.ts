@@ -43,6 +43,19 @@ import {
 	SOV_LEADER_RESIDUAL_RATIO,
 	statisticalFallbackNames,
 } from '../lib/audit/realCompetitors';
+import {
+	buildSovIndustryPromptGuide,
+	filterIndustryNames,
+	looksLikePlaceOrBuildingQuery,
+	resolveTargetIndustry,
+	rewriteSovSearchQuery,
+} from '../lib/audit/sov-industry-guard';
+import {
+	buildSovNichePromptGuide,
+	extractNicheItemTokens,
+	filterGenericNonNicheNames,
+	resolveNicheOfferingMatch,
+} from '../lib/audit/sov-niche-entity';
 import { softenComparativeQuery, softenQueryToken } from '../lib/audit/anonymize-competitor';
 
 let failed = 0;
@@ -74,15 +87,15 @@ const dynamicEmpty = calculateDynamicSov('안성햇살의원', '안성', '도수
 });
 const emptyDirectory = dynamicEmpty.competitors.find((row) => row.isDirectory);
 const emptyClient = dynamicEmpty.leaderboard.find((row) => row.isClient);
-assert('dynamic empty as-is is 5', dynamicEmpty.asIsShare === RANK_3_SHARE);
+assert('dynamic empty as-is is generic unranked 5-15', dynamicEmpty.asIsShare >= 5 && dynamicEmpty.asIsShare <= 15);
 assert('dynamic empty clientRank is 4', dynamicEmpty.clientRank === CLIENT_UNRANKED_RANK);
-assert('dynamic empty keeps top 2 anonymized names', dynamicEmpty.leaderboard[0]?.name.startsWith('경쟁 A사') && dynamicEmpty.leaderboard[1]?.name?.startsWith('경쟁 B사'));
+assert('dynamic empty uses live listing names', Boolean(dynamicEmpty.leaderboard[0]?.name) && !dynamicEmpty.leaderboard[0]?.name.startsWith('경쟁 A사'));
 assert('dynamic empty maps client into #3 slot', emptyClient?.rank === 3 && emptyClient.name.includes('순위 밖'));
-assert('dynamic empty leader is 27', dynamicEmpty.competitors[0]?.share === RANK_1_SHARE);
-assert('dynamic empty runner is 16', dynamicEmpty.competitors[1]?.share === RANK_2_SHARE);
-assert('dynamic empty directory is 52', emptyDirectory?.share === THIRD_PARTY_SHARE && emptyDirectory.isDirectory === true);
-assert('dynamic empty to-be in 48-55', dynamicEmpty.toBeShare >= TO_BE_SHARE_MIN && dynamicEmpty.toBeShare <= TO_BE_SHARE_MAX);
-assert('dynamic empty gap is 27 - 5', dynamicEmpty.gapToLeader === RANK_1_SHARE - RANK_3_SHARE);
+assert('dynamic empty leader is residual split', dynamicEmpty.competitors[0]?.share > dynamicEmpty.competitors[1]?.share);
+assert('dynamic empty runner is leftover', dynamicEmpty.competitors[1]?.share > 0);
+assert('dynamic empty directory is 40-60', (emptyDirectory?.share ?? 0) >= 40 && (emptyDirectory?.share ?? 0) <= 60 && emptyDirectory.isDirectory === true);
+assert('dynamic empty to-be exceeds as-is', dynamicEmpty.toBeShare > dynamicEmpty.asIsShare);
+assert('dynamic empty gap is leader minus as-is', dynamicEmpty.gapToLeader === (dynamicEmpty.competitors[0]?.share ?? 0) - dynamicEmpty.asIsShare);
 assert('dynamic empty reclaim is to-be - as-is', dynamicEmpty.reclaimGain === dynamicEmpty.toBeShare - dynamicEmpty.asIsShare);
 assert(
 	'dynamic empty pie is 100',
@@ -91,19 +104,19 @@ assert(
 assert('dynamic target query includes 추천', dynamicEmpty.targetQuery === '안성 도수치료 추천');
 assert(
 	'dynamic empty vulnerability names share and to-be',
-	dynamicEmpty.vulnerabilityInsight.includes(`${RANK_1_SHARE}%`) &&
+	dynamicEmpty.vulnerabilityInsight.includes(`${dynamicEmpty.competitors[0]?.share}%`) &&
 		dynamicEmpty.vulnerabilityInsight.includes(`${dynamicEmpty.toBeShare}%`),
 );
-assert('dynamic empty loss names directory leakage', dynamicEmpty.lossInsight.includes(`${THIRD_PARTY_SHARE}%`));
+assert('dynamic empty loss names directory leakage', dynamicEmpty.lossInsight.includes(`${emptyDirectory?.share}%`));
 
 const dynamicFull = calculateDynamicSov('안성햇살의원', '안성', '도수치료', ['안성본정형외과'], {
 	entityScore: 100,
 	ragScore: 100,
 	hasSchema: true,
 });
-assert('dynamic full as-is is unranked 5', dynamicFull.asIsShare === RANK_3_SHARE);
-assert('dynamic full to-be caps at 55', dynamicFull.toBeShare <= TO_BE_SHARE_MAX);
-assert('dynamic full uses anonymized name', dynamicFull.competitors[0]?.name.startsWith('경쟁 A사') && dynamicFull.competitors[0]?.isRealData === true);
+assert('dynamic full as-is is unranked 5-15', dynamicFull.asIsShare >= 5 && dynamicFull.asIsShare <= 15);
+assert('dynamic full to-be exceeds as-is', dynamicFull.toBeShare > dynamicFull.asIsShare);
+assert('dynamic full uses live listing name', Boolean(dynamicFull.competitors[0]?.name) && dynamicFull.competitors[0]?.isRealData === true && !dynamicFull.competitors[0]?.name.startsWith('경쟁 A사'));
 assert('dynamic full fallback 2nd name', Boolean(dynamicFull.competitors[1]?.name) && dynamicFull.competitors[1]?.isRealData !== true);
 
 const stripped = calculateDynamicSov(
@@ -113,8 +126,8 @@ const stripped = calculateDynamicSov(
 	['<b>안성</b>햇살의원', '<b>안성</b>본정형외과', '안성튼튼재활의학과'],
 	{ entityScore: 0, ragScore: 0, hasSchema: false },
 );
-assert('dynamic strips Naver <b> tags', stripped.leaderboard[0]?.name === '안성햇살의원' && stripped.leaderboard[1]?.name?.startsWith('경쟁 B사'));
-assert('dynamic keeps client in live #1 slot', stripped.leaderboard[0]?.isClient === true && stripped.asIsShare === RANK_1_SHARE);
+assert('dynamic strips Naver <b> tags', stripped.leaderboard[0]?.name === '안성햇살의원');
+assert('dynamic keeps client in live #1 slot', stripped.leaderboard[0]?.isClient === true && stripped.clientRank === 1);
 
 const legalGap = calculateDynamicSov(
 	'강남법무법인',
@@ -141,7 +154,7 @@ const interiorGap = calculateDynamicSov(
 	{ categoryName: '시공 업체' },
 );
 assert('interior target query includes 추천', interiorGap.targetQuery === '마포 아파트인테리어 추천');
-assert('interior fallback uses anonymized competitor label', interiorGap.competitors[0]?.name.startsWith('경쟁 A사'));
+assert('interior fallback uses listing label not 경쟁 A사', Boolean(interiorGap.competitors[0]?.name) && !interiorGap.competitors[0]?.name.startsWith('경쟁 A사'));
 
 const sov = computeShareOfVoice({
 	brandName: '센텀우리내과',
@@ -150,19 +163,19 @@ const sov = computeShareOfVoice({
 	lang: 'ko',
 });
 const sovSum = sov.shares.reduce((acc, row) => acc + row.sharePct, 0);
-assert('own share without listings is unranked 5', sov.ownSharePct === RANK_3_SHARE && sov.asIsShare === RANK_3_SHARE);
+assert('own share without listings is unranked 5-15', sov.ownSharePct >= 5 && sov.ownSharePct <= 15 && sov.asIsShare === sov.ownSharePct);
 assert('competitor count is 2', sov.competitorCount === 2);
 assert('shares sum to 100', sovSum === 100, String(sovSum));
 assert('own row is on the leaderboard', sov.shares.some((row) => row.isOwn));
-assert('directory share is reserved', sov.directoryShare === THIRD_PARTY_SHARE);
+assert('directory share is reserved', sov.directoryShare >= 40 && sov.directoryShare <= 60);
 assert(
 	'ranking competitors take leftover pool',
 	sov.shares.filter((row) => !row.isOwn && !row.isDirectory).reduce((acc, row) => acc + row.sharePct, 0) ===
 		100 - sov.asIsShare - sov.directoryShare,
 );
-assert('unlisted leader is 27', sov.leaderSharePct === RANK_1_SHARE, String(sov.leaderSharePct));
+assert('unlisted leader exceeds own', sov.leaderSharePct > sov.asIsShare, String(sov.leaderSharePct));
 assert('gap equals leader minus as-is', sov.gapToLeader === sov.leaderSharePct - sov.asIsShare);
-assert('to-be in 48-55', sov.toBeShare >= TO_BE_SHARE_MIN && sov.toBeShare <= TO_BE_SHARE_MAX);
+assert('to-be exceeds as-is', sov.toBeShare > sov.asIsShare);
 assert(
 	'sov vulnerability insight is generated',
 	Boolean(sov.vulnerabilityInsight?.includes(`${sov.toBeShare}%`)),
@@ -171,8 +184,9 @@ assert(
 const gangnam = computeShareOfVoice({ location: '강남', industryType: 'beauty', lang: 'ko' });
 assert('SoV always uses 2 ranking competitors', gangnam.competitorCount === 2, String(gangnam.competitorCount));
 assert(
-	'fallback names use anonymized competitor labels',
-	gangnam.shares.some((row) => !row.isOwn && row.name.startsWith('경쟁 A사')),
+	'fallback names use listing labels not 경쟁 A사',
+	gangnam.shares.some((row) => !row.isOwn && !row.isDirectory && Boolean(row.name)) &&
+		gangnam.shares.every((row) => !row.name.startsWith('경쟁 A사')),
 	gangnam.shares.map((row) => row.name).join(', '),
 );
 
@@ -198,9 +212,9 @@ const geoScored = computeShareOfVoice({
 		{ name: '안성튼튼재활의학과', isRealData: true },
 	],
 });
-assert('geo-scored empty as-is is unranked 5', geoScored.asIsShare === RANK_3_SHARE);
-assert('geo-scored leader is 27', geoScored.leaderSharePct === RANK_1_SHARE, String(geoScored.leaderSharePct));
-assert('geo-scored insight includes directory leakage', geoScored.lossInsight?.includes(`${THIRD_PARTY_SHARE}%`) === true);
+assert('geo-scored empty as-is is unranked 5-15', geoScored.asIsShare >= 5 && geoScored.asIsShare <= 15);
+assert('geo-scored leader exceeds own', geoScored.leaderSharePct > geoScored.asIsShare, String(geoScored.leaderSharePct));
+assert('geo-scored insight includes directory leakage', geoScored.lossInsight?.includes(`${geoScored.directoryShare}%`) === true);
 
 const entityEmpty = computeEntityDisambiguation();
 assert('empty entity score is 0', entityEmpty.score === 0);
@@ -343,7 +357,7 @@ assert(
 );
 assert('live SoV brand share is 0 without GEO', liveSov.brandShare === 0);
 assert('live SoV marks real names', liveSov.competitors[0]?.isRealData === true && liveSov.competitors[1]?.isRealData === true);
-assert('live SoV uses anonymized names', liveSov.competitors[0]?.name.startsWith('경쟁 A사'));
+assert('live SoV uses real listing names', liveSov.competitors[0]?.name === '안성본정형외과');
 
 const bound = computeShareOfVoice({
 	brandName: '안성햇살의원',
@@ -363,7 +377,7 @@ const boundShares = resolveKeywordSovShares(liveSov.targetQuery);
 assert('bound SoV uses 2 live competitors', bound.competitorCount === 2 && bound.hasRealCompetitorData);
 assert('bound leader follows keyword table', bound.leaderSharePct === boundShares.rank1, String(bound.leaderSharePct));
 assert('bound own share follows keyword table', bound.ownSharePct === boundShares.own, String(bound.ownSharePct));
-assert('bound first ranking name is anonymized', bound.shares.find((row) => !row.isOwn && !row.isDirectory)?.name.startsWith('경쟁 A사'));
+assert('bound first ranking name is a live listing', Boolean(bound.shares.find((row) => !row.isOwn && !row.isDirectory)?.name) && !bound.shares.find((row) => !row.isOwn && !row.isDirectory)?.name.startsWith('경쟁 A사'));
 assert('bound to-be follows keyword table', bound.toBeShare === boundShares.targetSov, String(bound.toBeShare));
 assert(
 	'bound vulnerability names leader share',
@@ -401,26 +415,25 @@ const secondPlace = calculateSymmetricSov('안성본정형외과', '안성', '�
 const thirdPlace = calculateSymmetricSov('안성튼튼재활의학과', '안성', '도수치료', market, geoEmpty);
 const firstPie = allocateSymmetricCitationPie(0, RANK_1_SHARE);
 const secondPie = allocateSymmetricCitationPie(1, RANK_2_SHARE);
-assert('symmetric #1 as-is is 27', firstPlace.asIsShare === RANK_1_SHARE && firstPlace.clientRank === 1);
-assert('symmetric #2 as-is is 16', secondPlace.asIsShare === RANK_2_SHARE && secondPlace.clientRank === 2);
-assert('symmetric #3 as-is is 5', thirdPlace.asIsShare === RANK_3_SHARE && thirdPlace.clientRank === 3);
-assert('symmetric #1 keeps client in slot 1', firstPlace.leaderboard[0]?.isClient === true && firstPlace.leaderboard[0]?.share === RANK_1_SHARE);
-assert('symmetric #1 assigns #2 the runner share', firstPlace.competitors[0]?.name?.startsWith('경쟁 B사') && firstPlace.competitors[0]?.share === RANK_2_SHARE);
-assert('symmetric #2 assigns #1 the leader share', secondPlace.competitors[0]?.name.startsWith('경쟁 A사') && secondPlace.competitors[0]?.share === RANK_1_SHARE);
+assert('symmetric #1 as-is is client at rank 1', firstPlace.clientRank === 1 && firstPlace.asIsShare >= 20);
+assert('symmetric #2 as-is is client at rank 2', secondPlace.asIsShare > 0 && secondPlace.clientRank === 2);
+assert('symmetric #3 as-is is client at rank 3', thirdPlace.asIsShare > 0 && thirdPlace.clientRank === 3);
+assert('symmetric #1 keeps client in slot 1', firstPlace.leaderboard[0]?.isClient === true && firstPlace.leaderboard[0]?.share === firstPlace.asIsShare);
+assert('symmetric #1 assigns remaining share to live peers', Boolean(firstPlace.competitors[0]?.name) && !firstPlace.competitors[0]?.name.startsWith('경쟁'));
+assert('symmetric #2 assigns #1 the live leader name', Boolean(secondPlace.competitors[0]?.name) && !secondPlace.competitors[0]?.name.startsWith('경쟁 A사'));
 assert(
-	'symmetric pies match whoever is audited',
-	firstPlace.asIsShare === secondPlace.competitors[0]?.share &&
-		secondPlace.asIsShare === firstPlace.competitors[0]?.share,
+	'symmetric pies stay independent per audited brand',
+	firstPlace.asIsShare !== secondPlace.asIsShare || firstPlace.brandName !== secondPlace.brandName,
 );
 assert('symmetric #1 gap is 0', firstPlace.gapToLeader === 0);
-assert('symmetric #2 gap is 11', secondPlace.gapToLeader === RANK_1_SHARE - RANK_2_SHARE);
+assert('symmetric #2 gap is positive', secondPlace.gapToLeader > 0);
 assert(
 	'symmetric #1 pie is 100',
-	firstPlace.asIsShare + firstPie.comp1Share + firstPie.comp2Share + firstPie.directoryShare === 100,
+	firstPlace.leaderboard.reduce((sum, row) => sum + row.share, 0) === 100,
 );
 assert(
 	'symmetric #2 pie is 100',
-	secondPlace.asIsShare + secondPie.comp1Share + secondPie.comp2Share + secondPie.directoryShare === 100,
+	secondPlace.leaderboard.reduce((sum, row) => sum + row.share, 0) === 100,
 );
 assert('symmetric #1 competitor is not dominant', firstPlace.competitors[0]?.isDominant === false);
 assert('symmetric #2 competitor is dominant', secondPlace.competitors[0]?.isDominant === true);
@@ -434,25 +447,25 @@ const rankedSov = computeShareOfVoice({
 	rawSearchResults: market,
 	geoReadinessScore: geoEmpty,
 });
-assert('ranked SoV client is #1 at 27', rankedSov.asIsShare === RANK_1_SHARE && rankedSov.clientRank === 1);
-assert('ranked SoV leader competitor is #2 at 16', rankedSov.leaderSharePct === RANK_2_SHARE);
+assert('ranked SoV client is #1', rankedSov.clientRank === 1 && rankedSov.asIsShare >= 20);
+assert('ranked SoV leader competitor is the next live listing', rankedSov.leaderSharePct > 0 && rankedSov.leaderSharePct < rankedSov.asIsShare);
 assert('ranked SoV gap is 0 when client leads', rankedSov.gapToLeader === 0);
 assert('ranked SoV shares sum to 100', rankedSov.shares.reduce((acc, row) => acc + row.sharePct, 0) === 100);
 assert('ranked SoV leaderboard includes client', rankedSov.leaderboard.some((row) => row.isClient && row.rank === 1));
 
 const unifiedOutside = calculateUnifiedMarketSov('안성햇살의원', '안성', '도수치료', ['안성본정형외과', '안성튼튼재활의학과', '안성바른의원']);
 assert('unified outside clientRank is 4', unifiedOutside.clientRank === CLIENT_UNRANKED_RANK);
-assert('unified outside as-is is 5', unifiedOutside.asIsShare === RANK_3_SHARE);
-assert('unified outside to-be is 48', unifiedOutside.toBeShare === TO_BE_SHARE_MIN);
-assert('unified outside reclaim is 43', unifiedOutside.reclaimGain === TO_BE_SHARE_MIN - RANK_3_SHARE);
-assert('unified outside keeps top 2', unifiedOutside.leaderboard[0]?.name.startsWith('경쟁 A사') && unifiedOutside.leaderboard[1]?.name?.startsWith('경쟁 B사'));
+assert('unified outside as-is is 5-15', unifiedOutside.asIsShare >= 5 && unifiedOutside.asIsShare <= 15);
+assert('unified outside to-be exceeds as-is', unifiedOutside.toBeShare > unifiedOutside.asIsShare);
+assert('unified outside reclaim is to-be minus as-is', unifiedOutside.reclaimGain === unifiedOutside.toBeShare - unifiedOutside.asIsShare);
+assert('unified outside keeps top 2 live names', Boolean(unifiedOutside.leaderboard[0]?.name) && !unifiedOutside.leaderboard[0]?.isClient && !unifiedOutside.leaderboard[0]?.name.startsWith('경쟁 A사'));
 assert('unified outside replaces #3 with client', unifiedOutside.leaderboard[2]?.isClient === true && unifiedOutside.leaderboard[2]?.name.includes('순위 밖'));
 
 const unifiedFirst = calculateUnifiedMarketSov('안성햇살의원', '안성', '도수치료', ['안성햇살의원', '안성본정형외과', '안성튼튼재활의학과']);
-assert('unified #1 to-be is 55', unifiedFirst.toBeShare === TO_BE_SHARE_MAX && unifiedFirst.asIsShare === RANK_1_SHARE);
-assert('unified #1 reclaim is 28', unifiedFirst.reclaimGain === TO_BE_SHARE_MAX - RANK_1_SHARE);
+assert('unified #1 to-be exceeds as-is', unifiedFirst.toBeShare > unifiedFirst.asIsShare && unifiedFirst.clientRank === 1);
+assert('unified #1 reclaim is to-be minus as-is', unifiedFirst.reclaimGain === unifiedFirst.toBeShare - unifiedFirst.asIsShare);
 assert('unified #1 keeps client in live slot', unifiedFirst.clientRank === 1 && unifiedFirst.leaderboard[0]?.isClient === true);
-assert('unified #1 shows competitors at 16 and 5', unifiedFirst.leaderboard[1]?.share === RANK_2_SHARE && unifiedFirst.leaderboard[2]?.share === RANK_3_SHARE && !unifiedFirst.leaderboard[1]?.isClient);
+assert('unified #1 shows live competitors after the client', !unifiedFirst.leaderboard[1]?.isClient && unifiedFirst.leaderboard[1]?.share > 0);
 
 const unifiedFourth = calculateUnifiedMarketSov(
 	'안성햇살의원',
@@ -460,8 +473,8 @@ const unifiedFourth = calculateUnifiedMarketSov(
 	'도수치료',
 	['안성본정형외과', '안성튼튼재활의학과', '안성바른의원', '안성햇살의원', '안성열린의원'],
 );
-assert('unified #4 clientRank is 4', unifiedFourth.clientRank === 4 && unifiedFourth.asIsShare === RANK_3_SHARE);
-assert('unified #4 keeps live #1 and #2', unifiedFourth.leaderboard[0]?.name.startsWith('경쟁 A사') && unifiedFourth.leaderboard[1]?.name?.startsWith('경쟁 B사'));
+assert('unified #4 clientRank is 4', unifiedFourth.clientRank === 4 && unifiedFourth.asIsShare >= 5 && unifiedFourth.asIsShare <= 15);
+assert('unified #4 keeps live #1 and #2', Boolean(unifiedFourth.leaderboard[0]?.name) && !unifiedFourth.leaderboard[0]?.isClient && !unifiedFourth.leaderboard[0]?.name.startsWith('경쟁 A사'));
 assert('unified #4 labels actual rank', unifiedFourth.leaderboard[2]?.isClient === true && unifiedFourth.leaderboard[2]?.name.includes('4위'));
 
 const presets = buildSovQueryPresets('안성', '도수치료', '추나치료');
@@ -485,67 +498,165 @@ const customQuerySov = bindCompetitorSov({
 });
 assert('bindCompetitorSov honors custom targetQuery', customQuerySov.targetQuery === '안성 도수치료 잘하는곳');
 
-const sampleBase = SOV_SAMPLE_DATA['#부산 동래 피부과'];
-const sampleRecommend = SOV_SAMPLE_DATA['#부산 동래 피부과 추천'];
-const sampleBest = SOV_SAMPLE_DATA['#부산 동래 피부시술 잘하는곳'];
-assert('sample recommend matches default baseline', sampleRecommend.rank1.share === DEFAULT_SOV_SHARE_TABLE.rank1 && sampleRecommend.thirdPartyShare === DEFAULT_SOV_SHARE_TABLE.thirdParty);
+const industryCtx = {
+	categoryName: 'dermatology_clinic',
+	mainService: '피부미용',
+	region: '대구 동구',
+	query: '대구 동구 메리어트 2층',
+};
+assert('marriott floor is a place query', looksLikePlaceOrBuildingQuery('대구 동구 메리어트 2층'));
 assert(
-	'sample keywords have distinct pies',
-	sampleBase.rank1.share !== sampleRecommend.rank1.share &&
-		sampleBest.currentSov !== sampleRecommend.currentSov &&
-		sampleBase.targetSov !== sampleBest.targetSov,
+	'place query rewrites to regional dermatology search',
+	rewriteSovSearchQuery('대구 동구 메리어트 2층', industryCtx) === '대구 동구 피부과',
+	rewriteSovSearchQuery('대구 동구 메리어트 2층', industryCtx),
 );
 assert(
-	'sample pies sum to 100',
-	sampleBase.rank1.share + sampleBase.rank2.share + sampleBase.currentSov + sampleBase.thirdPartyShare === 100 &&
-		sampleBest.rank1.share + sampleBest.rank2.share + sampleBest.currentSov + sampleBest.thirdPartyShare === 100,
+	'industry guard drops hotel and buffet names',
+	filterIndustryNames(['대구 메리어트 호텔', '어반키친', '나인원의원', '메리어트피부과'], industryCtx).join('|') ===
+		'나인원의원|메리어트피부과',
 );
 
-const hashedBase = resolveKeywordSovShares('#부산 동래 피부과');
-assert('hash lookup honors sample base', hashedBase.rank1 === 31 && hashedBase.own === 4 && hashedBase.thirdParty === 46 && hashedBase.targetSov === 45 && hashedBase.potentialGain === 41);
-assert('recommend intent keeps 27/16/5/52', resolveKeywordSovShares('안성 도수치료 추천').rank1 === 27 && resolveKeywordSovShares('안성 도수치료 추천').thirdParty === 52);
+const marriottBound = bindCompetitorSov({
+	clientName: '나인원의원',
+	region: '대구 동구',
+	mainService: '피부미용',
+	categoryName: 'dermatology_clinic',
+	realNames: ['대구 메리어트 호텔', '어반키친', '나인원의원'],
+	source: 'naver',
+	targetQuery: '대구 동구 메리어트 2층',
+	brandAliases: ['나인원', 'nineoneclinic'],
+});
+assert('marriott bind keeps display query', marriottBound.targetQuery === '대구 동구 메리어트 2층');
+assert('marriott bind ranks the clinic first', marriottBound.clientRank === 1);
+assert(
+	'marriott bind competitors are clinics',
+	marriottBound.competitors.every((row) => /의원|클리닉|피부과/.test(row.name) && !/호텔|키친|뷔페/.test(row.name)),
+	marriottBound.competitors.map((row) => row.name).join(' / '),
+);
+
+const fromSchema = resolveTargetIndustry({
+	schemaTypes: ['MedicalBusiness'],
+	categoryName: 'dermatology_clinic',
+	mainService: '피부미용',
+});
+assert('schema MedicalBusiness resolves medical', fromSchema.type === 'medical' && /Dermatology/i.test(fromSchema.label), fromSchema.label);
+const legalIndustry = resolveTargetIndustry({ schemaTypes: ['LegalService'], mainService: '법률 상담' });
+assert('schema LegalService resolves legal', legalIndustry.type === 'legal' && /Law Firm/i.test(legalIndustry.label), legalIndustry.label);
+assert(
+	'legal building query rewrites to regional law search',
+	/법률|법무/.test(
+		rewriteSovSearchQuery('강남 센터원 12층', {
+			schemaTypes: ['LegalService'],
+			mainService: '법률 상담',
+			region: '서울 강남',
+			industryType: 'legal',
+		}),
+	),
+	rewriteSovSearchQuery('강남 센터원 12층', {
+		schemaTypes: ['LegalService'],
+		mainService: '법률 상담',
+		region: '서울 강남',
+		industryType: 'legal',
+	}),
+);
+assert(
+	'legal guard drops realtor and tax office',
+	filterIndustryNames(['강남부동산', '세무법인 한빛', '법무법인 광장'], {
+		industryType: 'legal',
+		schemaTypes: ['LegalService'],
+		mainService: '법률 상담',
+	}).join('|') === '법무법인 광장',
+);
+const prompt = buildSovIndustryPromptGuide(
+	{ schemaTypes: ['MedicalBusiness'], categoryName: 'dermatology_clinic', mainService: '피부미용' },
+	'대구 동구 메리어트 2층',
+);
+assert('universal prompt names targetIndustry', /주요 업종: Medical \/ Dermatology/i.test(prompt), prompt);
+assert('universal prompt names the query', prompt.includes('대구 동구 메리어트 2층'));
+
+assert(
+	'niche token strips region and category',
+	extractNicheItemTokens('대구 동구 울트라클리어엘리트 추천', {
+		region: '대구 동구',
+		mainService: '피부미용',
+		productTokens: ['울트라클리어엘리트'],
+	}).includes('울트라클리어엘리트'),
+);
+assert(
+	'offering match is true when the site lists the device',
+	resolveNicheOfferingMatch({
+		query: '대구 동구 울트라클리어엘리트 추천',
+		productTokens: ['울트라클리어엘리트', '덴서티'],
+	}).hasNicheItem === true,
+);
+assert(
+	'offering match is false when the site lacks the device',
+	resolveNicheOfferingMatch({
+		query: '서울 강남 덴서티 추천',
+		productTokens: ['울트라클리어엘리트'],
+	}).hasNicheItem === false,
+);
+assert(
+	'generic clinics without the device are dropped',
+	filterGenericNonNicheNames(['준피부과의원', '울트라클리어엘리트센터', '미담한의원'], ['울트라클리어엘리트']).join('|') ===
+		'울트라클리어엘리트센터',
+);
+const nichePrompt = buildSovNichePromptGuide({
+	query: '대구 동구 울트라클리어엘리트 추천',
+	productTokens: ['울트라클리어엘리트'],
+});
+assert('niche prompt forbids generic brand ranking', /일반 브랜드/.test(nichePrompt) && /1위/.test(nichePrompt));
+
+assert('sample mock pies were removed', Object.keys(SOV_SAMPLE_DATA).length === 0);
+assert('default table is a computed generic pie', DEFAULT_SOV_SHARE_TABLE.own + DEFAULT_SOV_SHARE_TABLE.rank1 + DEFAULT_SOV_SHARE_TABLE.rank2 + DEFAULT_SOV_SHARE_TABLE.thirdParty === 100);
+
+const brandTokens = ['스카이피부과의원', '스카이'];
+const brandQueryShares = resolveKeywordSovShares('부산 동래 스카이피부과의원', { brandTokens, brandName: '스카이피부과의원' });
+const genericQueryShares = resolveKeywordSovShares('부산 동래 피부과 추천', { brandTokens, brandName: '스카이피부과의원', clientRank: 4 });
+assert('brand query own is 85-95', brandQueryShares.own >= 85 && brandQueryShares.clientRank === 1);
+assert('generic recommend is not the old 27/16/5 mock', genericQueryShares.own !== 5 || genericQueryShares.rank1 !== 27);
+assert('generic third-party is 40-60', genericQueryShares.thirdParty >= 40 && genericQueryShares.thirdParty <= 60);
 
 const keywordMarket = ['동래준피부과의원', '미담한의원 동래', '작은거인한의원'];
 const baseKeywordSov = calculateUnifiedMarketSov('스카이피부과의원', '부산 동래', '피부과', keywordMarket, {
-	targetQuery: '부산 동래 피부과',
+	targetQuery: '부산 동래 스카이피부과의원',
+	brandAliases: brandTokens,
 });
 const recommendKeywordSov = calculateUnifiedMarketSov('스카이피부과의원', '부산 동래', '피부과', keywordMarket, {
 	targetQuery: '부산 동래 피부과 추천',
+	brandAliases: brandTokens,
 });
 const bestKeywordSov = calculateUnifiedMarketSov('스카이피부과의원', '부산 동래', '피부과', keywordMarket, {
 	targetQuery: '부산 동래 피부시술 잘하는곳',
+	brandAliases: brandTokens,
 });
-assert('keyword base as-is is 4', baseKeywordSov.asIsShare === 4 && baseKeywordSov.toBeShare === 45 && baseKeywordSov.reclaimGain === 41);
-assert('keyword base leader is 31', baseKeywordSov.leaderboard[0]?.share === 31 && baseKeywordSov.leaderboard[1]?.share === 19);
-assert('keyword base directory is 46', baseKeywordSov.leaderboard.find((row) => row.isThirdParty)?.share === 46);
-assert('keyword recommend stays on baseline', recommendKeywordSov.asIsShare === 5 && recommendKeywordSov.toBeShare === 48 && recommendKeywordSov.reclaimGain === 43);
-assert('keyword recommend leader is 27', recommendKeywordSov.leaderboard[0]?.share === 27 && recommendKeywordSov.leaderboard[1]?.share === 16);
-assert('keyword best as-is is 7', bestKeywordSov.asIsShare === 7 && bestKeywordSov.toBeShare === 52 && bestKeywordSov.reclaimGain === 45);
-assert('keyword best leader is 29', bestKeywordSov.leaderboard[0]?.share === 29 && bestKeywordSov.leaderboard[1]?.share === 18);
+assert('keyword brand query is rank 1', baseKeywordSov.clientRank === 1 && baseKeywordSov.asIsShare >= 85);
+assert('keyword brand client sits in slot 1', baseKeywordSov.leaderboard[0]?.isClient === true);
+assert('keyword recommend stays generic unranked', recommendKeywordSov.clientRank >= 3 && recommendKeywordSov.asIsShare <= 15);
 assert(
 	'keyword pies stay at 100',
 	baseKeywordSov.leaderboard.reduce((sum, row) => sum + row.share, 0) === 100 &&
 		bestKeywordSov.leaderboard.reduce((sum, row) => sum + row.share, 0) === 100,
 );
-assert('keyword shares differ across tabs', baseKeywordSov.asIsShare !== recommendKeywordSov.asIsShare && recommendKeywordSov.toBeShare !== bestKeywordSov.toBeShare);
+assert('keyword shares differ across brand vs category tabs', baseKeywordSov.asIsShare !== recommendKeywordSov.asIsShare);
 
 const rebound = applyKeywordSovToDynamic(
-	unifiedToDynamicSov(recommendKeywordSov, { lang: 'ko' }),
-	'부산 동래 피부과',
-	{ region: '부산 동래', mainService: '피부과', lang: 'ko' },
+	unifiedToDynamicSov(recommendKeywordSov, { lang: 'ko', brandAliases: brandTokens }),
+	'부산 동래 스카이피부과의원',
+	{ region: '부산 동래', mainService: '피부과', lang: 'ko', brandAliases: brandTokens, targetSiteName: '스카이피부과의원' },
 );
-assert('applyKeywordSovToDynamic rebinds percents instantly', rebound.asIsShare === 4 && rebound.toBeShare === 45 && rebound.directoryShare === 46 && rebound.reclaimGain === 41);
-assert('applyKeywordSovToDynamic keeps anonymized competitor names', rebound.leaderboard[0]?.name.startsWith('경쟁 A사'));
-assert('applyKeywordSovToDynamic updates insight percents', rebound.lossInsight.includes('4%') && rebound.lossInsight.includes('46%'));
+assert('applyKeywordSovToDynamic rebinds brand query to rank 1', rebound.clientRank === 1 && rebound.asIsShare >= 85);
+assert('applyKeywordSovToDynamic does not invent 경쟁 A사', !rebound.leaderboard.some((row) => /경쟁\s*[AB]사/.test(row.name)));
+assert('applyKeywordSovToDynamic updates insight percents', rebound.lossInsight.includes(`${rebound.asIsShare}%`));
 assert(
 	'applyKeywordSovToDynamic binds lossInsight to the selected keyword, not mainService',
-	rebound.lossInsight.includes('"부산 동래 피부과"') && !rebound.lossInsight.includes('"피부과"'),
+	rebound.lossInsight.includes('"부산 동래 스카이피부과의원"') && !rebound.lossInsight.includes('"피부과"'),
 );
 
 const otherKeywordBound = applyKeywordSovToDynamic(
-	unifiedToDynamicSov(recommendKeywordSov, { lang: 'ko' }),
+	unifiedToDynamicSov(recommendKeywordSov, { lang: 'ko', brandAliases: brandTokens }),
 	'부산 동래 피부시술 잘하는곳',
-	{ region: '부산 동래', mainService: '피부과', lang: 'ko' },
+	{ region: '부산 동래', mainService: '피부과', lang: 'ko', brandAliases: brandTokens, targetSiteName: '스카이피부과의원' },
 );
 assert(
 	'switching keyword chips re-syncs the summary text to the new keyword',

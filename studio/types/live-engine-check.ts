@@ -1,3 +1,5 @@
+import type { UniversalQuerySov } from '@/lib/audit/universal-sov-engine';
+
 export type LiveCheckEngineId = 'gemini' | 'chatgpt' | 'perplexity' | 'claude' | 'copilot' | 'clova';
 
 export type LiveGroundedEngineId = 'gemini' | 'chatgpt' | 'perplexity' | 'claude';
@@ -19,6 +21,12 @@ export type GroundingStatusColor = 'green' | 'blue' | 'yellow' | 'red';
 
 export const LIVE_GROUNDED_ENGINE_IDS = ['chatgpt', 'perplexity', 'gemini', 'claude'] as const satisfies readonly LiveGroundedEngineId[];
 
+export interface LiveCitationMention {
+	title: string;
+	url: string;
+	isTargetMention: boolean;
+}
+
 export interface LiveEngineCheckResult {
 	engine: LiveCheckEngineId;
 	isLiveGrounded: boolean;
@@ -31,6 +39,8 @@ export interface LiveEngineCheckResult {
 	citationUrl?: string;
 	/** Unique live citation URLs (Perplexity citations[], evaluator match, parsed URL). */
 	citedSources?: string[];
+	/** Per-source ownership: official domain or brand-earned 3rd-party mention. */
+	citations?: LiveCitationMention[];
 	/** True when the live call failed and the UI must keep the rule-based score. */
 	fallbackToRuleScore?: boolean;
 	citedRank?: 1 | 2 | 3 | null;
@@ -48,6 +58,7 @@ export interface LiveCheckRequestBody {
 	targetQuery: string;
 	location?: string;
 	category?: string;
+	brandAliases?: string[];
 	ruleScores?: Partial<Record<LiveCheckEngineId, number>>;
 }
 
@@ -55,5 +66,6 @@ export interface LiveCheckResponse {
 	success: boolean;
 	targetQuery: string;
 	results: LiveEngineCheckResult[];
+	querySov?: UniversalQuerySov;
 	error?: string;
 }

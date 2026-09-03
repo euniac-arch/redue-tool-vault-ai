@@ -110,15 +110,15 @@ const report = {
 const geo = computeAdvancedGeoFromReport(report);
 assert('SoV sums to 100', geo.shareOfVoice.shares.reduce((sum, row) => sum + row.sharePct, 0) === 100);
 assert(
-	'own share without listings is unranked 5',
-	geo.shareOfVoice.asIsShare === RANK_3_SHARE && geo.shareOfVoice.asIsShare <= AS_IS_SHARE_MAX,
+	'own share without listings is unranked 5-15',
+	geo.shareOfVoice.asIsShare >= 5 && geo.shareOfVoice.asIsShare <= 15,
 	String(geo.shareOfVoice.asIsShare),
 );
-assert('directory share is reserved', geo.shareOfVoice.directoryShare === THIRD_PARTY_SHARE);
-assert('unlisted leader is 27', geo.shareOfVoice.leaderSharePct === RANK_1_SHARE, String(geo.shareOfVoice.leaderSharePct));
+assert('directory share is reserved', geo.shareOfVoice.directoryShare >= 40 && geo.shareOfVoice.directoryShare <= 60);
+assert('unlisted leader exceeds own', geo.shareOfVoice.leaderSharePct > geo.shareOfVoice.asIsShare, String(geo.shareOfVoice.leaderSharePct));
 assert(
-	'to-be in 48-55',
-	geo.shareOfVoice.toBeShare >= TO_BE_SHARE_MIN && geo.shareOfVoice.toBeShare <= TO_BE_SHARE_MAX,
+	'to-be exceeds as-is',
+	geo.shareOfVoice.toBeShare > geo.shareOfVoice.asIsShare,
 	String(geo.shareOfVoice.toBeShare),
 );
 assert('no live snapshot stays statistical', geo.shareOfVoice.hasRealCompetitorData === false);
@@ -150,14 +150,15 @@ const liveGeo = computeAdvancedGeoFromReport({
 	},
 });
 assert(
-	'live snapshot binds anonymized names',
-	liveGeo.shareOfVoice.shares.some((row) => row.name.startsWith('경쟁 A사')),
+	'live snapshot binds real listing names',
+	liveGeo.shareOfVoice.shares.some((row) => row.name === '센텀튼튼내과' || row.isRealData === true) &&
+		!liveGeo.shareOfVoice.shares.some((row) => row.name.startsWith('경쟁 A사')),
 );
 assert('live snapshot marks real data', liveGeo.shareOfVoice.hasRealCompetitorData === true);
-assert('live snapshot leader is 27', liveGeo.shareOfVoice.leaderSharePct === RANK_1_SHARE, String(liveGeo.shareOfVoice.leaderSharePct));
+assert('live snapshot leader exceeds own', liveGeo.shareOfVoice.leaderSharePct > liveGeo.shareOfVoice.asIsShare, String(liveGeo.shareOfVoice.leaderSharePct));
 assert(
-	'live snapshot own share is unranked 5',
-	liveGeo.shareOfVoice.asIsShare === RANK_3_SHARE && liveGeo.shareOfVoice.asIsShare <= AS_IS_SHARE_MAX,
+	'live snapshot own share is unranked 5-15',
+	liveGeo.shareOfVoice.asIsShare >= 5 && liveGeo.shareOfVoice.asIsShare <= 15,
 	String(liveGeo.shareOfVoice.asIsShare),
 );
 assert(
@@ -178,10 +179,14 @@ const rankedGeo = computeAdvancedGeoFromReport({
 		fetchedAt: '2026-08-16T00:00:00.000Z',
 	},
 });
-const rankedShares = resolveKeywordSovShares('부산 센텀 내과');
-assert('ranked snapshot as-is follows keyword #1 share', rankedGeo.shareOfVoice.asIsShare === rankedShares.rank1);
+const rankedShares = resolveKeywordSovShares('부산 센텀 내과', {
+	brandName: '센텀우리내과',
+	brandTokens: ['센텀우리내과'],
+	clientRank: 1,
+});
+assert('ranked snapshot as-is follows keyword own share', rankedGeo.shareOfVoice.asIsShare === rankedShares.own);
 assert('ranked snapshot clientRank is 1', rankedGeo.shareOfVoice.clientRank === 1);
-assert('ranked snapshot #2 follows keyword runner share', rankedGeo.shareOfVoice.leaderSharePct === rankedShares.rank2);
+assert('ranked snapshot #2 follows keyword competitor share', rankedGeo.shareOfVoice.leaderSharePct === rankedShares.rank1);
 assert('ranked snapshot gap is 0 when client leads', rankedGeo.shareOfVoice.gapToLeader === 0);
 assert('ranked snapshot leaderboard keeps client at #1', rankedGeo.dynamicSov.leaderboard[0]?.isClient === true);
 assert(

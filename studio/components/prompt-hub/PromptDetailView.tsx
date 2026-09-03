@@ -152,7 +152,7 @@ export function PromptDetailView({ prompt }: { prompt: AiPrompt }) {
 				</section>
 			) : null}
 
-			<PromptHubNextSteps compact />
+			<PromptHubNextSteps />
 
 			<p className="text-center text-[11px] text-slate-400">
 				<Link href={getPromptHref(prompt.slug)} className="hover:text-cyan-600">

@@ -46,8 +46,9 @@ export type CrawledPageMeta = {
 	renderBlockingScriptItems?: RenderBlockingScript[];
 };
 
-const SUBPAGE_FETCH_TIMEOUT_MS = 5_000;
-const MAX_SUBPAGES = 60;
+const SUBPAGE_FETCH_TIMEOUT_MS = 4_000;
+const MAX_SUBPAGES = 20;
+const SUBPAGE_CONCURRENCY = 8;
 const MAX_HTML_CHARS = 1_500_000;
 const USER_AGENT = 'Mozilla/5.0 (compatible; ReduAiAuditBot/1.0; +https://redue.ai/audit)';
 
@@ -236,11 +237,11 @@ export async function crawlCollectedPageMetas(opts: {
 		.slice(0, limit);
 
 	const out: CrawledPageMeta[] = [];
-	const concurrency = 4;
+	const concurrency = SUBPAGE_CONCURRENCY;
 
 	for (let i = 0; i < candidates.length; i += concurrency) {
 		const batch = candidates.slice(i, i + concurrency);
-		const rows = await Promise.all(
+		const settled = await Promise.allSettled(
 			batch.map(async (hrefPath) => {
 				try {
 					const abs = new URL(hrefPath, opts.origin).toString();
@@ -319,8 +320,11 @@ export async function crawlCollectedPageMetas(opts: {
 				}
 			}),
 		);
-		for (const row of rows) {
-			if (row) out.push(row);
+		for (const row of settled) {
+			if (row.status === 'fulfilled' && row.value) out.push(row.value);
+			else if (row.status === 'rejected') {
+				console.error('[crawl-page-metas] subpage worker rejected:', row.reason);
+			}
 		}
 	}
 
@@ -338,10 +342,10 @@ async function fetchHtmlPages(
 	const chunks: string[] = [];
 	const fetched: string[] = [];
 	const pages: CeoSourcePage[] = [];
-	const concurrency = 4;
+	const concurrency = SUBPAGE_CONCURRENCY;
 	for (let i = 0; i < urls.length; i += concurrency) {
 		const batch = urls.slice(i, i + concurrency);
-		const rows = await Promise.all(
+		const settled = await Promise.allSettled(
 			batch.map(async (abs) => {
 				const result = await fetchHtml(abs, { forceRefresh: opts?.forceRefresh });
 				if (!result.ok || !result.text) return null;
@@ -355,11 +359,16 @@ async function fetchHtmlPages(
 				return { url: abs, title, html: result.text };
 			}),
 		);
-		for (const row of rows) {
-			if (!row) continue;
-			fetched.push(row.url);
-			chunks.push(row.html);
-			pages.push(row);
+		for (const row of settled) {
+			if (row.status !== 'fulfilled' || !row.value) {
+				if (row.status === 'rejected') {
+					console.error('[crawl-page-metas] specialty page rejected:', row.reason);
+				}
+				continue;
+			}
+			fetched.push(row.value.url);
+			chunks.push(row.value.html);
+			pages.push(row.value);
 		}
 	}
 	return { html: chunks.join('\n'), urls: fetched, pages };

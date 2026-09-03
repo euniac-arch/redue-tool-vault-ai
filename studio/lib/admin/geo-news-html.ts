@@ -1,14 +1,27 @@
+function fromCodePoint(code: number): string {
+	if (!Number.isFinite(code) || code < 1 || code > 0x10ffff) return '';
+	try {
+		return String.fromCodePoint(code);
+	} catch {
+		return '';
+	}
+}
+
 export function stripHtml(value: string): string {
 	return value
 		.replace(/<!\[CDATA\[|\]\]>/g, '')
 		.replace(/<[^>]+>/g, ' ')
 		.replace(/&nbsp;/gi, ' ')
+		.replace(/&middot;|&centerdot;/gi, '·')
+		.replace(/&bull;/gi, '·')
+		.replace(/&hellip;/gi, '…')
 		.replace(/&amp;/g, '&')
 		.replace(/&quot;/g, '"')
 		.replace(/&#39;|&apos;/g, "'")
 		.replace(/&lt;/g, '<')
 		.replace(/&gt;/g, '>')
-		.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+		.replace(/&#x([0-9a-f]+);/gi, (_, hex) => fromCodePoint(Number.parseInt(hex, 16)))
+		.replace(/&#(\d+);/g, (_, code) => fromCodePoint(Number(code)))
 		.replace(/\s+/g, ' ')
 		.trim();
 }

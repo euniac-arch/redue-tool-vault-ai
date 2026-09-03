@@ -166,10 +166,26 @@ export function detectCmsType(input: DetectCmsTypeInput = {}): DetectCmsTypeResu
 	if (input.html) {
 		const htmlHit = fromHtml(input.html);
 		signals.push(...htmlHit.signals);
+		if (/_GNUBOARD_/.test(input.html)) {
+			id = 'gnuboard';
+			confidence = 'high';
+			signals.push('_GNUBOARD_');
+		}
+		if (/wp_head\s*\(|wp-load\.php/i.test(input.html) && id !== 'gnuboard') {
+			id = 'wordpress';
+			confidence = confidence === 'high' ? confidence : 'medium';
+			signals.push('wp_head/wp-load.php');
+		}
 		if (id == null || (id === 'standalone' && htmlHit.id !== 'standalone')) {
 			id = htmlHit.id;
 			confidence = htmlHit.confidence;
 		}
+	}
+
+	if (paths.some((p) => /(^|\/)wp-load\.php$/i.test(p))) {
+		id = 'wordpress';
+		confidence = 'high';
+		signals.push('wp-load.php');
 	}
 
 	const resolved = id || 'standalone';

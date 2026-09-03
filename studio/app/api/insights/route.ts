@@ -1,6 +1,11 @@
-import { NextResponse } from 'next/server';
 import { getInsightsNewsFeed } from '@/lib/insights/insights-news-service';
 import { parseInsightsNewsTab } from '@/lib/insights/insights-news-types';
+import {
+	createInsightsRequestId,
+	insightsNoStoreJson,
+	insightsPublicError,
+	logInsightsFailure,
+} from '@/lib/insights/insights-api-errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -25,15 +30,16 @@ function wantsRefresh(searchParams: URLSearchParams): boolean {
  * (`getAdminFirestore`) so `settings()` cannot run per request.
  */
 export async function GET(request: Request) {
+	const requestId = createInsightsRequestId();
 	try {
 		const { searchParams } = new URL(request.url);
 		const result = await getInsightsNewsFeed({
 			tab: parseTab(searchParams.get('tab') || searchParams.get('category')),
 			forceRefresh: wantsRefresh(searchParams),
 		});
-		return NextResponse.json(result);
+		return insightsNoStoreJson(result, 200, requestId);
 	} catch (error) {
-		const message = error instanceof Error ? error.message : '뉴스 피드를 불러오지 못했습니다.';
-		return NextResponse.json({ error: message }, { status: 502 });
+		logInsightsFailure('insights/news', error, { requestId });
+		return insightsNoStoreJson({ error: insightsPublicError('news') }, 502, requestId);
 	}
 }

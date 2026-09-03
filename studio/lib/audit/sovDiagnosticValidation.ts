@@ -8,11 +8,12 @@
  */
 
 import {
-	DEFAULT_SOV_SHARE_TABLE,
 	normalizeSovKeyword,
 	resolveKeywordSovShares,
 	type SovShareTable,
 } from '@/lib/audit/sovLeaderboardData';
+import { queryContainsBrandToken } from '@/lib/audit/universal-sov-engine';
+import { composeSearchQuery } from '@/lib/geo/search-query-normalize';
 
 export const SOV_SHARE_SUM_TARGET = 100;
 export const SOV_SHARE_SUM_TOLERANCE = 0.01;
@@ -23,21 +24,21 @@ export const NINEONE_CLINIC_SITE_URL = 'http://nineoneclinic.com/';
 export const NINEONE_CLINIC_DOMAIN = 'nineoneclinic.com';
 
 export const NINEONE_CLINIC_SOV_QUERIES = [
+	'대구 나인원의원',
 	'대구 동구 울트라클리어엘리트 추천',
 	'동대구역 동구 피부미용',
-	'동대구역 동구 피부미용 운영 시스템 안내',
 ] as const;
 
 export type NineoneClinicSovQuery = (typeof NINEONE_CLINIC_SOV_QUERIES)[number];
 
-/** Measured unranked pie used on the `{region} {service} 추천` chip. */
+/** Generic unranked tone threshold — low own share on a category query. */
 export const NINEONE_CLINIC_SOV_BASELINE = {
-	currentSov: DEFAULT_SOV_SHARE_TABLE.own,
-	targetSov: DEFAULT_SOV_SHARE_TABLE.targetSov,
-	potentialGain: DEFAULT_SOV_SHARE_TABLE.potentialGain,
-	rank1: DEFAULT_SOV_SHARE_TABLE.rank1,
-	rank2: DEFAULT_SOV_SHARE_TABLE.rank2,
-	thirdParty: DEFAULT_SOV_SHARE_TABLE.thirdParty,
+	currentSov: 10,
+	targetSov: 35,
+	potentialGain: 25,
+	rank1: 25,
+	rank2: 15,
+	thirdParty: 50,
 	clientRank: 4,
 	rankText: '3위 밖',
 } as const;
@@ -309,20 +310,28 @@ export function logSovValidationResult(result: SovValidationResult): void {
 export function resolveDiagnosticSovPresets(input: {
 	brandName?: string;
 	siteUrl?: string;
+	location?: string;
+	brandAliases?: readonly string[];
 	fallback?: readonly string[];
 }): [string, string, string] {
-	if (isNineoneClinicTarget(input)) {
-		return [...NINEONE_CLINIC_SOV_QUERIES];
-	}
 	const fallback = (input.fallback || []).filter(Boolean);
-	return [fallback[0] || '', fallback[1] || fallback[0] || '', fallback[2] || fallback[1] || fallback[0] || ''];
+	const brand = (input.brandName || '').trim();
+	const location = (input.location || '').trim();
+	const brandQuery = brand ? composeSearchQuery([location, brand], { maxTokens: 5 }) : '';
+	const merged = [brandQuery, ...fallback].filter((query, idx, all) => {
+		const key = normalizeSovKeyword(query);
+		if (!key) return false;
+		return all.findIndex((item) => normalizeSovKeyword(item) === key) === idx;
+	});
+	return [merged[0] || '', merged[1] || merged[0] || '', merged[2] || merged[1] || merged[0] || ''];
 }
 
 export function buildNineoneClinicSovDiagnosticDataset(): SovLeaderboardValidationInput {
 	const keywords = [...NINEONE_CLINIC_SOV_QUERIES];
+	const brandTokens = [NINEONE_CLINIC_BRAND, '나인원', 'nineoneclinic', 'nineone'];
 	const perKeyword = Object.fromEntries(
 		keywords.map((query) => {
-			const table = resolveKeywordSovShares(query);
+			const table = resolveKeywordSovShares(query, { brandTokens, brandName: NINEONE_CLINIC_BRAND });
 			return [
 				query,
 				{
@@ -394,7 +403,7 @@ export function validateSovLeaderboardData(data: SovLeaderboardValidationInput):
 	}
 
 	const nineone = isNineoneClinicTarget(data);
-	const requireQueries = data.requireNineoneQueries === true || (nineone && (data.keywords?.length ?? 0) > 0);
+	const requireQueries = data.requireNineoneQueries === true;
 	const providedKeywords = (data.keywords || []).map(normalizeSovKeyword).filter(Boolean);
 	let keywordsPresent = true;
 
@@ -432,36 +441,17 @@ export function validateSovLeaderboardData(data: SovLeaderboardValidationInput):
 		}
 	}
 
-	if (nineone && slices) {
-		const recommendTable = data.perKeyword
-			? data.perKeyword[NINEONE_CLINIC_SOV_QUERIES[0]] ||
-				Object.entries(data.perKeyword).find(
-					([key]) => normalizeSovKeyword(key) === normalizeSovKeyword(NINEONE_CLINIC_SOV_QUERIES[0]),
-				)?.[1]
-			: undefined;
-		if (recommendTable) {
-			const matchesBaseline =
-				nearlyEqual(recommendTable.currentSov, NINEONE_CLINIC_SOV_BASELINE.currentSov) &&
-				nearlyEqual(recommendTable.targetSov, NINEONE_CLINIC_SOV_BASELINE.targetSov) &&
-				nearlyEqual(recommendTable.potentialGain ?? recommendTable.targetSov - recommendTable.currentSov, NINEONE_CLINIC_SOV_BASELINE.potentialGain) &&
-				nearlyEqual(recommendTable.rank1, NINEONE_CLINIC_SOV_BASELINE.rank1) &&
-				nearlyEqual(recommendTable.rank2, NINEONE_CLINIC_SOV_BASELINE.rank2) &&
-				nearlyEqual(recommendTable.thirdParty, NINEONE_CLINIC_SOV_BASELINE.thirdParty);
-			if (!matchesBaseline) {
-				pushError(
-					errors,
-					'BASELINE_MISMATCH',
-					`추천 쿼리 베이스라인 불일치 (기대 5/27/16/52 → 48, +43%p)`,
-				);
-			}
+	const brandTokens = [data.brandName, ...(nineone ? [NINEONE_CLINIC_BRAND, '나인원', 'nineoneclinic'] : [])].filter(
+		(token): token is string => Boolean(token),
+	);
+	const navigationalKeywords = (data.keywords || []).filter((keyword) => queryContainsBrandToken(keyword, brandTokens));
+	if (navigationalKeywords.length && slices && queryContainsBrandToken(navigationalKeywords[0] || '', brandTokens)) {
+		if (data.clientRank != null && data.clientRank !== 1 && queryContainsBrandToken(navigationalKeywords[0] || '', brandTokens)) {
+			pushError(errors, 'RANK_INCONSISTENT', '브랜드 직검색 질의인데 자사 순위가 1위가 아닙니다.');
 		}
-		if (
-			data.clientRank != null &&
-			!isOutsideTop3(data.clientRank, data.rankText) &&
-			nearlyEqual(slices.currentSov, NINEONE_CLINIC_SOV_BASELINE.currentSov)
-		) {
-			pushError(errors, 'RANK_INCONSISTENT', '자사 실측 5%인데 순위가 3위 밖으로 표기되지 않았습니다.');
-		}
+	}
+	if (data.clientRank === 1 && slices && slices.currentSov < 80 && navigationalKeywords.length) {
+		pushError(errors, 'RANK_INCONSISTENT', '브랜드 직검색 질의의 자사 점유율이 80% 미만입니다.');
 	}
 
 	const unrankedTone = !isOutsideTop3(data.clientRank, data.rankText) || ui.ownBadgeTone !== 'ok';

@@ -3,6 +3,7 @@ import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { runLiveEngineChecks } from '@/lib/audit/live-check-engines';
 import { resolveLiveCheckQuery } from '@/lib/audit/live-check-score';
+import { buildUniversalQuerySov, extractBrandAliasesFromMeta } from '@/lib/audit/universal-sov-engine';
 import type { LiveCheckEngineId, LiveCheckRequestBody, LiveCheckResponse } from '@/types/live-engine-check';
 
 /** Bind monorepo-root + studio `.env` so MOCK_* switches are visible in live-check. */
@@ -68,17 +69,43 @@ export async function POST(req: NextRequest) {
 
 		const location = asString(body.location);
 		const category = asString(body.category);
+		const requestedAliases = Array.isArray(body.brandAliases)
+			? body.brandAliases.map((item) => String(item).trim()).filter((item) => item.length >= 2)
+			: [];
+		const brandContext = extractBrandAliasesFromMeta({
+			targetUrl: siteUrl,
+			brandName: siteName,
+			pageTitle: siteName,
+		});
+		const brandAliases = requestedAliases.length ? requestedAliases : brandContext.brandAliases;
 
+		const productTokens = Array.isArray(body.productTokens)
+			? body.productTokens.map((item) => String(item).trim()).filter((item) => item.length >= 2)
+			: undefined;
 		const results = await runLiveEngineChecks({
 			siteUrl,
 			siteName,
 			targetQuery,
 			location: location || undefined,
 			category: category || undefined,
+			brandAliases,
+			productTokens,
 			ruleScores: parseRuleScores(body.ruleScores),
 		});
 
-		return noStoreJson({ success: true, targetQuery, results });
+		const bestRank = results
+			.map((row) => row.citedRank)
+			.filter((rank): rank is 1 | 2 | 3 => rank === 1 || rank === 2 || rank === 3)
+			.sort((a, b) => a - b)[0];
+		const citations = results.flatMap((row) => row.citations ?? row.citedSources?.map((url) => ({ title: '', url })) ?? []);
+		const querySov = buildUniversalQuerySov({
+			query: targetQuery,
+			context: { targetUrl: siteUrl, brandAliases, canonicalBrand: siteName },
+			clientRank: bestRank,
+			citations,
+		});
+
+		return noStoreJson({ success: true, targetQuery, results, querySov });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Live check failed';
 		return noStoreJson({ success: false, targetQuery: '', results: [], error: message }, { status: 500 });

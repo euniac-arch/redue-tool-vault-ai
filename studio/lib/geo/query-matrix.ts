@@ -53,6 +53,9 @@ export interface SiteAuditData {
 	metaKeywords?: string;
 	representativeName?: string;
 	ogSiteName?: string;
+	organizationName?: string;
+	schemaOrganizationNames?: readonly string[];
+	brandAliases?: readonly string[];
 	domain?: string;
 	navMenuTexts?: readonly string[];
 	h1Texts?: readonly string[];
@@ -222,6 +225,9 @@ function flattenAuditData(input: SiteAuditData | null | undefined): SiteAuditDat
 		metaKeywords: input?.metaKeywords || nested?.metaKeywords,
 		representativeName: input?.representativeName || nested?.representativeName,
 		ogSiteName: input?.ogSiteName || nested?.ogSiteName,
+		organizationName: input?.organizationName || nested?.organizationName,
+		schemaOrganizationNames: input?.schemaOrganizationNames ?? nested?.schemaOrganizationNames,
+		brandAliases: input?.brandAliases ?? nested?.brandAliases,
 		domain: input?.domain || nested?.domain,
 		navMenuTexts: input?.navMenuTexts ?? nested?.navMenuTexts,
 		h1Texts: input?.h1Texts ?? metrics?.h1Texts,
@@ -422,10 +428,12 @@ export function extractKeywordSlots(siteAuditData: SiteAuditData | null | undefi
 	const schemaTypes = [...(data.schemaTypes ?? []), ...(data.schemaEntityTypes ?? [])];
 	const brandEntities = collectBrandEntities({
 		brandName,
-		name: data.nap?.name,
+		name: data.nap?.name || data.organizationName,
 		title: data.title,
 		ogTitle: data.ogTitle,
 		ogSiteName: data.ogSiteName,
+		organizationName: data.organizationName,
+		schemaOrganizationNames: data.schemaOrganizationNames ?? data.brandAliases,
 		keywords: data.metaKeywords,
 		keywordList: data.detectedKeywords,
 		description: [data.metaDescription, data.ogDescription].filter(Boolean).join(' '),

@@ -11,7 +11,7 @@ import { AI_CRAWLER_BOT_IDS, type AiCrawlerBotId } from '@/types/geo-diagnostic'
 
 export type AiBotAccessMap = Record<AiCrawlerBotId, boolean>;
 
-const BOT_ALIASES: Record<AiCrawlerBotId, readonly string[]> = {
+export const BOT_ALIASES: Record<AiCrawlerBotId, readonly string[]> = {
 	gptbot: ['gptbot', 'chatgpt-user', 'oai-searchbot'],
 	perplexitybot: ['perplexitybot', 'perplexity-user'],
 	claudebot: ['claudebot', 'anthropic-ai', 'claude-web'],

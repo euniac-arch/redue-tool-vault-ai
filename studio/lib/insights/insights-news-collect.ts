@@ -358,9 +358,7 @@ async function collectGoogleNews(): Promise<CollectedInsightsArticle[]> {
 
 async function collectNaverNews(): Promise<CollectedInsightsArticle[]> {
 	if (!isNaverNewsConfigured()) {
-		console.warn(
-			'[insights-news] NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 없음 — 네이버 국내 뉴스를 건너뜁니다.',
-		);
+		console.warn('[insights-news] Naver news credentials missing — skip KR feed');
 		return [];
 	}
 

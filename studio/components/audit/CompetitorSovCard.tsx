@@ -14,7 +14,6 @@ import {
 } from '@/lib/audit/advancedGeoMetrics';
 import { anonymizedCompetitorLabel, softenComparativeQuery } from '@/lib/audit/anonymize-competitor';
 import {
-	isNineoneClinicTarget,
 	logSovValidationResult,
 	resolveDiagnosticSovPresets,
 	resolveSovOwnBadgeTone,
@@ -36,6 +35,10 @@ export interface CompetitorSovCardProps {
 	queryPresets?: [string, string, string];
 	/** Audited site URL shown under the subtitle and opened in a new tab. */
 	siteUrl?: string;
+	/** Dynamic brand identifiers extracted from the audited site. */
+	brandAliases?: readonly string[];
+	/** Equipment / product tokens for specialized-query classification. */
+	productTokens?: readonly string[];
 	onQueryChange?: (newQuery: string) => Promise<DynamicSovResult>;
 }
 
@@ -71,6 +74,8 @@ export function CompetitorSovCard({
 	subService,
 	queryPresets,
 	siteUrl,
+	brandAliases,
+	productTokens,
 	onQueryChange,
 }: CompetitorSovCardProps) {
 	const t = useTranslations('audit.advancedGeo.sov');
@@ -83,6 +88,8 @@ export function CompetitorSovCard({
 			resolveDiagnosticSovPresets({
 				brandName: clientName,
 				siteUrl,
+				location: region,
+				brandAliases,
 				fallback:
 					queryPresets ??
 					generateQueryMatrix({
@@ -93,15 +100,20 @@ export function CompetitorSovCard({
 						coreSpecialties: [resolvedMain, resolvedSub].filter(Boolean),
 					}).sovPresets,
 			}),
-		[queryPresets, region, resolvedMain, resolvedSub, lang, clientName, siteUrl],
+		[queryPresets, region, resolvedMain, resolvedSub, lang, clientName, siteUrl, brandAliases],
 	);
 
 	const [localSov, setLocalSov] = useState<DynamicSovResult>(sovData);
 	const [activeQuery, setActiveQuery] = useState(sovData.targetQuery || presets[0]);
+	const [queryCache, setQueryCache] = useState<Record<string, DynamicSovResult>>({});
 	const [customInput, setCustomInput] = useState('');
 	const [isLoading, setIsLoading] = useState(false);
 	const [validationToast, setValidationToast] = useState<string | null>(null);
 	const requestQueryRef = useRef(activeQuery);
+	const activeQueryIndex = useMemo(() => {
+		const selected = normalizeSovKeyword(activeQuery);
+		return presets.findIndex((query) => normalizeSovKeyword(query) === selected);
+	}, [presets, activeQuery]);
 
 	// Single source of truth for "which site/report is being diagnosed" —
 	// used to hard-reset local state (and drop any stale cached SoV/keyword)
@@ -123,6 +135,7 @@ export function CompetitorSovCard({
 			setIsLoading(false);
 			setCustomInput('');
 			setLocalSov(sovData);
+			setQueryCache(sovData.targetQuery ? { [normalizeSovKeyword(sovData.targetQuery)]: sovData } : {});
 			setActiveQuery(nextQuery);
 			return;
 		}
@@ -131,21 +144,28 @@ export function CompetitorSovCard({
 		const selectedQuery = normalizeSovKeyword(activeQuery);
 		if (incomingQuery && selectedQuery && incomingQuery !== selectedQuery) return;
 		setLocalSov(sovData);
-		if (sovData.targetQuery) setActiveQuery(sovData.targetQuery);
+		if (sovData.targetQuery) {
+			setActiveQuery(sovData.targetQuery);
+			setQueryCache((prev) => ({ ...prev, [normalizeSovKeyword(sovData.targetQuery)]: sovData }));
+		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [sovData, siteIdentity]);
 
-	const displaySov = useMemo(
-		() =>
-			applyKeywordSovToDynamic(localSov, activeQuery, {
-				lang,
-				industryConfig,
-				region,
-				mainService: resolvedMain,
-				targetSiteName,
-			}),
-		[localSov, activeQuery, lang, industryConfig, region, resolvedMain, targetSiteName],
-	);
+	const displaySov = useMemo(() => {
+		const cached = queryCache[normalizeSovKeyword(activeQuery)];
+		if (cached && normalizeSovKeyword(cached.targetQuery) === normalizeSovKeyword(activeQuery)) {
+			return cached;
+		}
+		return applyKeywordSovToDynamic(localSov, activeQuery, {
+			lang,
+			industryConfig,
+			region,
+			mainService: resolvedMain,
+			targetSiteName,
+			brandAliases,
+			productTokens,
+		});
+	}, [localSov, activeQuery, lang, industryConfig, region, resolvedMain, targetSiteName, brandAliases, productTokens, queryCache]);
 
 	const leaderboard =
 		displaySov.leaderboard?.length > 0
@@ -195,7 +215,7 @@ export function CompetitorSovCard({
 				thirdParty: thirdPartyShare,
 				clientRank: displaySov.clientRank,
 				rankText: unranked ? t('unrankedBadge') : undefined,
-				keywords: isNineoneClinicTarget({ brandName: targetSiteName || clientName, siteUrl }) ? presets : undefined,
+				keywords: presets,
 			}),
 		[
 			targetSiteName,
@@ -216,7 +236,7 @@ export function CompetitorSovCard({
 
 	useEffect(() => {
 		logSovValidationResult(validation);
-		if (!validation.valid || !isNineoneClinicTarget({ brandName: targetSiteName || clientName, siteUrl })) {
+		if (!validation.valid) {
 			setValidationToast(null);
 			return;
 		}
@@ -245,8 +265,13 @@ export function CompetitorSovCard({
 				clientName: clientName || localSov.brandName,
 				region,
 				mainService: resolvedMain,
+				categoryName: industryConfig.defaultCategory || resolvedMain,
+				industryType: industryConfig.type,
+				schemaTypes: industryConfig.schemaType ? [industryConfig.schemaType] : undefined,
+				productTokens,
 				query,
 				lang,
+				brandAliases,
 			}),
 		});
 		if (!res.ok) return null;
@@ -260,8 +285,13 @@ export function CompetitorSovCard({
 				targetQuery: query,
 				lang,
 				industryConfig,
+				categoryName: industryConfig.defaultCategory || resolvedMain,
+				industryType: industryConfig.type,
+				schemaTypes: industryConfig.schemaType ? [industryConfig.schemaType] : undefined,
+				productTokens,
+				brandAliases,
 			}),
-			{ lang, industryConfig, targetSiteName },
+			{ lang, industryConfig, targetSiteName, brandAliases, productTokens },
 		);
 	};
 
@@ -273,7 +303,10 @@ export function CompetitorSovCard({
 		setIsLoading(true);
 		try {
 			const updated = await fetchSovByQuery(next);
-			if (updated && requestQueryRef.current === next) setLocalSov(updated);
+			if (updated && requestQueryRef.current === next) {
+				setLocalSov(updated);
+				setQueryCache((prev) => ({ ...prev, [normalizeSovKeyword(next)]: updated }));
+			}
 		} catch (err) {
 			console.error('Failed to update SOV rankings:', err);
 		} finally {
@@ -298,6 +331,7 @@ export function CompetitorSovCard({
 			className="relative pdf-page-item audit-report-section scroll-mt-24 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:p-6"
 			data-sov-validation={validation.valid ? 'pass' : 'fail'}
 			data-sov-query={activeQuery}
+			data-sov-active-index={activeQueryIndex}
 			data-sov-own-tone={ownTone}
 			data-sov-third-party-majority={uiTokens.thirdPartyIsMajority ? 'true' : 'false'}
 		>
@@ -523,6 +557,14 @@ export function CompetitorSovCard({
 									{rowUnranked ? (
 										<span className={uiTokens.ownBadgeClassName} data-sov-own-badge="unranked">
 											{t('unrankedBadge')}
+										</span>
+									) : null}
+									{row.isClient && displaySov.nicheLeadership && !rowUnranked ? (
+										<span
+											className="rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-semibold text-violet-700 dark:border-violet-800 dark:bg-violet-950 dark:text-violet-300"
+											data-sov-niche-badge="lead"
+										>
+											{t('nicheLeadBadge')}
 										</span>
 									) : null}
 									{row.isRealData && !row.isClient ? (

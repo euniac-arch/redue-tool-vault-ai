@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { signOut, useSession } from 'next-auth/react';
+import { Bookmark, LayoutDashboard, LogOut, Search, Settings, Shield, User } from 'lucide-react';
+import { isInsightsProMember } from '@/lib/insights/insights-ai-research';
+import { AI_SEARCH_DAILY_LIMIT, readInsightsAiUsage } from '@/lib/insights/insights-ai-usage';
+import { HEADER_ICON_BUTTON_CLASS } from '@/lib/ui/header-chrome';
 import { PortalHubTriggerButton } from './admin/portal-hub/PortalHubTriggerButton';
 import { PortalHubModal } from './admin/portal-hub/PortalHubModal';
 // [TEMP] 크레딧 과금/주입 비활성화 — 충전 모달 진입점 숨김
@@ -19,11 +23,31 @@ interface MeResponse {
 	role?: string;
 }
 
-const PLAN_LABEL: Record<string, string> = {
-	starter: 'Starter',
-	pro: 'Pro',
-	agency: 'Agency',
+const MENU_ITEM_CLASS =
+	'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] leading-tight text-slate-200 transition-all hover:bg-slate-800/80 hover:text-cyan-400';
+const MENU_ICON_CLASS = 'h-3.5 w-3.5 shrink-0';
+
+const PLAN_NAME: Record<string, string> = {
+	starter: '무료 플랜',
+	pro: 'Pro 플랜',
+	agency: 'Agency 플랜',
 };
+
+function MenuLink({
+	href,
+	onClick,
+	children,
+}: {
+	href: string;
+	onClick: () => void;
+	children: ReactNode;
+}) {
+	return (
+		<Link href={href} role="menuitem" onClick={onClick} className={MENU_ITEM_CLASS}>
+			{children}
+		</Link>
+	);
+}
 
 interface HeaderAuthProps {
 	variant?: 'dark' | 'light';
@@ -36,6 +60,8 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 	const { data: session, status } = useSession();
 	const [me, setMe] = useState<MeResponse | null>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
+	const [aiRemaining, setAiRemaining] = useState(AI_SEARCH_DAILY_LIMIT);
+	const menuRef = useRef<HTMLDivElement | null>(null);
 	// [TEMP] 크레딧 과금/주입 비활성화
 	// const [pricingOpen, setPricingOpen] = useState(false);
 	const [portalHubOpen, setPortalHubOpen] = useState(false);
@@ -62,10 +88,28 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 		};
 	}, [status]);
 
+	useEffect(() => {
+		if (!menuOpen) return;
+		function onPointerDown(event: MouseEvent) {
+			if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+				setMenuOpen(false);
+			}
+		}
+		function onKeyDown(event: KeyboardEvent) {
+			if (event.key === 'Escape') setMenuOpen(false);
+		}
+		document.addEventListener('mousedown', onPointerDown);
+		document.addEventListener('keydown', onKeyDown);
+		return () => {
+			document.removeEventListener('mousedown', onPointerDown);
+			document.removeEventListener('keydown', onKeyDown);
+		};
+	}, [menuOpen]);
+
 	if (status === 'loading' && !signedIn) {
 		return (
 			<div
-				className={`h-8 w-24 animate-pulse rounded-full ${
+				className={`h-9 w-24 animate-pulse rounded-full ${
 					forceLight ? 'bg-zinc-200' : 'bg-slate-200 dark:bg-white/5'
 				}`}
 			/>
@@ -78,7 +122,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 				<Link
 					href="/login"
 					onClick={onNavigate}
-					className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-medium transition-colors duration-200 ${
+					className={`inline-flex h-9 items-center justify-center rounded-full px-4 text-sm font-medium transition-colors duration-200 ${
 						stacked ? 'w-full' : ''
 					} ${
 						forceLight
@@ -101,9 +145,18 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 	const initial = (name ?? email ?? 'R').slice(0, 1).toUpperCase();
 	const isAdmin =
 		sessionUser?.isAdmin === true || (typeof role === 'string' && role.toLowerCase() === 'admin');
+	const isPro = isInsightsProMember(planId, role);
+	const planName = PLAN_NAME[planId] ?? planId;
+	const gradeLabel = isPro || isAdmin ? '정회원' : '일반회원';
+	const planBadge = isPro || isAdmin ? `${planName} · 무제한` : `${planName} (잔여 AI 리서치 ${aiRemaining}회)`;
+
+	function closeMenu() {
+		setMenuOpen(false);
+		onNavigate?.();
+	}
 
 	return (
-		<div className={`flex items-center gap-3 ${stacked ? 'w-full flex-col items-stretch' : ''}`}>
+		<div className={`flex items-center gap-2 ${stacked ? 'w-full flex-col items-stretch' : ''}`}>
 			{isAdmin && !stacked && (
 				<PortalHubTriggerButton
 					variant="public"
@@ -127,135 +180,109 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 			</button>
 			*/}
 
-			<div className={`relative ${stacked ? 'w-full' : ''}`}>
+			<div ref={menuRef} className={`relative ${stacked ? 'w-full' : ''}`}>
 				<button
-					onClick={() => setMenuOpen((prev) => !prev)}
-					className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors duration-200 ${
-						stacked ? 'mx-auto' : ''
-					} ${
+					type="button"
+					aria-haspopup="menu"
+					aria-expanded={menuOpen}
+					aria-controls="header-user-menu"
+					onClick={() => {
+						const next = !menuOpen;
+						setMenuOpen(next);
+						if (next) setAiRemaining(readInsightsAiUsage(isPro).remaining);
+					}}
+					className={`text-sm font-bold ${stacked ? 'mx-auto' : ''} ${
 						forceLight
-							? 'border border-zinc-200 bg-zinc-100 text-zinc-800 hover:bg-zinc-200'
-							: 'border border-slate-200 bg-accent/10 text-accent hover:bg-accent/15 dark:border-white/[0.08] dark:bg-accent/20 dark:text-accent-light'
+							? 'flex h-9 w-9 items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 text-zinc-800 transition-colors duration-200 hover:bg-zinc-200'
+							: `${HEADER_ICON_BUTTON_CLASS} text-accent dark:text-accent-light`
 					}`}
 				>
 					{initial}
 				</button>
 				{menuOpen && (
-					<>
-						<div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-						<div
-							className={`absolute z-20 mt-2 w-56 rounded-xl p-2 shadow-xl ${
-								stacked ? 'left-0 right-0 w-full' : 'right-0'
-							} ${
-								forceLight
-									? 'border border-zinc-200 bg-white'
-									: 'border border-slate-200 bg-white dark:border-white/[0.08] dark:bg-[#0C0D0E]'
-							}`}
-						>
-							<div
-								className={`border-b px-3 py-2 ${
-									forceLight ? 'border-zinc-100' : 'border-slate-100 dark:border-white/[0.08]'
-								}`}
-							>
-								<p
-									className={`truncate text-sm font-semibold ${
-										forceLight ? 'text-zinc-900' : 'text-slate-900 dark:text-white'
-									}`}
-								>
-									{name ?? email}
-								</p>
-								<p className={`mt-0.5 text-xs ${forceLight ? 'text-zinc-500' : 'text-slate-500'}`}>
-									{PLAN_LABEL[planId] ?? planId} 요금제
-								</p>
+					<div
+						id="header-user-menu"
+						role="menu"
+						aria-label="사용자 메뉴"
+						className={`absolute z-50 mt-2 w-64 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-md ${
+							stacked ? 'left-0 right-0 w-full' : 'right-0'
+						}`}
+					>
+						<div className="px-3 py-2.5">
+							<div className="flex items-start gap-2.5">
+								<span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-cyan-300">
+									<User className="h-3.5 w-3.5" aria-hidden />
+								</span>
+								<div className="min-w-0">
+									<p className="truncate text-sm font-semibold text-white">{name || '회원'}</p>
+									{email ? <p className="mt-0.5 truncate text-[11px] text-slate-400">{email}</p> : null}
+								</div>
 							</div>
-							{[
-								{ href: '/mypage', label: t('mypage') },
-								{ href: '/developer', label: `🔑 ${t('developer')}` },
-								{ href: '/reseller', label: `🏷️ ${t('reseller')}` },
-								{ href: '/enterprise', label: `🏢 ${t('enterprise')}` },
-							].map((link) => (
-								<Link
-									key={link.href}
-									href={link.href}
-									onClick={() => {
-										setMenuOpen(false);
-										onNavigate?.();
-									}}
-									className={`block rounded-lg px-3 py-2 text-sm transition-colors duration-200 ${
-										forceLight
-											? 'text-zinc-700 hover:bg-zinc-50 hover:text-black'
-											: 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-white/5 dark:hover:text-white'
-									}`}
+							<div className="mt-2 flex flex-wrap gap-1.5">
+								<span className="rounded-full border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-[10px] font-bold text-slate-200">
+									{gradeLabel}
+								</span>
+								<span
+									suppressHydrationWarning
+									className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-300"
 								>
-									{link.label}
-								</Link>
-							))}
-							{isAdmin && (
-								<>
-									<Link
-										href="/admin"
-										onClick={() => {
-											setMenuOpen(false);
-											onNavigate?.();
-										}}
-										className={`block rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-200 ${
-											forceLight
-												? 'text-zinc-900 hover:bg-zinc-50'
-												: 'text-accent hover:bg-slate-50 dark:text-accent-light dark:hover:bg-white/5'
-										}`}
-									>
-										🛠️ {t('admin')}
-									</Link>
-									<Link
-										href="/admin/self-healing"
-										onClick={() => {
-											setMenuOpen(false);
-											onNavigate?.();
-										}}
-										className={`block rounded-lg px-3 py-2 text-sm font-semibold transition-colors duration-200 ${
-											forceLight
-												? 'text-zinc-900 hover:bg-zinc-50'
-												: 'text-cyan-800 hover:bg-slate-50 dark:text-cyan-300 dark:hover:bg-white/5'
-										}`}
-									>
-										◈ {t('autonomous')}
-									</Link>
-									<PortalHubTriggerButton
-										variant="menu"
-										externalModal
-										onOpen={() => {
-											setMenuOpen(false);
-											setPortalHubOpen(true);
-											onNavigate?.();
-										}}
-									/>
-								</>
-							)}
-							{/* [TEMP] 크레딧 과금/주입 비활성화 — 프로필 메뉴 충전/업그레이드
+									{planBadge}
+								</span>
+							</div>
+						</div>
+
+						<div className="mt-1 border-t border-slate-800 pt-1">
+							<MenuLink href="/mypage" onClick={closeMenu}>
+								<LayoutDashboard className={MENU_ICON_CLASS} aria-hidden />
+								마이페이지
+							</MenuLink>
+							<MenuLink href="/audit?tab=history" onClick={closeMenu}>
+								<Search className={MENU_ICON_CLASS} aria-hidden />
+								나의 사이트 진단 이력
+							</MenuLink>
+							<MenuLink href="/mypage?tab=scraps" onClick={closeMenu}>
+								<Bookmark className={MENU_ICON_CLASS} aria-hidden />
+								스크랩 뉴스 / 프롬프트 보관함
+							</MenuLink>
+							<MenuLink href="/mypage?tab=overview" onClick={closeMenu}>
+								<Settings className={MENU_ICON_CLASS} aria-hidden />
+								계정 및 구독 설정
+							</MenuLink>
+						</div>
+
+						{isAdmin && (
+							<div className="mt-1 border-t border-slate-800 pt-1">
+								<MenuLink href="/admin" onClick={closeMenu}>
+									<Shield className={MENU_ICON_CLASS} aria-hidden />
+									{t('admin')}
+								</MenuLink>
+								<PortalHubTriggerButton
+									variant="menu"
+									className={MENU_ITEM_CLASS}
+									externalModal
+									onOpen={() => {
+										closeMenu();
+										setPortalHubOpen(true);
+									}}
+								/>
+							</div>
+						)}
+
+						<div className="mt-1 border-t border-slate-800 pt-1">
 							<button
+								type="button"
+								role="menuitem"
 								onClick={() => {
 									setMenuOpen(false);
-									setPricingOpen(true);
+									void signOut({ callbackUrl: '/' });
 								}}
-								className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-200 ${
-									forceLight
-										? 'text-zinc-700 hover:bg-zinc-50 hover:text-black'
-										: 'text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-white/5'
-								}`}
+								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] leading-tight text-slate-200 transition-all hover:bg-slate-800/80 hover:text-red-400"
 							>
-								{t('upgrade')}
-							</button>
-							*/}
-							<button
-								onClick={() => signOut({ callbackUrl: '/' })}
-								className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors duration-200 ${
-									forceLight ? 'text-rose-600 hover:bg-rose-50' : 'text-rose-600 hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-white/5'
-								}`}
-							>
+								<LogOut className={MENU_ICON_CLASS} aria-hidden />
 								{t('logout')}
 							</button>
 						</div>
-					</>
+					</div>
 				)}
 			</div>
 

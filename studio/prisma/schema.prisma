@@ -193,6 +193,12 @@ model Project {
   latestAuditId     String?
   latestUserType    String   @default("guest") // "admin" | "user" | "guest" — diagnosing party of the latest audit
   auditCount        Int      @default(0)
+  /// Admin-controlled public "도입 사례 (Case Studies)" exposure toggle.
+  isCaseStudy       Boolean  @default(false)
+  /// "verified" (실제 실증) | "simulation" (업종별 시뮬레이션). Null while isCaseStudy is false.
+  caseStudyType     String?
+  /// Admin-authored pre-optimization Before scores JSON: { overall, seo, performance, schema, geo }.
+  customBaseline    String?  @map("custom_baseline")
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

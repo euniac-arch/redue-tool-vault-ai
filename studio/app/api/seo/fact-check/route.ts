@@ -106,7 +106,7 @@ async function runOpenAIFactCheck(userPrompt: string): Promise<{ result: FactChe
 
 /** Fallback engine when OPENAI_API_KEY is absent: Gemini Flash, forced JSON MIME type. */
 async function runGeminiFactCheck(userPrompt: string): Promise<{ result: FactCheckResult; model: string }> {
-	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY');
+	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY');
 	if (!apiKey) throw new Error('GEMINI_API_KEY missing');
 	const model = envString('FACT_CHECK_GEMINI_MODEL') || envString('GEMINI_MODEL') || 'gemini-2.5-flash';
 
@@ -215,7 +215,7 @@ export async function POST(request: Request) {
 
 	const hasOpenAI = Boolean(envString('OPENAI_API_KEY')) && !isEnvTrue('MOCK_OPENAI');
 	const hasGemini =
-		Boolean(envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY')) &&
+		Boolean(envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY')) &&
 		!isEnvTrue('MOCK_GEMINI');
 
 	let result: FactCheckResult;

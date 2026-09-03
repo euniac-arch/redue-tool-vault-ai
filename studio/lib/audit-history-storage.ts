@@ -39,7 +39,7 @@ const SCAN_SINGLE_FLIGHT_MS = 8_000;
  * loading terminal spinning forever. Set comfortably above the server ceiling so a
  * genuinely slow-but-completing scan is never cut off early.
  */
-const SCAN_FETCH_TIMEOUT_MS = 100_000;
+const SCAN_FETCH_TIMEOUT_MS = 30_000;
 
 function isBrowser(): boolean {
 	return typeof window !== 'undefined';

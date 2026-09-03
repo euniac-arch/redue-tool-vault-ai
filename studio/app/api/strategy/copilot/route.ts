@@ -57,7 +57,7 @@ async function refineWithOpenAI(context: StrategyCopilotContext): Promise<{ raw:
 }
 
 async function refineWithGemini(context: StrategyCopilotContext): Promise<{ raw: unknown; model: string }> {
-	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY');
+	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY');
 	if (!apiKey) throw new Error('GEMINI_API_KEY missing');
 	const model = envString('STRATEGY_COPILOT_GEMINI_MODEL') || envString('GEMINI_MODEL') || 'gemini-2.5-flash';
 	const res = await fetch(`${geminiGenerateUrl(model)}?key=${encodeURIComponent(apiKey)}`, {
@@ -98,7 +98,7 @@ export async function POST(request: Request) {
 
 	const hasOpenAI = Boolean(envString('OPENAI_API_KEY')) && !isEnvTrue('MOCK_OPENAI');
 	const hasGemini =
-		Boolean(envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY')) &&
+		Boolean(envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY')) &&
 		!isEnvTrue('MOCK_GEMINI');
 
 	try {
