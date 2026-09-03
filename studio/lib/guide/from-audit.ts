@@ -123,7 +123,7 @@ function normalizeAuditReport(report: AuditReport): AuditReport {
 		findings: Array.isArray(report.findings) ? report.findings : [],
 		checklist: Array.isArray(report.checklist) ? report.checklist : report.checklist,
 		detectedKeywords: Array.isArray(report.detectedKeywords) ? report.detectedKeywords : [],
-		siteMeta: report.siteMeta || {},
+		siteMeta: report.siteMeta || undefined,
 	};
 }
 
