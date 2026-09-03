@@ -33,7 +33,7 @@ function storedResponses(domain: string, query?: string): AIResponse[] {
 
 
 function competitorsFromAudit(input: AsiRunInput): string[] {
-	return auditCompetitorNames(input.audit, 2);
+	return auditCompetitorNames(input.audit, 2, input.url);
 }
 
 function liveResponses(rows: readonly AIResponse[]): AIResponse[] {

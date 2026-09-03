@@ -4,6 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { resolveIntelligenceTool } from '../constants/aiIntelligenceTools';
 import { composeAsiIaContext } from '../lib/ai-search-intelligence/ia/context';
 import {
 	ASI_FEATURES,
@@ -92,7 +93,29 @@ assert('layout dropped the 16-tool strip', !layout.includes('AsiToolNav') && !la
 const iaNav = read('components/ai-search-intelligence/shell/AsiIaNav.tsx');
 assert('IA cards expose status', iaNav.includes("t(`status.${status}`)"));
 assert('IA cards expose score', iaNav.includes('ctx?.score'));
-assert('IA cards expose problem + action', iaNav.includes('problem') && iaNav.includes("t(status === 'empty' ? 'ia.run' : 'ia.action')"));
+assert('IA cards wait until global analysis', iaNav.includes("t('ia.wait')") && iaNav.includes("t('ia.viewDetail')") && iaNav.includes("t('ia.diagnosing')"));
+assert('IA cards can reanalyze a single tool', iaNav.includes('reanalyzeTool') && iaNav.includes("t('ia.reanalyze')"));
+assert('IA cards bind catalog titleKo', iaNav.includes('titleKo') && iaNav.includes('getIntelligenceToolByEntryId'));
+assert('IA category badges are bilingual', iaNav.includes('AsiCategoryBadge'));
+
+const catalog = read('constants/aiIntelligenceTools.ts');
+assert('catalog is the title SSOT', catalog.includes('AI_INTELLIGENCE_TOOLS') && catalog.includes('AI 질문 인텔리전스') && catalog.includes('AI Query Intelligence'));
+assert('query intelligence maps to questions entry', catalog.includes("entryId: 'questions'") && catalog.includes("id: 'query-intelligence'"));
+
+const chrome = read('components/ai-search-intelligence/primitives/AsiPageChrome.tsx');
+assert('detail chrome binds catalog titles', chrome.includes('useActiveIntelligenceTool') && chrome.includes('tool.titleKo') && chrome.includes('tool.titleEn'));
+assert('detail chrome binds catalog category', chrome.includes('tool.categoryKo') && chrome.includes('tool.categoryEn'));
+
+assert(
+	'query-generator detail title is AI Query Intelligence, not Evidence',
+	resolveIntelligenceTool('/intelligence/query-generator').titleKo === 'AI 질문 인텔리전스' &&
+		resolveIntelligenceTool('/intelligence/query-generator').titleEn === 'AI Query Intelligence',
+);
+assert(
+	'query-generator category is DISCOVER',
+	resolveIntelligenceTool('/intelligence/query-generator').categoryKo === '발견' &&
+		resolveIntelligenceTool('/intelligence/query-generator').categoryEn === 'DISCOVER',
+);
 
 const header = read('components/Header.tsx');
 assert('GNB no longer uses the wide grouped Intelligence mega-menu', !header.includes('AsiGnbDropdown'));

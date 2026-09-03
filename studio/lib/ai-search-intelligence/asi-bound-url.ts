@@ -1,9 +1,9 @@
 import { loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
-import { normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
+import { asiSitesMatch, normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
 
 const ASI_BOUND_URL_KEY = 'asi_bound_url';
 const WAR_ROOM_CACHE_KEY = 'asi_war_room_snapshot';
-const ASI_SESSION_RESET_MARKER = 'asi_session_reset_v2';
+const ASI_SESSION_RESET_MARKER = 'asi_session_reset_v3';
 
 /**
  * One-time cleanup, run at module load: wipes every `asi_*` sessionStorage
@@ -38,7 +38,7 @@ export function asiCacheShouldRebuild(snapshot: { site?: { url?: string }; audit
 	if (!snapshot?.site?.url) return true;
 	const audit = loadLatestAuditPayload();
 	if (!audit?.report.url) return false;
-	if (normalizeAsiSiteUrl(audit.report.url) !== normalizeAsiSiteUrl(snapshot.site.url)) return false;
+	if (!asiSitesMatch(audit.report.url, snapshot.site.url)) return false;
 	return !snapshot.auditBind;
 }
 
@@ -128,6 +128,32 @@ export function writeAsiSessionSnapshot(key: string, snapshot: { site: { url: st
 		writeAsiBoundUrl(snapshot.site.url);
 	} catch {
 		// ignore quota
+	}
+}
+
+export function readAsiSessionSnapshotForSite<T extends { site?: { url?: string } }>(
+	key: string,
+	siteUrl: string | null | undefined,
+	isValid: (data: T) => boolean,
+): T | null {
+	if (!siteUrl) return null;
+	const data = readAsiSessionSnapshot<T>(key, isValid);
+	if (!data?.site?.url || !asiSitesMatch(data.site.url, siteUrl)) return null;
+	return data;
+}
+
+/** Drop per-tool caches so a newly selected site cannot inherit the previous brand. */
+export function clearAsiToolSnapshots() {
+	if (typeof window === 'undefined') return;
+	try {
+		const keys: string[] = [];
+		for (let i = 0; i < window.sessionStorage.length; i += 1) {
+			const key = window.sessionStorage.key(i);
+			if (key && key.startsWith('asi_') && key.endsWith('_snapshot')) keys.push(key);
+		}
+		keys.forEach((key) => window.sessionStorage.removeItem(key));
+	} catch {
+		// ignore quota / privacy-mode storage errors
 	}
 }
 

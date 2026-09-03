@@ -215,7 +215,7 @@ void (async () => {
 
 	const chrome = read('components/ai-search-intelligence/primitives/AsiPageChrome.tsx');
 	assert('architecture', 'chrome has loading state', chrome.includes('AsiLoadingState') && chrome.includes('loading ?'));
-	assert('architecture', 'chrome has empty state', chrome.includes('AsiEmptyState') && chrome.includes('emptyTitle'));
+	assert('architecture', 'chrome has empty state', chrome.includes('AsiEmptyState') && chrome.includes('waitingTitle'));
 	assert('architecture', 'chrome has error note', chrome.includes('AsiErrorNote') && chrome.includes('{error ?'));
 	assert('architecture', 'chrome shows provenance legend on success', chrome.includes('AsiProvenanceLegend'));
 

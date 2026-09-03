@@ -55,7 +55,7 @@ const KIND_META: Array<{
 	{
 		kind: 'youtube',
 		ownership: 'unbranded_third_party',
-		host: (brand) => ({ source: `${brand} 시술 후기 영상`, href: 'https://www.youtube.com/watch?v=example' }),
+		host: (brand) => ({ source: `${brand} 후기 영상`, href: 'https://www.youtube.com/watch?v=example' }),
 	},
 	{
 		kind: 'sns',
@@ -112,6 +112,7 @@ export function buildMockEvidenceSnapshot(input: {
 		category: site.category,
 		industry: site.category,
 		services: site.category ? [site.category] : [],
+		keywords: [],
 		aliases: [],
 		boundFromAudit,
 	};

@@ -4,8 +4,16 @@
  * The resolver never special-cases a domain, brand, location, or vertical.
  */
 import { brandAliases } from '@/lib/ai-search-intelligence/competitors/normalize';
-import { getAsiRequestContext } from '@/lib/ai-search-intelligence/guard/context';
 import { resolveAsiMockSite } from '@/lib/ai-search-intelligence/mock/resolve-site';
+import { matchingAuditForUrl, matchingSiteMeta } from '@/lib/ai-search-intelligence/target/matching-audit';
+import {
+	composeIntelligenceIndustry,
+	composeIntelligenceLocation,
+	composeIntelligenceServices,
+	extractIntelligenceKeywords,
+	inferIntelligenceTarget,
+	intelligenceCorpus,
+} from '@/lib/ai-search-intelligence/target/site-intelligence-derive';
 import type { AsiQuestionInput, AsiWarRoomSite } from '@/lib/ai-search-intelligence/types';
 import type { LatestAuditPayload } from '@/lib/audit/latest-audit-payload';
 
@@ -18,6 +26,7 @@ export type AsiTargetContext = {
 	industry?: string;
 	services: string[];
 	targetAudience?: string;
+	keywords: string[];
 	aliases: string[];
 	projectId?: string | null;
 	siteId?: string | null;
@@ -62,11 +71,12 @@ export function toAsiWarRoomSite(context: AsiTargetContext): AsiWarRoomSite {
 export function targetContextFromSite(
 	site: AsiWarRoomSite,
 	extras?: {
-		services?: readonly string[];
-		questions?: Partial<AsiQuestionInput>;
-		auditId?: string | null;
-		projectId?: string | null;
-		boundFromAudit?: boolean;
+	services?: readonly string[];
+	keywords?: readonly string[];
+	questions?: Partial<AsiQuestionInput>;
+	auditId?: string | null;
+	projectId?: string | null;
+	boundFromAudit?: boolean;
 	},
 ): AsiTargetContext {
 	const location = extras?.questions?.location?.trim() || site.location;
@@ -78,6 +88,7 @@ export function targetContextFromSite(
 		...(extras?.services ?? []),
 		category,
 	]);
+	const corpus = [site.brandName, site.domain, location, category, industry, ...services].join(' ');
 	return {
 		siteUrl: site.url,
 		brandName: site.brandName,
@@ -87,49 +98,82 @@ export function targetContextFromSite(
 		industry: industry || undefined,
 		services,
 		targetAudience: audience || undefined,
+		keywords: uniqueTrimmed([...(extras?.keywords ?? []), ...extractIntelligenceKeywords(corpus, services)]),
 		aliases: brandAliases(site.brandName, site.domain),
 		projectId: extras?.projectId ?? null,
 		siteId: site.domain,
 		auditId: extras?.auditId ?? null,
-		intelligenceRunId: getAsiRequestContext()?.requestId ?? null,
+		intelligenceRunId: null,
 		boundFromAudit: extras?.boundFromAudit ?? false,
 	};
 }
 
 export function servicesFromAudit(
-	input: Pick<AsiTargetInput, 'audit' | 'questions' | 'services'>,
+	input: Pick<AsiTargetInput, 'url' | 'audit' | 'questions' | 'services'>,
 	fallback?: string,
 ): string[] {
-	const meta = input.audit?.report.siteMeta;
-	return uniqueTrimmed(
-		[
-			input.questions?.service,
-			...(input.services ?? []),
-			...(meta?.coreSpecialties ?? []),
-			...(meta?.serviceKeywords ?? []),
-			meta?.primaryKeyword,
-			meta?.category,
-			fallback,
-		],
-		3,
-	);
+	const meta = matchingSiteMeta(input.audit, input.url);
+	const brand = meta?.brandName || '';
+	const corpus = intelligenceCorpus(meta, brand, '');
+	return composeIntelligenceServices({
+		corpus,
+		meta,
+		industry: fallback,
+		overrides: [input.questions?.service, ...(input.services ?? []), fallback],
+	}).slice(0, 3);
 }
 
-export function auditCompetitorNames(audit?: LatestAuditPayload | null, limit = 8): string[] {
+export function auditCompetitorNames(
+	audit?: LatestAuditPayload | null,
+	limit = 8,
+	siteUrl?: string,
+): string[] {
+	if (siteUrl && !matchingAuditForUrl(audit, siteUrl)) return [];
 	return uniqueTrimmed(audit?.report.realCompetitors?.names ?? [], limit);
 }
 
-export function resolveAsiTargetContext(input: AsiTargetInput): AsiTargetContext | null {
-	const resolved = resolveAsiMockSite(input);
+/**
+ * Common adapter every Intelligence sub-tool must read.
+ * Industry / region / services / target come from the matching diagnosis only.
+ */
+export function getSiteIntelligenceContext(siteData: AsiTargetInput): AsiTargetContext | null {
+	const resolved = resolveAsiMockSite(siteData);
 	if (!resolved) return null;
 	const { site, boundFromAudit } = resolved;
-	const meta = boundFromAudit ? input.audit?.report.siteMeta : undefined;
-	const location = input.questions?.location?.trim() || site.location || meta?.broadLocation || undefined;
+	const matched = matchingAuditForUrl(siteData.audit, siteData.url);
+	const meta = boundFromAudit ? matched?.report.siteMeta ?? siteData.audit?.report.siteMeta : undefined;
+	const corpus = intelligenceCorpus(meta, site.brandName, site.domain);
+	const location =
+		siteData.questions?.location?.trim() ||
+		site.location ||
+		composeIntelligenceLocation(meta, boundFromAudit) ||
+		undefined;
 	const industry =
-		input.questions?.industry?.trim() || meta?.category || site.category || undefined;
+		siteData.questions?.industry?.trim() ||
+		composeIntelligenceIndustry(corpus, meta, site.brandName) ||
+		site.category ||
+		undefined;
 	const category =
-		industry || input.questions?.service?.trim() || meta?.primaryKeyword || site.category || undefined;
-	const audience = input.questions?.target?.trim() || undefined;
+		industry ||
+		siteData.questions?.service?.trim() ||
+		meta?.primaryKeyword ||
+		site.category ||
+		undefined;
+	const services = composeIntelligenceServices({
+		corpus,
+		meta,
+		industry,
+		overrides: [siteData.questions?.service, ...(siteData.services ?? [])],
+	});
+	const keywords = extractIntelligenceKeywords(corpus, [
+		...services,
+		industry,
+		category,
+		meta?.primaryKeyword,
+		meta?.businessEntity,
+	]);
+	const audience =
+		siteData.questions?.target?.trim() || (boundFromAudit ? inferIntelligenceTarget(corpus) : undefined);
 	return {
 		siteUrl: site.url,
 		brandName: site.brandName,
@@ -137,13 +181,18 @@ export function resolveAsiTargetContext(input: AsiTargetInput): AsiTargetContext
 		location: location || undefined,
 		category: category || undefined,
 		industry: industry || undefined,
-		services: servicesFromAudit(input, category || site.category),
-		targetAudience: audience,
+		services,
+		targetAudience: audience || undefined,
+		keywords,
 		aliases: brandAliases(site.brandName, site.domain),
-		projectId: input.projectId ?? null,
+		projectId: siteData.projectId ?? null,
 		siteId: site.domain,
-		auditId: input.audit?.auditId ?? null,
-		intelligenceRunId: getAsiRequestContext()?.requestId ?? null,
+		auditId: matched?.auditId ?? (boundFromAudit ? siteData.audit?.auditId ?? null : null),
+		intelligenceRunId: null,
 		boundFromAudit,
 	};
+}
+
+export function resolveAsiTargetContext(input: AsiTargetInput): AsiTargetContext | null {
+	return getSiteIntelligenceContext(input);
 }

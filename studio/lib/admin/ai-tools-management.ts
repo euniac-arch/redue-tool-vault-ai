@@ -179,9 +179,52 @@ export function sortAiTools(tools: AiTool[], sortKey: AiToolSortKey): AiTool[] {
 	return sorted;
 }
 
-/** Top N tools across the whole dataset ranked by global market share (used by the "오늘자 순위 분석" modal). */
+/**
+ * Top N tools ranked by `market_share`. Only valid when `tools` is already scoped to a single
+ * category — `market_share` is a *per-category* percentage (each category's shares sum to ~100 on
+ * their own; see the "market_share" field description in `ai-tools-refresh.ts`'s refresh prompt),
+ * so this must never be used to rank the whole cross-category dataset. `getAiToolCategoryChampions`
+ * below is the only intended caller. For a real cross-category "global" ranking, use
+ * `getTopAiToolsByGlobalTraffic` instead.
+ */
 export function getTopAiToolsByMarketShare(tools: AiTool[], limit = 10): AiTool[] {
 	return sortAiTools(tools, 'market_share').slice(0, limit);
+}
+
+/**
+ * Parses a compact traffic string (e.g. `"3.1B"`, `"180M"`, `"950K"`) into a raw visit count.
+ * Returns 0 when the value can't be parsed.
+ */
+export function parseMonthlyVisits(value: string): number {
+	const match = /^([\d.]+)\s*([kmb])?\+?$/i.exec((value ?? '').trim());
+	if (!match) return 0;
+	const num = Number(match[1]);
+	if (!Number.isFinite(num)) return 0;
+	const unit = (match[2] ?? '').toLowerCase();
+	const multiplier = unit === 'b' ? 1_000_000_000 : unit === 'm' ? 1_000_000 : unit === 'k' ? 1_000 : 1;
+	return num * multiplier;
+}
+
+/**
+ * Top N tools ranked by **actual global traffic** (`monthly_visits`, parsed to a raw number) — the
+ * only field in the dataset that's directly comparable across every category. `market_share` is a
+ * per-category percentage, so sorting the entire cross-category dataset by it (as the "오늘자 순위
+ * 분석" global TOP 10 previously did via `getTopAiToolsByMarketShare`) mixes numbers from unrelated
+ * scales and yields a meaningless order — a tool with a large share of a small/uncrowded category
+ * could outrank a far bigger tool from a more competitive category. Each returned entry carries a
+ * `globalSharePct` (its share of the total traffic across every tool passed in) to render instead
+ * of the misleading `market_share` value.
+ */
+export function getTopAiToolsByGlobalTraffic(tools: AiTool[], limit = 10): (AiTool & { globalSharePct: number })[] {
+	const withVisits = tools.map((tool) => ({ tool, visits: parseMonthlyVisits(tool.monthly_visits) }));
+	const totalVisits = withVisits.reduce((sum, entry) => sum + entry.visits, 0);
+	return withVisits
+		.sort((a, b) => b.visits - a.visits)
+		.slice(0, limit)
+		.map(({ tool, visits }) => ({
+			...tool,
+			globalSharePct: totalVisits > 0 ? (visits / totalVisits) * 100 : 0,
+		}));
 }
 
 /** The #1 tool by market share within each category present in `tools`, in dataset category order. */

@@ -1,5 +1,6 @@
 import type { LatestAuditPayload } from '@/lib/audit/latest-audit-payload';
 import {
+	asiSitesMatch,
 	brandNameFromUrl,
 	domainFromUrl,
 	normalizeAsiSiteUrl,
@@ -16,8 +17,7 @@ export type AsiResolvedSite = {
 export function resolveAsiMockSite(input: { url: string; audit?: LatestAuditPayload | null }): AsiResolvedSite | null {
 	const url = normalizeAsiSiteUrl(input.url);
 	if (!url) return null;
-	const auditUrl = input.audit?.report.url ? normalizeAsiSiteUrl(input.audit.report.url) : null;
-	const boundFromAudit = Boolean(auditUrl && auditUrl === url);
+	const boundFromAudit = asiSitesMatch(input.audit?.report.url, url);
 	const meta = input.audit?.report.siteMeta;
 	const brandName =
 		(boundFromAudit && (meta?.brandName || meta?.organizationName)) || brandNameFromUrl(url);

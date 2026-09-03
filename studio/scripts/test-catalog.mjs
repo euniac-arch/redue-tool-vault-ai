@@ -51,6 +51,9 @@ export const TEST_GROUPS = {
 		'scripts/test-intelligence-final.ts',
 		'scripts/test-intelligence-ui.ts',
 		'scripts/test-intelligence-envelope.ts',
+		'scripts/test-intelligence-control-bar.ts',
+		'scripts/test-intelligence-lazy-modules.ts',
+		'scripts/test-intelligence-site-context.ts',
 	],
 	score: [
 		'scripts/test-audit-score-calculator.ts',

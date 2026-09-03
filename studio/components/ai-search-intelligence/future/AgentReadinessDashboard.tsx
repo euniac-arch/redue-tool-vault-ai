@@ -25,6 +25,7 @@ export function AgentReadinessDashboard() {
 	const { url, setUrl, error, toast, loading, elapsedTime, snapshot, cancel, onSubmit } =
 		useAsiAnalysis<AsiAgentReadinessSnapshot>({
 			cacheKey: 'asi_agent_readiness_snapshot',
+			entryId: 'agent-readiness',
 			isValid: (data) => Boolean(data?.site?.url && typeof data.overall === 'number' && Array.isArray(data.items)),
 			loader: loadAsiAgentReadiness,
 			invalidUrlMessage: t('urlInvalid'),

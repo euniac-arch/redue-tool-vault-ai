@@ -3,7 +3,7 @@
  * Does not mutate AuditReport or recalculate diagnostic scores.
  */
 import type { LatestAuditPayload } from '@/lib/audit/latest-audit-payload';
-import { normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
+import { asiSitesMatch } from '@/lib/ai-search-intelligence/normalize-site-url';
 import type {
 	AsiAuditBind,
 	AsiAuditSignalId,
@@ -171,9 +171,7 @@ export function extractAsiAuditBridge(
 	siteUrl: string,
 ): AsiAuditBridge | null {
 	if (!audit?.report?.url) return null;
-	const auditUrl = normalizeAsiSiteUrl(audit.report.url);
-	const boundUrl = normalizeAsiSiteUrl(siteUrl);
-	if (!auditUrl || !boundUrl || auditUrl !== boundUrl) return null;
+	if (!asiSitesMatch(audit.report.url, siteUrl)) return null;
 
 	const report = audit.report;
 	const checks = flattenChecks(report);

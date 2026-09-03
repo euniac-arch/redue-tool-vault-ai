@@ -2,7 +2,7 @@
  * IA menu context — status / score / problem / next action.
  * Reads session snapshots only. Never calls providers.
  */
-import { readAsiSessionSnapshot, WAR_ROOM_CACHE_KEY } from '@/lib/ai-search-intelligence/asi-bound-url';
+import { readAsiSessionSnapshotForSite, WAR_ROOM_CACHE_KEY } from '@/lib/ai-search-intelligence/asi-bound-url';
 import { resolveAsiObservationState } from '@/lib/ai-search-intelligence/observation-state';
 import type { AsiIaEntryId } from '@/lib/ai-search-intelligence/routes';
 import type {
@@ -50,42 +50,55 @@ export function emptyAsiToolContext(actionHref: string): AsiToolContext {
 	return { ...EMPTY, actionHref };
 }
 
-export function composeAsiIaContext(): Record<AsiIaEntryId, AsiToolContext> {
-	const war = readAsiSessionSnapshot<AsiWarRoomSnapshot>(WAR_ROOM_CACHE_KEY, (data) => Boolean(data?.site?.url && data.kpis));
-	const opportunity = readAsiSessionSnapshot<AsiOpportunitySnapshot>(
+export function composeAsiIaContext(siteUrl?: string | null): Record<AsiIaEntryId, AsiToolContext> {
+	const war = readAsiSessionSnapshotForSite<AsiWarRoomSnapshot>(
+		WAR_ROOM_CACHE_KEY,
+		siteUrl,
+		(data) => Boolean(data?.site?.url && data.kpis),
+	);
+	const opportunity = readAsiSessionSnapshotForSite<AsiOpportunitySnapshot>(
 		'asi_opportunity_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && Array.isArray(data.top)),
 	);
-	const gap = readAsiSessionSnapshot<AsiCompetitorGapSnapshot>(
+	const gap = readAsiSessionSnapshotForSite<AsiCompetitorGapSnapshot>(
 		'asi_gap_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && Array.isArray(data.top)),
 	);
-	const action = readAsiSessionSnapshot<AsiNextActionSnapshot>(
+	const action = readAsiSessionSnapshotForSite<AsiNextActionSnapshot>(
 		'asi_action_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && Array.isArray(data.top)),
 	);
-	const visibility = readAsiSessionSnapshot<AsiVisibilityMonitorSnapshot>(
+	const visibility = readAsiSessionSnapshotForSite<AsiVisibilityMonitorSnapshot>(
 		'asi_visibility_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && data.trends),
 	);
-	const perception = readAsiSessionSnapshot<AsiPerceptionSnapshot>(
+	const perception = readAsiSessionSnapshotForSite<AsiPerceptionSnapshot>(
 		'asi_perception_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && typeof data.trustScore === 'number'),
 	);
-	const recommendation = readAsiSessionSnapshot<AsiRecommendationSnapshot>(
+	const recommendation = readAsiSessionSnapshotForSite<AsiRecommendationSnapshot>(
 		'asi_recommendation_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && data.sov),
 	);
-	const evidence = readAsiSessionSnapshot<AsiEvidenceSnapshot>(
+	const evidence = readAsiSessionSnapshotForSite<AsiEvidenceSnapshot>(
 		'asi_evidence_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && Array.isArray(data.citations)),
 	);
-	const explorer = readAsiSessionSnapshot<AsiEvidenceExplorerSnapshot>(
+	const explorer = readAsiSessionSnapshotForSite<AsiEvidenceExplorerSnapshot>(
 		'asi_explorer_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && Array.isArray(data.answers)),
 	);
-	const readiness = readAsiSessionSnapshot<AsiAgentReadinessSnapshot>(
+	const readiness = readAsiSessionSnapshotForSite<AsiAgentReadinessSnapshot>(
 		'asi_agent_readiness_snapshot',
+		siteUrl,
 		(data) => Boolean(data?.site?.url && typeof data.overall === 'number'),
 	);
 

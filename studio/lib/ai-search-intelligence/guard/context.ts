@@ -1,3 +1,4 @@
+import 'server-only';
 import { AsyncLocalStorage } from 'async_hooks';
 import { AsiServiceError } from '@/lib/ai-search-intelligence/api/errors';
 import type { AsiTierLimits } from '@/lib/ai-search-intelligence/entitlement/catalog';

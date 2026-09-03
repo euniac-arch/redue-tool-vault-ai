@@ -16,6 +16,7 @@ export function OpportunityDashboard() {
 	const { url, setUrl, error, toast, loading, elapsedTime, snapshot, cancel, onSubmit } =
 		useAsiAnalysis<AsiOpportunitySnapshot>({
 			cacheKey: 'asi_opportunity_snapshot',
+			entryId: 'opportunity',
 			isValid: (data) => Boolean(data?.site?.url && data.summary && Array.isArray(data.rows)),
 			loader: loadAsiOpportunity,
 			invalidUrlMessage: t('urlInvalid'),

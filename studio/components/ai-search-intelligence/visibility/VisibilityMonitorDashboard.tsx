@@ -14,9 +14,10 @@ export function VisibilityMonitorDashboard() {
 	const t = useTranslations('intelligence.monitor');
 	const tUx = useTranslations('intelligence.ux');
 	const failCopy = asiFailCopy(t('urlInvalid'), tUx);
-	const { url, setUrl, error, toast, loading, elapsedTime, snapshot, analyze, cancel, onSubmit } =
+	const { url, setUrl, error, toast, loading, elapsedTime, snapshot, analyze, cancel, onSubmit, requireTargetUrl } =
 		useAsiAnalysis<AsiVisibilityMonitorSnapshot>({
 			cacheKey: 'asi_visibility_snapshot',
+			entryId: 'visibility',
 			isValid: (data) =>
 				Boolean(data?.site?.url && data.trends && Array.isArray(data.alerts) && data.persistVersion === 'v2'),
 			loader: loadAsiVisibility,
@@ -58,7 +59,11 @@ export function VisibilityMonitorDashboard() {
 				{snapshot ? (
 					<VisibilityMonitorBoard
 						snapshot={snapshot}
-						onEnroll={(cadence) => void analyze(url, { cadence } satisfies Pick<AsiRunInput, 'cadence'>)}
+						onEnroll={(cadence) => {
+							const resolved = requireTargetUrl();
+							if (!resolved) return;
+							void analyze(resolved, { cadence } satisfies Pick<AsiRunInput, 'cadence'>);
+						}}
 					/>
 				) : null}
 			</AsiPageChrome>

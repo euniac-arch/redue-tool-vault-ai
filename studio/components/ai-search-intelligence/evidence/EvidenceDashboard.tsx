@@ -7,18 +7,18 @@ import { AsiClipBanner } from '@/components/ai-search-intelligence/entitlement/A
 import { CitationExplorerPanel } from '@/components/ai-search-intelligence/evidence/CitationExplorerPanel';
 import { QuestionGeneratorPanel } from '@/components/ai-search-intelligence/evidence/QuestionGeneratorPanel';
 import { AsiPageChrome } from '@/components/ai-search-intelligence/primitives/AsiPageChrome';
+import { useIntelligence } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 import { AsiScoreCompareStrip } from '@/components/ai-search-intelligence/primitives/AsiScoreCompareStrip';
 import {
 	asiCacheShouldRebuild,
 	onAsiAnalyzeRequest,
 	readAsiSessionSnapshot,
-	seedAsiSiteUrl,
 	writeAsiSessionSnapshot,
 } from '@/lib/ai-search-intelligence/asi-bound-url';
-import { asiFailCopy, asiLoadMessage, loadAsiEvidence, loadAsiQueryProbe } from '@/lib/ai-search-intelligence/client/asi-client';
+import { asiFailCopy, asiLoadMessage, loadAsiEvidence, loadAsiQueryGenerator, loadAsiQueryProbe } from '@/lib/ai-search-intelligence/client/asi-client';
+import { inputFromCurrentSite } from '@/lib/ai-search-intelligence/client/current-site-input';
 import { isAsiCancelled, useAsiAbort } from '@/lib/ai-search-intelligence/client/use-asi-abort';
-import { normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
-import { loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
+import { asiSitesMatch, normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
 import type { AsiEvidenceSnapshot, AsiQuestionInput } from '@/lib/ai-search-intelligence/types';
 import type { AsiToolId } from '@/lib/ai-search-intelligence/routes';
 
@@ -48,6 +48,8 @@ export function EvidenceDashboard({
 	const t = useTranslations('intelligence.evidence');
 	const tUx = useTranslations('intelligence.ux');
 	const failCopy = asiFailCopy(t('urlInvalid'), tUx);
+	const { targetUrl, currentSite, requireTargetUrl, analysisEpoch, reportModuleStatus } = useIntelligence();
+	const entryId = tool === 'questions' ? 'questions' : 'citations';
 	const [url, setUrl] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const [toast, setToast] = useState<{ message: string; tone: 'error' } | null>(null);
@@ -63,48 +65,59 @@ export function EvidenceDashboard({
 		return () => window.clearTimeout(id);
 	}, [toast]);
 
-	// A mount may ONLY ever restore an already-computed result (zero network
-	// calls, no auto-generated questions) — it must NEVER call `loadAsiEvidence()`
-	// on its own. Every fetch requires the user to press this page's Analyze /
-	// Generate button or the shared top bar's button; no other path exists.
+	useEffect(() => {
+		if (targetUrl) setUrl(targetUrl);
+	}, [targetUrl]);
+
 	useEffect(() => {
 		const cached = readCached();
-		const seedUrl = seedAsiSiteUrl(cached?.site.url);
-		const cacheReady =
+		const current = currentSite?.siteUrl || normalizeAsiSiteUrl(targetUrl);
+		const cacheReady = Boolean(
 			cached &&
-			(!seedUrl || cached.site.url === normalizeAsiSiteUrl(seedUrl)) &&
-			!asiCacheShouldRebuild(cached) &&
-			(tool !== 'citations' || Boolean(cached.citationReport)) &&
-			(tool !== 'questions' || Boolean(cached.queryGeneration));
+				current &&
+				asiSitesMatch(cached.site.url, current) &&
+				!asiCacheShouldRebuild(cached) &&
+				(tool !== 'citations' || Boolean(cached.citationReport)) &&
+				(tool !== 'questions' || Boolean(cached.queryGeneration)),
+		);
 		if (cacheReady && cached) {
 			setSnapshot(cached);
 			setUrl(cached.site.url);
+			reportModuleStatus(entryId, {
+				isLoading: false,
+				data: cached,
+				error: null,
+				lastAnalyzedUrl: cached.site.url,
+			});
+			return;
 		}
-	}, []);
+		setSnapshot(null);
+	}, [analysisEpoch, currentSite?.siteUrl, entryId, reportModuleStatus, targetUrl, tool]);
 
 	async function analyze(
-		nextUrl: string,
+		_nextUrl: string,
 		questions?: Partial<AsiQuestionInput>,
 		mode: 'page' | 'generate' = 'page',
 	) {
-		const normalized = normalizeAsiSiteUrl(nextUrl);
-		if (!normalized) {
+		if (!currentSite) {
 			const message = t('urlInvalid');
 			setError(message);
 			if (mode === 'generate') setToast({ message, tone: 'error' });
+			requireTargetUrl();
 			return;
 		}
 		setError(null);
 		setProbing(false);
 		setLoading(mode === 'page');
 		setGenerating(mode === 'generate');
+		reportModuleStatus(entryId, { isLoading: true, error: null });
 		const signal = nextSignal();
+		const loader = tool === 'questions' ? loadAsiQueryGenerator : loadAsiEvidence;
 		try {
-			const result = await loadAsiEvidence(
+			const result = await loader(
 				{
-					url: normalized,
-					questions,
-					audit: loadLatestAuditPayload(),
+					...inputFromCurrentSite(currentSite),
+					questions: { ...inputFromCurrentSite(currentSite).questions, ...questions },
 				},
 				signal,
 			);
@@ -113,16 +126,26 @@ export function EvidenceDashboard({
 				setSnapshot(result.snapshot);
 				writeCached(result.snapshot);
 				setUrl(result.snapshot.site.url);
+				reportModuleStatus(entryId, {
+					isLoading: false,
+					data: result.snapshot,
+					error: null,
+					lastAnalyzedUrl: result.snapshot.site.url,
+				});
 			} else if (!isAsiCancelled(result.error)) {
 				const message = asiLoadMessage(result.error, failCopy);
 				setError(message);
 				if (mode === 'generate') setToast({ message, tone: 'error' });
+				reportModuleStatus(entryId, { isLoading: false, error: message });
+			} else {
+				reportModuleStatus(entryId, { isLoading: false });
 			}
 		} catch {
 			if (!isLive(signal)) return;
 			const message = tUx('analyzeFailed');
 			setError(message);
 			if (mode === 'generate') setToast({ message, tone: 'error' });
+			reportModuleStatus(entryId, { isLoading: false, error: message });
 		} finally {
 			if (isLive(signal)) {
 				setLoading(false);
@@ -132,16 +155,18 @@ export function EvidenceDashboard({
 	}
 
 	async function probe(queries: string[]) {
-		if (!snapshot) return;
+		if (!snapshot || !currentSite) {
+			requireTargetUrl();
+			return;
+		}
 		setError(null);
 		setLoading(false);
 		setProbing(true);
 		const signal = nextSignal();
 		const result = await loadAsiQueryProbe(
 			{
-				url: snapshot.site.url,
+				...inputFromCurrentSite(currentSite),
 				queries,
-				audit: loadLatestAuditPayload(),
 			},
 			signal,
 		);
@@ -168,7 +193,9 @@ export function EvidenceDashboard({
 
 	function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		void analyze(url, snapshot?.questionInputs);
+		const resolved = requireTargetUrl();
+		if (!resolved) return;
+		void analyze(resolved, snapshot?.questionInputs);
 	}
 
 	return (
@@ -212,8 +239,14 @@ export function EvidenceDashboard({
 						busy={loading}
 						generating={generating}
 						probing={probing}
-						onGenerate={(input) => void analyze(snapshot.site.url, input, 'generate')}
-						onProbe={(queries) => void probe(queries)}
+						onGenerate={(input) => {
+							const resolved = requireTargetUrl();
+							if (!resolved) return;
+							void analyze(resolved, input, 'generate');
+						}}
+						onProbe={(queries) => {
+							void probe(queries);
+						}}
 						onCancel={cancelRun}
 					/>
 				) : null}

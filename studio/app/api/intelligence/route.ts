@@ -82,7 +82,15 @@ export async function POST(req: Request) {
 	}
 
 	const operation = resolveAsiOperation(
-		typeof body.operation === 'string' ? body.operation : typeof body.action === 'string' ? body.action : '',
+		typeof body.operation === 'string'
+			? body.operation
+			: typeof body.action === 'string'
+				? body.action
+				: typeof body.moduleType === 'string'
+					? body.moduleType
+					: typeof body.tabId === 'string'
+						? body.tabId
+						: '',
 	);
 	if (!operation) {
 		return fail('invalid_operation');

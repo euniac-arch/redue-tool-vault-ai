@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AsiPageChrome } from '@/components/ai-search-intelligence/primitives/AsiPageChrome';
+import { useIntelligence } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 import { AsiScoreCompareStrip } from '@/components/ai-search-intelligence/primitives/AsiScoreCompareStrip';
 import { RecommendCompetitorsPanel } from '@/components/ai-search-intelligence/recommendation/RecommendCompetitorsPanel';
 import { RecommendSimulatorPanel } from '@/components/ai-search-intelligence/recommendation/RecommendSimulatorPanel';
@@ -12,13 +13,12 @@ import {
 	asiCacheShouldRebuild,
 	onAsiAnalyzeRequest,
 	readAsiSessionSnapshot,
-	seedAsiSiteUrl,
 	writeAsiSessionSnapshot,
 } from '@/lib/ai-search-intelligence/asi-bound-url';
 import { asiFailCopy, asiLoadMessage, loadAsiRecommendation, loadAsiShareOfVoice, loadAsiSimulator } from '@/lib/ai-search-intelligence/client/asi-client';
+import { inputFromCurrentSite } from '@/lib/ai-search-intelligence/client/current-site-input';
 import { isAsiCancelled, useAsiAbort } from '@/lib/ai-search-intelligence/client/use-asi-abort';
-import { normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
-import { loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
+import { asiSitesMatch, normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
 import type { AsiRecommendationSnapshot } from '@/lib/ai-search-intelligence/types';
 import type { AsiToolId } from '@/lib/ai-search-intelligence/routes';
 
@@ -43,65 +43,86 @@ export function RecommendationDashboard({
 	const t = useTranslations('intelligence.recommendation');
 	const tUx = useTranslations('intelligence.ux');
 	const failCopy = asiFailCopy(t('urlInvalid'), tUx);
+	const { targetUrl, currentSite, requireTargetUrl, analysisEpoch, reportModuleStatus } = useIntelligence();
 	const [url, setUrl] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [snapshot, setSnapshot] = useState<AsiRecommendationSnapshot | null>(null);
 	const { nextSignal, cancel, isLive } = useAsiAbort();
 
-	function loadSnapshot(input: { url: string; query?: string; refresh?: boolean }, signal: AbortSignal) {
-		const payload = { ...input, audit: loadLatestAuditPayload() };
+	useEffect(() => {
+		if (targetUrl) setUrl(targetUrl);
+	}, [targetUrl]);
+
+	function loadSnapshot(input: { query?: string; refresh?: boolean }, signal: AbortSignal) {
+		if (!currentSite) return Promise.resolve({ snapshot: null, error: 'invalid_url' as const });
+		const payload = { ...inputFromCurrentSite(currentSite), query: input.query, refresh: input.refresh };
 		if (tool === 'sov') return loadAsiShareOfVoice(payload, signal);
 		if (tool === 'simulator') return loadAsiSimulator(payload, signal);
 		return loadAsiRecommendation(payload, signal);
 	}
 
-	async function analyze(nextUrl: string, query?: string, refresh = false) {
-		const normalized = normalizeAsiSiteUrl(nextUrl);
-		if (!normalized) {
+	async function analyze(_nextUrl?: string, query?: string, refresh = false) {
+		if (!currentSite) {
 			setError(t('urlInvalid'));
+			requireTargetUrl();
 			return;
 		}
 		setError(null);
 		setLoading(true);
+		reportModuleStatus(tool, { isLoading: true, error: null });
 		const signal = nextSignal();
-		const result = await loadSnapshot({ url: normalized, query, refresh }, signal);
+		const result = await loadSnapshot({ query, refresh }, signal);
 		if (!isLive(signal)) return;
 		if (result.snapshot) {
 			setSnapshot(result.snapshot);
 			writeCached(result.snapshot);
 			setUrl(result.snapshot.site.url);
+			reportModuleStatus(tool, {
+				isLoading: false,
+				data: result.snapshot,
+				error: null,
+				lastAnalyzedUrl: result.snapshot.site.url,
+			});
 		} else if (!isAsiCancelled(result.error)) {
-			setError(asiLoadMessage(result.error, failCopy));
+			const message = asiLoadMessage(result.error, failCopy);
+			setError(message);
+			reportModuleStatus(tool, { isLoading: false, error: message });
+		} else {
+			reportModuleStatus(tool, { isLoading: false });
 		}
 		setLoading(false);
 	}
 
-	// A mount may ONLY ever restore an already-computed result (zero network
-	// calls) — it must NEVER call `loadSnapshot()` on its own just because a URL
-	// happens to be bound. Every fetch requires the user to press this page's
-	// Analyze button or the shared top bar's button — except the `?q=` handoff,
-	// which is itself an explicit action (a link click on another ASI page).
 	useEffect(() => {
 		const incomingQ = new URLSearchParams(window.location.search).get('q')?.trim() || '';
 		const cached = readCached();
-		const seedUrl = seedAsiSiteUrl(cached?.site.url);
-		const cacheReady =
+		const current = currentSite?.siteUrl || normalizeAsiSiteUrl(targetUrl);
+		const cacheReady = Boolean(
 			cached &&
-			(!seedUrl || cached.site.url === normalizeAsiSiteUrl(seedUrl)) &&
-			!asiCacheShouldRebuild(cached) &&
-			(tool !== 'sov' || cached.sov.computedFrom === 'live');
-		if (incomingQ && seedUrl) {
-			void analyze(seedUrl, incomingQ);
+				current &&
+				asiSitesMatch(cached.site.url, current) &&
+				!asiCacheShouldRebuild(cached) &&
+				(tool !== 'sov' || cached.sov.computedFrom === 'live'),
+		);
+		if (incomingQ && currentSite && analysisEpoch === 0) {
+			void analyze(currentSite.siteUrl, incomingQ);
 			return;
 		}
 		if (cacheReady && cached) {
 			setSnapshot(cached);
 			setUrl(cached.site.url);
+			reportModuleStatus(tool, {
+				isLoading: false,
+				data: cached,
+				error: null,
+				lastAnalyzedUrl: cached.site.url,
+			});
+			return;
 		}
-		// First-paint only: hand off `q` from Evidence → recommendation test.
+		setSnapshot(null);
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
+	}, [analysisEpoch, currentSite?.siteUrl, targetUrl, tool]);
 
 	// React to the shared top control bar's explicit [AI 인텔리전스 분석] click even
 	// when this dashboard is already mounted (a fresh mount already self-seeds above).
@@ -111,7 +132,9 @@ export function RecommendationDashboard({
 
 	function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		void analyze(url);
+		const resolved = requireTargetUrl();
+		if (!resolved) return;
+		void analyze(resolved);
 	}
 
 	return (

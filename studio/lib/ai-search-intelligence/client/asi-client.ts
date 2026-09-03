@@ -184,6 +184,10 @@ export function loadAsiEvidence(input: AsiRunInput, signal?: AbortSignal) {
 	return postAsi<AsiEvidenceSnapshot>('citation-explorer', input, signal);
 }
 
+export function loadAsiQueryGenerator(input: AsiRunInput, signal?: AbortSignal) {
+	return postAsi<AsiEvidenceSnapshot>('query-generator', { ...input, expandCitations: true }, signal);
+}
+
 export function loadAsiQueryProbe(input: AsiRunInput, signal?: AbortSignal) {
 	return postAsi<AsiEvidenceSnapshot>(
 		'query-generator',

@@ -15,6 +15,8 @@ import {
 	type AiToolFilters,
 	type AiToolSortKey,
 } from '@/lib/admin/ai-tools-management';
+import { applyUnifiedDailyStats } from '@/lib/ai-hub/ai-ranking';
+import { useLocalCalendarDate } from '@/lib/ai-hub/use-local-calendar-date';
 import { AiToolCard } from './AiToolCard';
 import { AiToolDetailModal } from './AiToolDetailModal';
 import { AiToolsCategoryNav } from './AiToolsCategoryNav';
@@ -46,14 +48,16 @@ export function AdminAiTools() {
 		}, 2400);
 	}, []);
 
+	const asOf = useLocalCalendarDate();
+	const dailyTools = useMemo(() => applyUnifiedDailyStats(tools, asOf), [tools, asOf]);
 	const filters: AiToolFilters = useMemo(() => ({ query, category }), [query, category]);
-	const filteredTools = useMemo(() => filterAiTools(tools, filters), [tools, filters]);
+	const filteredTools = useMemo(() => filterAiTools(dailyTools, filters), [dailyTools, filters]);
 	const sortedTools = useMemo(() => sortAiTools(filteredTools, sortKey), [filteredTools, sortKey]);
 	const categoryCounts = useMemo(() => countAiToolsByCategory(tools), [tools]);
 	const publicCount = useMemo(() => tools.filter((tool) => tool.is_public).length, [tools]);
 	const activeModalTool = useMemo(
-		() => tools.find((tool) => tool.id === activeModalToolId) ?? null,
-		[tools, activeModalToolId],
+		() => dailyTools.find((tool) => tool.id === activeModalToolId) ?? null,
+		[dailyTools, activeModalToolId],
 	);
 
 	const handleToggleVisibility = useCallback(
@@ -156,7 +160,7 @@ export function AdminAiTools() {
 				</div>
 			</div>
 
-			{tools.length > 0 && <MarketShareBar tools={tools} />}
+			{tools.length > 0 && <MarketShareBar tools={dailyTools} asOf={asOf} />}
 
 			<div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_1fr]">
 				<AiToolsCategoryNav
@@ -226,7 +230,7 @@ export function AdminAiTools() {
 				<AiToolDetailModal tool={activeModalTool} onClose={() => setActiveModalToolId(null)} />
 			)}
 
-			{rankModalOpen && <TodayRankModal tools={tools} onClose={() => setRankModalOpen(false)} />}
+			{rankModalOpen && <TodayRankModal tools={dailyTools} asOf={asOf} onClose={() => setRankModalOpen(false)} />}
 
 			{toasts.length > 0 && (
 				<div className="pointer-events-none fixed bottom-5 right-5 z-[60] flex flex-col gap-2">

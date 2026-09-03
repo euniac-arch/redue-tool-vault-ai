@@ -24,7 +24,7 @@ function aliasesFor(brand: string, domain: string): string[] {
 }
 
 function competitorsFromAudit(input: AsiRunInput): string[] {
-	return auditCompetitorNames(input.audit, 2);
+	return auditCompetitorNames(input.audit, 2, input.url);
 }
 
 function storedForQuery(domain: string, query: string): AIResponse[] {

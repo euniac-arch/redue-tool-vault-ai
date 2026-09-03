@@ -7,7 +7,9 @@ import { AnalysisLoadingBar } from '@/components/ai-search-intelligence/common/A
 import { ContextTagBadgeGroup } from '@/components/ai-search-intelligence/common/ContextTagBadgeGroup';
 import { AsiLockPanel } from '@/components/ai-search-intelligence/entitlement/AsiLockPanel';
 import { QueryProbeResults } from '@/components/ai-search-intelligence/evidence/QueryProbeResults';
+import { AsiBoundTargetBadge } from '@/components/ai-search-intelligence/primitives/AsiBoundTargetBadge';
 import { AsiCard } from '@/components/ai-search-intelligence/primitives/AsiCard';
+import { useIntelligence } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 import { AsiQueryCard } from '@/components/ai-search-intelligence/primitives/AsiCommonCards';
 import { AsiCta } from '@/components/ai-search-intelligence/primitives/AsiCta';
 import { AsiFilterChip } from '@/components/ai-search-intelligence/primitives/AsiFilterChip';
@@ -17,6 +19,7 @@ import { canAccessFeature } from '@/lib/ai-search-intelligence/entitlement';
 import { useAsiActor } from '@/lib/ai-search-intelligence/entitlement/use-asi-actor';
 import { useElapsedSeconds } from '@/lib/ai-search-intelligence/client/use-elapsed-seconds';
 import { ASI_QUERY_PROBE_MAX } from '@/lib/ai-search-intelligence/probe/run';
+import { questionInputsFromContext } from '@/lib/ai-search-intelligence/query-intelligence/generate';
 import {
 	ASI_QUESTION_INTENTS,
 	type AsiEvidenceSnapshot,
@@ -120,6 +123,7 @@ export function QuestionGeneratorPanel({
 	probing: boolean;
 }) {
 	const t = useTranslations('intelligence.evidence');
+	const { requireTargetUrl, currentSiteContext } = useIntelligence();
 	const { actor, ready } = useAsiActor();
 	const probeCap = Math.min(ASI_QUERY_PROBE_MAX, actor.limits.queries);
 	const canBulk = canAccessFeature(actor, 'query.bulk');
@@ -132,8 +136,8 @@ export function QuestionGeneratorPanel({
 	const rows = intent === 'all' ? snapshot.questions : snapshot.questions.filter((item) => item.intent === intent);
 
 	useEffect(() => {
-		setForm(snapshot.questionInputs);
-	}, [snapshot.questionInputs]);
+		setForm(currentSiteContext ? questionInputsFromContext(currentSiteContext) : snapshot.questionInputs);
+	}, [snapshot.questionInputs, currentSiteContext]);
 	const selectedQueries = useMemo(
 		() => snapshot.questions.filter((item) => selected.has(item.id)).map((item) => item.query),
 		[snapshot.questions, selected],
@@ -162,6 +166,7 @@ export function QuestionGeneratorPanel({
 
 	function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
+		if (!requireTargetUrl()) return;
 		onGenerate(form);
 	}
 
@@ -201,6 +206,7 @@ export function QuestionGeneratorPanel({
 				>
 					{t(`queryStatus.${status}`)}
 				</p>
+				<AsiBoundTargetBadge />
 				<ContextTagBadgeGroup
 					active={isGenerating}
 					items={CONTEXT_FIELDS.map((field) => {
@@ -338,7 +344,10 @@ export function QuestionGeneratorPanel({
 						aria-busy={isLoading}
 						aria-label={justCompleted ? t('probeComplete') : isLoading ? t(loadingStep) : undefined}
 						data-complete={justCompleted ? 'true' : undefined}
-						onClick={() => onProbe(selectedQueries.slice(0, probeCap))}
+						onClick={() => {
+							if (!requireTargetUrl()) return;
+							onProbe(selectedQueries.slice(0, probeCap));
+						}}
 					>
 						{isLoading ? (
 							<span

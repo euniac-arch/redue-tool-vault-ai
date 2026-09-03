@@ -12,6 +12,8 @@ import {
 	type AiTool,
 	type AiToolCategoryId,
 } from '@/lib/ai-hub';
+import { applyUnifiedDailyStats } from '@/lib/ai-hub/ai-ranking';
+import { useLocalCalendarDate } from '@/lib/ai-hub/use-local-calendar-date';
 import { AiHubToolCard } from './AiHubToolCard';
 import { AiHubDetailModal } from './AiHubDetailModal';
 import { AiHubTodayRankModal } from './AiHubTodayRankModal';
@@ -21,7 +23,9 @@ const KICKER =
 const GRADIENT_TEXT = 'bg-gradient-to-r from-[#5565C7] to-[#0C9AA7] bg-clip-text text-transparent';
 
 export function AiHubDashboard() {
-	const [tools] = useState<AiTool[]>(() => loadPublicAiTools());
+	const [catalog] = useState<AiTool[]>(() => loadPublicAiTools());
+	const asOf = useLocalCalendarDate();
+	const tools = useMemo(() => applyUnifiedDailyStats(catalog, asOf), [catalog, asOf]);
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<'all' | AiToolCategoryId>('all');
 	const [sortKey, setSortKey] = useState<AiToolSortKey>('market_share');
@@ -69,7 +73,7 @@ export function AiHubDashboard() {
 				{tools.length > 0 && (
 					<div className="flex flex-col items-stretch gap-3 sm:flex-row">
 						<div className="flex-1">
-							<MarketShareBar tools={tools} />
+							<MarketShareBar tools={tools} asOf={asOf} />
 						</div>
 						<button
 							type="button"
@@ -160,7 +164,7 @@ export function AiHubDashboard() {
 
 			{activeTool && <AiHubDetailModal tool={activeTool} onClose={() => setActiveToolId(null)} />}
 
-			{rankModalOpen && <AiHubTodayRankModal tools={tools} onClose={() => setRankModalOpen(false)} />}
+			{rankModalOpen && <AiHubTodayRankModal tools={tools} asOf={asOf} onClose={() => setRankModalOpen(false)} />}
 		</div>
 	);
 }

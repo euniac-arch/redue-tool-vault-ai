@@ -29,6 +29,22 @@ const OPERATION_ALIASES: Record<string, AsiOperation> = {
 	recommendation: 'recommendation-test',
 	evidence: 'citation-explorer',
 	future: 'agent-readiness',
+	questions: 'query-generator',
+	opportunity: 'opportunity-finder',
+	simulator: 'recommendation-simulator',
+	visibility: 'visibility-monitor',
+	'visibility-trend': 'visibility-monitor',
+	alert: 'visibility-monitor',
+	brand: 'brand-perception',
+	sov: 'share-of-voice',
+	test: 'recommendation-test',
+	citations: 'citation-explorer',
+	explorer: 'evidence-explorer',
+	competitors: 'competitor-analysis',
+	gap: 'competitor-gap',
+	action: 'next-best-action',
+	reputation: 'reputation-radar',
+	snapshot: 'brand-snapshot',
 };
 
 const OPERATION_TO_ACTION: Record<AsiOperation, AsiServiceAction> = {

@@ -52,6 +52,7 @@ export function buildEmptyLiveEvidenceSnapshot(input: {
 		category: site.category,
 		industry: site.category,
 		services: site.category ? [site.category] : [],
+		keywords: [],
 		aliases: [],
 		boundFromAudit,
 	};

@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { AsiCategoryBadge } from '@/components/ai-search-intelligence/primitives/AsiBilingualTitle';
+import { getIntelligenceCategory } from '@/constants/aiIntelligenceTools';
 import { ASI_PILLARS, resolveAsiPathname } from '@/lib/ai-search-intelligence/routes';
 import { ASI_PILLAR_ACTIVE, ASI_PILLAR_IDLE, asiFocusRing } from '@/lib/ui/asi-chrome';
 
 export function AsiPillarNav() {
-	const tNav = useTranslations('nav');
 	const t = useTranslations('intelligence');
 	const pathname = usePathname();
 	const activePillar = resolveAsiPathname(pathname).pillar.id;
@@ -16,6 +17,7 @@ export function AsiPillarNav() {
 		<nav aria-label={t('pillarNavAria')} className="grid w-full grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
 			{ASI_PILLARS.map((pillar) => {
 				const active = pillar.id === activePillar;
+				const category = getIntelligenceCategory(pillar.id);
 				return (
 					<Link
 						key={pillar.id}
@@ -27,18 +29,11 @@ export function AsiPillarNav() {
 						)}
 					>
 						<span
-							className={`text-[10px] font-bold uppercase tracking-wider ${
+							className={`text-[10px] font-semibold ${
 								active ? 'text-cyan-600 dark:text-cyan-400/80' : 'text-slate-400 dark:text-slate-500'
 							}`}
 						>
-							{t(pillar.roleKey)}
-						</span>
-						<span
-							className={`mt-0.5 text-xs font-bold leading-snug sm:truncate sm:text-[13px] ${
-								active ? 'text-cyan-700 dark:text-cyan-400' : 'text-slate-700 dark:text-slate-200'
-							}`}
-						>
-							{tNav(pillar.navKey)}
+							<AsiCategoryBadge categoryKo={category.categoryKo} categoryEn={category.categoryEn} />
 						</span>
 					</Link>
 				);

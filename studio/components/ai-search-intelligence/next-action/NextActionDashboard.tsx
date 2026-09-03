@@ -16,6 +16,7 @@ export function NextActionDashboard() {
 	const { url, setUrl, error, toast, loading, elapsedTime, snapshot, cancel, onSubmit } =
 		useAsiAnalysis<AsiNextActionSnapshot>({
 			cacheKey: 'asi_action_snapshot',
+			entryId: 'action',
 			isValid: (data) =>
 				Boolean(data?.site?.url && data.summary && Array.isArray(data.actions) && data.summary.ruleSet === 'v2'),
 			loader: loadAsiNextAction,

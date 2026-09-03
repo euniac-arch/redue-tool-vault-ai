@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { AsiPageChrome } from '@/components/ai-search-intelligence/primitives/AsiPageChrome';
+import { useIntelligence } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 import { AsiScoreCompareStrip } from '@/components/ai-search-intelligence/primitives/AsiScoreCompareStrip';
 import { BrandPerceptionPanel } from '@/components/ai-search-intelligence/perception/BrandPerceptionPanel';
 import { BrandSnapshotPanel } from '@/components/ai-search-intelligence/perception/BrandSnapshotPanel';
@@ -11,13 +12,12 @@ import {
 	asiCacheShouldRebuild,
 	onAsiAnalyzeRequest,
 	readAsiSessionSnapshot,
-	seedAsiSiteUrl,
 	writeAsiSessionSnapshot,
 } from '@/lib/ai-search-intelligence/asi-bound-url';
 import { asiFailCopy, asiLoadMessage, loadAsiPerception } from '@/lib/ai-search-intelligence/client/asi-client';
+import { inputFromCurrentSite } from '@/lib/ai-search-intelligence/client/current-site-input';
 import { isAsiCancelled, useAsiAbort } from '@/lib/ai-search-intelligence/client/use-asi-abort';
-import { normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
-import { loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
+import { asiSitesMatch, normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
 import type { AsiPerceptionSnapshot } from '@/lib/ai-search-intelligence/types';
 import type { AsiToolId } from '@/lib/ai-search-intelligence/routes';
 
@@ -38,42 +38,65 @@ export function PerceptionDashboard({ tool }: { tool: Extract<AsiToolId, 'brand'
 	const t = useTranslations('intelligence.perception');
 	const tUx = useTranslations('intelligence.ux');
 	const failCopy = asiFailCopy(t('urlInvalid'), tUx);
+	const { targetUrl, currentSite, requireTargetUrl, analysisEpoch, reportModuleStatus } = useIntelligence();
 	const [url, setUrl] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
 	const [snapshot, setSnapshot] = useState<AsiPerceptionSnapshot | null>(null);
 	const { nextSignal, cancel, isLive } = useAsiAbort();
 
-	// A mount may ONLY ever restore an already-computed result (zero network
-	// calls) — it must NEVER call `loadAsiPerception()` on its own. Every fetch
-	// requires the user to press this page's Analyze button or the shared top
-	// bar's [AI 인텔리전스 분석] button; there is no other path to a network call.
+	useEffect(() => {
+		if (targetUrl) setUrl(targetUrl);
+	}, [targetUrl]);
+
 	useEffect(() => {
 		const cached = readCached();
-		const seedUrl = seedAsiSiteUrl(cached?.site.url);
-		if (cached && (!seedUrl || cached.site.url === normalizeAsiSiteUrl(seedUrl)) && !asiCacheShouldRebuild(cached)) {
+		const current = currentSite?.siteUrl || normalizeAsiSiteUrl(targetUrl);
+		const cacheReady = Boolean(
+			cached && current && asiSitesMatch(cached.site.url, current) && !asiCacheShouldRebuild(cached),
+		);
+		if (cacheReady && cached) {
 			setSnapshot(cached);
 			setUrl(cached.site.url);
+			reportModuleStatus(tool, {
+				isLoading: false,
+				data: cached,
+				error: null,
+				lastAnalyzedUrl: cached.site.url,
+			});
+			return;
 		}
-	}, []);
+		setSnapshot(null);
+	}, [analysisEpoch, currentSite?.siteUrl, reportModuleStatus, targetUrl, tool]);
 
-	async function analyze(nextUrl: string) {
-		const normalized = normalizeAsiSiteUrl(nextUrl);
-		if (!normalized) {
+	async function analyze(_nextUrl?: string) {
+		if (!currentSite) {
 			setError(t('urlInvalid'));
+			requireTargetUrl();
 			return;
 		}
 		setError(null);
 		setLoading(true);
+		reportModuleStatus(tool, { isLoading: true, error: null });
 		const signal = nextSignal();
-		const result = await loadAsiPerception({ url: normalized, audit: loadLatestAuditPayload() }, signal);
+		const result = await loadAsiPerception(inputFromCurrentSite(currentSite), signal);
 		if (!isLive(signal)) return;
 		if (result.snapshot) {
 			setSnapshot(result.snapshot);
 			writeCached(result.snapshot);
 			setUrl(result.snapshot.site.url);
+			reportModuleStatus(tool, {
+				isLoading: false,
+				data: result.snapshot,
+				error: null,
+				lastAnalyzedUrl: result.snapshot.site.url,
+			});
 		} else if (!isAsiCancelled(result.error)) {
-			setError(asiLoadMessage(result.error, failCopy));
+			const message = asiLoadMessage(result.error, failCopy);
+			setError(message);
+			reportModuleStatus(tool, { isLoading: false, error: message });
+		} else {
+			reportModuleStatus(tool, { isLoading: false });
 		}
 		setLoading(false);
 	}
@@ -86,7 +109,9 @@ export function PerceptionDashboard({ tool }: { tool: Extract<AsiToolId, 'brand'
 
 	function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		void analyze(url);
+		const resolved = requireTargetUrl();
+		if (!resolved) return;
+		void analyze(resolved);
 	}
 
 	return (

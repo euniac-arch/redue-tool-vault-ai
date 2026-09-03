@@ -2,24 +2,19 @@
 
 import { useEffect, useState } from 'react';
 import { Crown, Globe2, TrendingUp, X } from 'lucide-react';
+import { type AiTool } from '@/lib/admin/ai-tools-management';
 import {
-	getAiToolCategoryChampions,
-	getAiToolCategoryLabel,
-	getTopAiToolsByMarketShare,
-	type AiTool,
-} from '@/lib/admin/ai-tools-management';
+	AI_RANKING_SOURCE_CAPTION,
+	resolveOfficialCategoryChampions,
+	resolveOfficialGlobalTop,
+} from '@/lib/ai-hub/ai-ranking';
+import { formatRankingAsOfLabel } from '@/lib/ai-hub/getDailyAiRanking';
 import { CATEGORY_SOLID_ACCENT, GrowthBadge, RankBadge } from '@/components/admin/ai-tools/ai-tools-badges';
 
 interface AiHubTodayRankModalProps {
 	tools: AiTool[];
 	onClose: () => void;
-}
-
-function formatTodayLabel(date: Date): string {
-	const y = date.getFullYear();
-	const m = date.getMonth() + 1;
-	const d = date.getDate();
-	return `${y}년 ${m}월 ${d}일 기준`;
+	asOf?: Date;
 }
 
 /**
@@ -27,7 +22,7 @@ function formatTodayLabel(date: Date): string {
  * admin curation workspace's ranking modal (same underlying dataset helpers) but with copy aimed
  * at end users rather than admin operators.
  */
-export function AiHubTodayRankModal({ tools, onClose }: AiHubTodayRankModalProps) {
+export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModalProps) {
 	const [logoFailedIds, setLogoFailedIds] = useState<Set<string>>(new Set());
 
 	useEffect(() => {
@@ -45,9 +40,10 @@ export function AiHubTodayRankModal({ tools, onClose }: AiHubTodayRankModalProps
 		};
 	}, [onClose]);
 
-	const top10 = getTopAiToolsByMarketShare(tools, 10);
-	const champions = getAiToolCategoryChampions(tools);
-	const today = formatTodayLabel(new Date());
+	const asOfDate = asOf ?? new Date();
+	const top10 = resolveOfficialGlobalTop(tools, 10, asOfDate);
+	const champions = resolveOfficialCategoryChampions(tools, asOfDate);
+	const today = formatRankingAsOfLabel(asOfDate);
 
 	function markLogoFailed(id: string) {
 		setLogoFailedIds((prev) => new Set(prev).add(id));
@@ -76,7 +72,7 @@ export function AiHubTodayRankModal({ tools, onClose }: AiHubTodayRankModalProps
 							오늘자 글로벌 AI 순위 분석
 						</h2>
 						<p className="mt-1 text-xs font-medium text-white/70">
-							글로벌 웹 트래픽 & 사용자 점유율 추정치 기준 실시간 랭킹 요약
+							Similarweb & a16z GenAI 웹 트래픽 추정치 기준 랭킹 요약
 						</p>
 					</div>
 					<button
@@ -94,11 +90,11 @@ export function AiHubTodayRankModal({ tools, onClose }: AiHubTodayRankModalProps
 						<section>
 							<SectionTitle icon={Crown} label="카테고리별 1위 챔피언" />
 							<div className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-								{champions.map(({ category, tool }) => (
+								{champions.map(({ key, tool, categoryLabel }) => (
 									<ChampionCard
-										key={category}
+										key={key}
 										tool={tool}
-										categoryLabel={getAiToolCategoryLabel(category)}
+										categoryLabel={categoryLabel}
 										logoFailed={logoFailedIds.has(tool.id)}
 										onLogoError={() => markLogoFailed(tool.id)}
 									/>
@@ -149,14 +145,14 @@ export function AiHubTodayRankModal({ tools, onClose }: AiHubTodayRankModalProps
 												<td className="px-3 py-2.5">
 													<div className="flex items-center gap-2">
 														<div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60 sm:w-24">
-															<div
-																className={`h-full rounded-full ${CATEGORY_SOLID_ACCENT[tool.category]}`}
-																style={{ width: `${Math.min(tool.market_share, 100)}%` }}
-															/>
-														</div>
-														<span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
-															{tool.market_share.toFixed(1)}%
-														</span>
+														<div
+															className={`h-full rounded-full ${CATEGORY_SOLID_ACCENT[tool.category]}`}
+															style={{ width: `${Math.min(tool.globalSharePct, 100)}%` }}
+														/>
+													</div>
+													<span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
+														{tool.globalSharePct.toFixed(1)}%
+													</span>
 													</div>
 												</td>
 												<td className="px-3 py-2.5 text-right">
@@ -167,6 +163,9 @@ export function AiHubTodayRankModal({ tools, onClose }: AiHubTodayRankModalProps
 									</tbody>
 								</table>
 							</div>
+							<p className="mt-2.5 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
+								{AI_RANKING_SOURCE_CAPTION}
+							</p>
 						</section>
 					</div>
 				</div>

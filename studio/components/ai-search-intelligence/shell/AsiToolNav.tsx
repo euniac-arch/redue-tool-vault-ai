@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
+import { AsiBilingualTitle } from '@/components/ai-search-intelligence/primitives/AsiBilingualTitle';
+import { getIntelligenceToolByEntryId } from '@/constants/aiIntelligenceTools';
 import { ASI_FEATURES, resolveAsiPathname } from '@/lib/ai-search-intelligence/routes';
 import { ASI_TOOL_ACTIVE, ASI_TOOL_IDLE, asiFocusRing } from '@/lib/ui/asi-chrome';
 
@@ -27,7 +29,14 @@ export function AsiToolNav() {
 							}`,
 						)}
 					>
-						{t(tool.titleKey)}
+						{(() => {
+							const labeled = getIntelligenceToolByEntryId(tool.id);
+							return labeled ? (
+								<AsiBilingualTitle titleKo={labeled.titleKo} titleEn={labeled.titleEn} />
+							) : (
+								t(tool.titleKey)
+							);
+						})()}
 					</Link>
 				);
 			})}

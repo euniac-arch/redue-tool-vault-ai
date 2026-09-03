@@ -1,12 +1,12 @@
 'use client';
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useIntelligence } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 import type { AsiRunInput } from '@/lib/ai-search-intelligence/adapters/port';
 import {
 	asiCacheShouldRebuild,
 	onAsiAnalyzeRequest,
 	readAsiSessionSnapshot,
-	seedAsiSiteUrl,
 	writeAsiSessionSnapshot,
 } from '@/lib/ai-search-intelligence/asi-bound-url';
 import {
@@ -14,10 +14,11 @@ import {
 	type AsiFailCopy,
 	type AsiLoadResult,
 } from '@/lib/ai-search-intelligence/client/asi-client';
+import { inputFromCurrentSite } from '@/lib/ai-search-intelligence/client/current-site-input';
 import { useElapsedSeconds } from '@/lib/ai-search-intelligence/client/use-elapsed-seconds';
 import { isAsiCancelled, useAsiAbort } from '@/lib/ai-search-intelligence/client/use-asi-abort';
-import { normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
-import { loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
+import { asiSitesMatch, normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
+import type { AsiIaEntryId } from '@/lib/ai-search-intelligence/routes';
 import type { AsiSource } from '@/lib/ai-search-intelligence/types';
 
 export type AsiAnalysisSnapshot = {
@@ -29,6 +30,7 @@ export type AsiAnalysisSnapshot = {
 
 export function useAsiAnalysis<T extends AsiAnalysisSnapshot>(options: {
 	cacheKey: string;
+	entryId: AsiIaEntryId;
 	isValid: (data: T) => boolean;
 	loader: (input: AsiRunInput, signal?: AbortSignal) => Promise<AsiLoadResult<T>>;
 	invalidUrlMessage: string;
@@ -36,6 +38,8 @@ export function useAsiAnalysis<T extends AsiAnalysisSnapshot>(options: {
 	cacheReady?: (cached: T, seedUrl: string) => boolean;
 	extraInput?: Partial<AsiRunInput> | (() => Partial<AsiRunInput>);
 }) {
+	const { targetUrl, currentSite, requireTargetUrl, analysisEpoch, reportModuleStatus, runSingleToolAnalysis } =
+		useIntelligence();
 	const [url, setUrl] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const [toast, setToast] = useState<string | null>(null);
@@ -52,24 +56,27 @@ export function useAsiAnalysis<T extends AsiAnalysisSnapshot>(options: {
 		return () => window.clearTimeout(id);
 	}, [toast]);
 
+	useEffect(() => {
+		if (targetUrl) setUrl(targetUrl);
+	}, [targetUrl]);
+
 	const analyze = useCallback(
-		async (nextUrl: string, extra?: Partial<AsiRunInput>) => {
+		async (_ignoredUrl?: string, extra?: Partial<AsiRunInput>) => {
 			const current = optionsRef.current;
-			const normalized = normalizeAsiSiteUrl(nextUrl);
-			if (!normalized) {
-				setError(current.invalidUrlMessage);
-				setToast(current.invalidUrlMessage);
+			const site = currentSite;
+			if (!site) {
+				requireTargetUrl();
 				return;
 			}
 			setError(null);
 			setLoading(true);
+			reportModuleStatus(current.entryId, { isLoading: true, error: null });
 			const signal = nextSignal();
 			const extras = typeof current.extraInput === 'function' ? current.extraInput() : current.extraInput ?? {};
 			try {
 				const result = await current.loader(
 					{
-						url: normalized,
-						audit: loadLatestAuditPayload(),
+						...inputFromCurrentSite(site),
 						...extras,
 						...extra,
 					},
@@ -80,50 +87,64 @@ export function useAsiAnalysis<T extends AsiAnalysisSnapshot>(options: {
 					setSnapshot(result.snapshot);
 					writeAsiSessionSnapshot(current.cacheKey, result.snapshot);
 					setUrl(result.snapshot.site.url);
+					reportModuleStatus(current.entryId, {
+						isLoading: false,
+						data: result.snapshot,
+						error: null,
+						lastAnalyzedUrl: result.snapshot.site.url,
+					});
 				} else if (result.error && !isAsiCancelled(result.error)) {
 					const message = asiLoadMessage(result.error, current.failCopy);
 					setError(message);
 					setToast(message);
+					reportModuleStatus(current.entryId, { isLoading: false, error: message });
+				} else {
+					reportModuleStatus(current.entryId, { isLoading: false });
 				}
 			} catch {
 				if (!isLive(signal)) return;
 				const message = current.failCopy.unavailable;
 				setError(message);
 				setToast(message);
+				reportModuleStatus(current.entryId, { isLoading: false, error: message });
 			} finally {
 				if (isLive(signal)) setLoading(false);
 			}
 		},
-		[isLive, nextSignal],
+		[currentSite, isLive, nextSignal, reportModuleStatus, requireTargetUrl],
 	);
 
 	useEffect(() => {
-		const cached = readAsiSessionSnapshot<T>(options.cacheKey, options.isValid);
-		const seedUrl = seedAsiSiteUrl(cached?.site.url);
+		const currentOpts = optionsRef.current;
+		const cached = readAsiSessionSnapshot<T>(currentOpts.cacheKey, currentOpts.isValid);
+		const current = currentSite?.siteUrl || normalizeAsiSiteUrl(targetUrl);
 		const ready =
-			cached &&
-			(!seedUrl || cached.site.url === normalizeAsiSiteUrl(seedUrl)) &&
+			Boolean(cached) &&
+			Boolean(current) &&
+			asiSitesMatch(cached!.site.url, current) &&
 			!asiCacheShouldRebuild(cached) &&
-			(options.cacheReady ? options.cacheReady(cached, seedUrl) : true);
-		// A mount may ONLY ever restore an already-computed result (zero network
-		// calls) — it must NEVER call `analyze()` on its own. Every fetch requires
-		// the user to press this page's own submit button or the shared top bar's
-		// [AI 인텔리전스 분석] button; there is no other path to a network call.
+			(currentOpts.cacheReady ? currentOpts.cacheReady(cached as T, current as string) : true);
 		if (ready && cached) {
 			setSnapshot(cached);
 			setUrl(cached.site.url);
+			reportModuleStatus(currentOpts.entryId, {
+				isLoading: false,
+				data: cached,
+				error: null,
+				lastAnalyzedUrl: cached.site.url,
+			});
+			return;
 		}
-	}, []);
+		setSnapshot(null);
+	}, [analysisEpoch, currentSite?.siteUrl, reportModuleStatus, targetUrl]);
 
-	// React to the shared top control bar's explicit [AI 인텔리전스 분석] click even
-	// when this dashboard is already mounted (a fresh mount already self-seeds above).
 	const analyzeRef = useRef(analyze);
 	analyzeRef.current = analyze;
-	useEffect(() => onAsiAnalyzeRequest((nextUrl) => void analyzeRef.current(nextUrl)), []);
+	useEffect(() => onAsiAnalyzeRequest(() => void analyzeRef.current()), []);
 
 	function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		void analyze(url);
+		void runSingleToolAnalysis(optionsRef.current.entryId);
 	}
 
 	return {
@@ -137,5 +158,7 @@ export function useAsiAnalysis<T extends AsiAnalysisSnapshot>(options: {
 		analyze,
 		cancel,
 		onSubmit,
+		targetUrl,
+		requireTargetUrl,
 	};
 }

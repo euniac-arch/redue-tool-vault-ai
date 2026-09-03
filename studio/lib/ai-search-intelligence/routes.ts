@@ -346,6 +346,40 @@ export function isAsiIaGroupActive(group: AsiPillarDef, pathname: string, hash =
 	return asiIaEntries(group).some((entry) => isAsiIaEntryActive(entry, pathname, hash));
 }
 
+export const ASI_IA_ENTRY_IDS: readonly AsiIaEntryId[] = [
+	'war-room',
+	'brand',
+	'reputation',
+	'snapshot',
+	'test',
+	'simulator',
+	'sov',
+	'competitors',
+	'citations',
+	'questions',
+	'visibility',
+	'agent-readiness',
+	'opportunity',
+	'explorer',
+	'gap',
+	'action',
+	'visibility-trend',
+	'alert',
+];
+
+export function allAsiIaEntries(): AsiIaEntry[] {
+	return ASI_PILLARS.flatMap((group) => asiIaEntries(group));
+}
+
+export function hrefForIaEntry(entryId: AsiIaEntryId): string {
+	return allAsiIaEntries().find((entry) => entry.id === entryId)?.href ?? `${ASI_BASE}/query-generator`;
+}
+
+export function iaEntryIdFromPath(pathname: string, hash = ''): AsiIaEntryId {
+	const match = allAsiIaEntries().find((entry) => isAsiIaEntryActive(entry, pathname, hash));
+	return match?.id ?? resolveAsiPathname(pathname).tool.id;
+}
+
 const FEATURE_BY_SLUG = new Map<string, AsiToolDef>(ASI_FEATURES.map((tool) => [tool.slug, tool]));
 
 /** STEP 03 nested paths and pillar hubs → canonical flat slug. */

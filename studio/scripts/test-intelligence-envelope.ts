@@ -45,6 +45,10 @@ assert('perception alias', resolveAsiOperation('perception') === 'brand-percepti
 assert('recommendation alias', resolveAsiOperation('recommendation') === 'recommendation-test');
 assert('evidence alias', resolveAsiOperation('evidence') === 'citation-explorer');
 assert('unknown operation', resolveAsiOperation('not-real') === null);
+assert('tabId questions alias', resolveAsiOperation('questions') === 'query-generator');
+assert('tabId opportunity alias', resolveAsiOperation('opportunity') === 'opportunity-finder');
+assert('tabId gap alias', resolveAsiOperation('gap') === 'competitor-gap');
+assert('tabId visibility-trend alias', resolveAsiOperation('visibility-trend') === 'visibility-monitor');
 assert('brand-perception → perception action', asiOperationToAction('brand-perception') === 'perception');
 assert('share-of-voice → recommendation action', asiOperationToAction('share-of-voice') === 'recommendation');
 

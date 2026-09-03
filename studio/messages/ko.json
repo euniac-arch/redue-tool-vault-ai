@@ -20,32 +20,32 @@
 		"insightsColumn": "인사이트 칼럼",
 		"aiSearchIntelligence": "AI 인텔리전스",
 		"aiSearchIntelligenceFull": "AI SEARCH INTELLIGENCE",
-		"asiWarRoom": "AI Search War Room",
-		"asiBrandPerception": "AI 브랜드 인식",
-		"asiReputationRadar": "AI Reputation Radar",
-		"asiBrandSnapshot": "AI Brand Snapshot",
-		"asiRecommendationTest": "AI 추천 테스트",
-		"asiRecommendationSimulator": "AI 추천 시뮬레이터",
-		"asiShareOfVoice": "AI Share of Voice",
-		"asiCompetitorAnalysis": "AI 경쟁자 분석",
-		"asiCitationExplorer": "AI Citation Explorer",
-		"asiQueryGenerator": "AI 질문 생성기",
-		"asiVisibilityMonitor": "AI Visibility Monitor",
-		"asiAgentReadiness": "AI Agent Readiness",
-		"asiOpportunityFinder": "AI Opportunity Finder",
-		"asiEvidenceExplorer": "AI Evidence Explorer",
-		"asiCompetitorGap": "AI Competitor Gap",
-		"asiNextBestAction": "Next Best Action",
+		"asiWarRoom": "AI 검색 통합 관제실",
+		"asiBrandPerception": "AI 브랜드 인식 분석",
+		"asiReputationRadar": "AI 평판 레이더",
+		"asiBrandSnapshot": "AI 콘텐츠 기회",
+		"asiRecommendationTest": "AI 추천 지수",
+		"asiRecommendationSimulator": "AI 검색 시뮬레이터",
+		"asiShareOfVoice": "AI 점유율 분석",
+		"asiCompetitorAnalysis": "경쟁사 AI 인텔리전스",
+		"asiCitationExplorer": "출처 인용 인텔리전스",
+		"asiQueryGenerator": "AI 질문 인텔리전스",
+		"asiVisibilityMonitor": "노출도 지속 추적",
+		"asiAgentReadiness": "AI 에이전트 준비도",
+		"asiOpportunityFinder": "AI 기회 발굴기",
+		"asiEvidenceExplorer": "AI 인용 근거 탐색기",
+		"asiCompetitorGap": "경쟁 격차 분석기",
+		"asiNextBestAction": "최적 개선 과제",
 		"asiPerception": "AI Perception",
 		"asiRecommendation": "AI Recommendation",
 		"asiEvidence": "AI Evidence",
 		"asiFuture": "AI Future",
-		"asiDiscover": "DISCOVER",
-		"asiMeasure": "MEASURE",
-		"asiExplain": "EXPLAIN",
-		"asiCompete": "COMPETE",
-		"asiAct": "ACT",
-		"asiMonitor": "MONITOR",
+		"asiDiscover": "발견 · DISCOVER",
+		"asiMeasure": "측정 · MEASURE",
+		"asiExplain": "원인 분석 · EXPLAIN",
+		"asiCompete": "경쟁 분석 · COMPETE",
+		"asiAct": "실행 개선 · ACT",
+		"asiMonitor": "지속 모니터링 · MONITOR",
 		"asiGnbShareOfVoice": "6대 AI 검색 점유율 분석",
 		"asiGnbBrandKnowledgeGraph": "AI 브랜드 인식 & 지식그래프",
 		"asiGnbLiveGrounding": "실시간 Live Grounding 검증",
@@ -86,9 +86,9 @@
 			"historyPlaceholderLoading": "진단 이력 불러오는 중…",
 			"historyPlaceholderEmpty": "진단 이력 없음",
 			"urlPlaceholder": "https://example.com (분석할 사이트 URL 직접 입력)",
-			"submitLabel": "AI 인텔리전스 분석",
-			"submittingLabel": "요청 중…",
-			"boundHint": "여기서 분석을 실행하면 선택한 사이트가 16개 세부 도구 전체에 동일하게 적용됩니다."
+			"submitLabel": "⚡ 16개 도구 일괄 진단",
+			"submittingLabel": "일괄 진단 중…",
+			"boundHint": "상단에서 선택한 사이트가 16개 세부 도구의 분석 대상이 됩니다. 일괄 진단 없이 각 도구에서 단독 실행할 수도 있습니다."
 		},
 		"quota": {
 			"title": "이번 달 AI 분석",
@@ -98,7 +98,7 @@
 			"unlimited": "제한 없음",
 			"unlimitedHint": "운영 계정은 월간 Query 한도가 없습니다"
 		},
-		"pageTitle": "AI SEARCH INTELLIGENCE",
+		"pageTitle": "AI 검색 인텔리전스",
 		"breadcrumbAria": "현재 위치",
 		"pillarNavAria": "AI Search Intelligence 영역",
 		"toolNavAria": "세부 기능",
@@ -112,6 +112,12 @@
 			"navAria": "Intelligence Loop 메뉴",
 			"gnbHint": "사고 흐름으로 묶인 16개 기능 + Alert",
 			"run": "분석하기",
+			"wait": "분석 대기",
+			"viewDetail": "상세보기",
+			"diagnosing": "진단 중...",
+			"reanalyze": "다시 진단",
+			"scorePoints": "{score}점",
+			"batchProgress": "세부 도구 일괄 진단 중 ({done}/{total})",
 			"action": "추천 액션",
 			"problem": {
 				"sample": "표본이 부족합니다",
@@ -121,16 +127,16 @@
 				"noCompetitor": "반복 관측 경쟁사 없음"
 			},
 			"entries": {
-				"query": "AI Query Intelligence",
-				"simulator": "AI Search Simulator",
-				"visibility": "AI Visibility",
-				"visibilityMonitor": "Visibility Monitor",
-				"alert": "AI Alert",
-				"recommendation": "Recommendation Intelligence",
-				"citations": "Citation Intelligence",
-				"competitors": "Competitor Intelligence",
-				"gap": "Competitor Gap Engine",
-				"content": "AI Content Opportunity"
+				"query": "AI 질문 인텔리전스",
+				"simulator": "AI 검색 시뮬레이터",
+				"visibility": "AI 브랜드 노출도",
+				"visibilityMonitor": "노출도 지속 추적",
+				"alert": "AI 실시간 알림",
+				"recommendation": "AI 추천 지수",
+				"citations": "출처 인용 인텔리전스",
+				"competitors": "경쟁사 AI 인텔리전스",
+				"gap": "경쟁 격차 분석기",
+				"content": "AI 콘텐츠 기회"
 			}
 		},
 		"comingTitle": "현재 기능 구현 준비 중 (Mock View)",
@@ -141,12 +147,12 @@
 			"recommendation": "추천",
 			"evidence": "근거",
 			"future": "준비",
-			"discover": "DISCOVER",
-			"measure": "MEASURE",
-			"explain": "EXPLAIN",
-			"compete": "COMPETE",
-			"act": "ACT",
-			"monitor": "MONITOR"
+			"discover": "발견 · DISCOVER",
+			"measure": "측정 · MEASURE",
+			"explain": "원인 분석 · EXPLAIN",
+			"compete": "경쟁 분석 · COMPETE",
+			"act": "실행 개선 · ACT",
+			"monitor": "지속 모니터링 · MONITOR"
 		},
 		"pillars": {
 			"war-room": "AI Search War Room",
@@ -162,38 +168,38 @@
 			"monitor": "고친 뒤"
 		},
 		"tools": {
-			"war-room": "AI Search War Room",
-			"war-roomSummary": "엔진별 인식·추천·인용·점유를 한 화면에서 조망합니다.",
-			"brand": "AI 브랜드 인식",
-			"brandSummary": "주요 AI 엔진이 이 브랜드를 언급하거나 추천하는지 확인합니다.",
-			"reputation": "AI Reputation Radar",
-			"reputationSummary": "엔진별 평판 티어와 약점 신호를 레이더로 비교합니다.",
-			"snapshot": "AI Brand Snapshot",
-			"snapshotSummary": "바인딩된 사이트의 AI 인식 요약을 한 장으로 봅니다.",
-			"test": "AI 추천 테스트",
-			"testSummary": "선택한 질문에 대해 엔진이 이 브랜드를 추천하는지 테스트합니다.",
-			"simulator": "AI 추천 시뮬레이터",
-			"simulatorSummary": "현재 상태와 개선 후 추천 변화를 As-Is / To-Be로 비교합니다.",
-			"sov": "AI Share of Voice",
-			"sovSummary": "타깃 쿼리에서 브랜드와 경쟁사의 AI 점유율을 비교합니다.",
-			"competitors": "AI 경쟁자 분석",
-			"competitorsSummary": "AI 답변과 검색 결과에서 함께 등장하는 경쟁 브랜드를 맵으로 봅니다.",
-			"citations": "AI Citation Explorer",
-			"citationsSummary": "공식 홈·블로그·뉴스·지도·리뷰·YouTube·SNS·제3자·구조화 데이터 근거를 분석합니다.",
-			"questions": "AI 질문 생성기",
-			"questionsSummary": "업종·지역·서비스·타깃으로 AI 검색 질문을 만들고 추천 테스트로 연결합니다.",
-			"visibility": "AI Visibility Monitor",
-			"visibilitySummary": "저장된 측정으로 Today·7·30일 Visibility·추천·Citation·SOV 변화와 Alert를 추적합니다.",
-			"agent-readiness": "AI Agent Readiness",
-			"agent-readinessSummary": "Agent가 이해하고 행동하기 쉬운 정보 구조인지를 11개 항목으로 평가합니다.",
-			"opportunity": "AI Opportunity Finder",
-			"opportunitySummary": "AI가 추천하지 않는 질문을 찾고, 공략할 가치가 있는 기회를 점수화합니다.",
-			"explorer": "AI Evidence Explorer",
-			"explorerSummary": "AI가 왜 이 브랜드 또는 경쟁사를 추천했는지 Evidence로 설명합니다.",
-			"gap": "AI Competitor Gap",
-			"gapSummary": "경쟁사가 AI 검색에서 우리보다 잘 나오는 이유를 Query·Evidence·Entity로 분석합니다.",
-			"action": "Next Best Action",
-			"actionSummary": "REDUE 분석을 지금 할 일의 우선순위로 바꿉니다."
+			"war-room": "AI 검색 통합 관제실",
+			"war-roomSummary": "모든 AI 검색 엔진(ChatGPT, Gemini, Claude 등)의 종합 현황을 한 화면에서 모니터링합니다.",
+			"brand": "AI 브랜드 인식 분석",
+			"brandSummary": "AI가 브랜드를 설명할 때 사용하는 어조, 감성 및 긍·부정 뉘앙스를 정량화합니다.",
+			"reputation": "AI 평판 레이더",
+			"reputationSummary": "할루시네이션(환각)이나 왜곡된 브랜드 정보가 AI 답변에 포함되어 있는지 탐지합니다.",
+			"snapshot": "AI 콘텐츠 기회",
+			"snapshotSummary": "AI가 선호하는 구조화된 문서(FAQ, 비교표, 근거 데이터) 작성 템플릿을 생성합니다.",
+			"test": "AI 추천 지수",
+			"testSummary": "사용자가 대안 솔루션을 요청할 때 AI가 우리 브랜드를 1순위로 추천하는 빈도를 분석합니다.",
+			"simulator": "AI 검색 시뮬레이터",
+			"simulatorSummary": "주요 LLM(ChatGPT, Perplexity 등) 환경에서 실제 검색 질의를 가상 시뮬레이션합니다.",
+			"sov": "AI 점유율 분석",
+			"sovSummary": "동일 카테고리 질의군에서 타 경쟁사 대비 우리 브랜드의 AI 언급 비중을 측정합니다.",
+			"competitors": "경쟁사 AI 인텔리전스",
+			"competitorsSummary": "주요 라이벌 브랜드가 AI 검색에서 인용되는 강점과 인용 경로를 역추적합니다.",
+			"citations": "출처 인용 인텔리전스",
+			"citationsSummary": "AI 검색 엔진이 가장 신뢰하고 자주 인용하는 고권위 소스 도메인을 판별합니다.",
+			"questions": "AI 질문 인텔리전스",
+			"questionsSummary": "업종·타깃별 AI 검색 유입 질문을 생성하고 실제 답변 가능성을 탐색합니다.",
+			"visibility": "AI 브랜드 노출도",
+			"visibilitySummary": "AI 검색 결과 답변 내 브랜드가 인용·노출되는 총 빈도 점수를 산출합니다.",
+			"agent-readiness": "AI 에이전트 준비도",
+			"agent-readinessSummary": "사이트의 스키마 마크업, llms.txt, API 구조가 자율 AI 에이전트에 최적화되었는지 진단합니다.",
+			"opportunity": "AI 기회 발굴기",
+			"opportunitySummary": "경쟁이 적고 선점 가능한 생성형 AI 검색 질문 키워드를 발굴합니다.",
+			"explorer": "AI 인용 근거 탐색기",
+			"explorerSummary": "AI가 브랜드 답변을 생성할 때 참고한 실시간 웹 링크와 데이터 조각을 추적합니다.",
+			"gap": "경쟁 격차 분석기",
+			"gapSummary": "경쟁사는 AI에 잘 노출되지만 우리 브랜드는 누락된 콘텐츠 격차를 도출합니다.",
+			"action": "최적 개선 과제",
+			"actionSummary": "AI 노출 점수를 가장 빠르게 상승시킬 수 있는 1순위 수정 권고사항을 제시합니다."
 		},
 		"provenance": {
 			"legendAria": "데이터 출처 구분",
@@ -345,8 +351,8 @@
 			}
 		},
 		"opportunity": {
-			"kicker": "Opportunity",
-			"title": "AI OPPORTUNITY FINDER",
+			"kicker": "발견 · DISCOVER",
+			"title": "AI 기회 발굴기",
 			"subtitle": "AI 검색에서 놓치고 있는 기회를 찾습니다.",
 			"urlLabel": "사이트 URL",
 			"urlPlaceholder": "https://example.com",
@@ -409,8 +415,8 @@
 			}
 		},
 		"explorer": {
-			"kicker": "Evidence",
-			"title": "AI EVIDENCE EXPLORER",
+			"kicker": "원인 분석 · EXPLAIN",
+			"title": "AI 인용 근거 탐색기",
 			"subtitle": "AI가 왜 이 브랜드를 추천했는지, Evidence로 설명합니다.",
 			"urlLabel": "사이트 URL",
 			"urlPlaceholder": "https://example.com",
@@ -499,8 +505,8 @@
 			"ctaAction": "개선 액션 만들기"
 		},
 		"gap": {
-			"kicker": "Gap",
-			"title": "COMPETITOR GAP",
+			"kicker": "경쟁 분석 · COMPETE",
+			"title": "경쟁 격차 분석기",
 			"subtitle": "경쟁사가 AI 검색에서 우리보다 잘 나오는 이유를 분석합니다.",
 			"urlLabel": "사이트 URL",
 			"urlPlaceholder": "https://example.com",
@@ -561,8 +567,8 @@
 			"ctaEvidence": "Evidence 보기"
 		},
 		"action": {
-			"kicker": "Action",
-			"title": "NEXT BEST ACTION",
+			"kicker": "실행 개선 · ACT",
+			"title": "최적 개선 과제",
 			"subtitle": "그래서 지금 무엇을 해야 하는가.",
 			"urlLabel": "사이트 URL",
 			"urlPlaceholder": "https://example.com",
@@ -621,8 +627,8 @@
 			"ctaDone": "수정 완료"
 		},
 		"monitor": {
-			"kicker": "Monitor",
-			"title": "AI VISIBILITY MONITOR",
+			"kicker": "지속 모니터링 · MONITOR",
+			"title": "노출도 지속 추적",
 			"subtitle": "오늘의 한 번이 아니라, 시간이 지나며 AI 검색 노출이 어떻게 변했는지 추적합니다.",
 			"urlLabel": "사이트 URL",
 			"urlPlaceholder": "https://example.com",
@@ -854,11 +860,11 @@
 			}
 		},
 		"perception": {
-			"kicker": "AI Perception",
+			"kicker": "측정 · MEASURE",
 			"title": {
-				"brand": "AI 브랜드 인식",
-				"reputation": "AI Reputation Radar",
-				"snapshot": "AI Brand Snapshot"
+				"brand": "AI 브랜드 인식 분석",
+				"reputation": "AI 평판 레이더",
+				"snapshot": "AI 콘텐츠 기회"
 			},
 			"subtitle": {
 				"brand": "AI가 이 브랜드의 전문성·지역성·신뢰·차별성·인지도를 어떻게 읽는지 봅니다.",
@@ -908,12 +914,12 @@
 			"gapNotesMeta": "현재 설명에 없고 목표 설명에만 있는 요소입니다."
 		},
 		"recommendation": {
-			"kicker": "AI Recommendation",
+			"kicker": "측정 · MEASURE",
 			"title": {
-				"test": "AI 추천 테스트",
-				"simulator": "AI 추천 시뮬레이터",
-				"sov": "AI Share of Voice",
-				"competitors": "AI 경쟁자 분석"
+				"test": "AI 추천 지수",
+				"simulator": "AI 검색 시뮬레이터",
+				"sov": "AI 점유율 분석",
+				"competitors": "경쟁사 AI 인텔리전스"
 			},
 			"subtitle": {
 				"test": "같은 질문을 네 엔진에 물어 실제 답변의 추천 순위와 언급을 확인합니다.",
@@ -1099,11 +1105,11 @@
 			}
 		},
 		"evidence": {
-			"kicker": "AI Evidence",
+			"kicker": "원인 분석 · EXPLAIN",
 			"title": {
-				"citations": "AI Citation Explorer",
-				"questions": "AI 질문 생성기",
-				"visibility": "AI Visibility Monitor"
+				"citations": "출처 인용 인텔리전스",
+				"questions": "AI 질문 인텔리전스",
+				"visibility": "AI 브랜드 노출도"
 			},
 			"subtitle": {
 				"citations": "AI 답변에 쓰일 브랜드 근거와 웹 신호를 분류해 봅니다. 실제 인용을 보장하지 않습니다.",
@@ -1279,8 +1285,8 @@
 			"trendMeta": "왼쪽 축은 0–100 지표, 오른쪽 축은 Citation Count입니다. 실측 시계열이 아닙니다."
 		},
 		"future": {
-			"kicker": "AI Future",
-			"title": "AI Agent Readiness",
+			"kicker": "실행 개선 · ACT",
+			"title": "AI 에이전트 준비도",
 			"subtitle": "Agent가 이해하고 행동하기 쉬운 정보 구조인지를 평가합니다. 실제 Agent가 이 사이트를 이용할 수 있다는 보장이 아닙니다.",
 			"urlLabel": "사이트 URL",
 			"urlPlaceholder": "https://example.com",
@@ -1358,6 +1364,13 @@
 			}
 		},
 		"ux": {
+			"boundTarget": "분석 대상: {url}",
+			"siteUnset": "사이트 미선택",
+			"needSiteFirst": "상단에서 분석할 사이트를 먼저 지정해주세요",
+			"analyzeThisTool": "이 도구 정밀 분석하기",
+			"refreshTool": "이 도구 갱신",
+			"waitingTitle": "분석 대기 중",
+			"waitingBody": "상단에서 사이트를 지정한 뒤 [⚡ 16개 도구 일괄 진단]을 실행하거나, 이 패널의 [이 도구 정밀 분석하기]로 이 도구만 실행하세요.",
 			"loading": "분석 화면을 준비하는 중입니다.",
 			"loadingHint": "기존 진단 점수는 그대로 두고, AI 분석 추정만 불러옵니다.",
 			"loadingWait": "AI 엔진 응답을 기다리는 중입니다. 이미 수집된 관측은 재사용합니다.",

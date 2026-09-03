@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { AsiBilingualTitle, AsiCategoryBadge } from '@/components/ai-search-intelligence/primitives/AsiBilingualTitle';
+import { getIntelligenceCategory, getIntelligenceToolByEntryId } from '@/constants/aiIntelligenceTools';
 import { useAsiIaContext } from '@/lib/ai-search-intelligence/ia/use-asi-ia-context';
 import {
 	ASI_PILLARS,
@@ -21,7 +23,6 @@ export function AsiGnbDropdown({
 	open: boolean;
 }) {
 	const t = useTranslations('intelligence');
-	const tNav = useTranslations('nav');
 	const context = useAsiIaContext();
 	const hash = typeof window !== 'undefined' ? window.location.hash : '';
 
@@ -33,6 +34,7 @@ export function AsiGnbDropdown({
 			<div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
 				{ASI_PILLARS.map((group) => {
 					const groupActive = isAsiIaGroupActive(group, pathname, hash);
+					const category = getIntelligenceCategory(group.id);
 					return (
 						<section key={group.id} className="min-w-[10.5rem]">
 							<Link
@@ -45,15 +47,15 @@ export function AsiGnbDropdown({
 									}`,
 								)}
 							>
-								<p className="text-[10px] font-bold uppercase tracking-wider text-cyan-700 dark:text-cyan-400">
-									{t(`roles.${group.id}`)}
+								<p className="text-[10px] font-semibold text-cyan-700 dark:text-cyan-400">
+									<AsiCategoryBadge categoryKo={category.categoryKo} categoryEn={category.categoryEn} />
 								</p>
-								<p className="text-[12px] font-bold text-slate-800 dark:text-slate-100">{tNav(group.navKey)}</p>
 							</Link>
 							<ul className="mt-1 flex flex-col gap-0.5">
 								{asiIaEntries(group).map((entry) => {
 									const active = isAsiIaEntryActive(entry, pathname, hash);
 									const ctx = context?.[entry.id];
+									const tool = getIntelligenceToolByEntryId(entry.id);
 									return (
 										<li key={entry.id}>
 											<Link
@@ -67,7 +69,11 @@ export function AsiGnbDropdown({
 														: 'text-slate-600 hover:bg-cyan-50 hover:text-cyan-700 dark:text-slate-300 dark:hover:bg-[#13233a] dark:hover:text-cyan-300'
 												}`}
 											>
-												<span className="block truncate">{t(entry.titleKey)}</span>
+												{tool ? (
+													<AsiBilingualTitle titleKo={tool.titleKo} titleEn={tool.titleEn} />
+												) : (
+													<span className="block truncate">{t(entry.titleKey)}</span>
+												)}
 												<span className="mt-0.5 flex gap-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
 													<span>{t(`status.${ctx?.status ?? 'empty'}`)}</span>
 													<span className="tabular-nums">{ctx?.score == null ? '—' : ctx.score}</span>

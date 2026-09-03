@@ -2,27 +2,22 @@
 
 import { useEffect, useState } from 'react';
 import { Crown, Globe2, TrendingUp, X } from 'lucide-react';
+import { getAiToolCategoryLabel, type AiTool } from '@/lib/admin/ai-tools-management';
 import {
-	getAiToolCategoryChampions,
-	getAiToolCategoryLabel,
-	getTopAiToolsByMarketShare,
-	type AiTool,
-} from '@/lib/admin/ai-tools-management';
+	AI_RANKING_SOURCE_CAPTION,
+	resolveOfficialCategoryChampions,
+	resolveOfficialGlobalTop,
+} from '@/lib/ai-hub/ai-ranking';
+import { formatRankingAsOfLabel } from '@/lib/ai-hub/getDailyAiRanking';
 import { CATEGORY_SOLID_ACCENT, GrowthBadge, RankBadge } from './ai-tools-badges';
 
 interface TodayRankModalProps {
 	tools: AiTool[];
 	onClose: () => void;
+	asOf?: Date;
 }
 
-function formatTodayLabel(date: Date): string {
-	const y = date.getFullYear();
-	const m = String(date.getMonth() + 1).padStart(2, '0');
-	const d = String(date.getDate()).padStart(2, '0');
-	return `${y}년 ${m}월 ${d}일 기준`;
-}
-
-export function TodayRankModal({ tools, onClose }: TodayRankModalProps) {
+export function TodayRankModal({ tools, onClose, asOf }: TodayRankModalProps) {
 	const [logoFailedIds, setLogoFailedIds] = useState<Set<string>>(new Set());
 
 	useEffect(() => {
@@ -33,9 +28,10 @@ export function TodayRankModal({ tools, onClose }: TodayRankModalProps) {
 		return () => window.removeEventListener('keydown', onKeyDown);
 	}, [onClose]);
 
-	const top10 = getTopAiToolsByMarketShare(tools, 10);
-	const champions = getAiToolCategoryChampions(tools);
-	const today = formatTodayLabel(new Date());
+	const asOfDate = asOf ?? new Date();
+	const top10 = resolveOfficialGlobalTop(tools, 10, asOfDate);
+	const champions = resolveOfficialCategoryChampions(tools, asOfDate);
+	const today = formatRankingAsOfLabel(asOfDate);
 	const publicCount = tools.filter((tool) => tool.is_public).length;
 
 	function markLogoFailed(id: string) {
@@ -65,7 +61,7 @@ export function TodayRankModal({ tools, onClose }: TodayRankModalProps) {
 							오늘자 글로벌 AI 순위 분석
 						</h2>
 						<p className="mt-1 text-xs font-medium text-white/70">
-							전체 {tools.length}개 도구 중 {publicCount}개 프론트 노출 · 글로벌 트래픽 및 점유율 기준 실시간 랭킹 요약
+							전체 {tools.length}개 도구 중 {publicCount}개 프론트 노출 · Similarweb & a16z GenAI 웹 트래픽 추정치 기준
 						</p>
 					</div>
 					<button
@@ -83,11 +79,11 @@ export function TodayRankModal({ tools, onClose }: TodayRankModalProps) {
 						<section>
 							<SectionTitle icon={Crown} label="카테고리별 1위 챔피언" />
 							<div className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-								{champions.map(({ category, tool }) => (
+								{champions.map(({ key, tool, categoryLabel }) => (
 									<ChampionCard
-										key={category}
+										key={key}
 										tool={tool}
-										categoryLabel={getAiToolCategoryLabel(category)}
+										categoryLabel={categoryLabel}
 										logoFailed={logoFailedIds.has(tool.id)}
 										onLogoError={() => markLogoFailed(tool.id)}
 									/>
@@ -146,12 +142,12 @@ export function TodayRankModal({ tools, onClose }: TodayRankModalProps) {
 														<div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60 sm:w-24">
 															<div
 																className={`h-full rounded-full ${CATEGORY_SOLID_ACCENT[tool.category]}`}
-																style={{ width: `${Math.min(tool.market_share, 100)}%` }}
+																style={{ width: `${Math.min(tool.globalSharePct, 100)}%` }}
 															/>
-														</div>
-														<span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
-															{tool.market_share.toFixed(1)}%
-														</span>
+													</div>
+													<span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
+														{tool.globalSharePct.toFixed(1)}%
+													</span>
 													</div>
 												</td>
 												<td className="px-3 py-2.5 text-right">
@@ -162,6 +158,9 @@ export function TodayRankModal({ tools, onClose }: TodayRankModalProps) {
 									</tbody>
 								</table>
 							</div>
+							<p className="mt-2.5 text-[10px] leading-relaxed text-slate-400 dark:text-slate-500">
+								{AI_RANKING_SOURCE_CAPTION}
+							</p>
 						</section>
 					</div>
 				</div>

@@ -1,19 +1,13 @@
 /**
- * Guards the "zero automatic analysis, ever" contract for AI 인텔리전스:
- *   - No `/intelligence/*` sub-page (or its state/store/mock data) may
- *     hardcode a literal default site anywhere in the ASI feature tree.
- *   - A page mount may ONLY EVER restore an already-computed cached result
- *     for that exact tool (zero network calls) — it may NEVER call a loader
- *     function on its own, no matter what URL happens to be bound/seeded/
- *     cached from a prior action. The user must press this page's own
- *     Analyze/Generate button, or the shared top bar's [AI 인텔리전스 분석]
- *     button, every single time, on every single page.
- *   - The shared top control bar (`AsiControlBar` + `IntelligenceContext`)
- *     starts with a truly blank URL field — no prefill from any storage.
- *   - A one-time sessionStorage wipe (`resetStaleAsiSessionOnce`) clears any
- *     `asi_*` keys left over from a browser tab that was open before this
- *     fix shipped, so a stale bound URL / snapshot cache from earlier
- *     testing can never reappear and look like a hardcoded default.
+ * Guards the AI 인텔리전스 control-bar + on-demand module contract:
+ *   - No `/intelligence/*` sub-page may hardcode a literal default site.
+ *   - Top-bar [AI 인텔리전스 분석] clears all module caches and diagnoses
+ *     only the active tab — never a 10-job batch that times out serverless.
+ *   - Opening another tab lazy-analyzes that module when cache misses or
+ *     lastAnalyzedUrl !== targetUrl. Cached modules render without a refetch.
+ *   - The shared top control bar starts with a truly blank URL field.
+ *   - A one-time sessionStorage wipe (`resetStaleAsiSessionOnce`) clears stale
+ *     `asi_*` keys from an older tab session.
  * Run: npx tsx scripts/test-intelligence-control-bar.ts
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
@@ -100,12 +94,14 @@ for (const { file, fingerprints } of bespokeAutoFetchFingerprints) {
 	}
 	assert(`${file} does not inline the last-audit auto-run fallback`, !src.includes('loadLatestAuditPayload()?.report.url'));
 	assert(`${file} subscribes to the shared top-bar analyze request`, src.includes('onAsiAnalyzeRequest('));
-	assert(`${file} mount effect is documented as a restore-only, no-auto-fetch path`, src.includes('ONLY ever restore an already-computed result'));
+	assert(`${file} does not auto-fetch on tab activate`, !src.includes('shouldLazyAnalyzeModule'));
 }
 
 const useAsiAnalysisSrc = read('lib/ai-search-intelligence/client/use-asi-analysis.ts');
 assert('shared useAsiAnalysis hook (6 dashboards) subscribes to analyze requests', useAsiAnalysisSrc.includes('onAsiAnalyzeRequest('));
-assert('shared useAsiAnalysis hook mount effect never calls analyze() on its own', !useAsiAnalysisSrc.includes('void analyze(seedUrl)'));
+assert('shared useAsiAnalysis hook never auto-runs the mount-time seedUrl', !useAsiAnalysisSrc.includes('void analyze(seedUrl)'));
+assert('shared useAsiAnalysis hook binds runs to currentSite', useAsiAnalysisSrc.includes('inputFromCurrentSite'));
+assert('shared useAsiAnalysis hook does not lazy-analyze on mount', !useAsiAnalysisSrc.includes('shouldLazyAnalyzeModule'));
 
 const layoutSrc = read('components/ai-search-intelligence/shell/AiIntelligenceLayout.tsx');
 assert('layout wraps children with IntelligenceProvider', layoutSrc.includes('IntelligenceProvider'));
@@ -113,10 +109,30 @@ assert('layout renders the shared control bar', layoutSrc.includes('<AsiControlB
 
 const contextSrc = read('components/ai-search-intelligence/shell/IntelligenceContext.tsx');
 assert('context surfaces recent audit history for the picker', contextSrc.includes('useAuditHistory'));
-assert('context dispatches the explicit analyze request', contextSrc.includes('dispatchAsiAnalyzeRequest'));
+assert('context no longer broadcasts analyze to every dashboard', !contextSrc.includes('dispatchAsiAnalyzeRequest'));
+assert('context exposes single-tool analysis', contextSrc.includes('runSingleToolAnalysis'));
+assert('context exposes batch analysis', contextSrc.includes('runBatchToolAnalysis'));
+assert('top-bar analysis clears module caches', contextSrc.includes('clearAsiToolSnapshots'));
 assert('control bar URL field starts truly blank — no prefill from any storage', /useState<string>\(['"]{2}\)/.test(contextSrc));
 assert('context no longer reads a bound-url prefill', !contextSrc.includes('readAsiBoundUrl'));
 assert('context has no hardcoded default URL string literal', !/useState<string>\(\s*['"]https?:\/\//.test(contextSrc));
+assert('context gates tool CTAs via requireTargetUrl', contextSrc.includes('requireTargetUrl'));
+assert('context keeps a per-module status map', contextSrc.includes('createEmptyModules') && contextSrc.includes('globalAnalysisStatus'));
+assert('context opens query intelligence from the hub', contextSrc.includes('ASI_DEFAULT_DETAIL_HREF') && contextSrc.includes('query-generator'));
+assert(
+	'context focuses the shared top-bar URL when a tool runs without a site',
+	contextSrc.includes('focusSiteInput') && contextSrc.includes('ASI_NEED_SITE_MESSAGE'),
+);
+
+const chromeSrc = read('components/ai-search-intelligence/primitives/AsiPageChrome.tsx');
+assert('page chrome no longer has a local URL input', !chromeSrc.includes('type="url"'));
+assert('page chrome shows the shared target badge', chromeSrc.includes('AsiBoundTargetBadge'));
+assert('page chrome has a per-tool analyze CTA', chromeSrc.includes('analyzeThisTool') && chromeSrc.includes('runSingleToolAnalysis'));
+assert('page chrome waits for results or the tool CTA', chromeSrc.includes('waitingTitle') && chromeSrc.includes('isAnalyzed'));
+
+const questionSrc = read('components/ai-search-intelligence/evidence/QuestionGeneratorPanel.tsx');
+assert('question generator shows the shared target badge', questionSrc.includes('AsiBoundTargetBadge'));
+assert('question generator generate/probe require the shared targetUrl', questionSrc.includes('requireTargetUrl()'));
 
 const controlBarSrc = read('components/ai-search-intelligence/shell/AsiControlBar.tsx');
 assert('control bar has a URL input', controlBarSrc.includes("type=\"url\""));

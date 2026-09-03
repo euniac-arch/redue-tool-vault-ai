@@ -32,3 +32,17 @@ export function domainFromUrl(url: string): string {
 		return url;
 	}
 }
+
+/** Host + path identity. http/https and www. differences must not split one site. */
+export function asiSitesMatch(left?: string | null, right?: string | null): boolean {
+	const a = normalizeAsiSiteUrl(left || '');
+	const b = normalizeAsiSiteUrl(right || '');
+	if (!a || !b) return false;
+	try {
+		const urlA = new URL(a);
+		const urlB = new URL(b);
+		return urlA.hostname === urlB.hostname && urlA.pathname === urlB.pathname;
+	} catch {
+		return a === b;
+	}
+}

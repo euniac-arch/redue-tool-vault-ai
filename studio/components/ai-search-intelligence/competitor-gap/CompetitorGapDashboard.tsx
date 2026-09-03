@@ -16,6 +16,7 @@ export function CompetitorGapDashboard() {
 	const { url, setUrl, error, toast, loading, elapsedTime, snapshot, cancel, onSubmit } =
 		useAsiAnalysis<AsiCompetitorGapSnapshot>({
 			cacheKey: 'asi_gap_snapshot',
+			entryId: 'gap',
 			isValid: (data) =>
 				Boolean(
 					data?.site?.url &&

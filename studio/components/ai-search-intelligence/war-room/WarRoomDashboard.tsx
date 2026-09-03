@@ -10,6 +10,7 @@ import { AsiCard } from '@/components/ai-search-intelligence/primitives/AsiCard'
 import { AsiCompetitorFoundLead, AsiObservationEmpty } from '@/components/ai-search-intelligence/primitives/AsiObservationEmpty';
 import { ASI_COMPETITOR_MIN_SAMPLE, resolveAsiObservationState } from '@/lib/ai-search-intelligence/observation-state';
 import { AsiPageChrome } from '@/components/ai-search-intelligence/primitives/AsiPageChrome';
+import { useIntelligence } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 import { AsiRevealList, AsiRevealItem } from '@/components/ai-search-intelligence/primitives/AsiReveal';
 import { AsiMetricHeading, AsiMetricTooltip } from '@/components/ai-search-intelligence/primitives/AsiMetricTooltip';
 import { AsiProvenanceBadge } from '@/components/ai-search-intelligence/primitives/AsiProvenanceBadge';
@@ -23,20 +24,19 @@ import {
 	AsiDataTable,
 } from '@/components/ai-search-intelligence/primitives/AsiDataTable';
 import { ASI_BADGE, ASI_CARD, ASI_CTA, ASI_KPI, ASI_SECTION_KICKER, asiFocusRing } from '@/lib/ui/asi-chrome';
-import { loadLatestAuditPayload } from '@/lib/audit/latest-audit-payload';
 import { canAccessFeature } from '@/lib/ai-search-intelligence/entitlement';
 import { useAsiActor } from '@/lib/ai-search-intelligence/entitlement/use-asi-actor';
 import {
 	asiCacheShouldRebuild,
 	onAsiAnalyzeRequest,
-	readAsiBoundUrl,
 	readAsiSessionSnapshot,
 	WAR_ROOM_CACHE_KEY,
 	writeAsiSessionSnapshot,
 } from '@/lib/ai-search-intelligence/asi-bound-url';
 import { asiFailCopy, asiLoadMessage, loadAsiWarRoom } from '@/lib/ai-search-intelligence/client/asi-client';
+import { inputFromCurrentSite } from '@/lib/ai-search-intelligence/client/current-site-input';
 import { isAsiCancelled, useAsiAbort } from '@/lib/ai-search-intelligence/client/use-asi-abort';
-import { normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
+import { asiSitesMatch, normalizeAsiSiteUrl } from '@/lib/ai-search-intelligence/normalize-site-url';
 import type {
 	AsiEngineId,
 	AsiMentionType,
@@ -92,6 +92,7 @@ export function WarRoomDashboard() {
 	const t = useTranslations('intelligence.warRoom');
 	const tUx = useTranslations('intelligence.ux');
 	const failCopy = asiFailCopy(t('urlInvalid'), tUx);
+	const { targetUrl, currentSite, requireTargetUrl, analysisEpoch, reportModuleStatus } = useIntelligence();
 	const [url, setUrl] = useState('');
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(false);
@@ -100,35 +101,58 @@ export function WarRoomDashboard() {
 	const { actor, ready } = useAsiActor();
 	const canWar = canAccessFeature(actor, 'war-room');
 
-	// A mount may ONLY ever restore an already-computed result (zero network
-	// calls) — it must NEVER call `loadAsiWarRoom()` on its own. Every fetch
-	// requires the user to press this page's Analyze button or the shared top
-	// bar's [AI 인텔리전스 분석] button; there is no other path to a network call.
+	useEffect(() => {
+		if (targetUrl) setUrl(targetUrl);
+	}, [targetUrl]);
+
 	useEffect(() => {
 		const cached = readCachedSnapshot();
-		if (cached && !asiCacheShouldRebuild(cached)) {
+		const current = currentSite?.siteUrl || normalizeAsiSiteUrl(targetUrl);
+		const cacheReady = Boolean(
+			cached && current && asiSitesMatch(cached.site.url, current) && !asiCacheShouldRebuild(cached),
+		);
+		if (cacheReady && cached) {
 			setSnapshot(cached);
 			setUrl(cached.site.url);
+			reportModuleStatus('war-room', {
+				isLoading: false,
+				data: cached,
+				error: null,
+				lastAnalyzedUrl: cached.site.url,
+			});
+			return;
 		}
-	}, []);
+		setSnapshot(null);
+	}, [analysisEpoch, currentSite?.siteUrl, reportModuleStatus, targetUrl]);
 
-	async function analyze(nextUrl: string) {
-		const normalized = normalizeAsiSiteUrl(nextUrl);
-		if (!normalized) {
+	async function analyze(_nextUrl?: string) {
+		if (!currentSite) {
 			setError(t('urlInvalid'));
+			requireTargetUrl();
 			return;
 		}
 		setError(null);
 		setLoading(true);
+		reportModuleStatus('war-room', { isLoading: true, error: null });
 		const signal = nextSignal();
-		const result = await loadAsiWarRoom({ url: normalized, audit: loadLatestAuditPayload() }, signal);
+		const result = await loadAsiWarRoom(inputFromCurrentSite(currentSite), signal);
 		if (!isLive(signal)) return;
 		if (result.snapshot) {
 			setSnapshot(result.snapshot);
 			writeCachedSnapshot(result.snapshot);
 			setUrl(result.snapshot.site.url);
+			reportModuleStatus('war-room', {
+				isLoading: false,
+				data: result.snapshot,
+				error: null,
+				lastAnalyzedUrl: result.snapshot.site.url,
+			});
 		} else if (!isAsiCancelled(result.error)) {
-			setError(asiLoadMessage(result.error, failCopy));
+			const message = asiLoadMessage(result.error, failCopy);
+			setError(message);
+			reportModuleStatus('war-room', { isLoading: false, error: message });
+		} else {
+			reportModuleStatus('war-room', { isLoading: false });
 		}
 		setLoading(false);
 	}
@@ -146,10 +170,12 @@ export function WarRoomDashboard() {
 
 	function onSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
-		void analyze(url);
+		const resolved = requireTargetUrl();
+		if (!resolved) return;
+		void analyze(resolved);
 	}
 
-	const bound = snapshot?.site.url || url || readAsiBoundUrl() || '';
+	const bound = currentSite?.siteUrl || snapshot?.site.url || targetUrl || url || '';
 
 	return (
 		<main>
@@ -174,7 +200,7 @@ export function WarRoomDashboard() {
 					boundNote={snapshot?.boundFromAudit ? t('boundFromAudit') : null}
 					emptyTitle={t('emptyTitle')}
 					emptyBody={t('emptyBody')}
-					hasResult
+					hasResult={Boolean(snapshot)}
 				>
 					<WarRoomLoopPanel snapshot={snapshot} siteUrl={bound} />
 					{snapshot ? <WarRoomBoard snapshot={snapshot} /> : null}

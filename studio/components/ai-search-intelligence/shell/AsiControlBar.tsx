@@ -4,7 +4,12 @@ import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from 'r
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { Check, ChevronDown, Loader2, Zap } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { useIntelligence, type IntelligenceRecentAudit } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
+import {
+	ASI_SITE_BAR_ID,
+	ASI_SITE_INPUT_ID,
+	useIntelligence,
+	type IntelligenceRecentAudit,
+} from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 
 const DROPDOWN_EASE = [0.16, 1, 0.3, 1] as const;
 
@@ -146,8 +151,17 @@ function AsiHistoryDropdown({
  */
 export function AsiControlBar() {
 	const t = useTranslations('intelligence.controlBar');
-	const { targetUrl, setTargetUrl, recentAudits, recentAuditsLoading, isRequesting, requestAnalysis, lastError } =
-		useIntelligence();
+	const tIa = useTranslations('intelligence.ia');
+	const {
+		targetUrl,
+		setTargetUrl,
+		recentAudits,
+		recentAuditsLoading,
+		isRequesting,
+		analysisProgress,
+		requestAnalysis,
+		lastError,
+	} = useIntelligence();
 	const [selectedHistoryId, setSelectedHistoryId] = useState('');
 
 	function handleSelectHistory(id: string) {
@@ -175,6 +189,7 @@ export function AsiControlBar() {
 
 	return (
 		<form
+			id={ASI_SITE_BAR_ID}
 			onSubmit={handleSubmit}
 			className="relative z-20 flex flex-col gap-3 overflow-visible rounded-2xl border border-slate-200/80 border-t-cyan-500/20 bg-white/70 p-4 shadow-sm backdrop-blur-md before:pointer-events-none before:absolute before:inset-x-4 before:top-0 before:h-px before:bg-gradient-to-r before:from-cyan-400/0 before:via-cyan-400/50 before:to-blue-500/0 dark:border-white/10 dark:border-t-cyan-500/20 dark:bg-[#0b1220]/60 dark:shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]"
 		>
@@ -191,11 +206,11 @@ export function AsiControlBar() {
 					/>
 				</div>
 				<div className="flex w-full min-w-0 flex-1 items-center gap-2">
-					<label className="sr-only" htmlFor="asi-control-bar-url">
+					<label className="sr-only" htmlFor={ASI_SITE_INPUT_ID}>
 						{t('urlPlaceholder')}
 					</label>
 					<input
-						id="asi-control-bar-url"
+						id={ASI_SITE_INPUT_ID}
 						type="url"
 						inputMode="url"
 						autoComplete="url"
@@ -227,6 +242,21 @@ export function AsiControlBar() {
 				</div>
 			</div>
 			{lastError ? <p className="w-full text-xs font-semibold text-rose-600 dark:text-rose-400">{lastError}</p> : null}
+			{isRequesting ? (
+				<div className="flex w-full flex-col gap-1.5">
+					<div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+						<div
+							className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-300"
+							style={{
+								width: `${Math.max(6, Math.round((analysisProgress.done / Math.max(1, analysisProgress.total)) * 100))}%`,
+							}}
+						/>
+					</div>
+					<p className="text-xs font-semibold text-cyan-700 dark:text-cyan-300">
+						{tIa('batchProgress', { done: analysisProgress.done, total: analysisProgress.total })}
+					</p>
+				</div>
+			) : null}
 			<p className="flex w-full items-center gap-2 text-xs text-slate-400/80">
 				<span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400/70 shadow-[0_0_8px_rgba(34,211,238,0.55)]" />
 				<span>{t('boundHint')}</span>

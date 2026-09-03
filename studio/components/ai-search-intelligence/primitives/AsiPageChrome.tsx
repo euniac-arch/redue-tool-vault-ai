@@ -1,101 +1,101 @@
 'use client';
 
 import type { FormEvent, ReactNode } from 'react';
-import { Search } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { DiagnosticStepBanner } from '@/components/ai-search-intelligence/common/DiagnosticStepBanner';
-import { AsiCta } from '@/components/ai-search-intelligence/primitives/AsiCta';
+import { AsiBoundTargetBadge } from '@/components/ai-search-intelligence/primitives/AsiBoundTargetBadge';
+import { AsiBilingualTitle, AsiCategoryBadge } from '@/components/ai-search-intelligence/primitives/AsiBilingualTitle';
 import { AsiEmptyState, AsiErrorNote, AsiLoadingState } from '@/components/ai-search-intelligence/primitives/AsiEmptyState';
 import { AsiProvenanceLegend } from '@/components/ai-search-intelligence/primitives/AsiProvenanceLegend';
 import { AsiReveal } from '@/components/ai-search-intelligence/primitives/AsiReveal';
 import { AsiSourceBadge } from '@/components/ai-search-intelligence/primitives/AsiSourceBadge';
+import { useIntelligence } from '@/components/ai-search-intelligence/shell/IntelligenceContext';
 import { useElapsedSeconds } from '@/lib/ai-search-intelligence/client/use-elapsed-seconds';
+import { useActiveIntelligenceTool } from '@/lib/ai-search-intelligence/use-intelligence-tool';
 import type { AsiSource } from '@/lib/ai-search-intelligence/types';
 import { ASI_KICKER } from '@/lib/ui/asi-chrome';
 
 export function AsiPageChrome({
-	kicker,
-	title,
-	subtitle,
 	source,
-	inputId,
-	url,
-	onUrlChange,
-	onSubmit,
-	urlLabel,
-	urlPlaceholder,
-	submitLabel,
-	submittingLabel,
 	loading,
 	onCancel,
 	cancelLabel,
 	error,
 	boundNote,
-	emptyTitle,
-	emptyBody,
 	hasResult,
 	elapsedSeconds,
 	children,
 }: {
-	kicker: string;
-	title: string;
-	subtitle: string;
+	kicker?: string;
+	title?: string;
+	subtitle?: string;
 	source?: AsiSource;
-	inputId: string;
-	url: string;
-	onUrlChange: (value: string) => void;
-	onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-	urlLabel: string;
-	urlPlaceholder: string;
-	submitLabel: string;
-	submittingLabel: string;
+	/** @deprecated Local URL inputs were removed; the shared top-bar `targetUrl` is the only source. */
+	inputId?: string;
+	url?: string;
+	onUrlChange?: (value: string) => void;
+	/** @deprecated Tool panels no longer submit analysis; the top-bar [AI 인텔리전스 분석] is the only trigger. */
+	onSubmit?: (event: FormEvent<HTMLFormElement>) => void;
+	urlLabel?: string;
+	urlPlaceholder?: string;
+	submitLabel?: string;
+	submittingLabel?: string;
 	loading: boolean;
 	onCancel?: () => void;
 	cancelLabel?: string;
 	error: string | null;
 	boundNote?: string | null;
-	emptyTitle: string;
-	emptyBody: string;
+	/** @deprecated Empty copy is shared via intelligence.ux.waiting*. */
+	emptyTitle?: string;
+	emptyBody?: string;
 	hasResult: boolean;
 	elapsedSeconds?: number;
 	children: ReactNode;
 }) {
 	const t = useTranslations('intelligence.ux');
-	const localElapsed = useElapsedSeconds(loading);
+	const { lastError, currentSite, selectedToolId, modules, isBatchRunning, runSingleToolAnalysis } = useIntelligence();
+	const tool = useActiveIntelligenceTool();
+	const toolLoading = loading || modules[selectedToolId]?.isLoading === true;
+	const localElapsed = useElapsedSeconds(toolLoading);
 	const elapsed = elapsedSeconds ?? localElapsed;
+	const notice = error || lastError;
+	const isAnalyzed = hasResult;
+	const canRunTool = Boolean(currentSite) && !isBatchRunning && !toolLoading;
 
 	return (
 		<AsiReveal className="flex flex-col gap-6">
 			<section className="flex flex-col gap-4">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="min-w-0">
-						<p className={ASI_KICKER}>{kicker}</p>
-						<h2 className="mt-2 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-3xl">
-							{title}
-						</h2>
-						<p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">{subtitle}</p>
+						<p className={ASI_KICKER}>
+							<AsiCategoryBadge categoryKo={tool.categoryKo} categoryEn={tool.categoryEn} />
+						</p>
+						<AsiBilingualTitle as="h2" size="detail" className="mt-2" titleKo={tool.titleKo} titleEn={tool.titleEn} />
+						<p className="mt-2 max-w-2xl text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+							{tool.subDescription}
+						</p>
 					</div>
 					{source ? <AsiSourceBadge source={source} /> : null}
 				</div>
-				<form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row sm:items-center">
-					<label className="sr-only" htmlFor={inputId}>
-						{urlLabel}
-					</label>
-					<div className="relative min-w-0 flex-1">
-						<Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-						<input
-							id={inputId}
-							type="url"
-							inputMode="url"
-							autoComplete="url"
-							value={url}
-							onChange={(event) => onUrlChange(event.target.value)}
-							placeholder={urlPlaceholder}
-							className="theme-input h-11 pl-10"
-						/>
+				<div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+					<div className="min-w-0 flex-1">
+						<AsiBoundTargetBadge />
 					</div>
-					<AsiCta disabled={loading}>{loading ? submittingLabel : submitLabel}</AsiCta>
-					{loading && onCancel ? (
+					<button
+						type="button"
+						disabled={!canRunTool}
+						onClick={() => void runSingleToolAnalysis(selectedToolId)}
+						className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 text-sm font-bold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-cyan-500 dark:text-slate-950 dark:hover:bg-cyan-400"
+					>
+						{toolLoading ? (
+							<Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+						) : (
+							<RefreshCw className="h-4 w-4" aria-hidden />
+						)}
+						<span className="whitespace-nowrap">{isAnalyzed ? t('refreshTool') : t('analyzeThisTool')}</span>
+					</button>
+					{toolLoading && onCancel ? (
 						<button
 							type="button"
 							onClick={onCancel}
@@ -104,10 +104,10 @@ export function AsiPageChrome({
 							{cancelLabel || t('cancel')}
 						</button>
 					) : null}
-				</form>
-				{error ? <AsiErrorNote message={error} /> : null}
+				</div>
+				{notice ? <AsiErrorNote message={notice} /> : null}
 				{boundNote ? <p className="text-xs text-slate-500 dark:text-slate-400">{boundNote}</p> : null}
-				{loading ? (
+				{toolLoading ? (
 					<DiagnosticStepBanner
 						elapsedSeconds={elapsed}
 						parse={t('loading')}
@@ -116,15 +116,15 @@ export function AsiPageChrome({
 					/>
 				) : null}
 			</section>
-			{hasResult ? (
+			{isAnalyzed ? (
 				<>
 					<AsiProvenanceLegend />
 					{children}
 				</>
-			) : loading ? (
+			) : toolLoading ? (
 				<AsiLoadingState title={t('loading')} hint={t('loadingHint')} />
 			) : (
-				<AsiEmptyState title={emptyTitle} body={emptyBody} />
+				<AsiEmptyState title={t('waitingTitle')} body={t('waitingBody')} />
 			)}
 		</AsiReveal>
 	);

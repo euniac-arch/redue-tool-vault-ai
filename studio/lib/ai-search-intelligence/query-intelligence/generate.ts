@@ -10,6 +10,10 @@ import {
 	type QueryIntent,
 } from '@/lib/ai-search-intelligence/query-intelligence/intents';
 import type { AsiTargetContext } from '@/lib/ai-search-intelligence/target/context';
+import {
+	intelligenceIsMedicalCorpus,
+	intelligenceOrgNoun,
+} from '@/lib/ai-search-intelligence/target/site-intelligence-derive';
 import type {
 	AsiGeneratedQuestion,
 	AsiQueryContextReport,
@@ -123,14 +127,32 @@ export function resolveQueryGenerationStatus(
 
 function candidatesFor(
 	intent: QueryIntent,
-	parts: { industry: string; location: string; service: string; audience: string; brand: string; subject: string },
+	parts: {
+		industry: string;
+		location: string;
+		service: string;
+		audience: string;
+		brand: string;
+		subject: string;
+		keyword: string;
+		orgNoun: string;
+		medical: boolean;
+	},
 ): string[] {
-	const { industry, location, service, audience, brand, subject } = parts;
+	const { industry, location, service, audience, brand, subject, keyword, orgNoun, medical } = parts;
 	if (intent === 'discovery') {
-		return [phrase(location, subject), phrase(industry, service), phrase(subject)].filter(Boolean);
+		return [
+			keyword && orgNoun ? phrase(keyword, orgNoun, '추천') : '',
+			keyword && medical ? phrase(keyword, '최신 치료법 신뢰할 만한 곳') : '',
+			phrase(location, subject),
+			phrase(industry, service),
+			phrase(subject),
+		].filter(Boolean);
 	}
 	if (intent === 'recommendation') {
 		return [
+			keyword && orgNoun ? phrase('국내', keyword, '전문 연구 기관 어디가 좋나요?') : '',
+			keyword ? phrase('국내', keyword, '어디가 좋나요?') : '',
 			phrase(location, subject, '추천'),
 			audience && service ? phrase(audience, service, '추천') : '',
 			phrase(subject, '추천'),
@@ -138,9 +160,14 @@ function candidatesFor(
 		].filter(Boolean);
 	}
 	if (intent === 'comparison') {
-		return [phrase(location, subject, '비교'), phrase(subject, '비교'), !subject && brand ? phrase(brand, '비교') : ''].filter(
-			Boolean,
-		);
+		return [
+			brand && (industry || keyword)
+				? phrase(brand, '과 타', industry || `${keyword} ${orgNoun || '기관'}`.trim(), '차이점')
+				: '',
+			phrase(location, subject, '비교'),
+			phrase(subject, '비교'),
+			!subject && brand ? phrase(brand, '비교') : '',
+		].filter(Boolean);
 	}
 	if (intent === 'local') {
 		if (!location) return [];
@@ -184,7 +211,19 @@ export function generateUniversalQueries(
 	const audience = trim(context.targetAudience);
 	const brand = trim(context.brandName);
 	const subject = industry || service || brand;
-	const parts = { industry, location, service, audience, brand, subject };
+	const keyword = (context.keywords ?? []).map((item) => trim(item)).find(Boolean) || service || industry;
+	const corpus = [industry, location, service, audience, brand, ...(context.keywords ?? []), ...services].join(' ');
+	const parts = {
+		industry,
+		location,
+		service,
+		audience,
+		brand,
+		subject,
+		keyword,
+		orgNoun: intelligenceOrgNoun(corpus),
+		medical: intelligenceIsMedicalCorpus(corpus),
+	};
 	const report = reportTargetContext(context, {
 		industry: Boolean(trim(context.industry) && options?.hasQuestionOverrides),
 		location: Boolean(location && options?.hasQuestionOverrides),

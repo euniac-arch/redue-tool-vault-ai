@@ -16,6 +16,7 @@ export function EvidenceExplorerDashboard() {
 	const { url, setUrl, error, toast, loading, elapsedTime, snapshot, cancel, onSubmit } =
 		useAsiAnalysis<AsiEvidenceExplorerSnapshot>({
 			cacheKey: 'asi_explorer_snapshot',
+			entryId: 'explorer',
 			isValid: (data) => Boolean(data?.site?.url && data.summary && Array.isArray(data.answers)),
 			loader: loadAsiExplorer,
 			invalidUrlMessage: t('urlInvalid'),
