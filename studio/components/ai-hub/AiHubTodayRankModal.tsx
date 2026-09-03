@@ -1,28 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Crown, Globe2, TrendingUp, X } from 'lucide-react';
-import { type AiTool } from '@/lib/admin/ai-tools-management';
-import {
-	AI_RANKING_SOURCE_CAPTION,
-	resolveOfficialCategoryChampions,
-	resolveOfficialGlobalTop,
-} from '@/lib/ai-hub/ai-ranking';
-import { formatRankingAsOfLabel } from '@/lib/ai-hub/getDailyAiRanking';
-import { CATEGORY_SOLID_ACCENT, GrowthBadge, RankBadge } from '@/components/admin/ai-tools/ai-tools-badges';
+import { Crown, Flame, Globe2, Sparkles, TrendingUp, X } from 'lucide-react';
+import { AI_RANKING_SOURCE_CAPTION } from '@/lib/ai-hub/ai-ranking';
+import { formatKstRankingAsOfLabel, type DailyAiRankingAnalysis, type RankedLiveAiTool } from '@/lib/ai-hub/live-ai-rankings';
+import { CATEGORY_SOLID_ACCENT, GrowthBadge, RankBadge, RankChangeBadge, RisingStatusBadge } from '@/components/admin/ai-tools/ai-tools-badges';
 
 interface AiHubTodayRankModalProps {
-	tools: AiTool[];
+	tools: RankedLiveAiTool[];
+	analysis: DailyAiRankingAnalysis;
+	dateKey: string;
 	onClose: () => void;
-	asOf?: Date;
 }
 
-/**
- * Public-facing "오늘자 글로벌 AI 순위 분석" layer popup — shown from the AI Hub hero. Mirrors the
- * admin curation workspace's ranking modal (same underlying dataset helpers) but with copy aimed
- * at end users rather than admin operators.
- */
-export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModalProps) {
+export function AiHubTodayRankModal({ tools, analysis, dateKey, onClose }: AiHubTodayRankModalProps) {
 	const [logoFailedIds, setLogoFailedIds] = useState<Set<string>>(new Set());
 
 	useEffect(() => {
@@ -40,10 +31,11 @@ export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModa
 		};
 	}, [onClose]);
 
-	const asOfDate = asOf ?? new Date();
-	const top10 = resolveOfficialGlobalTop(tools, 10, asOfDate);
-	const champions = resolveOfficialCategoryChampions(tools, asOfDate);
-	const today = formatRankingAsOfLabel(asOfDate);
+	const today = formatKstRankingAsOfLabel(dateKey);
+	const top10 = analysis.globalTop;
+	const champions = analysis.categoryChampions;
+	const newEntries = analysis.newEntries.slice(0, 4);
+	const rising = analysis.rising.slice(0, 8);
 
 	function markLogoFailed(id: string) {
 		setLogoFailedIds((prev) => new Set(prev).add(id));
@@ -72,7 +64,7 @@ export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModa
 							오늘자 글로벌 AI 순위 분석
 						</h2>
 						<p className="mt-1 text-xs font-medium text-white/70">
-							Similarweb & a16z GenAI 웹 트래픽 추정치 기준 랭킹 요약
+							라이브 카탈로그 {tools.length}개 도구 · 트래픽 지수 기준 동적 산출
 						</p>
 					</div>
 					<button
@@ -87,6 +79,58 @@ export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModa
 
 				<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
 					<div className="flex flex-col gap-6">
+						<section className="grid gap-3 sm:grid-cols-2">
+							{analysis.topMover && analysis.topMover.rankDelta > 0 ? (
+								<BriefingCard
+									icon={Flame}
+									kicker="오늘의 급상승"
+									tool={analysis.topMover}
+									detail={`어제 ${analysis.topMover.previousRank}위 → 오늘 ${analysis.topMover.currentRank}위`}
+									logoFailed={logoFailedIds.has(analysis.topMover.id)}
+									onLogoError={() => markLogoFailed(analysis.topMover!.id)}
+								/>
+							) : null}
+							{newEntries[0] ? (
+								<BriefingCard
+									icon={Sparkles}
+									kicker="오늘의 신규 진입"
+									tool={newEntries[0]}
+									detail={`${newEntries.length}개 도구가 랭킹에 새로 올랐습니다`}
+									logoFailed={logoFailedIds.has(newEntries[0].id)}
+									onLogoError={() => markLogoFailed(newEntries[0].id)}
+									isNew
+								/>
+							) : null}
+						</section>
+
+						{rising.length > 0 ? (
+							<section>
+								<SectionTitle icon={Flame} label="오늘자 라이징 / Emerging" />
+								<div className="mt-2.5 grid gap-3 sm:grid-cols-2">
+									{rising.map((tool) => (
+										<div
+											key={tool.id}
+											className="flex items-center gap-2.5 rounded-xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white p-3 dark:border-orange-900/40 dark:from-orange-950/30 dark:to-slate-800"
+										>
+											<ToolLogo
+												tool={tool}
+												failed={logoFailedIds.has(tool.id)}
+												onError={() => markLogoFailed(tool.id)}
+											/>
+											<div className="min-w-0 flex-1">
+												<p className="truncate text-xs font-bold text-slate-900 dark:text-slate-100">{tool.name}</p>
+												<p className="truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+													{tool.developer} · 버즈 {tool.trendScore} · {tool.growthRate >= 0 ? '+' : ''}
+													{tool.growthRate.toFixed(1)}%
+												</p>
+											</div>
+											<RisingStatusBadge status={tool.status} isRising={tool.isRising} />
+										</div>
+									))}
+								</div>
+							</section>
+						) : null}
+
 						<section>
 							<SectionTitle icon={Crown} label="카테고리별 1위 챔피언" />
 							<div className="mt-2.5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -112,17 +156,20 @@ export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModa
 											<th className="px-3 py-2.5">AI 서비스</th>
 											<th className="hidden px-3 py-2.5 text-right md:table-cell">월간 방문자</th>
 											<th className="px-3 py-2.5">글로벌 점유율</th>
-											<th className="px-3 py-2.5 text-right">전월 대비</th>
+											<th className="px-3 py-2.5 text-right">변동</th>
 										</tr>
 									</thead>
 									<tbody>
-										{top10.map((tool, index) => (
+										{top10.map((tool) => (
 											<tr
 												key={tool.id}
 												className="border-t border-slate-100 text-slate-700 dark:border-slate-700/60 dark:text-slate-200"
 											>
 												<td className="px-3 py-2.5">
-													<RankBadge rank={index + 1} />
+													<div className="flex items-center gap-1.5">
+														<RankBadge rank={tool.currentRank} />
+														<RankChangeBadge isNew={tool.isNew} delta={tool.rankDelta} />
+													</div>
 												</td>
 												<td className="px-3 py-2.5">
 													<div className="flex min-w-0 items-center gap-2">
@@ -134,7 +181,7 @@ export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModa
 														<div className="min-w-0">
 															<p className="truncate text-xs font-bold text-slate-900 dark:text-slate-100">{tool.name}</p>
 															<p className="truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-																{tool.provider}
+																{tool.developer}
 															</p>
 														</div>
 													</div>
@@ -145,14 +192,14 @@ export function AiHubTodayRankModal({ tools, onClose, asOf }: AiHubTodayRankModa
 												<td className="px-3 py-2.5">
 													<div className="flex items-center gap-2">
 														<div className="h-1.5 w-16 shrink-0 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700/60 sm:w-24">
-														<div
-															className={`h-full rounded-full ${CATEGORY_SOLID_ACCENT[tool.category]}`}
-															style={{ width: `${Math.min(tool.globalSharePct, 100)}%` }}
-														/>
-													</div>
-													<span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
-														{tool.globalSharePct.toFixed(1)}%
-													</span>
+															<div
+																className={`h-full rounded-full ${CATEGORY_SOLID_ACCENT[tool.category]}`}
+																style={{ width: `${Math.min(tool.globalSharePct, 100)}%` }}
+															/>
+														</div>
+														<span className="shrink-0 text-xs font-bold text-slate-700 dark:text-slate-200">
+															{tool.globalSharePct.toFixed(1)}%
+														</span>
 													</div>
 												</td>
 												<td className="px-3 py-2.5 text-right">
@@ -183,13 +230,49 @@ function SectionTitle({ icon: Icon, label }: { icon: typeof Crown; label: string
 	);
 }
 
+function BriefingCard({
+	icon: Icon,
+	kicker,
+	tool,
+	detail,
+	logoFailed,
+	onLogoError,
+	isNew = false,
+}: {
+	icon: typeof Flame;
+	kicker: string;
+	tool: RankedLiveAiTool;
+	detail: string;
+	logoFailed: boolean;
+	onLogoError: () => void;
+	isNew?: boolean;
+}) {
+	return (
+		<div className="flex flex-col gap-2 rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 to-white p-3.5 dark:border-cyan-900/50 dark:from-cyan-950/30 dark:to-slate-800">
+			<div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-cyan-700 dark:text-cyan-300">
+				<Icon className="h-3.5 w-3.5" aria-hidden />
+				{kicker}
+			</div>
+			<div className="flex min-w-0 items-center gap-2.5">
+				<ToolLogo tool={tool} failed={logoFailed} onError={onLogoError} />
+				<div className="min-w-0">
+					<p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{tool.name}</p>
+					<p className="truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">{tool.developer}</p>
+				</div>
+				<RankChangeBadge isNew={isNew || tool.isNew} delta={tool.rankDelta} />
+			</div>
+			<p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{detail}</p>
+		</div>
+	);
+}
+
 function ChampionCard({
 	tool,
 	categoryLabel,
 	logoFailed,
 	onLogoError,
 }: {
-	tool: AiTool;
+	tool: RankedLiveAiTool;
 	categoryLabel: string;
 	logoFailed: boolean;
 	onLogoError: () => void;
@@ -204,11 +287,11 @@ function ChampionCard({
 				<ToolLogo tool={tool} failed={logoFailed} onError={onLogoError} />
 				<div className="min-w-0">
 					<p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{tool.name}</p>
-					<p className="truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">{tool.provider}</p>
+					<p className="truncate text-[11px] font-semibold text-slate-500 dark:text-slate-400">{tool.developer}</p>
 				</div>
 			</div>
 			<div className="flex items-center justify-between text-xs">
-				<span className="font-bold text-slate-700 dark:text-slate-200">{tool.market_share.toFixed(1)}%</span>
+				<span className="font-bold text-slate-700 dark:text-slate-200">{tool.categorySharePct.toFixed(1)}%</span>
 				<GrowthBadge growth={tool.growth} />
 			</div>
 		</div>
@@ -220,7 +303,7 @@ function ToolLogo({
 	failed,
 	onError,
 }: {
-	tool: AiTool;
+	tool: RankedLiveAiTool;
 	failed: boolean;
 	onError: () => void;
 }) {

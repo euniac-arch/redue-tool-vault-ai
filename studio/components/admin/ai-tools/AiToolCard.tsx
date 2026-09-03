@@ -3,17 +3,19 @@
 import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { getAiToolCategoryLabel, type AiTool } from '@/lib/admin/ai-tools-management';
-import { AiToolCategoryBadge, CATEGORY_SOLID_ACCENT, GrowthBadge, PricingTypeBadge, RankBadge } from './ai-tools-badges';
+import { AiToolCategoryBadge, CATEGORY_SOLID_ACCENT, GrowthBadge, PricingTypeBadge, RankBadge, RankChangeBadge } from './ai-tools-badges';
 
 interface AiToolCardProps {
 	tool: AiTool;
 	rank: number;
+	rankDelta?: number;
+	isNew?: boolean;
 	pending: boolean;
 	onOpenDetail: (tool: AiTool) => void;
 	onToggleVisibility: (tool: AiTool) => void;
 }
 
-export function AiToolCard({ tool, rank, pending, onOpenDetail, onToggleVisibility }: AiToolCardProps) {
+export function AiToolCard({ tool, rank, rankDelta = 0, isNew = false, pending, onOpenDetail, onToggleVisibility }: AiToolCardProps) {
 	const [logoFailed, setLogoFailed] = useState(false);
 
 	return (
@@ -29,7 +31,10 @@ export function AiToolCard({ tool, rank, pending, onOpenDetail, onToggleVisibili
 			}}
 			className="relative flex cursor-pointer flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-shadow hover:shadow-md dark:border-slate-700 dark:bg-slate-800"
 		>
-			<RankBadge rank={rank} className="absolute -left-2 -top-2 z-10" />
+			<div className="absolute -left-2 -top-2 z-10 flex items-center gap-1">
+				<RankBadge rank={rank} />
+				<RankChangeBadge isNew={isNew} delta={rankDelta} />
+			</div>
 
 			<div className="flex items-start justify-between gap-2">
 				<div className="flex min-w-0 items-center gap-2.5">

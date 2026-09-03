@@ -93,18 +93,20 @@
 			},
 			{
 				"id": "deepseek",
-				"name": "DeepSeek",
+				"name": "DeepSeek (V3 / R1)",
 				"provider": "DeepSeek",
 				"url": "https://www.deepseek.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=deepseek.com&sz=128",
-				"desc": "고성능 오픈웨이트 추론 모델. 코딩·수학·장문 추론에서 가성비로 빠르게 점유율을 넓히는 LLM.",
-				"tags": ["LLM", "오픈웨이트", "추론"],
+				"desc": "오픈 웨이트 기반 추론(Reasoning)과 압도적 가성비로 글로벌 이슈가 된 V3 / R1 라인.",
+				"tags": ["LLM", "오픈웨이트", "추론", "라이징"],
 				"is_public": true,
 				"market_share": 4.1,
 				"monthly_visits": "390M",
 				"recommend_score": 92,
 				"rating": 4.7,
-				"growth": "+12.0%",
+				"growth": "+38.0%",
+				"trend_score": 91,
+				"launch_date": "2025-01-20",
 				"pricing": {
 					"type": "Freemium",
 					"summary": "웹 무료 / API 종량제",
@@ -122,18 +124,20 @@
 			},
 			{
 				"id": "perplexity",
-				"name": "Perplexity AI",
+				"name": "Perplexity Spaces",
 				"provider": "Perplexity",
 				"url": "https://www.perplexity.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=perplexity.ai&sz=128",
-				"desc": "실시간 웹 검색 기반의 출처 인용 및 정확한 정보 탐색 엔진.",
-				"tags": ["검색엔진", "실시간리서치"],
+				"desc": "협업형 AI 검색과 웹 인덱싱을 묶은 GEO 리서치 엔진. Spaces로 팀 조사 스레드를 공유.",
+				"tags": ["검색엔진", "실시간리서치", "GEO", "라이징"],
 				"is_public": true,
 				"market_share": 2.6,
 				"monthly_visits": "250M",
 				"recommend_score": 95,
 				"rating": 4.8,
-				"growth": "+6.8%",
+				"growth": "+32.0%",
+				"trend_score": 86,
+				"launch_date": "2025-03-01",
 				"pricing": {
 					"type": "Freemium",
 					"summary": "무료 / Pro $20/월",
@@ -245,18 +249,20 @@
 			},
 			{
 				"id": "flux",
-				"name": "FLUX",
+				"name": "FLUX.1 [dev/schnell]",
 				"provider": "Black Forest Labs",
 				"url": "https://blackforestlabs.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=blackforestlabs.ai&sz=128",
-				"desc": "사실적인 피부 질감과 텍스트(타이포그래피) 구현 탁월, 상업용 그래픽 최적.",
-				"tags": ["타이포그래피", "포토리얼"],
+				"desc": "사실적 텍스처와 타이포그래피(글자 렌더링)에서 1위로 꼽히는 오픈 가중치 이미지 모델.",
+				"tags": ["타이포그래피", "포토리얼", "라이징"],
 				"is_public": true,
 				"market_share": 20.0,
 				"monthly_visits": "28M",
 				"recommend_score": 98,
 				"rating": 4.9,
-				"growth": "+12.4%",
+				"growth": "+48.0%",
+				"trend_score": 90,
+				"launch_date": "2024-08-01",
 				"pricing": {
 					"type": "Open Source / API",
 					"summary": "Schnell(무료) / Dev(비상업 무료) / Pro(API 종량제)",
@@ -303,18 +309,20 @@
 			},
 			{
 				"id": "ideogram",
-				"name": "Ideogram",
+				"name": "Ideogram 2.0",
 				"provider": "Ideogram",
 				"url": "https://ideogram.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=ideogram.ai&sz=128",
-				"desc": "이미지 내 텍스트/영문 타이포그래피 표현력이 매우 뛰어난 디자인 툴.",
-				"tags": ["로고", "포스터", "타이포"],
+				"desc": "디자인 포스터와 감각적인 텍스트 레이아웃 생성에 특화된 2.0 타이포 엔진.",
+				"tags": ["로고", "포스터", "타이포", "라이징"],
 				"is_public": true,
 				"market_share": 8.4,
 				"monthly_visits": "12M",
 				"recommend_score": 91,
 				"rating": 4.7,
-				"growth": "+19.2%",
+				"growth": "+44.0%",
+				"trend_score": 85,
+				"launch_date": "2024-10-01",
 				"pricing": {
 					"type": "Freemium",
 					"summary": "무료(매일 10크레딧) / Basic $8/월 / Plus $20/월",
@@ -332,18 +340,20 @@
 			},
 			{
 				"id": "recraft",
-				"name": "Recraft",
+				"name": "Recraft v3",
 				"provider": "Recraft",
 				"url": "https://www.recraft.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=recraft.ai&sz=128",
-				"desc": "벡터(SVG), 3D 일러스트, UI 에셋 및 아이콘 생성에 최적화.",
-				"tags": ["SVG", "UI에셋", "아이콘"],
+				"desc": "UI/UX 디자이너 특화 벡터(SVG), 3D 아이콘 및 일러스트레이션 전문 생성기.",
+				"tags": ["SVG", "UI에셋", "아이콘", "라이징"],
 				"is_public": true,
 				"market_share": 4.8,
 				"monthly_visits": "6M",
 				"recommend_score": 94,
 				"rating": 4.8,
-				"growth": "+11.2%",
+				"growth": "+42.0%",
+				"trend_score": 84,
+				"launch_date": "2024-10-30",
 				"pricing": {
 					"type": "Freemium",
 					"summary": "무료(매일 50크레딧) / Basic $20/월 / Pro $48/월",
@@ -568,6 +578,128 @@
 					],
 					"pro_tip": "무음 구간 줄이기 버튼 한 번으로 말과 말 사이의 정적을 즉시 삭제할 수 있습니다."
 				}
+			},
+			{
+				"id": "sora",
+				"name": "Sora",
+				"provider": "OpenAI",
+				"url": "https://openai.com/sora",
+				"logo_url": "https://www.google.com/s2/favicons?domain=openai.com&sz=128",
+				"desc": "텍스트·이미지 프롬프트로 영화급 물리 묘사와 긴 샷의 비디오를 생성하는 OpenAI 영상 모델.",
+				"tags": ["영상생성", "시네마틱", "OpenAI"],
+				"is_public": true,
+				"market_share": 18.4,
+				"monthly_visits": "28M",
+				"recommend_score": 97,
+				"rating": 4.8,
+				"growth": "+45.0%",
+				"pricing": {
+					"type": "Paid",
+					"summary": "ChatGPT Plus/Pro 플랜에서 이용 · API 별도",
+					"free_tier": "제한적 미리보기 (계정·리전에 따라 상이)",
+					"paid_tier": "ChatGPT Plus/Pro 구독 또는 Sora API 크레딧"
+				},
+				"guide": {
+					"steps": [
+						"생성할 장면의 카메라·조명·피사체를 한 문장으로 구체적으로 작성",
+						"시작 프레임 이미지를 첨부해 샷의 구도와 스타일을 고정",
+						"길이·화면비·모션 강도를 조절한 뒤 렌더 결과를 컷 단위로 연장"
+					],
+					"pro_tip": "한 샷에 너무 많은 이벤트를 넣지 말고, 카메라 무빙 하나를 중심으로 프롬프트를 쓰면 물리 묘사가 안정됩니다."
+				}
+			},
+			{
+				"id": "seadance-2",
+				"name": "SeaDance 2.0",
+				"provider": "ByteDance",
+				"url": "https://seed.bytedance.com",
+				"logo_url": "https://www.google.com/s2/favicons?domain=bytedance.com&sz=128",
+				"desc": "참조 영상 모션 복제와 댄스/액션 숏폼에 특화. 정교한 물리 관절 제어가 강점인 ByteDance 비디오 모델.",
+				"tags": ["영상생성", "모션복제", "숏폼", "라이징"],
+				"is_public": true,
+				"market_share": 14.6,
+				"monthly_visits": "22M",
+				"recommend_score": 95,
+				"rating": 4.7,
+				"growth": "+86.0%",
+				"trend_score": 94,
+				"launch_date": "2025-12-01",
+				"pricing": {
+					"type": "Freemium",
+					"summary": "무료 크레딧 / 유료 크레딧 팩",
+					"free_tier": "일일 체험 크레딧 (리전·계정에 따라 상이)",
+					"paid_tier": "크레딧 팩 및 프로 플랜으로 우선 대기열·고해상도 렌더"
+				},
+				"guide": {
+					"steps": [
+						"Text to Video 또는 Image to Video 모드에서 장면 설명을 입력",
+						"인물 일관성·카메라 패스를 옵션에서 고정",
+						"시드와 모션 강도를 조절해 같은 구도의 샷을 여러 버전으로 비교"
+					],
+					"pro_tip": "레퍼런스 이미지 한 장과 짧은 카메라 지시(dolly in, pan left)를 함께 주면 인물 유지율이 올라갑니다."
+				}
+			},
+			{
+				"id": "hailuo",
+				"name": "Hailuo AI",
+				"provider": "MiniMax",
+				"url": "https://hailuoai.com",
+				"logo_url": "https://www.google.com/s2/favicons?domain=hailuoai.com&sz=128",
+				"desc": "실사급 감정 표정 렌더링과 자연스러운 충돌 물리 엔진을 갖춘 MiniMax 비디오 생성기.",
+				"tags": ["영상생성", "실사", "물리엔진", "라이징"],
+				"is_public": true,
+				"market_share": 3.1,
+				"monthly_visits": "4.2M",
+				"recommend_score": 93,
+				"rating": 4.6,
+				"growth": "+120.0%",
+				"trend_score": 88,
+				"launch_date": "2024-09-01",
+				"pricing": {
+					"type": "Freemium",
+					"summary": "일일 무료 크레딧 / 유료 크레딧 팩",
+					"free_tier": "가입 후 일일 체험 크레딧",
+					"paid_tier": "크레딧 팩으로 우선 대기열·고해상도 렌더"
+				},
+				"guide": {
+					"steps": [
+						"텍스트 또는 이미지로 장면의 감정·동작을 구체적으로 작성",
+						"카메라와 물리 충돌 강도를 옵션에서 조절",
+						"짧은 샷을 여러 번 렌더한 뒤 가장 자연스러운 표정을 선택"
+					],
+					"pro_tip": "인물 클로즈업은 감정 키워드(미소, 당황, 집중)를 한 개만 넣고 나머지는 조명 묘사에 쓰면 표정 붕괴가 줄어듭니다."
+				}
+			},
+			{
+				"id": "hunyuan-video",
+				"name": "HunyuanVideo",
+				"provider": "Tencent",
+				"url": "https://hunyuan.tencent.com",
+				"logo_url": "https://www.google.com/s2/favicons?domain=tencent.com&sz=128",
+				"desc": "최상위 오픈소스 영상 파운데이션 모델. ComfyUI 워크플로에서 급상승 중인 Tencent 비디오 모델.",
+				"tags": ["오픈소스", "ComfyUI", "영상생성", "라이징"],
+				"is_public": true,
+				"market_share": 2.8,
+				"monthly_visits": "3.8M",
+				"recommend_score": 92,
+				"rating": 4.6,
+				"growth": "+95.0%",
+				"trend_score": 87,
+				"launch_date": "2024-12-03",
+				"pricing": {
+					"type": "Open Source",
+					"summary": "가중치 공개 / 클라우드 GPU 종량제",
+					"free_tier": "로컬·자체 GPU에서 가중치 무료 실행",
+					"paid_tier": "클라우드 GPU(RunPod, Fal 등) 시간당 과금"
+				},
+				"guide": {
+					"steps": [
+						"ComfyUI에 HunyuanVideo 커스텀 노드와 체크포인트를 설치",
+						"텍스트 또는 시작 프레임으로 샷을 구성하고 프레임 수를 지정",
+						"시드와 CFG를 고정한 채 모션 강도를 나눠 여러 버전을 비교"
+					],
+					"pro_tip": "VRAM이 부족하면 해상도를 낮추고 프레임을 나눈 뒤, 업스케일 노드로 후처리하는 편이 안정적입니다."
+				}
 			}
 		]
 	},
@@ -578,18 +710,20 @@
 		"tools": [
 			{
 				"id": "elevenlabs",
-				"name": "ElevenLabs",
+				"name": "ElevenLabs Voice Design",
 				"provider": "ElevenLabs",
 				"url": "https://elevenlabs.io",
 				"logo_url": "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=128",
-				"desc": "자연스러운 음성 복제(Voice Cloning) 및 다국어 텍스트-음성 변환(TTS).",
-				"tags": ["보이스클로닝", "TTS"],
+				"desc": "초저지연 대화형 음성 에이전트와 감정 표현 보이스 디자인. 복제·TTS·실시간 대화를 한 스택으로 제공.",
+				"tags": ["보이스클로닝", "TTS", "보이스에이전트", "라이징"],
 				"is_public": true,
 				"market_share": 46.5,
 				"monthly_visits": "22M",
 				"recommend_score": 98,
 				"rating": 4.9,
-				"growth": "+9.5%",
+				"growth": "+41.0%",
+				"trend_score": 83,
+				"launch_date": "2025-02-01",
 				"pricing": {
 					"type": "Freemium",
 					"summary": "무료(월 1만자) / Starter $5/월 / Creator $22/월",
@@ -607,18 +741,20 @@
 			},
 			{
 				"id": "suno",
-				"name": "Suno",
+				"name": "Suno v4",
 				"provider": "Suno",
 				"url": "https://suno.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=suno.com&sz=128",
-				"desc": "프롬프트 입력만으로 보컬·가사·악기 세션이 포함된 완곡 음원 생성.",
-				"tags": ["AI작곡", "보컬생성"],
+				"desc": "스튜디오급 보컬 마스터링과 복합 장르 작곡 엔진. v4에서 보컬 분리·장르 믹스가 크게 향상.",
+				"tags": ["AI작곡", "보컬생성", "라이징"],
 				"is_public": true,
 				"market_share": 36.5,
 				"monthly_visits": "19M",
 				"recommend_score": 97,
 				"rating": 4.9,
-				"growth": "+13.6%",
+				"growth": "+52.0%",
+				"trend_score": 86,
+				"launch_date": "2024-11-01",
 				"pricing": {
 					"type": "Freemium",
 					"summary": "무료(매일 50크레딧/10곡) / Pro $10/월 / Premier $30/월",
@@ -730,18 +866,20 @@
 			},
 			{
 				"id": "v0",
-				"name": "v0",
+				"name": "v0 by Vercel",
 				"provider": "Vercel",
 				"url": "https://v0.dev",
 				"logo_url": "https://www.google.com/s2/favicons?domain=v0.dev&sz=128",
-				"desc": "프롬프트로 React 및 Tailwind CSS 기반 프론트엔드 UI 컴포넌트 즉시 생성.",
-				"tags": ["React", "TailwindCSS", "UI빌더"],
+				"desc": "React/Tailwind 인터랙티브 UI 컴포넌트를 실시간으로 생성하는 Vercel 에이전트.",
+				"tags": ["React", "TailwindCSS", "UI빌더", "라이징"],
 				"is_public": true,
 				"market_share": 11.5,
 				"monthly_visits": "9M",
 				"recommend_score": 96,
 				"rating": 4.8,
-				"growth": "+10.4%",
+				"growth": "+46.0%",
+				"trend_score": 84,
+				"launch_date": "2023-11-01",
 				"pricing": {
 					"type": "Freemium",
 					"summary": "무료(매월 $5 상당 크레딧) / Premium $20/월",
@@ -755,6 +893,37 @@
 						"생성된 React + Tailwind CSS 코드를 복사하거나 npx v0 add 명령어로 프로젝트에 추가"
 					],
 					"pro_tip": "원하는 웹사이트 스크린샷 이미지를 첨부하면 레이아웃과 색감을 거의 동일하게 코드로 복제해줍니다."
+				}
+			},
+			{
+				"id": "bolt-new",
+				"name": "Bolt.new",
+				"provider": "StackBlitz",
+				"url": "https://bolt.new",
+				"logo_url": "https://www.google.com/s2/favicons?domain=bolt.new&sz=128",
+				"desc": "브라우저 기반 풀스택 프롬프트 앱 빌더. 설치 없이 프론트·백엔드를 한 스레드에서 생성·실행.",
+				"tags": ["풀스택", "브라우저IDE", "에이전트", "라이징"],
+				"is_public": true,
+				"market_share": 4.2,
+				"monthly_visits": "5.5M",
+				"recommend_score": 94,
+				"rating": 4.7,
+				"growth": "+110.0%",
+				"trend_score": 89,
+				"launch_date": "2024-10-03",
+				"pricing": {
+					"type": "Freemium",
+					"summary": "일일 무료 토큰 / Pro 구독",
+					"free_tier": "일일 토큰으로 소규모 앱 프로토타입",
+					"paid_tier": "Pro 플랜에서 토큰·프라이빗 프로젝트 확장"
+				},
+				"guide": {
+					"steps": [
+						"만들고 싶은 앱의 사용자·화면·데이터를 한 문단으로 입력",
+						"미리보기에서 깨진 라우트나 API를 지적하며 수정 지시",
+						"StackBlitz에서 포크하거나 로컬로 코드를 내려받아 배포"
+					],
+					"pro_tip": "첫 프롬프트에 기술 스택(예: Next.js + Supabase)을 명시하면 의존성 충돌이 줄어듭니다."
 				}
 			},
 			{

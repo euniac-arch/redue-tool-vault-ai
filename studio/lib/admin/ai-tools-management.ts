@@ -47,6 +47,12 @@ export type AiToolRaw = {
 	rating: number;
 	/** Month-over-month growth, pre-formatted with sign (e.g. "+8.4%", "-1.5%"). */
 	growth: string;
+	/** Optional numeric growth override used by the rising classifier. */
+	growth_rate?: number;
+	/** Optional social / search buzz score (0–100). Derived when omitted. */
+	trend_score?: number;
+	/** ISO date the product (or this version) launched. */
+	launch_date?: string;
 	pricing: AiToolPricing;
 	guide: AiToolGuide;
 };
@@ -74,12 +80,14 @@ export type AiToolFilters = {
 	category: 'all' | AiToolCategoryId;
 };
 
-/** Sort keys for the curation grid. `market_share` is the default view. */
-export type AiToolSortKey = 'market_share' | 'recommend_score' | 'rating' | 'name';
+/** Sort keys for the curation grid. `rank` is the default live-ranking view. */
+export type AiToolSortKey = 'rank' | 'market_share' | 'recommend_score' | 'rating' | 'name' | 'trend';
 
 export const AI_TOOL_SORT_OPTIONS: { key: AiToolSortKey; label: string }[] = [
-	{ key: 'market_share', label: '글로벌 점유율순' },
-	{ key: 'recommend_score', label: '추천순' },
+	{ key: 'rank', label: '순위순' },
+	{ key: 'recommend_score', label: '점수순' },
+	{ key: 'market_share', label: '점유율순' },
+	{ key: 'trend', label: '버즈순' },
 	{ key: 'rating', label: '평점순' },
 	{ key: 'name', label: '이름순' },
 ];
@@ -168,11 +176,28 @@ export function getAiToolCategoryLabel(id: AiToolCategoryId): string {
 	return AI_TOOL_CATEGORIES.find((category) => category.id === id)?.label ?? id;
 }
 
-/** Returns a new array sorted by the given key (numeric keys descending, `name` ascending in Korean order). */
+function liveRank(tool: AiTool): number {
+	const ranked = tool as AiTool & { currentRank?: number };
+	return typeof ranked.currentRank === 'number' ? ranked.currentRank : Number.POSITIVE_INFINITY;
+}
+
+/** Returns a new array sorted by the given key (numeric keys descending, `name`/`rank` ascending). */
 export function sortAiTools(tools: AiTool[], sortKey: AiToolSortKey): AiTool[] {
 	const sorted = [...tools];
 	if (sortKey === 'name') {
 		sorted.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+		return sorted;
+	}
+	if (sortKey === 'rank') {
+		sorted.sort((a, b) => liveRank(a) - liveRank(b) || a.name.localeCompare(b.name, 'ko'));
+		return sorted;
+	}
+	if (sortKey === 'trend') {
+		sorted.sort((a, b) => {
+			const left = (a as AiTool & { trendScore?: number }).trendScore ?? a.trend_score ?? 0;
+			const right = (b as AiTool & { trendScore?: number }).trendScore ?? b.trend_score ?? 0;
+			return right - left;
+		});
 		return sorted;
 	}
 	sorted.sort((a, b) => b[sortKey] - a[sortKey]);

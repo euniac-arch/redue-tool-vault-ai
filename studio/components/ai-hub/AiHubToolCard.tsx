@@ -2,16 +2,31 @@
 
 import { useState } from 'react';
 import { ExternalLink, Star } from 'lucide-react';
-import { CATEGORY_SOLID_ACCENT, PricingTypeBadge, RankBadge } from '@/components/admin/ai-tools/ai-tools-badges';
+import { CATEGORY_SOLID_ACCENT, PricingTypeBadge, RankBadge, RankChangeBadge, RisingStatusBadge } from '@/components/admin/ai-tools/ai-tools-badges';
 import type { AiTool } from '@/lib/ai-hub';
+import type { AiToolRisingStatus } from '@/lib/ai-hub/rising-ai-tools';
 
 interface AiHubToolCardProps {
 	tool: AiTool;
 	rank: number;
+	rankDelta?: number;
+	isNew?: boolean;
+	isHot?: boolean;
+	isRising?: boolean;
+	status?: AiToolRisingStatus;
 	onOpenDetail: (tool: AiTool) => void;
 }
 
-export function AiHubToolCard({ tool, rank, onOpenDetail }: AiHubToolCardProps) {
+export function AiHubToolCard({
+	tool,
+	rank,
+	rankDelta = 0,
+	isNew = false,
+	isHot = false,
+	isRising = false,
+	status,
+	onOpenDetail,
+}: AiHubToolCardProps) {
 	const [logoFailed, setLogoFailed] = useState(false);
 
 	return (
@@ -27,7 +42,11 @@ export function AiHubToolCard({ tool, rank, onOpenDetail }: AiHubToolCardProps) 
 			}}
 			className="relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-slate-700/80 dark:bg-slate-900/60 dark:hover:border-cyan-500/40"
 		>
-			<RankBadge rank={rank} className="absolute -left-2 -top-2 z-10" />
+			<div className="absolute -left-2 -top-2 z-10 flex items-center gap-1">
+				<RankBadge rank={rank} />
+				<RankChangeBadge isNew={isNew} delta={rankDelta} />
+				<RisingStatusBadge status={status} isRising={isRising || isHot} />
+			</div>
 
 			<div className="flex items-start justify-between gap-2">
 				<div className="flex min-w-0 items-center gap-2.5">

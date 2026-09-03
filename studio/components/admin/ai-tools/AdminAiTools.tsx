@@ -15,8 +15,8 @@ import {
 	type AiToolFilters,
 	type AiToolSortKey,
 } from '@/lib/admin/ai-tools-management';
-import { applyUnifiedDailyStats } from '@/lib/ai-hub/ai-ranking';
-import { useLocalCalendarDate } from '@/lib/ai-hub/use-local-calendar-date';
+import { useDailyAiRankings } from '@/lib/ai-hub/useDailyAiRankings';
+import type { RankedLiveAiTool } from '@/lib/ai-hub/live-ai-rankings';
 import { AiToolCard } from './AiToolCard';
 import { AiToolDetailModal } from './AiToolDetailModal';
 import { AiToolsCategoryNav } from './AiToolsCategoryNav';
@@ -26,19 +26,16 @@ import { TodayRankModal } from './TodayRankModal';
 type Toast = { id: number; message: string; tone?: 'default' | 'error' };
 
 export function AdminAiTools() {
+	const { tools: rankedTools, analysis, date, error: rankingError, refetch } = useDailyAiRankings({ includeHidden: true });
 	const [tools, setTools] = useState<AiTool[]>([]);
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<AiToolFilters['category']>('all');
-	const [sortKey, setSortKey] = useState<AiToolSortKey>('market_share');
+	const [sortKey, setSortKey] = useState<AiToolSortKey>('rank');
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [toasts, setToasts] = useState<Toast[]>([]);
 	const [activeModalToolId, setActiveModalToolId] = useState<string | null>(null);
 	const [rankModalOpen, setRankModalOpen] = useState(false);
 	const [refreshPending, setRefreshPending] = useState(false);
-
-	useEffect(() => {
-		setTools(loadAiTools());
-	}, []);
 
 	const pushToast = useCallback((message: string, tone: Toast['tone'] = 'default') => {
 		const id = Date.now() + Math.random();
@@ -48,13 +45,27 @@ export function AdminAiTools() {
 		}, 2400);
 	}, []);
 
-	const asOf = useLocalCalendarDate();
-	const dailyTools = useMemo(() => applyUnifiedDailyStats(tools, asOf), [tools, asOf]);
+	useEffect(() => {
+		if (rankedTools.length > 0) {
+			setTools((prev) => {
+				if (prev.length === 0) return rankedTools;
+				const byId = new Map(rankedTools.map((tool) => [tool.id, tool]));
+				return prev.map((tool) => byId.get(tool.id) ?? tool);
+			});
+			return;
+		}
+		if (rankingError) setTools(loadAiTools());
+	}, [rankedTools, rankingError]);
+
+	const dailyTools = useMemo(() => {
+		if (tools.length > 0) return tools as RankedLiveAiTool[];
+		return rankedTools;
+	}, [tools, rankedTools]);
 	const filters: AiToolFilters = useMemo(() => ({ query, category }), [query, category]);
 	const filteredTools = useMemo(() => filterAiTools(dailyTools, filters), [dailyTools, filters]);
 	const sortedTools = useMemo(() => sortAiTools(filteredTools, sortKey), [filteredTools, sortKey]);
-	const categoryCounts = useMemo(() => countAiToolsByCategory(tools), [tools]);
-	const publicCount = useMemo(() => tools.filter((tool) => tool.is_public).length, [tools]);
+	const categoryCounts = useMemo(() => countAiToolsByCategory(dailyTools), [dailyTools]);
+	const publicCount = useMemo(() => dailyTools.filter((tool) => tool.is_public).length, [dailyTools]);
 	const activeModalTool = useMemo(
 		() => dailyTools.find((tool) => tool.id === activeModalToolId) ?? null,
 		[dailyTools, activeModalToolId],
@@ -100,6 +111,7 @@ export function AdminAiTools() {
 			}
 
 			setTools(flattenAiToolCategories(data.categories));
+			void refetch().catch(() => undefined);
 
 			const providerLabel: Record<string, string> = {
 				gemini: 'Gemini 웹 검색',
@@ -115,7 +127,7 @@ export function AdminAiTools() {
 		} finally {
 			setRefreshPending(false);
 		}
-	}, [refreshPending, pushToast]);
+	}, [refreshPending, pushToast, refetch]);
 
 	return (
 		<div className="flex flex-col gap-4">
@@ -134,7 +146,7 @@ export function AdminAiTools() {
 				<div className="flex flex-wrap items-center gap-2">
 					<div className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
 						<Sparkles className="h-3.5 w-3.5 text-emerald-500" aria-hidden />
-						{publicCount} / {tools.length}개 도구 프론트 노출 중
+						{publicCount} / {dailyTools.length}개 도구 프론트 노출 중
 					</div>
 					<button
 						type="button"
@@ -160,14 +172,14 @@ export function AdminAiTools() {
 				</div>
 			</div>
 
-			{tools.length > 0 && <MarketShareBar tools={dailyTools} asOf={asOf} />}
+			{dailyTools.length > 0 && <MarketShareBar tools={dailyTools} category={category} dateKey={date} />}
 
 			<div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_1fr]">
 				<AiToolsCategoryNav
 					value={category}
 					onChange={setCategory}
 					counts={categoryCounts}
-					totalCount={tools.length}
+					totalCount={dailyTools.length}
 				/>
 
 				<div className="flex flex-col gap-4">
@@ -211,16 +223,23 @@ export function AdminAiTools() {
 						</div>
 					) : (
 						<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-							{sortedTools.map((tool, index) => (
-								<AiToolCard
-									key={tool.id}
-									tool={tool}
-									rank={index + 1}
-									pending={pendingId === tool.id}
-									onOpenDetail={(selected) => setActiveModalToolId(selected.id)}
-									onToggleVisibility={handleToggleVisibility}
-								/>
-							))}
+							{sortedTools.map((tool, index) => {
+								const ranked = tool as RankedLiveAiTool;
+								const scoped = category !== 'all';
+								const liveRank = scoped ? ranked.categoryRank : ranked.currentRank;
+								return (
+									<AiToolCard
+										key={tool.id}
+										tool={tool}
+										rank={liveRank || index + 1}
+										rankDelta={scoped ? (ranked.previousCategoryRank > 0 ? ranked.previousCategoryRank - ranked.categoryRank : 0) : ranked.rankDelta}
+										isNew={Boolean(ranked.isNew)}
+										pending={pendingId === tool.id}
+										onOpenDetail={(selected) => setActiveModalToolId(selected.id)}
+										onToggleVisibility={handleToggleVisibility}
+									/>
+								);
+							})}
 						</div>
 					)}
 				</div>
@@ -230,7 +249,14 @@ export function AdminAiTools() {
 				<AiToolDetailModal tool={activeModalTool} onClose={() => setActiveModalToolId(null)} />
 			)}
 
-			{rankModalOpen && <TodayRankModal tools={dailyTools} asOf={asOf} onClose={() => setRankModalOpen(false)} />}
+			{rankModalOpen && (
+				<TodayRankModal
+					tools={dailyTools}
+					dateKey={date}
+					analysis={analysis}
+					onClose={() => setRankModalOpen(false)}
+				/>
+			)}
 
 			{toasts.length > 0 && (
 				<div className="pointer-events-none fixed bottom-5 right-5 z-[60] flex flex-col gap-2">

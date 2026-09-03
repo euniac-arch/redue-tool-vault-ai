@@ -1,0 +1,8 @@
+{
+	"crons": [
+		{
+			"path": "/api/ai-rankings/daily?sync=1",
+			"schedule": "0 15 * * *"
+		}
+	]
+}

@@ -3,21 +3,19 @@
 import { useEffect, useState } from 'react';
 import { Crown, Globe2, TrendingUp, X } from 'lucide-react';
 import { getAiToolCategoryLabel, type AiTool } from '@/lib/admin/ai-tools-management';
-import {
-	AI_RANKING_SOURCE_CAPTION,
-	resolveOfficialCategoryChampions,
-	resolveOfficialGlobalTop,
-} from '@/lib/ai-hub/ai-ranking';
-import { formatRankingAsOfLabel } from '@/lib/ai-hub/getDailyAiRanking';
-import { CATEGORY_SOLID_ACCENT, GrowthBadge, RankBadge } from './ai-tools-badges';
+import { AI_RANKING_SOURCE_CAPTION, resolveOfficialCategoryChampions, resolveOfficialGlobalTop } from '@/lib/ai-hub/ai-ranking';
+import { formatKstRankingAsOfLabel, getKstDateKey, type DailyAiRankingAnalysis, type RankedLiveAiTool } from '@/lib/ai-hub/live-ai-rankings';
+import { CATEGORY_SOLID_ACCENT, GrowthBadge, RankBadge, RankChangeBadge } from './ai-tools-badges';
 
 interface TodayRankModalProps {
-	tools: AiTool[];
+	tools: Array<AiTool | RankedLiveAiTool>;
 	onClose: () => void;
 	asOf?: Date;
+	dateKey?: string;
+	analysis?: DailyAiRankingAnalysis | null;
 }
 
-export function TodayRankModal({ tools, onClose, asOf }: TodayRankModalProps) {
+export function TodayRankModal({ tools, onClose, asOf, dateKey, analysis }: TodayRankModalProps) {
 	const [logoFailedIds, setLogoFailedIds] = useState<Set<string>>(new Set());
 
 	useEffect(() => {
@@ -29,9 +27,9 @@ export function TodayRankModal({ tools, onClose, asOf }: TodayRankModalProps) {
 	}, [onClose]);
 
 	const asOfDate = asOf ?? new Date();
-	const top10 = resolveOfficialGlobalTop(tools, 10, asOfDate);
-	const champions = resolveOfficialCategoryChampions(tools, asOfDate);
-	const today = formatRankingAsOfLabel(asOfDate);
+	const top10 = analysis?.globalTop ?? resolveOfficialGlobalTop(tools, 10, asOfDate);
+	const champions = analysis?.categoryChampions ?? resolveOfficialCategoryChampions(tools, asOfDate);
+	const today = formatKstRankingAsOfLabel(dateKey ?? getKstDateKey(asOfDate));
 	const publicCount = tools.filter((tool) => tool.is_public).length;
 
 	function markLogoFailed(id: string) {
@@ -112,7 +110,10 @@ export function TodayRankModal({ tools, onClose, asOf }: TodayRankModalProps) {
 												className="border-t border-slate-100 text-slate-700 dark:border-slate-700/60 dark:text-slate-200"
 											>
 												<td className="px-3 py-2.5">
-													<RankBadge rank={index + 1} />
+													<div className="flex items-center gap-1.5">
+														<RankBadge rank={'currentRank' in tool ? tool.currentRank : index + 1} />
+														{'isNew' in tool ? <RankChangeBadge isNew={tool.isNew} delta={tool.rankDelta} /> : null}
+													</div>
 												</td>
 												<td className="px-3 py-2.5">
 													<div className="flex min-w-0 items-center gap-2">

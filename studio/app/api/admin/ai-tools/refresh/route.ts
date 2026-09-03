@@ -241,6 +241,13 @@ export async function POST() {
 		);
 	}
 
+	try {
+		const { rebuildTodayAiRankings } = await import('@/lib/ai-hub/daily-ai-rankings-service');
+		await rebuildTodayAiRankings();
+	} catch (err) {
+		console.warn('[admin/ai-tools/refresh] daily ranking rebuild failed:', err);
+	}
+
 	const warning =
 		provider === 'mock'
 			? lastProviderError

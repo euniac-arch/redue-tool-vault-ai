@@ -107,6 +107,80 @@ export function parseGrowth(growth: string): { isUp: boolean; value: string } {
 	return { isUp, value: growth.trim() };
 }
 
+export function RisingStatusBadge({
+	status,
+	isRising,
+	className = '',
+}: {
+	status?: 'ranked' | 'emerging' | 'hot_rising';
+	isRising?: boolean;
+	className?: string;
+}) {
+	if (status === 'hot_rising' || (isRising && status !== 'emerging')) {
+		return (
+			<span
+				className={`inline-flex items-center rounded-full bg-orange-50 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-orange-700 dark:bg-orange-950/50 dark:text-orange-300 ${className}`}
+			>
+				HOT
+			</span>
+		);
+	}
+	if (status === 'emerging' || isRising) {
+		return (
+			<span
+				className={`inline-flex items-center rounded-full bg-fuchsia-50 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wide text-fuchsia-700 dark:bg-fuchsia-950/50 dark:text-fuchsia-300 ${className}`}
+			>
+				RISING
+			</span>
+		);
+	}
+	return null;
+}
+
+/** Live rank movement: NEW / ▲ N / ▼ N / —. */
+export function RankChangeBadge({
+	isNew,
+	delta,
+	className = '',
+}: {
+	isNew: boolean;
+	delta: number;
+	className?: string;
+}) {
+	if (isNew) {
+		return (
+			<span
+				className={`inline-flex items-center rounded-full bg-sky-50 px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-wide text-sky-700 dark:bg-sky-950/50 dark:text-sky-300 ${className}`}
+			>
+				NEW
+			</span>
+		);
+	}
+	if (delta > 0) {
+		return (
+			<span
+				className={`inline-flex items-center rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 ${className}`}
+			>
+				▲ {delta}
+			</span>
+		);
+	}
+	if (delta < 0) {
+		return (
+			<span
+				className={`inline-flex items-center rounded-full bg-rose-50 px-1.5 py-0.5 text-[10px] font-bold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300 ${className}`}
+			>
+				▼ {Math.abs(delta)}
+			</span>
+		);
+	}
+	return (
+		<span className={`inline-flex items-center text-[10px] font-semibold text-slate-400 dark:text-slate-500 ${className}`}>
+			—
+		</span>
+	);
+}
+
 /** Green "up" / red "down" badge for month-over-month growth figures. */
 export function GrowthBadge({ growth, className = '' }: { growth: string; className?: string }) {
 	const { isUp, value } = parseGrowth(growth);
