@@ -11,6 +11,12 @@ type BaselineDraft = {
 	geo: string;
 };
 
+type BaselineField = {
+	key: keyof BaselineDraft;
+	label: string;
+	required?: boolean;
+};
+
 interface ProjectEditModalProps {
 	project: ProjectListItem;
 	saving: boolean;
@@ -58,15 +64,14 @@ export function ProjectEditModal({ project, saving, onClose, onSave }: ProjectEd
 		};
 	}, [onClose, saving]);
 
-	const fields = useMemo(
-		() =>
-			[
-				{ key: 'overall', label: '종합 점수', required: true },
-				{ key: 'seo', label: 'SEO 기술 기본기' },
-				{ key: 'performance', label: '웹 성능 & CWV' },
-				{ key: 'schema', label: '스키마 구조화' },
-				{ key: 'geo', label: 'AI 신뢰도 & GEO' },
-			] as const,
+	const fields = useMemo<BaselineField[]>(
+		() => [
+			{ key: 'overall', label: '종합 점수', required: true },
+			{ key: 'seo', label: 'SEO 기술 기본기' },
+			{ key: 'performance', label: '웹 성능 & CWV' },
+			{ key: 'schema', label: '스키마 구조화' },
+			{ key: 'geo', label: 'AI 신뢰도 & GEO' },
+		],
 		[],
 	);
 
