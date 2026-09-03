@@ -62,14 +62,14 @@ export function mergeLatestIntoHistory(
 				url: latest.report.url,
 				score: Number.isFinite(latest.score) ? latest.score : 0,
 				maxScore: Number.isFinite(latest.maxScore) ? latest.maxScore : GUIDE_SEO_MAX_DEFAULT,
-				status: 'warning',
-				statusLabel: '진단',
+				status: latest.report.status || 'FAIR',
+				statusLabel: latest.report.statusLabel || '진단',
 				geoScore: 0,
 				categories: [],
 				fetchedAt: latest.savedAt,
 				createdAt: latest.savedAt,
 				report: latest.report,
-			} as AuditHistoryEntry,
+			},
 			...safe,
 		];
 	}
