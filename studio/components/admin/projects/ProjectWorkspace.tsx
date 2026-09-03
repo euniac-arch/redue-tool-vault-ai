@@ -697,6 +697,8 @@ export function ProjectWorkspace() {
 														href={`/admin/solve?id=${encodeURIComponent(project.latestAuditId || project.id)}`}
 														className="rounded-md bg-slate-900 px-2.5 py-1.5 text-[11px] font-bold text-white hover:bg-slate-800"
 													>
+														🔧 해결 워크스페이스
+													</Link>
 													<Link
 														href={`/audit/result?id=${encodeURIComponent(project.latestAuditId || project.id)}`}
 														className="rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-50 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700"
