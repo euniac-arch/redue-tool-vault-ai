@@ -15,6 +15,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
+import { ensureWritableDir, writableDataPath } from '@/lib/server/writable-data-dir';
 import type { AiToolCategoryRaw } from '@/lib/admin/ai-tools-management';
 import {
 	AI_TOOLS_REFRESH_SYSTEM_PROMPT,
@@ -30,7 +31,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'aiToolsData.json');
-const BACKUP_DIR = path.join(process.cwd(), '.data', 'ai-tools-backups');
+const BACKUP_DIR = writableDataPath('ai-tools-backups');
 
 const OPENAI_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions';
@@ -227,18 +228,19 @@ export async function POST() {
 	}));
 
 	try {
-		await fs.mkdir(BACKUP_DIR, { recursive: true });
+		await ensureWritableDir(BACKUP_DIR);
 		const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 		await fs.writeFile(path.join(BACKUP_DIR, `aiToolsData.${stamp}.json`), raw, 'utf8');
+	} catch (err) {
+		console.warn('[admin/ai-tools/refresh] backup skipped:', err instanceof Error ? err.message : err);
+	}
 
+	try {
 		const tmpFile = `${DATA_FILE}.tmp`;
 		await fs.writeFile(tmpFile, JSON.stringify(updatedCategories, null, '\t'), 'utf8');
 		await fs.rename(tmpFile, DATA_FILE);
 	} catch (err) {
-		return NextResponse.json(
-			{ error: err instanceof Error ? err.message : 'aiToolsData.json 저장에 실패했습니다.' },
-			{ status: 500 },
-		);
+		console.warn('[admin/ai-tools/refresh] catalog disk write skipped (read-only runtime):', err instanceof Error ? err.message : err);
 	}
 
 	try {

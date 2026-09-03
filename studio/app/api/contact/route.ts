@@ -1,8 +1,8 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
+import { ensureWritableDirSync, writableDataPath, writeJsonFileSync } from '@/lib/server/writable-data-dir';
 
 export const runtime = 'nodejs';
 
@@ -10,7 +10,7 @@ const INQUIRY_TYPES = new Set(['all', 'geo', 'seo', 'schema', 'audit', 'general'
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 function leadsFilePath() {
-	return path.join(process.cwd(), '.data', 'contact-leads.json');
+	return writableDataPath('contact-leads.json');
 }
 
 function readContactLeads(): Record<string, unknown>[] {
@@ -22,11 +22,10 @@ function readContactLeads(): Record<string, unknown>[] {
 }
 
 function appendContactLead(lead: Record<string, unknown>): void {
-	const dataDir = path.join(process.cwd(), '.data');
-	if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+	ensureWritableDirSync(writableDataPath());
 	const list = readContactLeads();
 	list.unshift(lead);
-	fs.writeFileSync(leadsFilePath(), JSON.stringify(list, null, 2), 'utf8');
+	writeJsonFileSync(leadsFilePath(), list);
 }
 
 export async function GET() {

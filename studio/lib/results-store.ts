@@ -1,19 +1,11 @@
 import fs from 'node:fs';
-import path from 'node:path';
 import type { ScanBundle } from './types';
+import { writeJsonFileSync, writableDataPath } from '@/lib/server/writable-data-dir';
 
-const DATA_DIR = path.join(process.cwd(), '.data');
-const RESULT_FILE = path.join(DATA_DIR, 'last-result.json');
-
-function ensureDataDir(): void {
-	if (!fs.existsSync(DATA_DIR)) {
-		fs.mkdirSync(DATA_DIR, { recursive: true });
-	}
-}
+const RESULT_FILE = writableDataPath('last-result.json');
 
 export function saveResultBundle(bundle: ScanBundle): void {
-	ensureDataDir();
-	fs.writeFileSync(RESULT_FILE, JSON.stringify(bundle, null, 2), 'utf8');
+	writeJsonFileSync(RESULT_FILE, bundle);
 }
 
 export function loadResultBundle(): ScanBundle | null {

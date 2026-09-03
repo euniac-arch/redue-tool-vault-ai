@@ -1,5 +1,5 @@
-import { mkdir, readFile, writeFile } from 'fs/promises';
-import path from 'path';
+import { readFile } from 'fs/promises';
+import { ensureWritableDir, writableDataPath, writeJsonFile } from '@/lib/server/writable-data-dir';
 
 export interface ReportEmailLead {
 	id: string;
@@ -19,8 +19,8 @@ export interface ReportEmailLead {
 	delivery: 'resend' | 'logged';
 }
 
-const DATA_DIR = path.join(process.cwd(), '.data');
-const LEADS_FILE = path.join(DATA_DIR, 'report-email-leads.json');
+const DATA_DIR = writableDataPath();
+const LEADS_FILE = writableDataPath('report-email-leads.json');
 
 async function readLeads(): Promise<ReportEmailLead[]> {
 	try {
@@ -33,10 +33,10 @@ async function readLeads(): Promise<ReportEmailLead[]> {
 }
 
 export async function appendReportEmailLead(lead: ReportEmailLead): Promise<void> {
-	await mkdir(DATA_DIR, { recursive: true });
+	await ensureWritableDir(DATA_DIR);
 	const existing = await readLeads();
 	existing.unshift(lead);
-	await writeFile(LEADS_FILE, JSON.stringify(existing.slice(0, 500), null, 2), 'utf8');
+	await writeJsonFile(LEADS_FILE, existing.slice(0, 500));
 }
 
 export function buildReportEmailHtml(args: {

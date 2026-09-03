@@ -49,8 +49,16 @@ async function uploadViaFirebaseAdmin(
 async function uploadLocally(buffer: Buffer, relativePosixPath: string): Promise<string> {
 	const segments = relativePosixPath.split('/').filter(Boolean);
 	const abs = join(process.cwd(), 'public', ...segments);
-	await mkdir(dirname(abs), { recursive: true });
-	await writeFile(abs, buffer);
+	try {
+		await mkdir(dirname(abs), { recursive: true });
+		await writeFile(abs, buffer);
+	} catch (error) {
+		throw new Error(
+			error instanceof Error
+				? `로컬 업로드 경로에 쓸 수 없습니다 (Vercel은 /tmp만 쓰기 가능): ${error.message}`
+				: '로컬 업로드에 실패했습니다.',
+		);
+	}
 	return `/${segments.join('/')}`;
 }
 

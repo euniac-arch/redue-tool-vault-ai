@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:path';
+import { ensureWritableDirSync, writableDataPath, writeJsonFileSync } from '@/lib/server/writable-data-dir';
 
 export interface ResellerClient {
 	id: string;
@@ -20,19 +20,16 @@ export interface ResellerProfile {
 	updatedAt: string;
 }
 
-const DATA_DIR = path.join(process.cwd(), '.data');
-const RESELLER_DIR = path.join(DATA_DIR, 'resellers');
+const RESELLER_DIR = writableDataPath('resellers');
 
 const DEFAULT_BRAND_COLOR = '#22d3ee';
 
 function ensureDir(): void {
-	if (!fs.existsSync(RESELLER_DIR)) {
-		fs.mkdirSync(RESELLER_DIR, { recursive: true });
-	}
+	ensureWritableDirSync(RESELLER_DIR);
 }
 
 function profilePath(userId: string): string {
-	return path.join(RESELLER_DIR, `${userId}.json`);
+	return writableDataPath('resellers', `${userId}.json`);
 }
 
 export function defaultResellerProfile(userId: string, partnerName = 'Agency Partner'): ResellerProfile {
@@ -78,12 +75,12 @@ export function loadResellerProfile(userId: string): ResellerProfile {
 export function saveResellerProfile(profile: ResellerProfile): void {
 	ensureDir();
 	profile.updatedAt = new Date().toISOString();
-	fs.writeFileSync(profilePath(profile.userId), JSON.stringify(profile, null, 2), 'utf8');
+	writeJsonFileSync(profilePath(profile.userId), profile);
 }
 
 export function appendEnterpriseLead(lead: Record<string, unknown>): void {
 	ensureDir();
-	const file = path.join(DATA_DIR, 'enterprise-leads.json');
+	const file = writableDataPath('enterprise-leads.json');
 	let list: Record<string, unknown>[] = [];
 	try {
 		list = JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>[];
@@ -91,5 +88,5 @@ export function appendEnterpriseLead(lead: Record<string, unknown>): void {
 		list = [];
 	}
 	list.unshift(lead);
-	fs.writeFileSync(file, JSON.stringify(list, null, 2), 'utf8');
+	writeJsonFileSync(file, list);
 }

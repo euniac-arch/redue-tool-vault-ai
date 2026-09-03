@@ -91,11 +91,15 @@ export async function getDailyAiRankingsPayload(options?: {
 	});
 
 	if (!reuseToday) {
-		await writeDailyRankingSnapshot({
-			date,
-			updatedAt,
-			tools: toDailySnapshotRows(tools),
-		});
+		try {
+			await writeDailyRankingSnapshot({
+				date,
+				updatedAt,
+				tools: toDailySnapshotRows(tools),
+			});
+		} catch (error) {
+			console.warn('[ai-rankings] snapshot persist skipped:', error instanceof Error ? error.message : error);
+		}
 	}
 
 	const categoryLabels = Object.fromEntries(AI_TOOL_CATEGORIES.map((category) => [category.id, category.label]));

@@ -2,6 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { join } from 'node:path';
 import { ASI_VISIBILITY_CONFIG } from '@/lib/ai-search-intelligence/visibility/config';
 import type { AsiHistoryKind, AsiHistoryRecord } from '@/lib/ai-search-intelligence/persist/kinds';
+import { writableDataPath } from '@/lib/server/writable-data-dir';
 
 const CAP: Record<AsiHistoryKind, number> = {
 	observation: 800,
@@ -19,7 +20,7 @@ export type AsiHistoryReadResult = {
 };
 
 export function asiHistoryRoot(): string {
-	return (process.env.ASI_HISTORY_DIR || '').trim() || join(process.cwd(), '.data', 'asi');
+	return (process.env.ASI_HISTORY_DIR || '').trim() || writableDataPath('asi');
 }
 
 function historyRoot(): string {

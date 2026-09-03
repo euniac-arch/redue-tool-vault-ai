@@ -43,11 +43,16 @@ export async function buildWpPluginZip(): Promise<BuiltPluginZip> {
 
 	const buffer = Buffer.from(await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }));
 
-	const outDir = path.join(process.cwd(), '.data', 'builds');
-	fs.mkdirSync(outDir, { recursive: true });
+	const { ensureWritableDirSync, writableDataPath } = await import('@/lib/server/writable-data-dir');
+	const outDir = writableDataPath('builds');
+	ensureWritableDirSync(outDir);
 	const fileName = `${WP_PLUGIN_SLUG}-1.0.0.zip`;
 	const absolutePath = path.join(outDir, fileName);
-	fs.writeFileSync(absolutePath, buffer);
+	try {
+		fs.writeFileSync(absolutePath, buffer);
+	} catch (error) {
+		console.warn('[wp-plugin-zip] disk write skipped:', error instanceof Error ? error.message : error);
+	}
 
 	return { fileName, absolutePath, buffer, bytes: buffer.byteLength };
 }

@@ -1,5 +1,5 @@
 import fs from 'node:fs';
-import path from 'node:path';
+import { ensureWritableDirSync, writableDataPath, writeJsonFileSync } from '@/lib/server/writable-data-dir';
 
 export type AgentSchemaType = 'SoftwareApplication' | 'Article' | 'LocalBusiness' | 'WebSite';
 
@@ -56,13 +56,11 @@ export interface AgentState {
 	adminAlerts: string[];
 }
 
-const DATA_DIR = path.join(process.cwd(), '.data');
-const STATE_FILE = path.join(DATA_DIR, 'agent-state.json');
+const DATA_DIR = writableDataPath();
+const STATE_FILE = writableDataPath('agent-state.json');
 
 function ensureDir(): void {
-	if (!fs.existsSync(DATA_DIR)) {
-		fs.mkdirSync(DATA_DIR, { recursive: true });
-	}
+	ensureWritableDirSync(DATA_DIR);
 }
 
 export function defaultAgentState(): AgentState {
@@ -136,7 +134,7 @@ export function loadAgentState(): AgentState {
 export function saveAgentState(state: AgentState): void {
 	ensureDir();
 	state.stats.sitesMonitored = state.sites.length;
-	fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2), 'utf8');
+	writeJsonFileSync(STATE_FILE, state);
 }
 
 export function appendAgentEvent(

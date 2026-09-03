@@ -3,9 +3,9 @@
  *
  * Live global AI-tool ranking for the KST calendar day. First request of the
  * day (or `?refresh=1` / `?sync=1`) rebuilds ranks from the on-disk catalog
- * plus yesterday's snapshot and stores today's snapshot (Firestore `ai_rankings_daily`
- * + `.data/ai-rankings/daily`). Subsequent hits reuse the in-process cache
- * until 00:00 KST.
+ * plus yesterday's snapshot and stores today's snapshot (in-memory, Firestore
+ * `ai_rankings_daily`, and best-effort `/tmp` — never cwd `.data` on Vercel).
+ * Subsequent hits reuse the in-process cache until 00:00 KST.
  *
  * Query:
  *   date=YYYY-MM-DD   optional historical day (KST)
