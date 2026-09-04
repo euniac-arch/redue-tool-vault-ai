@@ -37,8 +37,7 @@ import type { TargetDiagnoseResponse } from '@/lib/crawling/types';
 import { OPEN_GEO_ANSWER_CENTER_EVENT } from '@/lib/audit/exec-brief';
 import { ensureExecutiveSummary } from '@/lib/audit/executive-summary';
 import { fetchAuditById, peekCachedAudit, rememberAudit } from '@/lib/audit/report-client-cache';
-import { buildMilestoneClientShareUrl, buildPublicReportUrl, siteLabelFromUrl } from '@/lib/audit/report-url';
-import { resolveProjectSiteName } from '@/lib/audit/project-site-name';
+import { buildMilestoneClientShareUrl, buildPublicReportUrl } from '@/lib/audit/report-url';
 import { endPdfLightPrint } from '@/lib/audit/print-pdf';
 import { requestFullReportMount } from '@/lib/audit/scroll-to-category';
 import { useAuditReportEnrichment } from '@/lib/audit/use-audit-report-enrichment';
@@ -50,7 +49,6 @@ import {
 import { resolveTrack3PerformanceScore } from '@/lib/audit/pagespeed';
 import type { AuditReport } from '@/lib/site-auditor';
 import { AuditReportDocument } from '@/components/audit/AuditReportDocument';
-import { EmailPreviewModal } from '@/components/EmailPreviewModal';
 import { MilestoneAuditPanel } from '@/components/audit/milestone/MilestoneAuditPanel';
 import { RoundSnapshotSummaryCard } from '@/components/audit/milestone/RoundSnapshotSummaryCard';
 import { MilestoneUpsellCta } from '@/components/audit/milestone/MilestoneUpsellCta';
@@ -125,7 +123,6 @@ function AuditResultContent() {
 	const [error, setError] = useState<string | null>(null);
 	const [limitOpen, setLimitOpen] = useState(false);
 	const [deletedOrMissing, setDeletedOrMissing] = useState(false);
-	const [emailOpen, setEmailOpen] = useState(false);
 	const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
 	const [execBriefOpen, setExecBriefOpen] = useState(false);
 	const [resultSummaryOpen, setResultSummaryOpen] = useState(false);
@@ -541,8 +538,6 @@ function AuditResultContent() {
 		[resolvedId],
 	);
 
-	const handleOpenEmail = useCallback(() => setEmailOpen(true), []);
-	const handleCloseEmail = useCallback(() => setEmailOpen(false), []);
 	const handleOpenPdfPreview = useCallback(() => {
 		requestFullReportMount();
 		setPdfPreviewOpen(true);
@@ -631,26 +626,23 @@ function AuditResultContent() {
 	const showResultLoader = !isAnalyzing && !error && isResultPending && !resultData;
 
 	const loaderVariant = auditId && !isLiveAnalysis ? 'hydrate' : 'compose';
-	const emailSiteName = resultData
-		? resolveProjectSiteName(resultData) || siteLabelFromUrl(resultData.url)
-		: '';
 
 	return (
 		<main ref={contentShellRef} className="audit-report-page relative">
 			{/* Shared width shell: back links, loading terminal, and report share audit-report-scale */}
 			<div className="audit-report-scale flex flex-col gap-6">
 				<div className="print:hidden flex flex-wrap items-center gap-4">
-					<Link href="/audit/history" className="text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+					<Link href="/audit/history" className="text-sm font-medium text-slate-700 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
 						{t('backToHistory')}
 					</Link>
-					<Link href="/" className="text-sm text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+					<Link href="/" className="text-sm font-medium text-slate-600 hover:text-slate-800 dark:text-slate-500 dark:hover:text-slate-300">
 						{t('backToHome')}
 					</Link>
 					<button
 						type="button"
 						onClick={handlePreviewResultSummary}
 						disabled={!report}
-						className="rounded-lg border border-[#00F2FE]/40 bg-[#00F2FE]/10 px-3 py-1.5 text-xs font-extrabold text-[#00F2FE] transition hover:bg-[#00F2FE]/20 disabled:cursor-not-allowed disabled:opacity-50"
+						className="rounded-lg border border-cyan-600 bg-cyan-600 px-3 py-1.5 text-xs font-extrabold text-white shadow-sm transition hover:border-cyan-500 hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-50 dark:border-[#00F2FE]/40 dark:bg-[#00F2FE]/10 dark:text-[#00F2FE] dark:shadow-none dark:hover:bg-[#00F2FE]/20"
 					>
 						{t('resultSummary.preview')}
 					</button>
@@ -824,7 +816,6 @@ function AuditResultContent() {
 						shareUrl={shareUrl}
 						score={(displayReport ?? resultData).score}
 						statusLabel={(displayReport ?? resultData).statusLabel}
-						onOpenEmail={handleOpenEmail}
 						onOpenPdfPreview={handleOpenPdfPreview}
 						onOpenExecBrief={handleOpenExecBrief}
 					/>
@@ -846,14 +837,6 @@ function AuditResultContent() {
 							isGeoNarrativeLoaded={!geoNarrativeLoading}
 							shareUrl={shareUrl}
 							dataRevision={previewBindKey}
-						/>
-					) : null}
-					{emailOpen ? (
-						<EmailPreviewModal
-							isOpen={emailOpen}
-							onClose={handleCloseEmail}
-							siteName={emailSiteName}
-							targetUrl={resultData.url}
 						/>
 					) : null}
 				</>

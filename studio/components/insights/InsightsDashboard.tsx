@@ -803,7 +803,7 @@ export function InsightsDashboard() {
 						searchMode === 'feed' ? 'opacity-100' : 'pointer-events-none h-0 overflow-hidden border-0 opacity-0'
 					}`}
 				>
-					<div className="inline-flex shrink-0 items-center gap-1.5 pr-1 text-xs font-bold text-amber-400">
+					<div className="inline-flex shrink-0 items-center gap-1.5 pr-1 text-xs font-bold text-amber-500 dark:text-amber-400">
 						<span className="text-sm" aria-hidden>
 							🔥
 						</span>
@@ -814,7 +814,7 @@ export function InsightsDashboard() {
 							aria-label="추천 키워드 새로고침"
 							onClick={handleShuffleTopics}
 							disabled={isShuffling}
-							className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-800/60 hover:text-cyan-400 disabled:cursor-not-allowed"
+							className="rounded-md p-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-cyan-600 disabled:cursor-not-allowed dark:hover:bg-slate-800/60 dark:hover:text-cyan-400"
 						>
 							<RotateCw className={`h-3.5 w-3.5 ${isShuffling ? 'animate-spin' : ''}`} aria-hidden />
 						</button>
@@ -835,8 +835,8 @@ export function InsightsDashboard() {
 									onClick={() => handleTopicSelect(topic)}
 									className={`cursor-pointer rounded-lg border px-2.5 py-1 text-xs transition-all duration-300 ${
 										isSelected
-											? 'border-cyan-500/50 bg-cyan-500/15 font-medium text-cyan-300 shadow-[0_0_8px_rgba(6,182,212,0.2)]'
-											: 'border-cyan-950/80 bg-[#0c1829] text-slate-400 hover:border-cyan-700/50 hover:bg-[#13233a] hover:text-cyan-300'
+											? 'border-cyan-300 bg-cyan-50 font-medium text-cyan-700 shadow-none dark:border-cyan-500/50 dark:bg-cyan-500/15 dark:text-cyan-300 dark:shadow-[0_0_8px_rgba(6,182,212,0.2)]'
+											: 'border-slate-200 bg-slate-50 text-slate-600 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 dark:border-cyan-950/80 dark:bg-[#0c1829] dark:text-slate-400 dark:hover:border-cyan-700/50 dark:hover:bg-[#13233a] dark:hover:text-cyan-300'
 									}`}
 								>
 									{topic}
@@ -1010,11 +1010,7 @@ function InsightsPageSizeToggle({
 						type="button"
 						aria-pressed={active}
 						onClick={() => onPageSizeChange(size)}
-						className={
-							active
-								? 'inline-flex h-8 min-w-11 items-center justify-center rounded-xl border border-cyan-500 bg-cyan-500 px-3 text-[11px] font-bold text-slate-950 shadow-sm shadow-cyan-500/30'
-								: insightsFilterClass(false, 'h-8 min-w-11 rounded-xl px-3 text-[11px]')
-						}
+						className={insightsFilterClass(active, 'h-8 min-w-11 rounded-xl px-3 text-[11px]')}
 					>
 						{size}개
 					</button>

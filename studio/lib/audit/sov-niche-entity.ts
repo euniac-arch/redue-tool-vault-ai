@@ -127,7 +127,9 @@ export function isGenericNonNicheCompetitor(name: string, tokens: readonly strin
 	if (GENERIC_CHAIN.test(listing)) return true;
 	if (/일반 검색 분산|미확인 노출|Generic search noise|Unverified/i.test(listing)) return false;
 	if (/인근 동종|반경 3km|Nearby .+ within 3km|area /i.test(listing)) return true;
-	return /의원|병원|클리닉|법률사무소|법무법인|학원|식당|카페|샵|salon|clinic|hospital|law/i.test(listing);
+	return /의원|병원|클리닉|피부과|성형외과|치과|한의원|정형외과|법률사무소|법무법인|학원|식당|카페|펜션|호텔|샵|salon|clinic|hospital|law|pension|hotel/i.test(
+		listing,
+	);
 }
 
 export function filterGenericNonNicheNames(names: readonly string[], tokens: readonly string[]): string[] {

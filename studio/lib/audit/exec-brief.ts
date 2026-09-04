@@ -11,13 +11,14 @@ import { siteLabelFromUrl } from '@/lib/audit/report-url';
 import { resolveProjectSiteName } from '@/lib/audit/project-site-name';
 import { resolveIsHttps } from '@/lib/audit/scoreCalculator';
 import { buildGeoDiagnosticReportFromAudit } from '@/lib/geo/from-visibility';
+import { generateTop3ActionPoints, type ActionPointRecord } from '@/lib/audit/exec-brief-action-points';
 import { withJosa } from '@/lib/korean-josa';
 import {
 	resolveIndustryConfig,
 	type IndustryConfig,
-	type IndustryType as RegistryIndustryType,
+	type IndustryType,
 } from '@/lib/registry/universalIndustryRegistry';
-import type { AuditFinding, AuditLang, AuditReport } from '@/lib/site-auditor';
+import type { AuditLang, AuditReport } from '@/lib/site-auditor';
 import {
 	summarizeGeoDiagnostic,
 	type AIEngineStatusBadge,
@@ -45,6 +46,15 @@ export function openGeoAnswerCenter(module?: GeoAnswerCenterModuleId): void {
 export type ExecBriefStatusTone = 'brandOnly' | 'categoryGap' | 'nearOptimal' | 'optimal';
 export type ExecBriefIndexedKind = 'mentionOnly' | 'cited' | 'recommended';
 export type ExecBriefPTag = 'p0Priority' | 'p0Urgent' | 'p1' | 'p2';
+export type ExecBriefPriority = 'P1' | 'P2' | 'P3';
+
+export {
+	generateTop3ActionPoints,
+	getTop3ActionPoints,
+	type ActionPoint,
+	type ActionPointAnalyzerInput,
+	type ActionPointRecord,
+} from '@/lib/audit/exec-brief-action-points';
 
 export type ExecBriefImprovementId =
 	| 'schema'
@@ -65,6 +75,10 @@ export interface ExecBriefImprovement {
 	detail: string;
 	statusLine: string;
 	causeLine: string;
+	actionLine: string;
+	targetEngines: string;
+	priority: ExecBriefPriority;
+	priorityLabel: string;
 	pTag: ExecBriefPTag;
 	severity: 'critical' | 'warning' | 'info';
 }
@@ -84,6 +98,14 @@ export interface ExecBriefRoiEffect {
 	text: string;
 	lead?: string;
 	highlight?: string;
+}
+
+/** Shown under ROI when on-page tech is already 100 but the AI index is not. */
+export interface ExecBriefPerfectGuide {
+	remainingPct: number;
+	enginesLabel: string;
+	queryPhrase: string;
+	peerNoun: string;
 }
 
 export interface ExecBriefModel {
@@ -118,25 +140,13 @@ export interface ExecBriefModel {
 	location: string;
 	primaryService: string;
 	estimatedLeads: number;
+	queryPhrase: string;
+	/** Null unless on-page tech is 100 and the AI index still has a gap. */
+	perfectGuide: ExecBriefPerfectGuide | null;
 }
 
 /** Conservative Level-3 foundation after SSL + JSON-LD + /llms.txt. */
 export const AI_INDEX_LEVEL3_FOUNDATION = 77;
-
-const SCHEMA_CHECKS = new Set([
-	'jsonld-present',
-	'jsonld_parse',
-	'faq-howto-schema',
-	'faq_howto_schema',
-	'organization',
-	'local_business_props',
-	'website-schema',
-	'core_schema',
-]);
-const FAQ_CHECKS = new Set(['faq-howto-schema', 'faq_howto_schema']);
-const BOT_CHECKS = new Set(['ai-bots-allowed', 'ai_bots_robots']);
-const EEAT_CHECKS = new Set(['person-eeat', 'eeat-author', 'person_profile', 'eeat_knowledge_graph']);
-const GEO_CATEGORY_IDS = new Set(['geo', 'schema', 'geo_ai_signals', 'schema_data']);
 
 const EXEC_BRIEF_ENGINE_NAME: Record<string, string> = {
 	chatgpt: 'ChatGPT',
@@ -146,6 +156,90 @@ const EXEC_BRIEF_ENGINE_NAME: Record<string, string> = {
 	copilot: 'Microsoft Copilot',
 	clova: 'Naver Cue',
 };
+
+const PERFECT_GUIDE_ENGINE_SHORT: Record<string, string> = {
+	chatgpt: 'ChatGPT',
+	gemini: 'Gemini',
+	claude: 'Claude',
+	perplexity: 'Perplexity',
+	copilot: 'Copilot',
+	clova: 'Naver Cue',
+};
+
+const PERFECT_GUIDE_PREFERRED_ENGINES = ['chatgpt', 'copilot'] as const;
+
+const PERFECT_GUIDE_PEER: Record<IndustryType, { ko: string; en: string }> = {
+	medical: { ko: '병원', en: 'clinic' },
+	veterinary: { ko: '동물병원', en: 'animal hospital' },
+	legal: { ko: '사무소', en: 'firm' },
+	accounting: { ko: '사무소', en: 'firm' },
+	beauty: { ko: '샵', en: 'salon' },
+	interior: { ko: '업체', en: 'contractor' },
+	fitness: { ko: '스튜디오', en: 'studio' },
+	education: { ko: '기관', en: 'school' },
+	realestate: { ko: '중개소', en: 'agency' },
+	restaurant: { ko: '식당', en: 'restaurant' },
+	professional: { ko: '업체', en: 'provider' },
+	general: { ko: '업체', en: 'business' },
+};
+
+export function shouldShowPerfectAiGuide(seoScore: number, currentScore: number): boolean {
+	return Math.round(seoScore) >= 100 && Math.round(currentScore) < 100;
+}
+
+export function peerNounForPerfectGuide(type: IndustryType, lang: AuditLang): string {
+	const row = PERFECT_GUIDE_PEER[type] ?? PERFECT_GUIDE_PEER.general;
+	return lang === 'en' ? row.en : row.ko;
+}
+
+function shortPerfectGuideEngineName(id: string, fallback: string): string {
+	return PERFECT_GUIDE_ENGINE_SHORT[id] || fallback.replace(/^Microsoft\s+/i, '');
+}
+
+export function formatPerfectGuideEngines(
+	engines: Array<{ id: string; name: string; score: number }>,
+	lang: AuditLang = 'ko',
+): string {
+	const valid = engines.filter((row) => row.id && Number.isFinite(row.score));
+	const byId = new Map(valid.map((row) => [row.id, row]));
+	const picked: Array<{ id: string; name: string; score: number }> = [];
+	for (const id of PERFECT_GUIDE_PREFERRED_ENGINES) {
+		const row = byId.get(id);
+		if (row) picked.push(row);
+	}
+	if (picked.length < 2) {
+		const rest = valid
+			.filter((row) => !picked.some((item) => item.id === row.id))
+			.sort((a, b) => a.score - b.score);
+		for (const row of rest) {
+			if (picked.length >= 2) break;
+			picked.push(row);
+		}
+	}
+	if (picked.length === 0) {
+		return lang === 'en' ? 'external AI platforms' : '외부 AI 플랫폼';
+	}
+	return picked
+		.map((row) => `${shortPerfectGuideEngineName(row.id, row.name)}(${Math.round(row.score)}%)`)
+		.join('·');
+}
+
+export function buildPerfectGuide(opts: {
+	seoScore: number;
+	currentScore: number;
+	engines: Array<{ id: string; name: string; score: number }>;
+	queryPhrase: string;
+	industryType: IndustryType;
+	lang: AuditLang;
+}): ExecBriefPerfectGuide | null {
+	if (!shouldShowPerfectAiGuide(opts.seoScore, opts.currentScore)) return null;
+	return {
+		remainingPct: Math.max(0, 100 - Math.round(opts.currentScore)),
+		enginesLabel: formatPerfectGuideEngines(opts.engines, opts.lang),
+		queryPhrase: opts.queryPhrase,
+		peerNoun: peerNounForPerfectGuide(opts.industryType, opts.lang),
+	};
+}
 
 export function resolveAuditSiteName(report: AuditReport): string {
 	return resolveProjectSiteName(report) || siteLabelFromUrl(report.url);
@@ -195,39 +289,6 @@ export function formatExecBriefPts(n: number): string {
 	if (!Number.isFinite(n)) return '0';
 	const rounded = Math.round(n * 10) / 10;
 	return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-}
-
-function themeForFinding(finding: AuditFinding, categoryId?: string): ExecBriefImprovementId {
-	const checkId = finding.checkId ?? '';
-	if (checkId === 'https' || checkId === 'ssl_https') return 'ssl';
-	if (checkId === 'llms-txt' || checkId === 'llms_txt') return 'llms';
-	if (FAQ_CHECKS.has(checkId)) return 'faq';
-	if (BOT_CHECKS.has(checkId)) return 'bots';
-	if (EEAT_CHECKS.has(checkId)) return 'eeat';
-	if (SCHEMA_CHECKS.has(checkId) || categoryId === 'schema' || categoryId === 'schema_data') return 'schema';
-	if (categoryId && GEO_CATEGORY_IDS.has(categoryId)) return 'geo';
-	if (checkId) return 'onpage';
-	return 'generic';
-}
-
-function pTagForTheme(theme: ExecBriefImprovementId, severity: ExecBriefImprovement['severity']): ExecBriefPTag {
-	if (theme === 'schema' || theme === 'eeat') return 'p0Priority';
-	if (theme === 'ssl' || theme === 'llms') return 'p0Urgent';
-	if (severity === 'critical') return 'p1';
-	return 'p2';
-}
-
-function isMedicalVertical(type: RegistryIndustryType): boolean {
-	return type === 'medical' || type === 'veterinary';
-}
-
-function hoursNoun(type: RegistryIndustryType, lang: AuditLang): string {
-	if (lang === 'en') return isMedicalVertical(type) ? 'clinic hours' : 'opening hours';
-	return isMedicalVertical(type) ? '진료시간' : '영업시간';
-}
-
-function eeatGapNoun(lang: AuditLang): string {
-	return lang === 'en' ? 'entity E-E-A-T' : 'E-E-A-T 엔티티';
 }
 
 function brandSearchNoun(lang: AuditLang): { brand: string; direct: string } {
@@ -285,26 +346,6 @@ export function resolveExecBriefBindings(opts: {
 	return { brandName, location, primaryService, estimatedLeads, queryPhrase };
 }
 
-function schemaMissingParts(
-	platform: EnginePlatformSignals,
-	industry: IndustryConfig,
-	lang: AuditLang,
-): string[] {
-	const parts: string[] = [];
-	const schemaType = industry.schemaType;
-	const hasCore =
-		platform.hasLocalBusiness ||
-		platform.hasOrganization ||
-		(isMedicalVertical(industry.type) && platform.hasLocalBusiness);
-	if (!hasCore) parts.push(lang === 'en' ? `${schemaType} schema` : `${schemaType} 스키마`);
-	if (!platform.hasPerson) {
-		parts.push(lang === 'en' ? `${industry.personJobTitle} profile` : `${industry.personJobTitle} 프로필`);
-	}
-	if (!platform.hasOpeningHours) parts.push(hoursNoun(industry.type, lang));
-	if (!platform.hasGeoCoordinates) parts.push(lang === 'en' ? 'Geo coordinates' : 'Geo 좌표');
-	return parts;
-}
-
 function buildStatusHeadline(opts: {
 	tone: ExecBriefStatusTone;
 	query: string;
@@ -344,87 +385,6 @@ function buildJudgmentText(opts: {
 		return `${brandName} is only limitedly visible at Level 1 when searched directly. On expanded location- and service-based queries, traffic is dispersed to third-party blogs and other information sources.`;
 	}
 	return `${withJosa(brandName, '을/를')} 직접 검색했을 때만 제한적으로 확인되는 Level 1 단계로, 지역 및 서비스 기반의 확장 질의 시 3자 블로그 및 타 정보 출처로 유입이 분산되고 있습니다.`;
-}
-
-function buildSchemaImprovement(
-	rawScore: number,
-	maxScore: number,
-	platform: EnginePlatformSignals,
-	industry: IndustryConfig,
-	lang: AuditLang,
-): ExecBriefImprovement {
-	const ratioPct = maxScore > 0 ? Math.round((Math.max(0, rawScore) / maxScore) * 100) : 0;
-	const pts = `${formatExecBriefPts(rawScore)}/${formatExecBriefPts(maxScore)}`;
-	const missing = schemaMissingParts(platform, industry, lang);
-	const eeat = eeatGapNoun(lang);
-	const title =
-		lang === 'en'
-			? `Structured data & ${eeat} missing`
-			: `스키마 구조화 데이터 & ${eeat} 부재`;
-	const statusLine =
-		lang === 'en'
-			? `${pts} of max (${ratioPct}% of the schema category)`
-			: `만점 대비 ${pts}점 (${ratioPct}% 수준)`;
-	const causeLine =
-		missing.length > 0
-			? lang === 'en'
-				? `Missing ${missing.join(', ')}, so AI crawlers cannot readily verify official service facts and entity trust.`
-				: `${missing.join(', ')} 누락으로 AI 크롤러가 공식 서비스 정보와 엔티티 신뢰도를 검증하기 어려움.`
-			: lang === 'en'
-				? 'Core schema fields are too thin for AI crawlers to verify official service facts and entity trust.'
-				: '핵심 스키마 속성이 빈약해 AI 크롤러가 공식 서비스 정보와 엔티티 신뢰도를 검증하기 어려움.';
-	return {
-		id: 'schema-eeat',
-		theme: 'schema',
-		title,
-		detail: `${statusLine} ${causeLine}`,
-		statusLine,
-		causeLine,
-		pTag: 'p0Priority',
-		severity: ratioPct < 50 ? 'critical' : 'warning',
-	};
-}
-
-function buildLlmsImprovement(lang: AuditLang): ExecBriefImprovement {
-	const title = lang === 'en' ? '/llms.txt (AI-only index) missing' : '/llms.txt (AI 전용 인덱스) 부재';
-	const statusLine =
-		lang === 'en' ? 'AI-search index file is not published' : 'AI 검색 전용 인덱스 파일 미배포';
-	const causeLine =
-		lang === 'en'
-			? 'Major AI crawlers have no standard index path to immediately summarize and parse core services and official facts.'
-			: '주요 AI 크롤러가 핵심 서비스와 공식 팩트를 즉시 요약·파싱할 수 있는 표준 인덱스 통로가 없음.';
-	return {
-		id: 'llms-txt',
-		theme: 'llms',
-		title,
-		detail: `${statusLine} ${causeLine}`,
-		statusLine,
-		causeLine,
-		pTag: 'p0Urgent',
-		severity: 'critical',
-	};
-}
-
-function buildSslImprovement(lang: AuditLang): ExecBriefImprovement {
-	const title =
-		lang === 'en'
-			? 'Insecure HTTP → switch to HTTPS (SSL certificate) now'
-			: '비보안 프로토콜(http) ➔ HTTPS 보안 프로토콜 (SSL 인증서) 즉시 전환';
-	const statusLine = lang === 'en' ? 'protocol=http (SSL not applied)' : 'protocol=http (SSL 미적용)';
-	const causeLine =
-		lang === 'en'
-			? 'Insecure origins are penalized in major AI trust scoring, and browser warnings reduce connection stability and limit AI citation trust.'
-			: '비보안 사이트는 주요 AI 엔진의 신뢰도 평가에서 감점되며, 브라우저 접속 경고로 접속 안정성 저하 및 AI 인용 신뢰도 제한을 초래함.';
-	return {
-		id: 'ssl-https',
-		theme: 'ssl',
-		title,
-		detail: `${statusLine} ${causeLine}`,
-		statusLine,
-		causeLine,
-		pTag: 'p0Urgent',
-		severity: 'critical',
-	};
 }
 
 function roiEffect(id: ExecBriefRoiEffect['id'], lead: string, highlight: string): ExecBriefRoiEffect {
@@ -477,6 +437,29 @@ function buildRoiEffects(opts: {
 	];
 }
 
+function pTagForPriority(priority: ActionPointRecord['priority']): ExecBriefPTag {
+	if (priority === 'P1') return 'p0Priority';
+	if (priority === 'P2') return 'p1';
+	return 'p2';
+}
+
+function actionPointToImprovement(point: ActionPointRecord): ExecBriefImprovement {
+	return {
+		id: point.id,
+		theme: point.theme,
+		title: point.title,
+		detail: `${point.cause} ${point.action}`.trim(),
+		statusLine: point.targetEngines,
+		causeLine: point.cause,
+		actionLine: point.action,
+		targetEngines: point.targetEngines,
+		priority: point.priority,
+		priorityLabel: point.priorityLabel,
+		pTag: pTagForPriority(point.priority),
+		severity: point.priority === 'P1' ? 'critical' : point.priority === 'P2' ? 'warning' : 'info',
+	};
+}
+
 function buildImprovements(
 	report: AuditReport,
 	engines: readonly AIEngineTestResult[],
@@ -488,66 +471,23 @@ function buildImprovements(
 		industry: IndustryConfig;
 		hasLlms: boolean;
 		isHttps: boolean;
+		seoScore: number;
 	},
 ): ExecBriefImprovement[] {
-	const items: ExecBriefImprovement[] = [];
-	const seen = new Set<string>();
-	const push = (item: ExecBriefImprovement) => {
-		const key = item.id || item.title;
-		if (seen.has(key) || items.length >= 3) return;
-		seen.add(key);
-		items.push(item);
-	};
-
-	const schemaRatio = opts.schemaMax > 0 ? opts.schemaRaw / opts.schemaMax : 1;
-	if (schemaRatio < 0.7) {
-		push(buildSchemaImprovement(opts.schemaRaw, opts.schemaMax, opts.platform, opts.industry, opts.lang));
-	}
-	if (!opts.hasLlms) push(buildLlmsImprovement(opts.lang));
-	if (!opts.isHttps) push(buildSslImprovement(opts.lang));
-
-	const findings = [...(report.findings ?? [])].sort((a, b) => {
-		if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1;
-		return 0;
-	});
-
-	for (const finding of findings) {
-		const categoryId = report.categories.find((cat) =>
-			cat.checks?.some((check) => check.id === finding.checkId),
-		)?.id;
-		const theme = themeForFinding(finding, categoryId);
-		if (theme === 'schema' || theme === 'eeat' || theme === 'llms' || theme === 'ssl') continue;
-		push({
-			id: finding.checkId || finding.title,
-			theme,
-			title: finding.title,
-			detail: finding.detail,
-			statusLine: finding.title,
-			causeLine: finding.detail,
-			pTag: pTagForTheme(theme, finding.severity),
-			severity: finding.severity,
-		});
-	}
-
-	const weakestEngine = [...engines].sort((a, b) => a.score - b.score)[0];
-	if (weakestEngine?.improvementTip && weakestEngine.statusBadge !== 'optimal') {
-		const engineLabel =
-			opts.lang === 'en'
-				? `${weakestEngine.engine.name} citation gap`
-				: `${weakestEngine.engine.name} 인용 공백`;
-		push({
-			id: `engine-${weakestEngine.engine.id}`,
-			theme: 'engine',
-			title: engineLabel,
-			detail: weakestEngine.improvementTip,
-			statusLine: engineLabel,
-			causeLine: weakestEngine.improvementTip,
-			pTag: weakestEngine.statusBadge === 'not_indexed' ? 'p1' : 'p2',
-			severity: weakestEngine.statusBadge === 'not_indexed' ? 'critical' : 'warning',
-		});
-	}
-
-	return items.slice(0, 3);
+	return generateTop3ActionPoints({
+		report,
+		engines,
+		platform: opts.platform,
+		industry: opts.industry,
+		lang: opts.lang,
+		schemaRaw: opts.schemaRaw,
+		schemaMax: opts.schemaMax,
+		hasLlms: opts.hasLlms,
+		isHttps: opts.isHttps,
+		seoScore: opts.seoScore,
+		siteName: resolveAuditSiteName(report),
+		category: opts.industry.defaultCategory || report.siteMeta?.category || report.siteMeta?.primaryKeyword,
+	}).map(actionPointToImprovement);
 }
 
 export function buildExecBriefModel(
@@ -609,6 +549,15 @@ export function buildExecBriefModel(
 	const alreadyInRange = currentScore >= AI_RECOMMEND_THRESHOLD;
 	const reachesAGrade = projectedScore >= AI_RECOMMEND_THRESHOLD;
 	const conversionLift = estimateConversionLiftPct(gain);
+	const engines = geoReport.engines.map((engine) => ({
+		id: engine.engine.id,
+		name: EXEC_BRIEF_ENGINE_NAME[engine.engine.id] || engine.engine.name,
+		score: engine.score,
+		statusBadge: engine.statusBadge,
+		depthLevel: engine.depthLevel,
+		levelLabel: engine.depthLevel ? `Level ${engine.depthLevel}` : lang === 'en' ? 'Not cited' : '미인용',
+		reason: engineLevelReason(engine.engine.id, engine.depthLevel, engine.score, lang),
+	}));
 
 	return {
 		siteName: bindings.brandName,
@@ -631,15 +580,7 @@ export function buildExecBriefModel(
 			lang,
 			fallback: live.executiveSummary?.riskAssessment.text ?? '',
 		}),
-		engines: geoReport.engines.map((engine) => ({
-			id: engine.engine.id,
-			name: EXEC_BRIEF_ENGINE_NAME[engine.engine.id] || engine.engine.name,
-			score: engine.score,
-			statusBadge: engine.statusBadge,
-			depthLevel: engine.depthLevel,
-			levelLabel: engine.depthLevel ? `Level ${engine.depthLevel}` : lang === 'en' ? 'Not cited' : '미인용',
-			reason: engineLevelReason(engine.engine.id, engine.depthLevel, engine.score, lang),
-		})),
+		engines,
 		improvements: buildImprovements(live, geoReport.engines, {
 			lang,
 			schemaRaw,
@@ -648,6 +589,7 @@ export function buildExecBriefModel(
 			industry,
 			hasLlms,
 			isHttps,
+			seoScore,
 		}),
 		currentScore,
 		projectedScore,
@@ -667,6 +609,15 @@ export function buildExecBriefModel(
 		location: bindings.location,
 		primaryService: bindings.primaryService,
 		estimatedLeads: bindings.estimatedLeads,
+		queryPhrase: bindings.queryPhrase,
+		perfectGuide: buildPerfectGuide({
+			seoScore,
+			currentScore,
+			engines,
+			queryPhrase: bindings.queryPhrase,
+			industryType: industry.type,
+			lang,
+		}),
 	};
 }
 

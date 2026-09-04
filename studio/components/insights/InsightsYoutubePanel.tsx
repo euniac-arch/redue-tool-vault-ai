@@ -240,11 +240,7 @@ export function InsightsYoutubePanel({
 									type="button"
 									aria-pressed={active}
 									onClick={() => onPageSizeChange(size)}
-									className={
-										active
-											? 'inline-flex h-8 min-w-11 items-center justify-center rounded-xl border border-cyan-500 bg-cyan-500 px-3 text-[11px] font-bold text-slate-950 shadow-sm shadow-cyan-500/30'
-											: insightsFilterClass(false, 'h-8 min-w-11 rounded-xl px-3 text-[11px]')
-									}
+									className={insightsFilterClass(active, 'h-8 min-w-11 rounded-xl px-3 text-[11px]')}
 								>
 									{size}개
 								</button>

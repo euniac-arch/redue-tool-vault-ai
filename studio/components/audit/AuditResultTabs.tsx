@@ -53,13 +53,13 @@ const TRACK_WEIGHT_PCT: Record<1 | 2 | 3, number> = {
 
 /**
  * Active-tab theme per track — border / glow / tint / badge all switch to the
- * track's own accent color (Track 1 cyan, Track 2 purple, Track 3 emerald)
- * with a high-contrast neon glow (outer shadow + inset tint).
+ * track's own accent color (Track 1 cyan, Track 2 purple, Track 3 emerald).
+ * Light mode uses a soft fill; dark mode keeps the neon glow.
  */
 const TRACK_ACTIVE_SUBTITLE: Record<1 | 2 | 3, string> = {
-	1: 'text-cyan-400 font-bold',
-	2: 'text-purple-300 font-bold',
-	3: 'text-emerald-400 font-bold',
+	1: 'text-cyan-600 font-bold dark:text-cyan-400',
+	2: 'text-purple-600 font-bold dark:text-purple-300',
+	3: 'text-emerald-600 font-bold dark:text-emerald-400',
 };
 
 const TRACK_ACTIVE_THEME: Record<
@@ -67,28 +67,28 @@ const TRACK_ACTIVE_THEME: Record<
 	{ border: string; glow: string; bg: string; badge: string }
 > = {
 	1: {
-		border: 'border-cyan-400',
-		glow: 'shadow-[0_0_30px_rgba(6,182,212,0.4),inset_0_0_15px_rgba(6,182,212,0.15)]',
-		bg: 'bg-gradient-to-b from-cyan-950/40 via-slate-900/90 to-slate-950',
-		badge: 'bg-cyan-400 text-slate-950 font-bold shadow-[0_0_10px_rgba(6,182,212,0.5)]',
+		border: 'border-cyan-300 dark:border-cyan-400',
+		glow: 'shadow-sm shadow-cyan-200/60 dark:shadow-[0_0_30px_rgba(6,182,212,0.4),inset_0_0_15px_rgba(6,182,212,0.15)]',
+		bg: 'bg-gradient-to-b from-cyan-50 to-white dark:from-cyan-950/40 dark:via-slate-900/90 dark:to-slate-950',
+		badge: 'bg-cyan-500 text-white font-bold shadow-sm shadow-cyan-200/70 dark:bg-cyan-400 dark:text-slate-950 dark:shadow-[0_0_10px_rgba(6,182,212,0.5)]',
 	},
 	2: {
-		border: 'border-purple-400',
-		glow: 'shadow-[0_0_30px_rgba(168,85,247,0.4),inset_0_0_15px_rgba(168,85,247,0.15)]',
-		bg: 'bg-gradient-to-b from-purple-950/40 via-slate-900/90 to-slate-950',
-		badge: 'bg-purple-400 text-slate-950 font-bold shadow-[0_0_10px_rgba(168,85,247,0.5)]',
+		border: 'border-purple-300 dark:border-purple-400',
+		glow: 'shadow-sm shadow-purple-200/60 dark:shadow-[0_0_30px_rgba(168,85,247,0.4),inset_0_0_15px_rgba(168,85,247,0.15)]',
+		bg: 'bg-gradient-to-b from-purple-50 to-white dark:from-purple-950/40 dark:via-slate-900/90 dark:to-slate-950',
+		badge: 'bg-purple-500 text-white font-bold shadow-sm shadow-purple-200/70 dark:bg-purple-400 dark:text-slate-950 dark:shadow-[0_0_10px_rgba(168,85,247,0.5)]',
 	},
 	3: {
-		border: 'border-emerald-400',
-		glow: 'shadow-[0_0_30px_rgba(16,185,129,0.4),inset_0_0_15px_rgba(16,185,129,0.15)]',
-		bg: 'bg-gradient-to-b from-emerald-950/40 via-slate-900/90 to-slate-950',
-		badge: 'bg-emerald-400 text-slate-950 font-bold shadow-[0_0_10px_rgba(16,185,129,0.5)]',
+		border: 'border-emerald-300 dark:border-emerald-400',
+		glow: 'shadow-sm shadow-emerald-200/60 dark:shadow-[0_0_30px_rgba(16,185,129,0.4),inset_0_0_15px_rgba(16,185,129,0.15)]',
+		bg: 'bg-gradient-to-b from-emerald-50 to-white dark:from-emerald-950/40 dark:via-slate-900/90 dark:to-slate-950',
+		badge: 'bg-emerald-500 text-white font-bold shadow-sm shadow-emerald-200/70 dark:bg-emerald-400 dark:text-slate-950 dark:shadow-[0_0_10px_rgba(16,185,129,0.5)]',
 	},
 };
 
 /** Common inactive-tab style shared by all three tracks. */
 const INACTIVE_TAB_CLASS =
-	'border-slate-800/80 bg-slate-900/40 text-slate-400 shadow-none hover:border-slate-700 hover:bg-slate-900/70 hover:text-slate-200';
+	'border-slate-200 bg-white text-slate-500 shadow-none hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-900/70 dark:hover:text-slate-200';
 
 /** Tab navigation header — floating widget scrolls here on tab switch. */
 export const AUDIT_TAB_ANCHOR_ID = 'audit-tab-anchor';
@@ -306,7 +306,9 @@ export function AuditResultTabs({
 							<span className="flex flex-col items-center justify-center text-center gap-0.5">
 								<span
 									className={`text-sm font-semibold sm:text-base ${
-										isActive ? 'text-slate-100' : 'text-slate-300 group-hover:text-slate-100'
+										isActive
+											? 'text-slate-900 dark:text-slate-100'
+											: 'text-slate-600 group-hover:text-slate-900 dark:text-slate-300 dark:group-hover:text-slate-100'
 									}`}
 								>
 									{item.label}
@@ -315,7 +317,7 @@ export function AuditResultTabs({
 									className={`text-[11px] font-mono font-medium uppercase tracking-wider sm:text-xs ${
 										isActive
 											? TRACK_ACTIVE_SUBTITLE[item.track]
-											: 'text-slate-400 group-hover:text-slate-300'
+											: 'text-slate-400 group-hover:text-slate-500 dark:group-hover:text-slate-300'
 									}`}
 								>
 									{item.subTitle}

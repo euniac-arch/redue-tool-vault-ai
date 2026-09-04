@@ -1,96 +1,66 @@
 'use client';
 
 import Link from 'next/link';
-import { memo, useEffect, useState } from 'react';
-import { useSession } from 'next-auth/react';
+import { memo, useCallback, useEffect, useState, type MouseEvent, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
+import { BookOpen, FileDown, MessageCircle, Sparkles, Zap, type LucideIcon } from 'lucide-react';
 import { AuthModal } from '@/components/AuthModal';
+import { GeoAeoWorkGuideModal } from '@/components/audit/GeoAeoWorkGuideModal';
+import { FLOATING_LOCKED_CLASS, MemberLockBadge } from '@/components/audit/MemberLockBadge';
 import { ReportShareLinkButton } from '@/components/audit/ReportShareLinkButton';
+import { useAuditMemberGate } from '@/lib/audit/use-audit-member-gate';
 import { shareToKakao } from '@/lib/kakao-share';
 
 interface AuditShareBarProps {
 	shareUrl: string;
 	score: number;
 	statusLabel: string;
-	onOpenEmail: () => void;
 	onOpenPdfPreview: () => void;
 	onOpenExecBrief: () => void;
 }
 
 const COMPACT_BAR_MQ = '(max-width: 1599px)';
+const ACTION_BTN =
+	'group relative flex min-h-[2.75rem] w-auto items-center gap-2 overflow-visible rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5';
 
 function ActionButton({
 	onClick,
 	className,
-	icon,
+	icon: Icon,
 	label,
 	shortLabel,
 	title,
-	nowrap = false,
-	wrap = false,
 	locked = false,
-	lockedBadgeLabel,
+	badge,
 }: {
-	onClick: () => void;
+	onClick: (event: MouseEvent<HTMLButtonElement>) => void;
 	className: string;
-	icon: string;
+	icon: LucideIcon;
 	label: string;
 	shortLabel: string;
 	title?: string;
-	/** Prevent label ellipsis (e.g. email preview CTA). */
-	nowrap?: boolean;
-	/** Allow the desktop label to wrap instead of truncating. */
-	wrap?: boolean;
-	/**
-	 * Smart-Lock: member-only feature shown to a guest. Never hide the
-	 * button — surface a 🔒 badge instead and route the click to signup.
-	 */
 	locked?: boolean;
-	lockedBadgeLabel?: string;
+	badge?: ReactNode;
 }) {
-	const labelLayout = nowrap
-		? 'whitespace-nowrap'
-		: wrap
-			? 'min-w-0 flex-1 leading-snug'
-			: 'min-w-0 flex-1 truncate';
-
 	return (
 		<button
 			type="button"
-			onClick={onClick}
+			onClick={(event) => {
+				event.preventDefault();
+				onClick(event);
+			}}
 			title={title ?? label}
-			aria-label={locked && lockedBadgeLabel ? `${label} (${lockedBadgeLabel})` : label}
-			className={`group relative flex w-auto items-center gap-2 rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5 ${nowrap || wrap ? 'overflow-visible' : 'overflow-hidden'} ${className}`}
+			aria-label={locked ? `${label} (${title ?? label})` : (title ?? label)}
+			className={`${ACTION_BTN} ${locked ? FLOATING_LOCKED_CLASS : className}`}
 		>
-			{locked ? (
-				<span
-					aria-hidden
-					className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border-2 border-white bg-slate-900 text-[10px] leading-none shadow-md dark:border-slate-950"
-				>
-					🔒
-				</span>
-			) : null}
-			<span className="shrink-0 text-base leading-none" aria-hidden>
-				{icon}
+			{locked ? <MemberLockBadge /> : badge}
+			<span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
+				<Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
 			</span>
-			{/* ≥1600: full label · 451–1599: short label · ≤450: icon only */}
-			<span
-				className={`min-[1600px]:inline max-[1599px]:hidden ${labelLayout}`}
-			>
+			<span className="min-w-0 min-[1600px]:inline max-[1599px]:hidden min-[1600px]:flex-1 min-[1600px]:truncate">
 				{label}
-				{locked && lockedBadgeLabel ? (
-					<span className="ml-1.5 inline-flex items-center whitespace-nowrap rounded-full bg-black/15 px-1.5 py-0.5 align-middle text-[9px] font-bold uppercase tracking-wide">
-						{lockedBadgeLabel}
-					</span>
-				) : null}
 			</span>
-			<span
-				className={`hidden text-xs max-[1599px]:inline max-[450px]:hidden ${
-					nowrap ? 'whitespace-nowrap' : 'truncate'
-				}`}
-			>
-				{shortLabel}
-			</span>
+			<span className="hidden truncate text-xs max-[1599px]:inline max-[450px]:hidden">{shortLabel}</span>
 		</button>
 	);
 }
@@ -99,21 +69,20 @@ function AuditShareBarInner({
 	shareUrl,
 	score,
 	statusLabel,
-	onOpenEmail,
 	onOpenPdfPreview,
 	onOpenExecBrief,
 }: AuditShareBarProps) {
 	const t = useTranslations('audit.share');
 	const tBrief = useTranslations('audit.execBrief');
 	const tAuth = useTranslations('audit.authModal');
-	const { data: session } = useSession();
-	const signedIn = Boolean(session?.user?.id);
+	const { signedIn, authModalOpen, authModalMessage, requireMember, closeAuthModal } = useAuditMemberGate();
 	const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 	const [shareError, setShareError] = useState<string | null>(null);
 	const [isCompactBar, setIsCompactBar] = useState(false);
 	const [footerLiftPx, setFooterLiftPx] = useState(0);
-	const [authModalOpen, setAuthModalOpen] = useState(false);
-	const [authModalMessage, setAuthModalMessage] = useState('');
+	const [toast, setToast] = useState<string | null>(null);
+	const [geoGuideOpen, setGeoGuideOpen] = useState(false);
+	const closeGeoGuide = useCallback(() => setGeoGuideOpen(false), []);
 
 	useEffect(() => {
 		const mq = window.matchMedia(COMPACT_BAR_MQ);
@@ -123,7 +92,6 @@ function AuditShareBarInner({
 		return () => mq.removeEventListener('change', syncMq);
 	}, []);
 
-	/** Lift the bottom bar so it rests just above the site footer when overlapping. */
 	useEffect(() => {
 		if (!isCompactBar) {
 			setFooterLiftPx(0);
@@ -156,6 +124,21 @@ function AuditShareBarInner({
 		};
 	}, [isCompactBar]);
 
+	useEffect(() => {
+		if (!toast) return;
+		const timer = window.setTimeout(() => setToast(null), 2800);
+		return () => window.clearTimeout(timer);
+	}, [toast]);
+
+	function guardExport(event: MouseEvent, action: () => void) {
+		event.preventDefault();
+		if (requireMember(tAuth('exportMessage'))) {
+			action();
+			return;
+		}
+		setToast(t('lockToast'));
+	}
+
 	async function handleShare() {
 		setShareError(null);
 		try {
@@ -167,6 +150,7 @@ function AuditShareBarInner({
 			if (!shared) {
 				await navigator.clipboard.writeText(shareUrl);
 				setCopyState('copied');
+				setToast(t('copied'));
 				setTimeout(() => setCopyState('idle'), 2000);
 			}
 		} catch (err) {
@@ -174,36 +158,12 @@ function AuditShareBarInner({
 		}
 	}
 
-	function handlePrintPdf() {
-		// Smart-Lock: viral actions stay fully open, but the official PDF report
-		// is a member-only funnel into signup.
-		if (!signedIn) {
-			setAuthModalMessage(tAuth('pdfMessage'));
-			setAuthModalOpen(true);
-			return;
-		}
-		onOpenPdfPreview();
-	}
-
-	function openRedueEmailModal() {
-		if (!signedIn) {
-			setAuthModalMessage(tAuth('emailMessage'));
-			setAuthModalOpen(true);
-			return;
-		}
-		onOpenEmail();
-	}
-
 	const kakaoLabel = copyState === 'copied' ? t('copied') : t('kakao');
 	const kakaoShort = copyState === 'copied' ? t('copiedShort') : t('kakaoShort');
 
 	return (
 		<>
-			{/* In-flow spacer so report content is not covered by the fixed bottom bar */}
-			<div
-				aria-hidden
-				className="pointer-events-none h-0 print:hidden max-[1599px]:h-[4.5rem]"
-			/>
+			<div aria-hidden className="pointer-events-none h-0 print:hidden max-[1599px]:h-[4.5rem]" />
 
 			<aside
 				aria-label={t('floatingAria')}
@@ -212,53 +172,62 @@ function AuditShareBarInner({
 			>
 				<div
 					className={[
-						'border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/90 shadow-2xl backdrop-blur',
-						/* ≥1600: vertical side card — wide enough for email preview label */
+						'overflow-visible border border-slate-200 dark:border-white/10 bg-white/95 dark:bg-slate-900/90 shadow-2xl backdrop-blur',
 						'min-[1600px]:flex min-[1600px]:w-auto min-[1600px]:min-w-[16.5rem] min-[1600px]:max-w-[min(100vw-3rem,22rem)] min-[1600px]:flex-col min-[1600px]:gap-2 min-[1600px]:rounded-2xl min-[1600px]:p-3',
-						/* <1600: full-width floating bottom bar */
 						'max-[1599px]:flex max-[1599px]:w-full max-[1599px]:items-center max-[1599px]:justify-between max-[1599px]:gap-3 max-[1599px]:rounded-none max-[1599px]:border-x-0 max-[1599px]:border-b-0 max-[1599px]:bg-white/95 dark:max-[1599px]:bg-slate-900/95 max-[1599px]:px-4 max-[1599px]:py-3 max-[1599px]:shadow-[0_-4px_20px_rgba(0,0,0,0.08)] dark:max-[1599px]:shadow-[0_-4px_20px_rgba(0,0,0,0.3)] max-[1599px]:backdrop-blur-md max-[1599px]:pb-[max(0.75rem,env(safe-area-inset-bottom))]',
 					].join(' ')}
 				>
-					{/* Left cluster: Exec brief / PDF / Email / Kakao — stacks on desktop via `contents` */}
-					<div className="min-[1600px]:contents max-[1599px]:flex max-[1599px]:min-w-0 max-[1599px]:items-center max-[1599px]:gap-2">
+					<div className="overflow-visible min-[1600px]:contents max-[1599px]:flex max-[1599px]:min-w-0 max-[1599px]:items-center max-[1599px]:gap-2">
 						<ActionButton
 							onClick={onOpenExecBrief}
-							icon="⚡"
+							icon={Zap}
 							label={tBrief('fabLabel')}
 							shortLabel={tBrief('fabLabelShort')}
-							wrap
+							title={tBrief('fabAria')}
 							className="bg-indigo-600 text-white hover:bg-indigo-500 active:bg-indigo-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 dark:bg-indigo-500 dark:hover:bg-indigo-400 dark:active:bg-indigo-600 dark:focus-visible:ring-indigo-300 dark:focus-visible:ring-offset-slate-900"
 						/>
 						<ActionButton
-							onClick={handlePrintPdf}
-							icon="📄"
+							onClick={(event) => guardExport(event, onOpenPdfPreview)}
+							icon={FileDown}
 							label={t('pdf')}
 							shortLabel={t('pdfShort')}
 							locked={!signedIn}
-							lockedBadgeLabel={t('memberOnlyBadge')}
 							className="bg-[#D4AF37] text-[#0B1C2C] hover:bg-[#e0c15a]"
-						/>
-						<ActionButton
-							onClick={openRedueEmailModal}
-							icon="✉️"
-							label={t('email')}
-							shortLabel={t('emailShort')}
-							nowrap
-							locked={!signedIn}
-							lockedBadgeLabel={t('memberOnlyBadge')}
-							className="border border-[#D4AF37]/40 bg-[#D4AF37]/10 text-[#D4AF37] hover:bg-[#D4AF37]/20"
 						/>
 						<ReportShareLinkButton
 							shareUrl={shareUrl}
 							variant="bar"
-							className="group flex w-auto items-center gap-2 rounded-xl text-left text-sm font-bold transition min-[1600px]:w-full min-[1600px]:px-3.5 min-[1600px]:py-2.5 max-[1599px]:shrink-0 max-[1599px]:justify-center max-[1599px]:px-3 max-[1599px]:py-2.5 max-[450px]:px-2.5"
+							locked={!signedIn}
+							onLockedClick={(event) => guardExport(event, () => undefined)}
+							onCopied={() => setToast(t('copied'))}
+							className={`${ACTION_BTN} ${
+								signedIn
+									? 'border border-slate-200 bg-white text-slate-800 hover:bg-slate-50 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10'
+									: FLOATING_LOCKED_CLASS
+							}`}
 						/>
 						<ActionButton
-							onClick={handleShare}
-							icon="💬"
+							onClick={(event) => guardExport(event, () => void handleShare())}
+							icon={MessageCircle}
 							label={kakaoLabel}
 							shortLabel={kakaoShort}
-							className="border border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10"
+							locked={!signedIn}
+							className="border border-slate-200 bg-slate-50 text-slate-800 hover:bg-slate-100 dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+						/>
+						<ActionButton
+							onClick={() => setGeoGuideOpen(true)}
+							icon={BookOpen}
+							label={t('geoAeoGuide')}
+							shortLabel={t('geoAeoGuideShort')}
+							badge={
+								<span
+									aria-hidden
+									className="absolute -right-1.5 -top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full border border-white bg-cyan-600 text-white shadow-sm dark:border-slate-800 dark:bg-cyan-400 dark:text-slate-950"
+								>
+									<Sparkles className="h-2.5 w-2.5" strokeWidth={2.5} />
+								</span>
+							}
+							className="border border-cyan-300 bg-cyan-50 text-cyan-800 hover:bg-cyan-100 dark:border-cyan-400/30 dark:bg-cyan-500/15 dark:text-cyan-200 dark:hover:bg-cyan-500/25"
 						/>
 
 						{shareError ? (
@@ -268,7 +237,6 @@ function AuditShareBarInner({
 						) : null}
 					</div>
 
-					{/* Right / bottom: Contact CTA — always keeps readable text */}
 					<div className="min-[1600px]:mt-1 min-[1600px]:border-t min-[1600px]:border-slate-200 dark:min-[1600px]:border-white/10 min-[1600px]:pt-2.5 max-[1599px]:mt-0 max-[1599px]:shrink-0 max-[1599px]:border-0 max-[1599px]:pt-0">
 						<Link
 							href="/contact"
@@ -279,21 +247,23 @@ function AuditShareBarInner({
 								'max-[1599px]:min-h-[2.75rem] max-[1599px]:px-4 max-[1599px]:py-2.5 max-[1599px]:text-sm max-[450px]:px-3 max-[450px]:text-xs',
 							].join(' ')}
 						>
-							<span className="shrink-0 text-base leading-none" aria-hidden>
-								📞
-							</span>
 							<span className="min-w-0 truncate max-[450px]:hidden">{t('contact')}</span>
 							<span className="hidden min-w-0 truncate max-[450px]:inline">{t('contactShort')}</span>
 						</Link>
 					</div>
 				</div>
+				{toast ? (
+					<p
+						role="status"
+						className="pointer-events-none absolute bottom-full left-3 right-3 mb-2 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-center text-[11px] font-semibold text-slate-600 shadow-lg dark:border-slate-700 dark:bg-slate-900/95 dark:text-slate-300 max-[1599px]:left-4 max-[1599px]:right-4"
+					>
+						{toast}
+					</p>
+				) : null}
 			</aside>
 
-			<AuthModal
-				open={authModalOpen}
-				onClose={() => setAuthModalOpen(false)}
-				message={authModalMessage}
-			/>
+			<GeoAeoWorkGuideModal open={geoGuideOpen} onClose={closeGeoGuide} />
+			<AuthModal open={authModalOpen} onClose={closeAuthModal} message={authModalMessage} />
 		</>
 	);
 }

@@ -31,8 +31,10 @@ export function InsightsRecentResearchChips({
 							type="button"
 							disabled={disabled}
 							onClick={() => onSelect(query)}
-							className={`flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-800 bg-slate-900/80 px-2.5 py-1 text-xs text-slate-300 transition-all hover:bg-slate-800 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-60 ${
-								active ? 'border-cyan-500/40 text-cyan-300' : ''
+							className={`flex cursor-pointer items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-all disabled:cursor-not-allowed disabled:opacity-60 ${
+								active
+									? 'border-cyan-300 bg-cyan-50 text-cyan-700 dark:border-cyan-500/40 dark:bg-slate-900/80 dark:text-cyan-300'
+									: 'border-slate-200 bg-slate-50 text-slate-600 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-700 dark:border-slate-800 dark:bg-slate-900/80 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-cyan-300'
 							}`}
 						>
 							<span className="max-w-[12rem] truncate">{query}</span>
@@ -64,7 +66,7 @@ export function InsightsRecentResearchChips({
 			<button
 				type="button"
 				onClick={onClear}
-				className="ml-2 shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500 underline-offset-2 transition hover:text-slate-300 hover:underline"
+				className="ml-2 shrink-0 whitespace-nowrap text-[11px] font-semibold text-slate-500 underline-offset-2 transition hover:text-slate-700 hover:underline dark:hover:text-slate-300"
 			>
 				기록 삭제
 			</button>

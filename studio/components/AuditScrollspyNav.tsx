@@ -258,7 +258,7 @@ export function AuditScrollspyNav({
 											className={`relative h-2 w-2 rounded-full transition-all duration-300 ${
 												isActive
 													? 'scale-150 bg-cyan-400 dark:bg-cyan-300'
-													: 'bg-slate-600/70 group-hover:bg-slate-400'
+													: 'bg-slate-300 group-hover:bg-slate-400 dark:bg-slate-600/70 dark:group-hover:bg-slate-400'
 											}`}
 										/>
 									</span>

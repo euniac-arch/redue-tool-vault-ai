@@ -47,7 +47,7 @@ export function ExpertAgencyCta({ targetUrl, brandName, targetQuery }: ExpertAge
 	}, [open]);
 
 	return (
-		<div className="flex w-full flex-col rounded-xl border border-cyan-400/25 bg-gradient-to-br from-[#0B1C2C] via-[#0F172A] to-[#052016] p-4 text-white">
+		<div className="flex w-full flex-col rounded-xl border border-cyan-200 bg-gradient-to-br from-cyan-50 via-white to-emerald-50 p-4 text-slate-900 dark:border-cyan-400/25 dark:from-[#0B1C2C] dark:via-[#0F172A] dark:to-[#052016] dark:text-white">
 			<button
 				type="button"
 				onClick={() => setOpen(true)}
@@ -55,11 +55,11 @@ export function ExpertAgencyCta({ targetUrl, brandName, targetQuery }: ExpertAge
 			>
 				{t('aeoGeoCtaButton')}
 			</button>
-			<p className="mt-1.5 text-center text-[11px] leading-relaxed text-slate-300">{t('aeoGeoCtaSubtitle')}</p>
+			<p className="mt-1.5 text-center text-[11px] leading-relaxed text-slate-500 dark:text-slate-300">{t('aeoGeoCtaSubtitle')}</p>
 
-			<div className="mt-4 w-full min-w-0 border-t border-white/10 pt-4">
-				<p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#D4AF37]">{t('ctaKicker')}</p>
-				<p className="mt-1 text-sm font-semibold leading-relaxed text-slate-100">{t('ctaGuarantee')}</p>
+			<div className="mt-4 w-full min-w-0 border-t border-slate-200 pt-4 dark:border-white/10">
+				<p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#B8860B] dark:text-[#D4AF37]">{t('ctaKicker')}</p>
+				<p className="mt-1 text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-100">{t('ctaGuarantee')}</p>
 			</div>
 			<div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
 				<button
@@ -74,7 +74,7 @@ export function ExpertAgencyCta({ targetUrl, brandName, targetQuery }: ExpertAge
 					href={href}
 					target={external ? '_blank' : undefined}
 					rel={external ? 'noopener noreferrer' : undefined}
-					className="inline-flex h-full min-h-[48px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-extrabold text-white transition hover:bg-white/10"
+					className="inline-flex h-full min-h-[48px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-extrabold text-slate-700 transition hover:bg-slate-50 dark:border-white/15 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
 				>
 					<MessageCircle className="h-4 w-4 shrink-0" aria-hidden />
 					{t('ctaConsult')}

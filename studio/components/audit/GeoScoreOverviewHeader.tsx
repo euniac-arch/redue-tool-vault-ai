@@ -1,13 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type MouseEvent } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { FileDown, Info } from 'lucide-react';
+import { AuthModal } from '@/components/AuthModal';
 import { GeoPillarScoreTable } from '@/components/audit/GeoPillarScoreTable';
+import {
+	IN_REPORT_PDF_LOCKED_CLASS,
+	IN_REPORT_PDF_UNLOCKED_CLASS,
+	MiniLockSlot,
+} from '@/components/audit/MemberLockBadge';
 import { ScoreGradeBadge } from '@/components/audit/ScoreGradeBadge';
 import { TrackingStatusBadge } from '@/components/audit/TrackingStatusBadge';
 import { useAuditPayload } from '@/components/audit/AuditPayloadProvider';
 import { useAuditData } from '@/components/audit/AuditDataContext';
+import { useAuditMemberGate } from '@/lib/audit/use-audit-member-gate';
 import {
 	daysUntilNextCitationMeasurement,
 	hostnameFromAuditUrl,
@@ -72,8 +79,12 @@ export function GeoScoreOverviewHeader({
 	onOpenPdfPreview,
 }: GeoScoreOverviewHeaderProps) {
 	const t = useTranslations('audit.geoScore');
+	const tShare = useTranslations('audit.share');
+	const tAuth = useTranslations('audit.authModal');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
+	const { signedIn, authModalOpen, authModalMessage, requireMember, closeAuthModal } = useAuditMemberGate();
+	const pdfLocked = !signedIn;
 
 	const { appliedResult } = useAuditPayload();
 	const { scores, snapshot } = useAuditData();
@@ -99,7 +110,9 @@ export function GeoScoreOverviewHeader({
 	const achievedMin = geoScore >= overview.minExposureThreshold;
 	const pointsToMin = Math.max(0, overview.minExposureThreshold - geoScore);
 
-	function handleDownloadPdf() {
+	function handleDownloadPdf(event: MouseEvent<HTMLButtonElement>) {
+		event.preventDefault();
+		if (!requireMember(tAuth('exportMessage'))) return;
 		onOpenPdfPreview?.();
 	}
 
@@ -255,16 +268,21 @@ export function GeoScoreOverviewHeader({
 				<button
 					type="button"
 					onClick={handleDownloadPdf}
-					disabled={!onOpenPdfPreview}
-					className="inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-500 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-950/30 transition hover:from-cyan-400 hover:to-indigo-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 focus-visible:ring-offset-2 focus-visible:ring-offset-indigo-50 disabled:cursor-not-allowed disabled:opacity-50 dark:focus-visible:ring-offset-[#0E1140] sm:w-auto"
+					disabled={!pdfLocked && !onOpenPdfPreview}
+					aria-label={pdfLocked ? `${t('pdfButton')} (${tShare('lockToast')})` : t('pdfButton')}
+					className={pdfLocked ? IN_REPORT_PDF_LOCKED_CLASS : IN_REPORT_PDF_UNLOCKED_CLASS}
 				>
-					<FileDown className="h-4 w-4" aria-hidden />
+					<span className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center" aria-hidden>
+						<FileDown className="h-3.5 w-3.5" strokeWidth={2.25} />
+					</span>
+					<MiniLockSlot locked={pdfLocked} />
 					{t('pdfButton')}
 				</button>
 				<p className="flex-1 whitespace-nowrap break-keep text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 sm:text-right">
 					{t('disclaimer')}
 				</p>
 			</div>
+			<AuthModal open={authModalOpen} onClose={closeAuthModal} message={authModalMessage} />
 		</div>
 	);
 }

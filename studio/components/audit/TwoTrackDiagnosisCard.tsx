@@ -33,14 +33,17 @@ const SSL_SAFE_LINE = 85;
 
 /** Active-card theme per track — mirrors the bottom tab nav's accent colors for a unified feel. */
 const TOP_CARD_ACTIVE_THEME: Record<AuditTrackId, string> = {
-	track1: 'border-2 border-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.3)] bg-gradient-to-b from-cyan-950/30 to-slate-900/90',
-	track2: 'border-2 border-purple-400 shadow-[0_0_25px_rgba(168,85,247,0.3)] bg-gradient-to-b from-purple-950/30 to-slate-900/90',
-	track3: 'border-2 border-emerald-400 shadow-[0_0_25px_rgba(16,185,129,0.3)] bg-gradient-to-b from-emerald-950/30 to-slate-900/90',
+	track1:
+		'border-2 border-cyan-300 bg-gradient-to-b from-cyan-50 to-white shadow-sm shadow-cyan-200/50 dark:border-cyan-400 dark:from-cyan-950/30 dark:to-slate-900/90 dark:shadow-[0_0_25px_rgba(6,182,212,0.3)]',
+	track2:
+		'border-2 border-purple-300 bg-gradient-to-b from-purple-50 to-white shadow-sm shadow-purple-200/50 dark:border-purple-400 dark:from-purple-950/30 dark:to-slate-900/90 dark:shadow-[0_0_25px_rgba(168,85,247,0.3)]',
+	track3:
+		'border-2 border-emerald-300 bg-gradient-to-b from-emerald-50 to-white shadow-sm shadow-emerald-200/50 dark:border-emerald-400 dark:from-emerald-950/30 dark:to-slate-900/90 dark:shadow-[0_0_25px_rgba(16,185,129,0.3)]',
 };
 
 /** Fully opaque common style for the two cards that are not the currently active track — never dimmed. */
 const INACTIVE_TOP_CARD_CLASS =
-	'border-2 border-slate-800/80 hover:border-slate-700 bg-slate-950/60 hover:bg-slate-900/70 transition-all duration-300';
+	'border-2 border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white dark:border-slate-800/80 dark:bg-slate-950/60 dark:hover:border-slate-700 dark:hover:bg-slate-900/70 transition-all duration-300';
 
 const INTERACTIVE_TOP_CARD_CLASS = 'cursor-pointer opacity-100 transition-all duration-300 hover:scale-[1.01]';
 
@@ -96,9 +99,9 @@ function TwoTrackDiagnosisCardInner({
 			className="audit-report-section scroll-mt-24"
 			aria-labelledby="two-track-diagnosis-title"
 		>
-			<div className="relative overflow-hidden rounded-2xl border border-slate-800/90 bg-slate-900/60 p-5 shadow-xl backdrop-blur-md sm:p-7">
+			<div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7 dark:border-slate-800/90 dark:bg-slate-900/60 dark:shadow-xl dark:backdrop-blur-md">
 				<div
-					className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-slate-800/20 via-transparent to-transparent"
+					className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-slate-100 via-transparent to-transparent dark:from-slate-800/20"
 					aria-hidden
 				/>
 				<div className="relative mb-6 flex flex-col gap-3">
@@ -107,8 +110,8 @@ function TwoTrackDiagnosisCardInner({
 							<span
 								className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] font-extrabold ${
 									topSpecAchieved
-										? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
-										: 'border-indigo-500/35 bg-indigo-500/10 text-indigo-300'
+										? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-300'
+										: 'border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/35 dark:bg-indigo-500/10 dark:text-indigo-300'
 								}`}
 							>
 								<ShieldCheck className="h-3.5 w-3.5" aria-hidden />
@@ -116,7 +119,7 @@ function TwoTrackDiagnosisCardInner({
 							</span>
 							<h2
 								id="two-track-diagnosis-title"
-								className="text-base font-extrabold tracking-tight text-white sm:text-lg"
+								className="text-base font-extrabold tracking-tight text-slate-900 sm:text-lg dark:text-white"
 							>
 								{t('title')}
 							</h2>
@@ -124,13 +127,13 @@ function TwoTrackDiagnosisCardInner({
 						<button
 							type="button"
 							onClick={() => setGuideOpen(true)}
-							className="print:hidden inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-indigo-500 px-3.5 py-2 text-[0.6rem] font-bold text-white shadow-md shadow-indigo-500/25 transition-colors hover:bg-indigo-400 sm:w-auto sm:text-[0.7rem]"
+							className="print:hidden inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-xl bg-indigo-500 px-3.5 py-2 text-[0.6rem] font-bold text-white shadow-md shadow-indigo-200/60 transition-colors hover:bg-indigo-400 sm:w-auto sm:text-[0.7rem] dark:shadow-indigo-500/25"
 						>
 							<Rocket className="h-3.5 w-3.5" aria-hidden />
 							{t('openGuide')}
 						</button>
 					</div>
-					<p className="text-[0.6rem] leading-relaxed text-slate-400 sm:text-[0.7rem]">{t('subtitle')}</p>
+					<p className="text-[0.6rem] leading-relaxed text-slate-500 sm:text-[0.7rem] dark:text-slate-400">{t('subtitle')}</p>
 				</div>
 
 				<div className="relative grid w-full grid-cols-1 items-stretch gap-4 md:grid-cols-3">
@@ -143,19 +146,19 @@ function TwoTrackDiagnosisCardInner({
 						onKeyDown={(event) => handleCardKeyDown('track1', event)}
 					>
 						<div className="flex flex-wrap items-center justify-between gap-2">
-							<p className="text-xs font-bold tracking-wide text-indigo-300">{t('track1.label')}</p>
-							<span className="rounded-full border border-indigo-500/30 bg-indigo-500/5 px-2.5 py-0.5 text-[11px] font-bold text-indigo-300">
+							<p className="text-xs font-bold tracking-wide text-indigo-600 dark:text-indigo-300">{t('track1.label')}</p>
+							<span className="rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-0.5 text-[11px] font-bold text-indigo-700 dark:border-indigo-500/30 dark:bg-indigo-500/5 dark:text-indigo-300">
 								{t('track1.weightBadge')}
 							</span>
 						</div>
-						<p className="mt-1 text-[11px] font-semibold text-slate-400">{t('track1.title')}</p>
+						<p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{t('track1.title')}</p>
 						<div className="mt-3 flex flex-wrap items-end gap-1.5">
-							<span className="text-4xl font-extrabold tabular-nums text-sky-400 sm:text-5xl">
+							<span className="text-4xl font-extrabold tabular-nums text-sky-600 sm:text-5xl dark:text-sky-400">
 								{technicalScore}
 							</span>
-							<span className="mb-1 text-sm font-semibold text-slate-500">{t('scoreSuffix')}</span>
+							<span className="mb-1 text-sm font-semibold text-slate-400 dark:text-slate-500">{t('scoreSuffix')}</span>
 						</div>
-						<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+						<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
 							<div
 								className="h-full rounded-full bg-indigo-500"
 								style={{ width: `${Math.min(100, Math.max(technicalScore, 2))}%` }}
@@ -163,13 +166,13 @@ function TwoTrackDiagnosisCardInner({
 						</div>
 						<div className="mt-3 flex flex-wrap items-center gap-1.5">
 							<ScoreGradeBadge score={technicalScore} isHttps={isHttps} securityCapped={securityCapped} />
-							<span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[11px] font-bold text-slate-200">
+							<span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
 								{t('percentile', { percentile: technicalPercentile })}
 							</span>
 						</div>
 						<p
 							className={`mt-3 text-xs leading-relaxed ${
-								sslKey === 'sslMissing' ? 'text-amber-300' : 'text-slate-400'
+								sslKey === 'sslMissing' ? 'text-amber-600 dark:text-amber-300' : 'text-slate-500 dark:text-slate-400'
 							}`}
 						>
 							{t(`track1.${sslKey}`)}
@@ -185,19 +188,19 @@ function TwoTrackDiagnosisCardInner({
 						onKeyDown={(event) => handleCardKeyDown('track2', event)}
 					>
 						<div className="flex flex-wrap items-center justify-between gap-2">
-							<p className="text-xs font-bold tracking-wide text-violet-300">{t('track2.label')}</p>
-							<span className="rounded-full border border-violet-500/30 bg-violet-500/5 px-2.5 py-0.5 text-[11px] font-bold text-violet-300">
+							<p className="text-xs font-bold tracking-wide text-violet-600 dark:text-violet-300">{t('track2.label')}</p>
+							<span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-0.5 text-[11px] font-bold text-violet-700 dark:border-violet-500/30 dark:bg-violet-500/5 dark:text-violet-300">
 								{t('track2.weightBadge')}
 							</span>
 						</div>
-						<p className="mt-1 text-[11px] font-semibold text-slate-400">{t('track2.title')}</p>
+						<p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{t('track2.title')}</p>
 						<div className="mt-3 flex flex-wrap items-end gap-1.5">
-							<span className="text-4xl font-extrabold tabular-nums text-purple-400 sm:text-5xl">
+							<span className="text-4xl font-extrabold tabular-nums text-purple-600 sm:text-5xl dark:text-purple-400">
 								{geoScore}
 							</span>
-							<span className="mb-1 text-sm font-semibold text-slate-500">{t('scoreSuffix')}</span>
+							<span className="mb-1 text-sm font-semibold text-slate-400 dark:text-slate-500">{t('scoreSuffix')}</span>
 						</div>
-						<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+						<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
 							<div
 								className="h-full rounded-full bg-violet-500"
 								style={{ width: `${Math.min(100, Math.max(geoScore, 2))}%` }}
@@ -205,11 +208,11 @@ function TwoTrackDiagnosisCardInner({
 						</div>
 						<div className="mt-3 flex flex-wrap items-center gap-1.5">
 							<ScoreGradeBadge score={geoScore} grade={geoGrade} isHttps={isHttps} />
-							<span className="rounded-full bg-slate-800 px-2.5 py-0.5 text-[11px] font-bold text-slate-200">
+							<span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-200">
 								{t('percentile', { percentile: geoPercentile })}
 							</span>
 						</div>
-						<p className="mt-3 text-xs leading-relaxed text-slate-400">{t('track2.body')}</p>
+						<p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{t('track2.body')}</p>
 					</article>
 
 					{/* Track 3 · deliberately Emerald/Teal — keeps a distinct performance-dashboard
@@ -223,23 +226,23 @@ function TwoTrackDiagnosisCardInner({
 						onKeyDown={(event) => handleCardKeyDown('track3', event)}
 					>
 						<div className="flex flex-wrap items-center justify-between gap-2">
-							<p className="text-xs font-bold tracking-wide text-emerald-400">{t('track3.label')}</p>
-							<span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-300">
+							<p className="text-xs font-bold tracking-wide text-emerald-600 dark:text-emerald-400">{t('track3.label')}</p>
+							<span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
 								{t('track3.weightBadge')}
 							</span>
 						</div>
-						<p className="mt-1 text-[11px] font-semibold text-slate-400">{t('track3.title')}</p>
+						<p className="mt-1 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{t('track3.title')}</p>
 						{cwvLoading ? (
 							<CwvCardSkeleton loadingLabel={t('track3.loadingLabel')} />
 						) : (
 							<>
 								<div className="mt-3 flex flex-wrap items-end gap-1.5">
-									<span className="text-4xl font-extrabold tabular-nums text-emerald-400 sm:text-5xl">
+									<span className="text-4xl font-extrabold tabular-nums text-emerald-600 sm:text-5xl dark:text-emerald-400">
 										{animatedCwvScore}
 									</span>
-									<span className="mb-1 text-sm font-semibold text-slate-500">{t('scoreSuffix')}</span>
+									<span className="mb-1 text-sm font-semibold text-slate-400 dark:text-slate-500">{t('scoreSuffix')}</span>
 								</div>
-								<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-800">
+								<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
 									<div
 										className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-[width] duration-300"
 										style={{ width: `${Math.min(100, Math.max(animatedCwvScore, 2))}%` }}
@@ -248,7 +251,7 @@ function TwoTrackDiagnosisCardInner({
 								<div className="mt-3 flex flex-wrap items-center gap-1.5">
 									<ScoreGradeBadge score={cwvScore} isHttps={isHttps} />
 								</div>
-								<p className="mt-3 text-xs leading-relaxed text-slate-400">
+								<p className="mt-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400">
 									{cwvMeasured ? t('track3.body') : t('track3.bodyFallback')}
 								</p>
 							</>
@@ -268,13 +271,13 @@ export const TwoTrackDiagnosisCard = memo(TwoTrackDiagnosisCardInner);
 function CwvCardSkeleton({ loadingLabel }: { loadingLabel: string }) {
 	return (
 		<div className="mt-3 flex flex-col gap-2" role="status" aria-live="polite">
-			<div className="h-9 w-24 animate-pulse rounded-lg bg-gradient-to-r from-emerald-500/20 to-teal-500/10" />
-			<div className="h-1.5 w-full animate-pulse rounded-full bg-slate-800" />
+			<div className="h-9 w-24 animate-pulse rounded-lg bg-gradient-to-r from-emerald-200 to-teal-100 dark:from-emerald-500/20 dark:to-teal-500/10" />
+			<div className="h-1.5 w-full animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
 			<div className="flex items-center gap-1.5">
-				<div className="h-5 w-14 animate-pulse rounded-full bg-slate-800" />
-				<div className="h-5 w-20 animate-pulse rounded-full bg-emerald-500/10" />
+				<div className="h-5 w-14 animate-pulse rounded-full bg-slate-200 dark:bg-slate-800" />
+				<div className="h-5 w-20 animate-pulse rounded-full bg-emerald-100 dark:bg-emerald-500/10" />
 			</div>
-			<span className="mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold text-emerald-300">
+			<span className="mt-0.5 inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
 				<Loader2 className="h-3 w-3 animate-spin" aria-hidden />
 				{loadingLabel}
 			</span>

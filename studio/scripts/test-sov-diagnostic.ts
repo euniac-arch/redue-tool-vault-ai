@@ -306,6 +306,31 @@ assert(
 	nicheHeld.lossInsight,
 );
 
+const goldLeak = calculateUnifiedMarketSov(
+	NINEONE_CLINIC_BRAND,
+	'대구 동구',
+	'피부미용',
+	[
+		{ name: '황금피부과', snippet: '대구 동구 피부과 추천 보톡스 필러' },
+		{ name: '준피부과의원', snippet: '대구 피부과 예약' },
+		{ name: NINEONE_CLINIC_BRAND, snippet: '울트라클리어엘리트 도입 안내' },
+	],
+	{
+		targetQuery: nicheQuery,
+		categoryName: 'dermatology_clinic',
+		productTokens: ['울트라클리어엘리트', '덴서티'],
+		offeringCorpus: '울트라클리어엘리트 덴서티',
+		brandAliases: BRAND_TOKENS,
+	},
+);
+assert('equipment query ranks 나인원의원 first over 황금피부과', goldLeak.clientRank === 1 && goldLeak.leaderboard[0]?.isClient === true);
+assert(
+	'equipment query drops 황금피부과 from the top 3',
+	!goldLeak.leaderboard.some((row) => /황금/.test(row.name)),
+	goldLeak.leaderboard.map((row) => row.name).join(' / '),
+);
+assert('equipment query own share stays in the leadership band', goldLeak.asIsShare >= 70 && goldLeak.asIsShare <= 95, String(goldLeak.asIsShare));
+
 const nicheMissing = calculateUnifiedMarketSov(
 	NINEONE_CLINIC_BRAND,
 	'대구 동구',

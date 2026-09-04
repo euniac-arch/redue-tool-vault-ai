@@ -28,6 +28,15 @@ import {
 } from '@/lib/audit/sovLeaderboardData';
 import { buildTargetBrandTokens, classifyQuerySovIntent, type QuerySovIntent } from '@/lib/audit/universal-sov-engine';
 import {
+	allocateGenericSovPie,
+	calculateGenericSoV,
+	decomposeQueryEntity,
+	normalizeSovSearchHits,
+	scoreEntityMatch,
+	type GenericSovCandidate,
+	type SovSearchHit,
+} from '@/lib/audit/generic-sov';
+import {
 	buildNicheLeadershipInsight,
 	genericSearchDispersionLabels,
 	listingMentionsNiche,
@@ -162,6 +171,13 @@ export interface ShareOfVoiceInput {
 	brandAliases?: readonly string[];
 	/** Equipment / product tokens used to classify specialized queries. */
 	productTokens?: readonly string[];
+	/** Official menu / equipment / amenity corpus from the audited site. */
+	offerings?: readonly string[];
+	offeringCorpus?: string;
+	/** Optional SERP rows with title/snippet/body for strict entity co-occurrence. */
+	searchHits?: ReadonlyArray<string | SovSearchHit>;
+	/** Per-engine AI recommendation counts keyed by listing name. */
+	aiCitations?: ReadonlyArray<{ name: string; count?: number }>;
 	/** JSON-LD @types from the audited page (MedicalBusiness, LegalService, …). */
 	schemaTypes?: readonly string[];
 	/** Narrative used on the SoV gap card when live names are bound. */
@@ -277,6 +293,10 @@ export interface CalculateUnifiedSovOptions {
 	targetQuery?: string;
 	brandAliases?: readonly string[];
 	productTokens?: readonly string[];
+	offerings?: readonly string[];
+	offeringCorpus?: string;
+	searchHits?: ReadonlyArray<string | SovSearchHit>;
+	aiCitations?: ReadonlyArray<{ name: string; count?: number }>;
 	industryType?: string;
 	schemaTypes?: readonly string[];
 }
@@ -323,6 +343,10 @@ export interface CalculateDynamicSovOptions {
 	targetSiteName?: string;
 	brandAliases?: readonly string[];
 	productTokens?: readonly string[];
+	offerings?: readonly string[];
+	offeringCorpus?: string;
+	searchHits?: ReadonlyArray<string | SovSearchHit>;
+	aiCitations?: ReadonlyArray<{ name: string; count?: number }>;
 	industryType?: string;
 	schemaTypes?: readonly string[];
 }
@@ -857,16 +881,98 @@ function collectPeerSlots(
 	return fromMatch;
 }
 
+function listingKey(name: string): string {
+	return name.replace(/\s+/g, '').toLowerCase();
+}
+
+function resolveOfferingCorpus(options?: {
+	offeringCorpus?: string;
+	offerings?: readonly string[];
+	productTokens?: readonly string[];
+}): string {
+	return [options?.offeringCorpus, ...(options?.offerings ?? []), ...(options?.productTokens ?? [])]
+		.filter(Boolean)
+		.join(' ');
+}
+
+function citationCountFor(
+	name: string,
+	citations: ReadonlyArray<{ name: string; count?: number }> | undefined,
+): number {
+	if (!citations?.length) return 0;
+	const key = listingKey(name);
+	return citations.reduce((sum, row) => {
+		const rowKey = listingKey(row.name);
+		if (!rowKey || (rowKey !== key && !key.includes(rowKey) && !rowKey.includes(key))) return sum;
+		return sum + Math.max(0, Math.round(Number(row.count) || 1));
+	}, 0);
+}
+
+function shareTableFromAllocation(
+	allocated: NonNullable<ReturnType<typeof allocateGenericSovPie>>,
+	fallback: SovShareTable,
+): SovShareTable {
+	const own = allocated.own;
+	return {
+		rank1: allocated.rank1,
+		rank2: allocated.rank2,
+		own,
+		thirdParty: allocated.thirdParty,
+		targetSov: clamp(Math.max(own, fallback.targetSov), own, 98),
+		potentialGain: clamp(Math.max(own, fallback.targetSov), own, 98) - own,
+		intent: 'specialized',
+		clientRank: allocated.clientRank,
+	};
+}
+
+function buildGenericSovCandidates(input: {
+	names: readonly string[];
+	hits: ReadonlyArray<SovSearchHit>;
+	clientName: string;
+	brandTokens: readonly string[];
+	offeringCorpus: string;
+	holdsCoreEntity: boolean;
+	aiCitations?: ReadonlyArray<{ name: string; count?: number }>;
+}): GenericSovCandidate[] {
+	const hitByName = new Map(input.hits.map((hit) => [listingKey(hit.name), hit]));
+	const candidates: GenericSovCandidate[] = input.names.map((name, index) => {
+		const hit = hitByName.get(listingKey(name));
+		const isClient = isSelfBrandName(name, input.clientName, input.brandTokens);
+		return {
+			name,
+			rank: hit?.rank ?? index + 1,
+			title: hit?.title,
+			snippet: hit?.snippet,
+			body: isClient ? [hit?.body, input.offeringCorpus].filter(Boolean).join(' ') : hit?.body,
+			aiCitationCount: (hit?.aiCitationCount ?? 0) + citationCountFor(name, input.aiCitations),
+			isClient,
+			holdsCoreEntity: isClient && input.holdsCoreEntity,
+		};
+	});
+	if (input.clientName && !candidates.some((row) => row.isClient)) {
+		candidates.push({
+			name: input.clientName,
+			rank: 6,
+			body: input.offeringCorpus,
+			isClient: true,
+			holdsCoreEntity: input.holdsCoreEntity,
+			aiCitationCount: citationCountFor(input.clientName, input.aiCitations),
+		});
+	}
+	return candidates;
+}
+
 /**
  * 검색 API 원본 1~5위를 질의 유형별 SoV로 매핑하고, 자사를 실제 슬롯에 남긴다.
  * 브랜드 직검색(navigational)이면 자사는 무조건 1위 / 85~95% 이다.
+ * 특화 장비/고유명사 질의는 `calculateGenericSoV` 로 엔티티 미보유 업체를 배제한다.
  * 3위 밖이면 상위 2곳 + `자사(순위 밖)`로 3위를 대체한다.
  */
 export function calculateUnifiedMarketSov(
 	clientName: string,
 	region: string,
 	mainService: string,
-	rawSearchResults: readonly string[],
+	rawSearchResults: ReadonlyArray<string | SovSearchHit> = [],
 	options?: CalculateUnifiedSovOptions,
 ): UnifiedSovResult {
 	const lang = langOf(options?.lang ?? options?.industryConfig?.lang);
@@ -876,7 +982,9 @@ export function calculateUnifiedMarketSov(
 	const targetQuery = cleanPhrase(options?.targetQuery) || buildUnifiedTargetQuery(loc, service, lang);
 	const insightKeyword = cleanPhrase(options?.targetQuery) || service;
 	const brandTokens = buildTargetBrandTokens(options?.brandAliases ?? [], brand);
-	const ranked = toSearchRankList(rawSearchResults);
+	const hits = normalizeSovSearchHits(options?.searchHits ?? rawSearchResults);
+	const ranked = toSearchRankList(hits.map((hit) => hit.name));
+	const offeringCorpus = resolveOfferingCorpus(options);
 	const matched = matchCompetitorRoster({
 		clientName: brand,
 		rankedNames: ranked,
@@ -889,9 +997,44 @@ export function calculateUnifiedMarketSov(
 		industryType: options?.industryType || options?.industryConfig?.type,
 		schemaTypes: options?.schemaTypes || (options?.industryConfig?.schemaType ? [options.industryConfig.schemaType] : undefined),
 		productTokens: options?.productTokens,
+		offerings: options?.offerings,
+		offeringCorpus,
 	});
+	const decomposition = decomposeQueryEntity(targetQuery, {
+		region: loc,
+		categoryName: options?.categoryName || service,
+		mainService: service,
+		productTokens: options?.productTokens,
+		brandTokens,
+	});
+	const clientHoldsEntity =
+		matched.hasNicheItem ||
+		(decomposition.strictEntityCheck &&
+			scoreEntityMatch(offeringCorpus, decomposition.coreEntities).kind !== 'none');
+	const generic = calculateGenericSoV({
+		targetQuery,
+		candidates: buildGenericSovCandidates({
+			names: matched.unifiedNames.length ? matched.unifiedNames : ranked,
+			hits,
+			clientName: brand,
+			brandTokens,
+			offeringCorpus,
+			holdsCoreEntity: clientHoldsEntity,
+			aiCitations: options?.aiCitations,
+		}),
+		region: loc,
+		categoryName: options?.categoryName || service,
+		mainService: service,
+		productTokens: options?.productTokens,
+		brandTokens,
+		decomposition,
+	});
+	const earlyIntent = classifyQuerySovIntent(targetQuery, brandTokens, options?.productTokens);
+	const allocated =
+		earlyIntent === 'navigational' || matched.placeMonopoly ? null : allocateGenericSovPie(generic);
 	const foundIndex = matched.clientIndex;
 	const liveClientRank = foundIndex !== -1 ? foundIndex + 1 : CLIENT_UNRANKED_RANK;
+	const nicheLeadership = matched.nicheLeadership || clientHoldsEntity;
 	const shareOptions: ResolveKeywordSovOptions = {
 		brandTokens,
 		brandName: brand,
@@ -899,17 +1042,25 @@ export function calculateUnifiedMarketSov(
 		clientRank: liveClientRank,
 		cited: foundIndex !== -1,
 		placeMonopoly: matched.placeMonopoly,
-		nicheLeadership: matched.nicheLeadership,
+		nicheLeadership,
 	};
-	const shareTable = resolveKeywordSovShares(targetQuery, shareOptions);
+	const intentTable = resolveKeywordSovShares(targetQuery, shareOptions);
+	const shareTable = allocated ? shareTableFromAllocation(allocated, intentTable) : intentTable;
 	const queryIntent = shareTable.intent ?? classifyQuerySovIntent(targetQuery, brandTokens, options?.productTokens);
-	const clientRank = shareTable.clientRank ?? (queryIntent === 'navigational' ? 1 : liveClientRank);
+	const clientRank =
+		allocated?.clientRank ?? shareTable.clientRank ?? (queryIntent === 'navigational' ? 1 : liveClientRank);
 	const fallbackBrand = brand || (lang === 'en' ? 'This business' : '자사');
+	const genericPeers = generic.leaderboard
+		.filter((row) => !row.isClient)
+		.map((row) => ({
+			name: row.name,
+			isRealData: matched.slots.some((slot) => !slot.isClient && listingKey(slot.name) === listingKey(row.name) && slot.isRealData),
+		}));
 	const items = composeIntentLeaderboard({
 		clientName: fallbackBrand,
 		clientRank,
 		shareTable,
-		peers: collectPeerSlots(matched),
+		peers: allocated ? genericPeers : collectPeerSlots(matched),
 		region: loc,
 		lang,
 		liveFoundIndex: foundIndex,
@@ -941,8 +1092,8 @@ export function calculateUnifiedMarketSov(
 		toBeShare,
 		reclaimGain,
 		leaderboard,
-		lossInsight: matched.nicheLeadership
-			? buildNicheLeadershipInsight(loc, matched.nicheItemToken, lang)
+		lossInsight: nicheLeadership
+			? buildNicheLeadershipInsight(loc, matched.nicheItemToken || decomposition.coreEntities[0] || '', lang)
 			: buildSovMarketAnalysis({
 					location: loc,
 					primaryKeywords: [insightKeyword],
@@ -956,9 +1107,9 @@ export function calculateUnifiedMarketSov(
 				}),
 		placeMonopoly: matched.placeMonopoly,
 		targetIndustry: matched.targetIndustry,
-		nicheLeadership: matched.nicheLeadership,
-		nicheItemToken: matched.nicheItemToken,
-		hasNicheItem: matched.hasNicheItem,
+		nicheLeadership,
+		nicheItemToken: matched.nicheItemToken || decomposition.coreEntities[0] || '',
+		hasNicheItem: matched.hasNicheItem || clientHoldsEntity,
 	};
 }
 
@@ -1035,15 +1186,48 @@ export function applyKeywordSovToDynamic(
 	const intent = classifyQuerySovIntent(query, brandTokens, options?.productTokens);
 	const liveClientRank = sov.liveClientRank ?? (sameQuery ? sov.clientRank : CLIENT_UNRANKED_RANK);
 	const placeMonopoly = sameQuery && sov.placeMonopoly === true;
+	const offeringCorpus = resolveOfferingCorpus(options);
 	const niche = resolveNicheOfferingMatch({
 		query,
 		region: options?.region,
 		mainService: options?.mainService,
 		productTokens: options?.productTokens,
+		offerings: options?.offerings,
+		offeringCorpus,
 		lang,
 	});
-	const nicheLeadership = niche.nicheLeadership || (sameQuery && sov.nicheLeadership === true);
-	const shareTable = resolveKeywordSovShares(query, {
+	const decomposition = decomposeQueryEntity(query, {
+		region: options?.region,
+		mainService: options?.mainService,
+		productTokens: options?.productTokens,
+		brandTokens,
+	});
+	const clientHoldsEntity =
+		niche.hasNicheItem ||
+		(decomposition.strictEntityCheck && scoreEntityMatch(offeringCorpus, decomposition.coreEntities).kind !== 'none');
+	const nicheLeadership = niche.nicheLeadership || clientHoldsEntity || (sameQuery && sov.nicheLeadership === true);
+	const rawPeers = (sov.leaderboard ?? [])
+		.filter((row) => !row.isClient && !row.isThirdParty)
+		.map((row) => ({ name: row.name, isRealData: row.isRealData }));
+	const generic = calculateGenericSoV({
+		targetQuery: query,
+		candidates: buildGenericSovCandidates({
+			names: [brand, ...rawPeers.map((row) => row.name)].filter(Boolean),
+			hits: normalizeSovSearchHits(options?.searchHits),
+			clientName: brand,
+			brandTokens,
+			offeringCorpus,
+			holdsCoreEntity: clientHoldsEntity,
+			aiCitations: options?.aiCitations,
+		}),
+		region: options?.region,
+		mainService: options?.mainService,
+		productTokens: options?.productTokens,
+		brandTokens,
+		decomposition,
+	});
+	const allocated = intent === 'navigational' || placeMonopoly ? null : allocateGenericSovPie(generic);
+	const intentTable = resolveKeywordSovShares(query, {
 		brandTokens,
 		brandName: brand,
 		productTokens: options?.productTokens,
@@ -1052,16 +1236,25 @@ export function applyKeywordSovToDynamic(
 		placeMonopoly,
 		nicheLeadership,
 	});
-	const clientRank = shareTable.clientRank ?? (intent === 'navigational' || nicheLeadership ? 1 : sameQuery ? liveClientRank : 4);
-	const rawPeers = (sov.leaderboard ?? [])
-		.filter((row) => !row.isClient && !row.isThirdParty)
-		.map((row) => ({ name: row.name, isRealData: row.isRealData }));
-	const peers = niche.isNicheQuery
-		? [
-				...rawPeers.filter((row) => listingMentionsNiche(row.name, niche.nicheItemTokens)),
-				...genericSearchDispersionLabels(lang, niche.nicheItemToken).map((name) => ({ name, isRealData: false })),
-			]
-		: rawPeers;
+	const shareTable = allocated ? shareTableFromAllocation(allocated, intentTable) : intentTable;
+	const clientRank =
+		allocated?.clientRank ??
+		shareTable.clientRank ??
+		(intent === 'navigational' || nicheLeadership ? 1 : sameQuery ? liveClientRank : 4);
+	const genericPeers = generic.leaderboard
+		.filter((row) => !row.isClient)
+		.map((row) => ({
+			name: row.name,
+			isRealData: rawPeers.some((peer) => listingKey(peer.name) === listingKey(row.name) && peer.isRealData),
+		}));
+	const peers = allocated
+		? genericPeers
+		: niche.isNicheQuery
+			? [
+					...rawPeers.filter((row) => listingMentionsNiche(row.name, niche.nicheItemTokens)),
+					...genericSearchDispersionLabels(lang, niche.nicheItemToken).map((name) => ({ name, isRealData: false })),
+				]
+			: rawPeers;
 	const nextRanking = composeIntentLeaderboard({
 		clientName: brand || (lang === 'en' ? 'This business' : '자사'),
 		clientRank,
@@ -1126,8 +1319,8 @@ export function applyKeywordSovToDynamic(
 		lossInsight,
 		placeMonopoly,
 		nicheLeadership,
-		nicheItemToken: niche.nicheItemToken || sov.nicheItemToken,
-		hasNicheItem: niche.hasNicheItem || (sameQuery && sov.hasNicheItem === true),
+		nicheItemToken: niche.nicheItemToken || decomposition.coreEntities[0] || sov.nicheItemToken,
+		hasNicheItem: niche.hasNicheItem || clientHoldsEntity || (sameQuery && sov.hasNicheItem === true),
 		vulnerabilityInsight: buildVulnerabilityInsight({
 			leaderName: leader?.name || '',
 			leaderShare,
@@ -1260,7 +1453,9 @@ export function computeShareOfVoice(input: ShareOfVoiceInput = {}): ShareOfVoice
 		keywords: input.keywords,
 	});
 	const ownName = cleanPhrase(input.brandName) || config.brandName || (lang === 'en' ? 'This business' : '자사');
-	const ranked = toSearchRankList(input.rawSearchResults);
+	const ranked = toSearchRankList(
+		normalizeSovSearchHits(input.searchHits ?? input.rawSearchResults).map((hit) => hit.name),
+	);
 	const seeded = (input.competitors ?? [])
 		.map((c) => ({
 			name: cleanCompetitorName(c.name),
@@ -1271,6 +1466,15 @@ export function computeShareOfVoice(input: ShareOfVoiceInput = {}): ShareOfVoice
 	const location = cleanPhrase(input.location) || cleanPhrase(config.location);
 	const service =
 		cleanPhrase(input.primaryKeyword) || cleanPhrase(config.primaryKeyword) || cleanPhrase(config.defaultCategory);
+	const offeringCorpus = resolveOfferingCorpus({
+		offeringCorpus:
+			input.offeringCorpus ||
+			[input.title, input.description, Array.isArray(input.keywords) ? input.keywords.join(' ') : input.keywords]
+				.filter(Boolean)
+				.join(' '),
+		offerings: input.offerings,
+		productTokens: input.productTokens,
+	});
 	const unified = calculateUnifiedMarketSov(ownName, location, service, rawForUnified, {
 		lang,
 		industryConfig: config,
@@ -1278,6 +1482,10 @@ export function computeShareOfVoice(input: ShareOfVoiceInput = {}): ShareOfVoice
 		targetQuery: input.targetQuery,
 		brandAliases: input.brandAliases,
 		productTokens: input.productTokens,
+		offerings: input.offerings,
+		offeringCorpus,
+		searchHits: input.searchHits,
+		aiCitations: input.aiCitations,
 		industryType: config.type,
 		schemaTypes: input.schemaTypes || (config.schemaType ? [config.schemaType] : undefined),
 	});
@@ -1694,6 +1902,12 @@ export function computeAdvancedGeoMetrics(input: AdvancedGeoMetricsInput = {}): 
 	};
 }
 
+export {
+	allocateGenericSovPie,
+	calculateGenericSoV,
+	decomposeQueryEntity,
+} from '@/lib/audit/generic-sov';
+export type { GenericSovInput, GenericSovResult, QueryEntityDecomposition, SovSearchHit } from '@/lib/audit/generic-sov';
 export {
 	calculateCompetitorSov,
 	fetchGoogleCompetitors,

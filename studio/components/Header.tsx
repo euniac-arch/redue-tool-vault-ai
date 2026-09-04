@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { HeaderAuth } from './HeaderAuth';
-import { LocaleSwitcher } from './LocaleSwitcher';
+// import { LocaleSwitcher } from './LocaleSwitcher';
 import { ThemeToggle } from './theme/ThemeToggle';
 import {
 	PUBLIC_NAV,
@@ -22,17 +22,17 @@ const DESKTOP_NAV_MIN = 1320;
 function navLinkClass(active: boolean, variant: 'desktop' | 'mobile'): string {
 	if (variant === 'desktop') {
 		return active
-			? 'whitespace-nowrap text-primary transition-colors duration-200 hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm'
+			? 'whitespace-nowrap text-[#1296dd] transition-colors duration-200 hover:text-[#1296dd]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1296dd]/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm dark:text-primary dark:hover:text-primary/80 dark:focus-visible:ring-primary/40'
 			: 'whitespace-nowrap text-muted-foreground transition-colors duration-200 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-sm';
 	}
 	return active
-		? 'rounded-xl border border-border bg-secondary/40 px-3 py-3 text-base font-semibold text-foreground transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40'
+		? 'rounded-xl border border-border bg-secondary/40 px-3 py-3 text-base font-semibold text-[#1296dd] transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1296dd]/40 dark:text-foreground dark:focus-visible:ring-primary/40'
 		: 'rounded-xl px-3 py-3 text-base font-semibold text-muted-foreground transition-colors duration-200 hover:bg-secondary/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40';
 }
 
 function ctaClass(variant: 'desktop' | 'mobile'): string {
 	const base =
-		'inline-flex items-center justify-center whitespace-nowrap rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 font-bold text-slate-950 shadow-[0_0_20px_rgba(6,182,212,0.35)] transition-all duration-200 hover:brightness-110 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background';
+		'inline-flex items-center justify-center whitespace-nowrap rounded-full border border-slate-200 bg-white font-semibold text-slate-700 shadow-none transition-all duration-200 hover:border-cyan-300 hover:bg-cyan-50 hover:text-cyan-800 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:border-transparent dark:bg-gradient-to-r dark:from-cyan-400 dark:to-blue-500 dark:font-bold dark:text-slate-950 dark:shadow-[0_0_20px_rgba(6,182,212,0.35)] dark:hover:border-transparent dark:hover:bg-transparent dark:hover:text-slate-950 dark:hover:brightness-110';
 	return variant === 'desktop'
 		? `${base} h-9 px-4 text-sm`
 		: `${base} mt-2 w-full px-4 py-3 text-base`;
@@ -378,7 +378,7 @@ export function Header() {
 						<div className="h-6 w-px shrink-0 bg-slate-200 dark:bg-slate-700/60" aria-hidden />
 						<div className="flex items-center gap-2">
 							<ThemeToggle />
-							<LocaleSwitcher />
+							{/* <LocaleSwitcher /> */}
 							<HeaderAuth />
 						</div>
 					</div>
@@ -426,7 +426,7 @@ export function Header() {
 					<div className="mobile-menu-overlay__footer">
 						<div className="flex flex-wrap items-center gap-2">
 							<ThemeToggle />
-							<LocaleSwitcher />
+							{/* <LocaleSwitcher /> */}
 						</div>
 						<HeaderAuth stacked onNavigate={closeAll} />
 					</div>

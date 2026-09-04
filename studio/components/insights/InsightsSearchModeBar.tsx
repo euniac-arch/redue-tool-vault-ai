@@ -25,7 +25,7 @@ export function InsightsSearchModeBar({ mode, usage, onChange }: InsightsSearchM
 	const tabClass = (active: boolean) =>
 		`relative z-10 flex min-h-14 flex-col items-start justify-center rounded-xl border px-2 py-2 text-left transition-colors md:min-h-[3.75rem] md:px-3 ${
 			active
-				? 'border-cyan-500/50 bg-slate-800 text-cyan-400 shadow-lg shadow-cyan-950/40'
+				? 'border-cyan-300 bg-cyan-50 text-cyan-700 shadow-sm dark:border-cyan-500/50 dark:bg-slate-800 dark:text-cyan-400 dark:shadow-lg dark:shadow-cyan-950/40'
 				: 'border-slate-200 bg-transparent text-slate-400 hover:border-slate-300 hover:text-slate-600 dark:border-slate-700 dark:hover:border-slate-600 dark:hover:text-slate-200'
 		}`;
 
@@ -61,10 +61,10 @@ export function InsightsSearchModeBar({ mode, usage, onChange }: InsightsSearchM
 						suppressHydrationWarning
 						className={`mt-0.5 inline-flex max-w-full truncate rounded-full border px-1.5 py-px text-[10px] font-semibold ${
 							isMounted && usage.unlimited
-								? 'border-cyan-400/30 bg-cyan-500/10 text-cyan-300'
+								? 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-400/30 dark:bg-cyan-500/10 dark:text-cyan-300'
 								: isMounted && usage.remaining <= 0
-									? 'border-rose-400/30 bg-rose-500/10 text-rose-300'
-									: 'border-amber-400/30 bg-amber-500/10 text-amber-300'
+									? 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-400/30 dark:bg-rose-500/10 dark:text-rose-300'
+									: 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-300'
 						}`}
 					>
 						{remainingLabel}

@@ -247,22 +247,22 @@ export function AuditExposureSimulator({ report }: AuditExposureSimulatorProps) 
 				</div>
 			</details>
 
-			<div className="print:hidden mt-3 flex w-full flex-col items-start justify-between gap-3.5 rounded-xl border border-indigo-500/35 bg-gradient-to-r from-indigo-950/50 via-purple-950/25 to-zinc-950 p-4 shadow-lg sm:flex-row sm:items-center">
+			<div className="print:hidden mt-3 flex w-full flex-col items-start justify-between gap-3.5 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-violet-50 p-4 shadow-sm sm:flex-row sm:items-center dark:border-indigo-500/35 dark:from-indigo-950/50 dark:via-purple-950/25 dark:to-zinc-950 dark:shadow-lg">
 				<div className="flex items-center gap-3 pl-1">
 					<span className="shrink-0 select-none text-2xl" aria-hidden>
 						👑
 					</span>
 					<div>
-						<h4 className="text-sm font-extrabold tracking-tight text-white md:text-base">
+						<h4 className="text-sm font-extrabold tracking-tight text-slate-900 md:text-base dark:text-white">
 							{t('blueprint.bannerTitle')}
 						</h4>
-						<p className="mt-0.5 text-xs text-zinc-400">{t('blueprint.bannerSubtitle')}</p>
+						<p className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">{t('blueprint.bannerSubtitle')}</p>
 					</div>
 				</div>
 				<button
 					type="button"
 					onClick={() => setIsBlueprintModalOpen(true)}
-					className="flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/30 transition-all hover:bg-indigo-500 sm:w-auto md:text-sm"
+					className="flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-200/70 transition-all hover:bg-indigo-500 sm:w-auto md:text-sm dark:shadow-indigo-600/30"
 				>
 					<span>{t('blueprint.bannerCta')}</span>
 					<span className="text-xs" aria-hidden>

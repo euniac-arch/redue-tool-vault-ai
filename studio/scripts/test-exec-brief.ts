@@ -8,10 +8,16 @@ import {
 	buildExecBriefModel,
 	engineLevelReason,
 	estimateConversionLiftPct,
+	generateTop3ActionPoints,
+	getTop3ActionPoints,
 	projectExecBriefAiIndex,
 	resolveExecBriefBindings,
 	resolveIndexedKind,
 	sanitizeExecBriefFilename,
+	buildPerfectGuide,
+	formatPerfectGuideEngines,
+	peerNounForPerfectGuide,
+	shouldShowPerfectAiGuide,
 } from '../lib/audit/exec-brief';
 import type { AuditCheckItem, AuditReport } from '../lib/site-auditor';
 import type { GeoDiagnosticSummary } from '../types/geo-diagnostic';
@@ -171,18 +177,22 @@ assert(
 );
 
 const ids = brief.improvements.map((item) => item.id);
-assert('schema/EEAT is first P0', ids[0] === 'schema-eeat', ids.join(','));
-assert('llms.txt is in TOP 3', ids.includes('llms-txt'), ids.join(','));
-assert('SSL is in TOP 3', ids.includes('ssl-https'), ids.join(','));
+assert('TOP 3 always renders 3 cards', brief.improvements.length === 3, ids.join(','));
+assert('TOP 3 ids are unique', new Set(ids).size === 3, ids.join(','));
 assert(
-	'schema cause names MedicalClinic',
-	brief.improvements[0]?.causeLine.includes('MedicalClinic'),
-	brief.improvements[0]?.causeLine,
+	'HTTP clinic surfaces SSL as a live P1',
+	brief.improvements.some((item) => item.id === 'ssl-https' && item.priority === 'P1'),
+	ids.join(','),
 );
 assert(
-	'schema status has 36 max',
-	brief.improvements[0]?.statusLine.includes('/36'),
-	brief.improvements[0]?.statusLine,
+	'each action point has engines + cause + action',
+	brief.improvements.every((item) => item.targetEngines && item.causeLine && item.actionLine && item.priorityLabel),
+	JSON.stringify(brief.improvements.map((item) => ({ id: item.id, engines: item.targetEngines }))),
+);
+assert(
+	'clinic cards bind the live brand, not a foreign clinic',
+	brief.improvements.every((item) => !item.causeLine.includes('스시하나') && !item.actionLine.includes('스시하나')),
+	brief.improvements.map((item) => item.causeLine).join(' | '),
 );
 assert('three ROI effects', brief.roiEffects.length === 3, brief.roiEffects.length);
 assert(
@@ -201,22 +211,60 @@ assert(
 	brief.roiEffects[2]?.text,
 );
 assert(
-	'schema cause is verify-difficulty, not a trust verdict',
-	brief.improvements[0]?.causeLine.includes('검증하기 어려움'),
-	brief.improvements[0]?.causeLine,
-);
-assert(
-	'llms cause is a standard index path',
-	brief.improvements.some((item) => item.id === 'llms-txt' && item.causeLine.includes('표준 인덱스')),
-	brief.improvements.find((item) => item.id === 'llms-txt')?.causeLine,
-);
-assert(
-	'ssl cause avoids patient-churn wording',
-	brief.improvements.some((item) => item.id === 'ssl-https' && item.causeLine.includes('접속 안정성') && !item.causeLine.includes('환자')),
+	'ssl cause names the Level 1 lock, not patient churn',
+	brief.improvements.some((item) => item.id === 'ssl-https' && item.causeLine.includes('Level 1') && !item.causeLine.includes('환자')),
 	brief.improvements.find((item) => item.id === 'ssl-https')?.causeLine,
+);
+assert(
+	'TOP 3 cards use analyzer ids',
+	brief.improvements.every((item) => /^(ssl-https|schema-eeat|llms-txt|crawl-block|fallback-|engine-)/.test(item.id)),
+	ids.join(','),
 );
 assert('filename sanitizes clinic', sanitizeExecBriefFilename('나인원의원') === '나인원의원');
 assert('bindings expose detected vars', brief.location === '대구' && brief.primaryService === '피부시술' && brief.estimatedLeads === 160);
+assert('HTTP clinic hides 100% guide', brief.perfectGuide === null, brief.seoScore);
+assert('queryPhrase binds location + service', brief.queryPhrase === '대구 피부시술', brief.queryPhrase);
+
+assert('100 tech + 90 index shows guide', shouldShowPerfectAiGuide(100, 90) === true);
+assert('99 tech hides guide', shouldShowPerfectAiGuide(99, 90) === false);
+assert('already 100 index hides guide', shouldShowPerfectAiGuide(100, 100) === false);
+assert('medical peer is 병원', peerNounForPerfectGuide('medical', 'ko') === '병원');
+assert('restaurant peer is 식당', peerNounForPerfectGuide('restaurant', 'ko') === '식당');
+assert(
+	'guide engines prefer ChatGPT·Copilot live scores',
+	formatPerfectGuideEngines([
+		{ id: 'claude', name: 'Claude', score: 40 },
+		{ id: 'chatgpt', name: 'ChatGPT', score: 70 },
+		{ id: 'copilot', name: 'Microsoft Copilot', score: 72 },
+	]) === 'ChatGPT(70%)·Copilot(72%)',
+);
+assert(
+	'guide engines fall back when Bing pair is missing',
+	formatPerfectGuideEngines([
+		{ id: 'gemini', name: 'Gemini', score: 55 },
+		{ id: 'claude', name: 'Claude', score: 81 },
+	]) === 'Gemini(55%)·Claude(81%)',
+);
+
+const perfectGuide = buildPerfectGuide({
+	seoScore: 100,
+	currentScore: 90,
+	engines: [
+		{ id: 'chatgpt', name: 'ChatGPT', score: 70 },
+		{ id: 'copilot', name: 'Microsoft Copilot', score: 72 },
+	],
+	queryPhrase: '대구 피부시술',
+	industryType: 'medical',
+	lang: 'ko',
+});
+assert('perfect guide remaining is 10', perfectGuide?.remainingPct === 10, perfectGuide?.remainingPct);
+assert('perfect guide peer is clinic noun', perfectGuide?.peerNoun === '병원', perfectGuide?.peerNoun);
+assert('perfect guide query stays live', perfectGuide?.queryPhrase === '대구 피부시술', perfectGuide?.queryPhrase);
+assert(
+	'perfect guide engines bind live citation rates',
+	perfectGuide?.enginesLabel === 'ChatGPT(70%)·Copilot(72%)',
+	perfectGuide?.enginesLabel,
+);
 
 const restaurant = buildExecBriefModel(
 	stubClinic({
@@ -245,6 +293,13 @@ assert(
 	restaurant.roiEffects[0]?.text.includes('강남구 오마카세') && restaurant.roiEffects[1]?.text.includes('200'),
 	restaurant.roiEffects.map((item) => item.text).join(' | '),
 );
+assert(
+	'restaurant TOP 3 stays generic to that brand',
+	restaurant.improvements.length === 3 &&
+		restaurant.improvements.every((item) => !item.causeLine.includes('나인원의원') && !item.causeLine.includes('대구')),
+	restaurant.improvements.map((item) => item.causeLine).join(' | '),
+);
+assert('restaurant without 100 tech hides guide', restaurant.perfectGuide === null, restaurant.seoScore);
 
 const fallbackBindings = resolveExecBriefBindings({
 	brandName: '',
@@ -278,9 +333,142 @@ const httpsBrief = buildExecBriefModel(
 	'ko',
 );
 assert(
-	'HTTPS + llms still keeps schema P0 when schema is weak',
-	httpsBrief.improvements.some((item) => item.id === 'schema-eeat'),
-	httpsBrief.improvements.map((item) => item.id).join(','),
+	'HTTPS + llms drops SSL and still fills 3 cards',
+	!httpsBrief.improvements.some((item) => item.id === 'ssl-https') &&
+		httpsBrief.improvements.length === 3 &&
+		httpsBrief.improvements.every((item) => item.priority && item.targetEngines),
+	httpsBrief.improvements.map((item) => `${item.priority}:${item.id}`).join(','),
+);
+
+const crawlPoints = getTop3ActionPoints({
+	lang: 'ko',
+	isHttps: true,
+	hasLlms: true,
+	seoScore: 88,
+	schemaRaw: 90,
+	schemaMax: 100,
+	platform: {
+		hasLocalBusiness: true,
+		hasOrganization: true,
+		hasFaq: true,
+		hasHowTo: true,
+		hasArticle: true,
+		hasNewsArticle: false,
+		hasPerson: true,
+		hasGeoCoordinates: true,
+		hasOpeningHours: true,
+		hasTelephone: true,
+		hasAddress: true,
+		googleMapsLinked: true,
+		bingPlacesLinked: true,
+		naverPlaceLinked: true,
+		naverBlogLinked: false,
+		sameAsCount: 4,
+		officialDocCount: 3,
+	},
+	report: {
+		...stubClinic({
+			url: 'https://blocked.example.com',
+			hasSsl: true,
+			indexStatus: {
+				allowed: false,
+				robotsTxtOk: false,
+				metaRobotsOk: true,
+				evidence: 'robots.txt Disallow:/',
+			},
+		}),
+	},
+	engines: [
+		{
+			engine: { id: 'chatgpt', name: 'ChatGPT', provider: 'OpenAI' },
+			triggerQuery: 'q',
+			simulatedResponse: '',
+			improvementTip: 'GPTBot 허용',
+			score: 82,
+			statusBadge: 'not_indexed',
+			depthLevel: null,
+		},
+		{
+			engine: { id: 'gemini', name: 'Gemini', provider: 'Google' },
+			triggerQuery: 'q',
+			simulatedResponse: '',
+			improvementTip: 'GBP 연동',
+			score: 84,
+			statusBadge: 'not_indexed',
+			depthLevel: null,
+		},
+	] as const,
+});
+assert('P1 crawl block beats schema when robots disallow', crawlPoints[0]?.id === 'crawl-block', crawlPoints.map((p) => p.id).join(','));
+assert('P1 crawl uses live evidence', crawlPoints[0]?.cause.includes('robots.txt'), crawlPoints[0]?.cause);
+assert('crawl scan still fills 3 unique cards', crawlPoints.length === 3 && new Set(crawlPoints.map((p) => p.id)).size === 3, crawlPoints.map((p) => p.id).join(','));
+
+const mixed = generateTop3ActionPoints({
+	lang: 'ko',
+	isHttps: true,
+	hasLlms: true,
+	schemaRaw: 90,
+	schemaMax: 100,
+	siteName: '레드유랩',
+	category: 'SaaS',
+	platform: {
+		hasLocalBusiness: true,
+		hasOrganization: true,
+		hasFaq: true,
+		hasHowTo: false,
+		hasArticle: true,
+		hasNewsArticle: false,
+		hasPerson: true,
+		hasGeoCoordinates: true,
+		hasOpeningHours: true,
+		hasTelephone: true,
+		hasAddress: true,
+		googleMapsLinked: false,
+		bingPlacesLinked: false,
+		naverPlaceLinked: true,
+		naverBlogLinked: true,
+		sameAsCount: 2,
+		officialDocCount: 2,
+	},
+	engines: [
+		{
+			engine: { id: 'chatgpt', name: 'ChatGPT', provider: 'OpenAI' },
+			triggerQuery: 'q',
+			simulatedResponse: '',
+			improvementTip: 'Bing Places NAP 부재',
+			score: 61,
+			statusBadge: 'not_indexed',
+			depthLevel: null,
+		},
+		{
+			engine: { id: 'gemini', name: 'Gemini', provider: 'Google' },
+			triggerQuery: 'q',
+			simulatedResponse: '',
+			improvementTip: 'GBP 신호 부족',
+			score: 82,
+			statusBadge: 'not_indexed',
+			depthLevel: null,
+		},
+		{
+			engine: { id: 'perplexity', name: 'Perplexity', provider: 'Perplexity' },
+			triggerQuery: 'q',
+			simulatedResponse: '',
+			improvementTip: '블로그 우회 인용',
+			score: 78,
+			statusBadge: 'moderate',
+			depthLevel: 2,
+			analysisTags: [{ id: 'sources', label: 'blog', polarity: 'negative' }],
+		},
+	] as const,
+});
+assert('mixed scan returns 3 cards', mixed.length === 3, mixed.map((p) => p.id).join(','));
+assert('ChatGPT NAP is P1', mixed.some((p) => p.id === 'engine-chatgpt-p1' && p.priority === 'P1'), mixed.map((p) => `${p.priority}:${p.id}`).join(','));
+assert('Gemini grounding gap is P2', mixed.some((p) => p.id === 'engine-gemini-p2' && p.priority === 'P2'), mixed.map((p) => `${p.priority}:${p.id}`).join(','));
+assert('Perplexity indirect cite is P3', mixed.some((p) => p.id === 'engine-perplexity-p3' && p.priority === 'P3'), mixed.map((p) => `${p.priority}:${p.id}`).join(','));
+assert(
+	'mixed copy binds the supplied brand, not a clinic leftover',
+	mixed.every((p) => !p.cause.includes('나인원의원') && !p.cause.includes('대구')),
+	mixed.map((p) => p.cause).join(' | '),
 );
 
 if (failed) {

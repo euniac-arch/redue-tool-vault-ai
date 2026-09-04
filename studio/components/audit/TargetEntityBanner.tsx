@@ -42,12 +42,12 @@ function LiveCertifiedBanner({
 }) {
 	return (
 		<div
-			className="live-cert-banner mb-3.5 flex max-w-full items-start gap-2.5 rounded-xl border border-emerald-200/70 bg-emerald-50/75 px-3.5 py-2.5 sm:items-center sm:px-4 dark:border-[rgba(16,185,129,0.2)]"
+			className="live-cert-banner mb-3.5 flex max-w-full items-start gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 px-3.5 py-2.5 sm:items-center sm:px-4 dark:border-[rgba(16,185,129,0.2)]"
 			role="status"
 			aria-label={body}
 		>
 			<span className="live-cert-dot mt-1.5 shrink-0 print:shadow-none sm:mt-0" aria-hidden />
-			<p className="min-w-0 flex-1 text-[12px] font-normal leading-relaxed text-slate-600 dark:text-slate-400 sm:text-[13px]">
+			<p className="min-w-0 flex-1 text-[12px] font-medium leading-relaxed text-emerald-900 dark:font-normal dark:text-slate-400 sm:text-[13px]">
 				{body}
 			</p>
 		</div>

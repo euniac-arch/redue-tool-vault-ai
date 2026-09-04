@@ -71,14 +71,14 @@ export function FloatingTabIndicator({
 						aria-label={t(item.ariaKey)}
 						className={`flex items-center gap-2 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-semibold transition-all duration-200 ${
 							isActive
-								? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-500/20'
+								? 'bg-cyan-50 text-cyan-700 ring-1 ring-cyan-200 shadow-none dark:bg-cyan-500 dark:text-slate-950 dark:ring-0 dark:shadow-sm dark:shadow-cyan-500/20'
 								: 'text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-[#0E162B]'
 						}`}
 					>
 						<Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
 						<span>{t(item.labelKey)}</span>
 						{isActive ? (
-							<span className="ml-1 h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-200" aria-hidden />
+							<span className="ml-1 h-1.5 w-1.5 animate-pulse rounded-full bg-cyan-400 dark:bg-cyan-200" aria-hidden />
 						) : null}
 					</button>
 				);

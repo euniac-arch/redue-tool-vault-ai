@@ -68,6 +68,8 @@ export const TEST_GROUPS = {
 		'scripts/test-smart-hashtags.ts',
 		'scripts/test-guide-mapping.ts',
 		'scripts/test-guide-history-picker.ts',
+		'scripts/test-generic-sov.ts',
+		'scripts/test-audit-pdf-lock.ts',
 	],
 	provider: [
 		'scripts/test-intelligence-providers.ts',

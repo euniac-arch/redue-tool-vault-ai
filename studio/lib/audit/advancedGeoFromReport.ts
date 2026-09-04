@@ -89,6 +89,8 @@ export function advancedGeoInputFromReport(
 		brandName: meta?.brandName,
 		brandAliases: meta?.brandAliases,
 		productTokens: meta?.coreSpecialties,
+		offerings: meta?.coreSpecialties,
+		offeringCorpus: textParts.join('\n'),
 		location: meta?.location || meta?.broadLocation,
 		industryType: undefined,
 		legacyIndustry: meta?.industryType || meta?.category,

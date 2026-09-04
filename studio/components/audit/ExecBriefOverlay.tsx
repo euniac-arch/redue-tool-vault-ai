@@ -90,6 +90,8 @@ const EXEC_BRIEF_BG_DARK = '#0B1028';
 const EXEC_BRIEF_BG_LIGHT = '#ffffff';
 const ROI_EFFECTS_BG_DARK = '#0f172a';
 const ROI_EFFECTS_BG_LIGHT = '#f8fafc';
+const PERFECT_GUIDE_BG_DARK = '#0f172a';
+const PERFECT_GUIDE_BG_LIGHT = '#f8fafc';
 
 function flattenCloneBackground(node: HTMLElement, color: string) {
 	node.style.backgroundImage = 'none';
@@ -258,6 +260,9 @@ async function saveExecBriefCard(el: HTMLElement, kind: 'png' | 'pdf', filenameB
 				});
 				doc.querySelectorAll<HTMLElement>('[data-exec-brief-roi-effects]').forEach((node) => {
 					flattenCloneBackground(node, isDark ? ROI_EFFECTS_BG_DARK : ROI_EFFECTS_BG_LIGHT);
+				});
+				doc.querySelectorAll<HTMLElement>('[data-exec-brief-perfect-guide]').forEach((node) => {
+					flattenCloneBackground(node, isDark ? PERFECT_GUIDE_BG_DARK : PERFECT_GUIDE_BG_LIGHT);
 				});
 				doc.querySelectorAll('[data-exec-brief-chrome]').forEach((node) => {
 					(node as HTMLElement).style.display = 'none';
@@ -435,12 +440,12 @@ function ExecBriefCard({
 			<header className="h-auto shrink-0 overflow-visible border-b border-slate-200 px-4 py-4 dark:border-white/10 sm:px-6">
 				<div className="flex items-start justify-between gap-3">
 					<div className="flex h-auto min-w-0 flex-col overflow-visible">
-						<span className="text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
+						<span className="break-words text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
 							{t('kicker')}
 						</span>
 						<h2
 							id="exec-brief-title"
-							className="mt-1 h-auto break-keep text-2xl font-bold leading-normal text-slate-900 dark:text-white"
+							className="mt-1 h-auto break-keep text-xl font-bold leading-normal text-slate-900 dark:text-white sm:text-2xl"
 						>
 							{t('title')}
 						</h2>
@@ -469,10 +474,13 @@ function ExecBriefCard({
 						<div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-black/25">
 							<IndexRing score={brief.aiIndex} />
 							<div className="min-w-0">
-								<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+								<p className="break-keep text-[11px] font-extrabold leading-snug text-slate-800 dark:text-slate-100">
 									{t('aiIndexLabel')}
 								</p>
-								<p className={`text-sm font-extrabold ${tone.text}`}>
+								<p className="mt-1.5 inline-flex rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold leading-snug text-indigo-700 dark:text-indigo-300">
+									{t('aiIndexFormula')}
+								</p>
+								<p className={`mt-1.5 text-sm font-extrabold ${tone.text}`}>
 									{t(`indexedRatio.${brief.indexedKind}`, {
 										indexed: brief.indexedCount,
 										total: brief.totalEngines,
@@ -499,7 +507,16 @@ function ExecBriefCard({
 							) : null}
 						</div>
 					</div>
+					<p className="mt-3 break-keep text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+						{t('aiIndexHint')}
+					</p>
 
+					<p className="mt-5 break-keep text-[11px] font-extrabold leading-snug text-slate-700 dark:text-slate-200">
+						{t('enginesHeader')}
+					</p>
+					<p className="mt-1 break-keep text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+						{t('enginesHint')}
+					</p>
 					<ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
 						{brief.engines.map((engine) => {
 							const Glyph = ENGINE_GLYPH[engine.id as AIEngineId];
@@ -549,9 +566,9 @@ function ExecBriefCard({
 					</p>
 					<ol className="mt-3 flex flex-col gap-2.5">
 						{brief.improvements.length > 0 ? (
-							brief.improvements.map((item, index) => (
+							brief.improvements.slice(0, 3).map((item, index) => (
 								<li
-									key={item.id}
+									key={`${item.id}-${index}`}
 									className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 dark:border-white/10 dark:bg-black/25"
 								>
 									<span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0B1C2C] text-[11px] font-extrabold text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#0B1C2C]">
@@ -562,13 +579,17 @@ function ExecBriefCard({
 											<span
 												className={`rounded-full px-2 py-0.5 text-[10px] font-extrabold ${PTAG_CHIP[item.pTag]}`}
 											>
-												{t(`pTag.${item.pTag}`)}
+												{item.priorityLabel || t(`priority.${item.priority}`)}
 											</span>
 											<p className="break-keep text-sm font-extrabold text-slate-900 dark:text-white">
 												{item.title}
 											</p>
 										</div>
-										{item.statusLine ? (
+										{item.targetEngines ? (
+											<p className="mt-1 break-keep text-xs font-semibold text-slate-700 dark:text-slate-200">
+												{t('enginesPrefix')}: {item.targetEngines}
+											</p>
+										) : item.statusLine ? (
 											<p className="mt-1 break-keep text-xs font-semibold text-slate-700 dark:text-slate-200">
 												{t('statusPrefix')}: {item.statusLine}
 											</p>
@@ -582,6 +603,11 @@ function ExecBriefCard({
 												{item.detail}
 											</p>
 										)}
+										{item.actionLine ? (
+											<p className="mt-1 break-keep text-xs leading-relaxed text-indigo-700 dark:text-indigo-300">
+												{t('actionPrefix')}: {item.actionLine}
+											</p>
+										) : null}
 									</div>
 								</li>
 							))
@@ -694,6 +720,41 @@ function ExecBriefCard({
 							)}
 						</div>
 					</div>
+
+					{brief.perfectGuide ? (
+						<div
+							data-exec-brief-perfect-guide
+							className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/60"
+						>
+							<h4 className="font-bold text-slate-900 dark:text-white">
+								{t('perfectGuideTitle')}
+							</h4>
+							<p className="mt-1.5 break-keep text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+								{t('perfectGuideSubtitle', { gap: brief.perfectGuide.remainingPct })}
+							</p>
+							<div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-0">
+								<div className="md:border-r md:border-slate-200 md:pr-5 dark:md:border-slate-700">
+									<h5 className="font-bold text-slate-900 dark:text-white">
+										{t('perfectGuideConditionTitle')}
+									</h5>
+									<p className="mt-2 break-keep text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+										{t('perfectGuideConditionBody', { engines: brief.perfectGuide.enginesLabel })}
+									</p>
+								</div>
+								<div className="md:pl-5">
+									<h5 className="font-bold text-slate-900 dark:text-white">
+										{t('perfectGuideBenefitTitle')}
+									</h5>
+									<p className="mt-2 break-keep text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+										{t('perfectGuideBenefitBody', {
+											peer: brief.perfectGuide.peerNoun,
+											query: brief.perfectGuide.queryPhrase,
+										})}
+									</p>
+								</div>
+							</div>
+						</div>
+					) : null}
 				</section>
 			</div>
 

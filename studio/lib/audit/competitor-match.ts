@@ -17,8 +17,8 @@ import {
 	resolveTargetIndustry,
 } from '@/lib/audit/sov-industry-guard';
 import {
-	filterGenericNonNicheNames,
 	genericSearchDispersionLabels,
+	isGenericNonNicheCompetitor,
 	resolveNicheOfferingMatch,
 } from '@/lib/audit/sov-niche-entity';
 
@@ -260,7 +260,9 @@ export function matchCompetitorRoster(input: CompetitorMatchInput): CompetitorMa
 		(name) => !isOffIndustryListing(name, family, '', industryCtx),
 	);
 	const guardedRanked = niche.isNicheQuery
-		? filterGenericNonNicheNames(industryGuarded, niche.nicheItemTokens)
+		? industryGuarded.filter(
+				(name) => isSelfListing(name, entities) || !isGenericNonNicheCompetitor(name, niche.nicheItemTokens),
+			)
 		: industryGuarded;
 	let unifiedNames = collapseSelfVariants(guardedRanked, entities, canonical);
 	const placeQuery = looksLikePlaceOrBuildingQuery(input.query || '', industryCtx);
