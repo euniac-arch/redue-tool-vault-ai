@@ -1,6 +1,6 @@
 'use client';
 
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useMemo } from 'react';
 import { useLocale } from 'next-intl';
 import { AiEngineExposurePanel } from '@/components/audit/AiEngineExposurePanel';
 import { BrandTrustPanel } from '@/components/audit/BrandTrustPanel';
@@ -13,13 +13,8 @@ import { GeoDiagnosticTabFromAudit } from '@/components/geo/GeoDiagnosticTab';
 import { DeferredSection } from '@/components/audit/DeferredSection';
 import { LlmsTxtCopyBox } from '@/components/audit/LlmsTxtCopyBox';
 import { computeAdvancedGeoFromReport } from '@/lib/audit/advancedGeoFromReport';
-import type { DynamicSovResult } from '@/lib/audit/advancedGeoMetrics';
-import { resolveDiagnosticSovPresets } from '@/lib/audit/sovDiagnosticValidation';
-import {
-	snapshotHasRealCompetitors,
-	type RealCompetitorSnapshot,
-} from '@/lib/audit/realCompetitors';
-import { generateQueryMatrix } from '@/lib/geo/query-matrix';
+import { generateSoVAnalysis, sovSiteDataFromReport } from '@/lib/audit/sov-analysis';
+import { useAdminSession } from '@/lib/admin/use-admin-session';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import type { AuditReport } from '@/lib/site-auditor';
 
@@ -34,7 +29,8 @@ export interface Tab1ReputationSectionProps {
 
 /**
  * Track 2 tab — AI search trust & citation dominance (GEO).
- * Top: unified market leaderboard (live top 3 including the client + To-Be).
+ * Top: standardized market-ranking leaderboard (industry/region-aware
+ * generic queries, realistic 3–12% → 60–75% SoV deficiency/recapture model).
  * E-E-A-T: entity identification gauge.
  * Bottom crawler diagnosis: /llms.txt status + jump to Answer Center module 5.
  */
@@ -46,133 +42,21 @@ function Tab1ReputationSectionInner({
 	publicView = false,
 }: Tab1ReputationSectionProps) {
 	const locale = useLocale();
+	const { isAdmin } = useAdminSession();
 	const lang = locale === 'en' ? 'en' : 'ko';
-	const queryMatrix = useMemo(
-		() =>
-			generateQueryMatrix({
-				lang,
-				siteMeta: report.siteMeta,
-				metrics: report.metrics,
-				detectedKeywords: report.detectedKeywords,
-			}),
-		[report.siteMeta, report.metrics, report.detectedKeywords, lang],
+	const showSovLeaderboard = isAdmin;
+	const sovAnalysis = useMemo(
+		() => (showSovLeaderboard ? generateSoVAnalysis({ ...sovSiteDataFromReport(report), lang }) : null),
+		[showSovLeaderboard, report.url, report.siteMeta, report.metrics, report.detectedKeywords, lang],
 	);
-	const queryContext = useMemo(() => {
-		const slots = queryMatrix.slots;
-		const clientName = slots.brandName;
-		const region = slots.location || '';
-		const mainService = slots.categoryNouns[0] || '';
-		const subService = slots.categoryNouns[1];
-		const sovPresets = resolveDiagnosticSovPresets({
-			brandName: clientName,
-			siteUrl: report.url || report.siteMeta?.targetUrl,
-			location: region,
-			brandAliases: report.siteMeta?.brandAliases,
-			fallback: queryMatrix.sovPresets,
-		});
-		return {
-			clientName,
-			region,
-			mainService,
-			subService,
-			categoryName: report.siteMeta?.category || mainService,
-			industryType: report.siteMeta?.industryType,
-			schemaTypes: report.siteMeta?.schemaEntityTypes || report.metrics?.schemaTypes,
-			productTokens: report.siteMeta?.coreSpecialties,
-			sovPresets,
-			defaultQuery: sovPresets[0] || queryMatrix.sovPresets[1],
-		};
-	}, [queryMatrix, report.siteMeta, report.metrics?.schemaTypes, report.url]);
-	const [liveSnapshot, setLiveSnapshot] = useState<RealCompetitorSnapshot | null>(
-		() => report.realCompetitors ?? null,
-	);
-	useEffect(() => {
-		setLiveSnapshot(report.realCompetitors ?? null);
-		if (snapshotHasRealCompetitors(report.realCompetitors)) return;
-		const { clientName, region, mainService, categoryName, industryType, schemaTypes, productTokens } = queryContext;
-		if (!clientName || !region || !mainService) return;
-		const defaultQuery = queryContext.defaultQuery;
-		let cancelled = false;
-		(async () => {
-			try {
-				const res = await fetch('/api/competitors', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({
-						clientName,
-						region,
-						mainService,
-						query: defaultQuery,
-						categoryName,
-						industryType,
-						schemaTypes,
-						productTokens,
-						lang,
-						brandAliases: report.siteMeta?.brandAliases,
-					}),
-				});
-				const data = (await res.json()) as { snapshot?: RealCompetitorSnapshot };
-				if (cancelled || !res.ok || !snapshotHasRealCompetitors(data.snapshot)) return;
-				setLiveSnapshot(data.snapshot ?? null);
-			} catch {
-				/* keep statistical fallback already bound on the report */
-			}
-		})();
-		return () => {
-			cancelled = true;
-		};
-	}, [report.url, report.fetchedAt, report.realCompetitors, queryContext, lang]);
-	const boundReport = useMemo(
-		() => (liveSnapshot ? { ...report, realCompetitors: liveSnapshot } : report),
-		[report, liveSnapshot],
-	);
-	const metrics = useMemo(() => computeAdvancedGeoFromReport(boundReport), [boundReport]);
+	const metrics = useMemo(() => computeAdvancedGeoFromReport(report), [report]);
 	const diagnosticAudit = audit ?? report;
-
-	const handleQueryChange = useCallback(
-		async (newQuery: string): Promise<DynamicSovResult> => {
-			const { clientName, region, mainService, categoryName, industryType, schemaTypes, productTokens } = queryContext;
-			const res = await fetch('/api/competitors', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					clientName,
-					region,
-					mainService,
-					query: newQuery,
-					categoryName,
-					industryType,
-					schemaTypes,
-					productTokens,
-					lang,
-					brandAliases: report.siteMeta?.brandAliases,
-				}),
-			});
-			const data = (await res.json()) as { snapshot?: RealCompetitorSnapshot; error?: string };
-			if (!res.ok || !data.snapshot) {
-				throw new Error(data.error || 'Failed to update SOV rankings');
-			}
-			setLiveSnapshot(data.snapshot);
-			return computeAdvancedGeoFromReport({ ...report, realCompetitors: data.snapshot }).dynamicSov;
-		},
-		[queryContext, lang, report],
-	);
 
 	return (
 		<>
-			<CompetitorSovCard
-				sovData={metrics.dynamicSov}
-				industryConfig={metrics.industry}
-				clientName={queryContext.clientName}
-				region={queryContext.region}
-				mainService={queryContext.mainService}
-				subService={queryContext.subService}
-				queryPresets={queryContext.sovPresets}
-				siteUrl={report.url || report.siteMeta?.targetUrl}
-				brandAliases={report.siteMeta?.brandAliases}
-				productTokens={report.siteMeta?.coreSpecialties}
-				onQueryChange={handleQueryChange}
-			/>
+			{showSovLeaderboard && sovAnalysis ? (
+				<CompetitorSovCard analysis={sovAnalysis} siteUrl={report.url || report.siteMeta?.targetUrl} />
+			) : null}
 
 			<GeoScoreOverviewHeader
 				report={report}

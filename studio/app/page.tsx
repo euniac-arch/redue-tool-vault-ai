@@ -6,6 +6,7 @@ import { DiagnosisProofSection } from '@/components/landing/DiagnosisProofSectio
 import { EngineCompatibility } from '@/components/landing/EngineCompatibility';
 import { LandingFaq } from '@/components/landing/LandingFaq';
 import { PrescriptionModules } from '@/components/landing/PrescriptionModules';
+import { LandingCaseStudies } from '@/components/landing/LandingCaseStudies';
 import { PricingPackages } from '@/components/landing/PricingPackages';
 import { ProblemSection } from '@/components/landing/ProblemSection';
 import { QueryReachSection } from '@/components/landing/QueryReachSection';
@@ -32,6 +33,7 @@ export default function LandingPage() {
 			<div className="landing-container pb-4">
 				<RoiValueSection />
 				<PricingPackages />
+				<LandingCaseStudies />
 				<LandingFaq />
 				<ClosingCta />
 			</div>

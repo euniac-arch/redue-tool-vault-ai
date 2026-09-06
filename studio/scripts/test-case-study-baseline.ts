@@ -72,6 +72,32 @@ const resolvedSynthetic = resolveCaseStudyBaseline({
 });
 assert('falls back to synthetic for 90→91', resolvedSynthetic.source === 'synthetic' && resolvedSynthetic.baseline?.overall === 58);
 
+const overwritten = resolveCaseStudyBaseline({
+	customBaseline: { overall: 90, seo: 100, schema: 100, geo: 100 },
+	beforeOverall: 90,
+	afterOverall: 91,
+	beforeAxes: { seo: 100, performance: 66, schema: 100, geo: 100 },
+	afterAxes: { seo: 100, performance: 71, schema: 100, geo: 100 },
+	siteName: '나인원의원',
+	siteUrl: 'http://nineoneclinic.com/',
+});
+assert(
+	'overwritten 90 baseline is restored to 58 for 나인원의원',
+	overwritten.source === 'known' && overwritten.baseline?.overall === 58,
+	overwritten,
+);
+
+const realFirst = resolveCaseStudyBaseline({
+	customBaseline: null,
+	beforeOverall: 58,
+	afterOverall: 91,
+	beforeAxes: { seo: 68, performance: 71, schema: 0, geo: 45 },
+	afterAxes: { seo: 100, performance: 71, schema: 100, geo: 100 },
+	siteName: '나인원의원',
+	siteUrl: 'http://nineoneclinic.com/',
+});
+assert('real 58 first audit is kept', realFirst.source === 'audit' && realFirst.baseline == null);
+
 const root = process.cwd();
 const card = readFileSync(join(root, 'components/portfolio/CaseStudyCard.tsx'), 'utf8');
 const page = readFileSync(join(root, 'app/api/admin/projects/[id]/case-study/route.ts'), 'utf8');

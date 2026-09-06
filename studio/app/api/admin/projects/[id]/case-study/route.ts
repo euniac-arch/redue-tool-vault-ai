@@ -5,6 +5,7 @@ import {
 	parseProjectCustomBaseline,
 	type CaseStudyType,
 } from '@/lib/projects';
+import { preserveCaseStudyBaseline } from '@/lib/case-studies/custom-baseline';
 import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 import {
 	getAuditProjectById,
@@ -66,13 +67,30 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 			const caseStudyType: CaseStudyType | null = isCaseStudy
 				? requestedType || normalizeCaseStudyType(existing.caseStudyType) || 'simulation'
 				: null;
+			const preserved =
+				customBaseline !== undefined
+					? customBaseline
+					: isCaseStudy
+						? preserveCaseStudyBaseline({
+								existingBaseline: existing.customBaseline,
+								afterOverall: existing.latestScore ?? 0,
+								afterAxes: {
+									seo: existing.latestSeoScore ?? 0,
+									performance: 0,
+									schema: existing.latestSchemaScore ?? 0,
+									geo: existing.latestGeoScore ?? 0,
+								},
+								siteName: existing.name,
+								siteUrl: existing.targetUrl,
+							})
+						: undefined;
 			const updated = await prisma.project.update({
 				where: { id },
 				data: {
 					isCaseStudy,
 					caseStudyType,
-					...(customBaseline !== undefined
-						? { customBaseline: customBaseline ? JSON.stringify(customBaseline) : null }
+					...(preserved !== undefined
+						? { customBaseline: preserved ? JSON.stringify(preserved) : null }
 						: {}),
 				},
 			});
@@ -101,10 +119,27 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 			const caseStudyType: CaseStudyType | null = isCaseStudy
 				? requestedType || existing.caseStudyType || 'simulation'
 				: null;
+			const preserved =
+				customBaseline !== undefined
+					? customBaseline
+					: isCaseStudy
+						? preserveCaseStudyBaseline({
+								existingBaseline: existing.customBaseline,
+								afterOverall: existing.score ?? 0,
+								afterAxes: {
+									seo: existing.score ?? 0,
+									performance: 0,
+									schema: existing.auditPayload?.report?.schemaCoverage ?? 0,
+									geo: existing.auditPayload?.report?.geoCitationScore ?? 0,
+								},
+								siteName: existing.siteName,
+								siteUrl: existing.url,
+							})
+						: undefined;
 			const result = await updateAuditProjectCaseStudyFields(id, {
 				isCaseStudy,
 				caseStudyType,
-				...(customBaseline !== undefined ? { customBaseline } : {}),
+				...(preserved !== undefined ? { customBaseline: preserved } : {}),
 			});
 			if (result) {
 				return NextResponse.json({ ...result, source: 'firestore' });

@@ -722,6 +722,8 @@ function buildCaseStudyFromReports(args: {
 		afterOverall,
 		beforeAxes: axesFromPacket(auditBeforePacket),
 		afterAxes,
+		siteName: args.name,
+		siteUrl: args.domainUrl || args.domain,
 	});
 
 	const beforePacket = resolved.baseline
@@ -736,9 +738,7 @@ function buildCaseStudyFromReports(args: {
 	);
 	const metaReport = afterAudit ?? beforeAudit;
 	const latestAuditId = latest?.id || args.latestAuditId || undefined;
-	const resultHref = latestAuditId
-		? `/audit/result?id=${encodeURIComponent(latestAuditId)}`
-		: `/portfolio/case-study/${args.id}`;
+	const resultHref = `/portfolio/case-study/${args.id}`;
 
 	if (process.env.NODE_ENV !== 'production') {
 		console.info('[live-case-studies]', {

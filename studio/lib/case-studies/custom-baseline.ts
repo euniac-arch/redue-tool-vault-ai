@@ -11,6 +11,18 @@ export interface CustomBaselineScores {
 	geo?: number | null;
 }
 
+/** First live score for 나인원의원 before schema/GEO work — do not replace with the current 90s. */
+export const NINEONE_CLINIC_BASELINE: CustomBaselineScores = {
+	overall: 58,
+	seo: 68,
+	performance: 71,
+	schema: 0,
+	geo: 45,
+};
+
+const POST_OPT_SCORE = 85;
+const OVERWRITE_DELTA = 10;
+
 export interface AxisScoreSnapshot {
 	seo: number;
 	performance: number;
@@ -52,9 +64,41 @@ export function isCustomBaseline(value: unknown): value is CustomBaselineScores 
 	return parseCustomBaseline(value) != null;
 }
 
+export function isNineoneClinicSite(siteName?: string | null, siteUrl?: string | null): boolean {
+	const name = (siteName ?? '').replace(/\s+/g, '');
+	const host = (() => {
+		const raw = (siteUrl ?? '').trim();
+		if (!raw) return '';
+		try {
+			return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname.replace(/^www\./, '').toLowerCase();
+		} catch {
+			return raw.replace(/^www\./, '').toLowerCase();
+		}
+	})();
+	return name.includes('나인원의원') || host.includes('nineoneclinic') || host === 'nineone.kr';
+}
+
+export function knownBaselineForSite(
+	siteName?: string | null,
+	siteUrl?: string | null,
+): CustomBaselineScores | null {
+	return isNineoneClinicSite(siteName, siteUrl) ? { ...NINEONE_CLINIC_BASELINE } : null;
+}
+
+/** Admin saved the current optimized score as Before (e.g. 90 / 90). */
+export function looksLikeOverwrittenBaseline(
+	custom: CustomBaselineScores | null | undefined,
+	afterOverall: number,
+): boolean {
+	if (!custom) return false;
+	if (custom.overall < POST_OPT_SCORE || afterOverall < POST_OPT_SCORE) return false;
+	return Math.abs(custom.overall - afterOverall) < OVERWRITE_DELTA;
+}
+
 /**
  * First stored audit already looks post-optimization: high overall, almost no
- * lift vs latest, and schema already injected.
+ * lift vs latest. Schema is a hint, not required — a single 90-point rescan
+ * often overwrites the original 58 without keeping schema history.
  */
 export function needsPreOptimizationFallback(args: {
 	beforeOverall: number | null;
@@ -65,7 +109,9 @@ export function needsPreOptimizationFallback(args: {
 	const before = args.beforeOverall ?? args.afterOverall;
 	const schema = args.beforeSchema ?? args.afterSchema;
 	const delta = Math.abs(args.afterOverall - before);
-	return before >= 85 && delta < 3 && schema >= 80;
+	if (before < POST_OPT_SCORE || args.afterOverall < POST_OPT_SCORE) return false;
+	if (delta < OVERWRITE_DELTA) return true;
+	return delta < 3 && schema >= 80;
 }
 
 /**
@@ -94,18 +140,29 @@ export function resolveCaseStudyBaseline(args: {
 	afterOverall: number;
 	beforeAxes: AxisScoreSnapshot | null;
 	afterAxes: AxisScoreSnapshot;
-}): { baseline: CustomBaselineScores | null; source: 'custom' | 'synthetic' | 'audit' } {
+	siteName?: string | null;
+	siteUrl?: string | null;
+}): { baseline: CustomBaselineScores | null; source: 'custom' | 'known' | 'synthetic' | 'audit' } {
 	const custom = parseCustomBaseline(args.customBaseline);
-	if (custom) return { baseline: custom, source: 'custom' };
+	const customUsable = custom && !looksLikeOverwrittenBaseline(custom, args.afterOverall);
+	if (customUsable) return { baseline: custom, source: 'custom' };
 
-	if (
-		needsPreOptimizationFallback({
-			beforeOverall: args.beforeOverall,
-			afterOverall: args.afterOverall,
-			beforeSchema: args.beforeAxes?.schema ?? null,
-			afterSchema: args.afterAxes.schema,
-		})
-	) {
+	const needsFallback = needsPreOptimizationFallback({
+		beforeOverall: args.beforeOverall,
+		afterOverall: args.afterOverall,
+		beforeSchema: args.beforeAxes?.schema ?? null,
+		afterSchema: args.afterAxes.schema,
+	});
+	if (!needsFallback && args.beforeOverall != null && args.beforeOverall < POST_OPT_SCORE) {
+		return { baseline: null, source: 'audit' };
+	}
+
+	const known = knownBaselineForSite(args.siteName, args.siteUrl);
+	if (known && (needsFallback || args.beforeOverall == null)) {
+		return { baseline: known, source: 'known' };
+	}
+
+	if (needsFallback) {
 		return {
 			baseline: buildPreOptimizationFallback({
 				overall: args.afterOverall,
@@ -116,6 +173,32 @@ export function resolveCaseStudyBaseline(args: {
 	}
 
 	return { baseline: null, source: 'audit' };
+}
+
+/** Persist this when an admin publishes a case study so Before stays the first diagnosis. */
+export function preserveCaseStudyBaseline(args: {
+	existingBaseline?: unknown;
+	afterOverall: number;
+	afterAxes?: Partial<AxisScoreSnapshot> | null;
+	siteName?: string | null;
+	siteUrl?: string | null;
+}): CustomBaselineScores | null {
+	const resolved = resolveCaseStudyBaseline({
+		customBaseline: args.existingBaseline,
+		beforeOverall: null,
+		afterOverall: args.afterOverall,
+		beforeAxes: null,
+		afterAxes: {
+			seo: args.afterAxes?.seo ?? 0,
+			performance: args.afterAxes?.performance ?? 0,
+			schema: args.afterAxes?.schema ?? 0,
+			geo: args.afterAxes?.geo ?? 0,
+		},
+		siteName: args.siteName,
+		siteUrl: args.siteUrl,
+	});
+	if (resolved.source === 'audit') return parseCustomBaseline(args.existingBaseline);
+	return resolved.baseline;
 }
 
 function clampScore(value: number, min: number, max: number): number {

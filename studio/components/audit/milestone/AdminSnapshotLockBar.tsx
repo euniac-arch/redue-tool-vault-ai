@@ -81,10 +81,10 @@ export function AdminSnapshotLockBar({
 				<p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{helperText}</p>
 			</div>
 
-			<div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-				{/* 회차 선택 세그먼트 */}
+			<div className="flex flex-col gap-2.5">
+				{/* 회차 선택 세그먼트 — 1~4회차를 항상 한 줄에 고정 */}
 				<div
-					className="segment-group inline-flex flex-wrap gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-slate-900/60"
+					className="segment-group grid w-full grid-cols-4 gap-1 rounded-lg border border-slate-200 bg-white p-1 dark:border-white/10 dark:bg-slate-900/60"
 					role="tablist"
 					aria-label="박제 대상 회차 선택"
 				>
@@ -102,31 +102,31 @@ export function AdminSnapshotLockBar({
 									setSelectedRound(round);
 									setConfirmingOverwrite(false);
 								}}
-								className={`segment-btn inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-bold transition sm:text-[13px] ${
+								className={`segment-btn inline-flex min-w-0 items-center justify-center gap-1 rounded-md px-1.5 py-1.5 text-[11px] font-bold leading-none transition sm:gap-1.5 sm:px-2 sm:text-xs ${
 									isSelected
 										? 'is-active bg-[#C9A227] text-white shadow-sm'
 										: 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-white/5'
 								}`}
 							>
 								{isLocked ? (
-									<Lock className={`h-3 w-3 ${isSelected ? 'text-white' : 'text-slate-400'}`} aria-hidden />
+									<Lock className={`h-3 w-3 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`} aria-hidden />
 								) : null}
-								{meta.shortLabel} · {meta.dayLabel}
+								<span className="whitespace-nowrap">{meta.shortLabel} · {meta.dayLabel}</span>
 							</button>
 						);
 					})}
 				</div>
 
-				{/* 메인 실행 버튼 */}
+				{/* 메인 실행 버튼 — 문구가 두 줄로 접히지 않도록 한 줄 고정 */}
 				<button
 					type="button"
 					onClick={() => void handleClick()}
 					disabled={isLocking}
-					className={`btn-primary-action inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
+					className={`btn-primary-action inline-flex w-full shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition disabled:cursor-not-allowed disabled:opacity-60 ${
 						confirmingOverwrite ? 'bg-rose-600 hover:bg-rose-500' : 'bg-[#C9A227] hover:bg-[#B8901F]'
 					}`}
 				>
-					<Pin className="h-4 w-4" aria-hidden />
+					<Pin className="h-4 w-4 shrink-0" aria-hidden />
 					{isLocking
 						? '확정 중…'
 						: confirmingOverwrite

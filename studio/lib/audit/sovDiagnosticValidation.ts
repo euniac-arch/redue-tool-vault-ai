@@ -1,50 +1,21 @@
 /**
- * Share-of-Voice leaderboard integrity checks.
- * Used by the unified market ranking card and `scripts/test-sov-diagnostic.ts`.
- *
- * Nine One Clinic (`http://nineoneclinic.com/`) baseline — recommend chip:
- *   own 5 + A 27 + B 16 + 3rd-party 52 = 100
- *   target 48 − current 5 = +43%p
+ * Share-of-Voice leaderboard integrity checks — generic, site-agnostic
+ * validators for the unified market ranking card's 100%-pie / gap-formula
+ * invariants. No business or site is hardcoded here; every threshold is a
+ * universal rule (share sum, gap formula, unranked-tone mapping).
  */
 
-import {
-	normalizeSovKeyword,
-	resolveKeywordSovShares,
-	type SovShareTable,
-} from '@/lib/audit/sovLeaderboardData';
+import { normalizeSovKeyword, type SovShareTable } from '@/lib/audit/sovLeaderboardData';
 import { queryContainsBrandToken } from '@/lib/audit/universal-sov-engine';
-import { composeSearchQuery } from '@/lib/geo/search-query-normalize';
 
 export const SOV_SHARE_SUM_TARGET = 100;
 export const SOV_SHARE_SUM_TOLERANCE = 0.01;
 export const SOV_MAJORITY_THRESHOLD = 50;
 
-export const NINEONE_CLINIC_BRAND = '나인원의원';
-export const NINEONE_CLINIC_SITE_URL = 'http://nineoneclinic.com/';
-export const NINEONE_CLINIC_DOMAIN = 'nineoneclinic.com';
+/** Below this own-share, the unranked badge tone escalates from warning to danger. */
+export const SOV_DANGER_SHARE_THRESHOLD = 10;
 
-export const NINEONE_CLINIC_SOV_QUERIES = [
-	'대구 나인원의원',
-	'대구 동구 울트라클리어엘리트 추천',
-	'동대구역 동구 피부미용',
-] as const;
-
-export type NineoneClinicSovQuery = (typeof NINEONE_CLINIC_SOV_QUERIES)[number];
-
-/** Generic unranked tone threshold — low own share on a category query. */
-export const NINEONE_CLINIC_SOV_BASELINE = {
-	currentSov: 10,
-	targetSov: 35,
-	potentialGain: 25,
-	rank1: 25,
-	rank2: 15,
-	thirdParty: 50,
-	clientRank: 4,
-	rankText: '3위 밖',
-} as const;
-
-export const SOV_VALIDATION_PASS_MESSAGE = '정합성 검증 완료: 나인원의원 SoV 데이터 100% 일치';
-export const SOV_VALIDATION_PASS_MESSAGE_GENERIC = '정합성 검증 완료: SoV 데이터 100% 일치';
+export const SOV_VALIDATION_PASS_MESSAGE = '정합성 검증 완료: SoV 데이터 100% 일치';
 
 export type SovOwnBadgeTone = 'danger' | 'warning' | 'ok';
 
@@ -93,8 +64,6 @@ export interface SovLeaderboardValidationInput {
 	rankText?: string;
 	leaderboard?: readonly SovValidationLeaderboardRow[];
 	perKeyword?: Record<string, SovKeywordShareSlice>;
-	/** When true (default for 나인원의원), require the three diagnostic queries. */
-	requireNineoneQueries?: boolean;
 }
 
 export interface SovUiValidationTokens {
@@ -157,12 +126,6 @@ function isShareInRange(value: number): boolean {
 	return Number.isFinite(value) && value >= 0 && value <= 100;
 }
 
-export function isNineoneClinicTarget(input?: { brandName?: string; siteUrl?: string }): boolean {
-	const brand = (input?.brandName || '').replace(/\s+/g, '');
-	const host = (input?.siteUrl || '').toLowerCase();
-	return brand.includes('나인원의원') || host.includes(NINEONE_CLINIC_DOMAIN);
-}
-
 export function isOutsideTop3(clientRank?: number, rankText?: string): boolean {
 	if (typeof clientRank === 'number' && clientRank >= 4) return true;
 	return /3위\s*밖|순위\s*밖|outside\s+the\s+top\s*3|unranked/i.test(rankText || '');
@@ -178,7 +141,7 @@ export function resolveSovOwnBadgeTone(input: {
 	currentSov?: number;
 }): SovOwnBadgeTone {
 	if (!isOutsideTop3(input.clientRank, input.rankText)) return 'ok';
-	return (input.currentSov ?? 0) <= NINEONE_CLINIC_SOV_BASELINE.currentSov ? 'danger' : 'warning';
+	return (input.currentSov ?? 0) <= SOV_DANGER_SHARE_THRESHOLD ? 'danger' : 'warning';
 }
 
 export function resolveSovUiTokens(input: {
@@ -290,10 +253,8 @@ function validateShareSlice(
 	return { shareSum100, gapFormula, ownShareInRange };
 }
 
-export function formatSovValidationPassMessage(brandName?: string, siteUrl?: string): string {
-	return isNineoneClinicTarget({ brandName, siteUrl })
-		? SOV_VALIDATION_PASS_MESSAGE
-		: SOV_VALIDATION_PASS_MESSAGE_GENERIC;
+export function formatSovValidationPassMessage(): string {
+	return SOV_VALIDATION_PASS_MESSAGE;
 }
 
 export function logSovValidationResult(result: SovValidationResult): void {
@@ -305,62 +266,6 @@ export function logSovValidationResult(result: SovValidationResult): void {
 		'[SoV validation failed]',
 		result.errors.map((issue) => `${issue.code}: ${issue.message}`).join(' | '),
 	);
-}
-
-export function resolveDiagnosticSovPresets(input: {
-	brandName?: string;
-	siteUrl?: string;
-	location?: string;
-	brandAliases?: readonly string[];
-	fallback?: readonly string[];
-}): [string, string, string] {
-	const fallback = (input.fallback || []).filter(Boolean);
-	const brand = (input.brandName || '').trim();
-	const location = (input.location || '').trim();
-	const brandQuery = brand ? composeSearchQuery([location, brand], { maxTokens: 5 }) : '';
-	const merged = [brandQuery, ...fallback].filter((query, idx, all) => {
-		const key = normalizeSovKeyword(query);
-		if (!key) return false;
-		return all.findIndex((item) => normalizeSovKeyword(item) === key) === idx;
-	});
-	return [merged[0] || '', merged[1] || merged[0] || '', merged[2] || merged[1] || merged[0] || ''];
-}
-
-export function buildNineoneClinicSovDiagnosticDataset(): SovLeaderboardValidationInput {
-	const keywords = [...NINEONE_CLINIC_SOV_QUERIES];
-	const brandTokens = [NINEONE_CLINIC_BRAND, '나인원', 'nineoneclinic', 'nineone'];
-	const perKeyword = Object.fromEntries(
-		keywords.map((query) => {
-			const table = resolveKeywordSovShares(query, { brandTokens, brandName: NINEONE_CLINIC_BRAND });
-			return [
-				query,
-				{
-					rank1: table.rank1,
-					rank2: table.rank2,
-					currentSov: table.own,
-					thirdParty: table.thirdParty,
-					targetSov: table.targetSov,
-					potentialGain: table.potentialGain,
-				} satisfies SovKeywordShareSlice,
-			];
-		}),
-	);
-	const recommend = perKeyword[NINEONE_CLINIC_SOV_QUERIES[0]];
-	return {
-		brandName: NINEONE_CLINIC_BRAND,
-		siteUrl: NINEONE_CLINIC_SITE_URL,
-		keywords,
-		currentSov: recommend.currentSov,
-		targetSov: recommend.targetSov,
-		potentialGain: recommend.potentialGain,
-		rank1: recommend.rank1,
-		rank2: recommend.rank2,
-		thirdParty: recommend.thirdParty,
-		clientRank: NINEONE_CLINIC_SOV_BASELINE.clientRank,
-		rankText: NINEONE_CLINIC_SOV_BASELINE.rankText,
-		perKeyword,
-		requireNineoneQueries: true,
-	};
 }
 
 export function shareTableToKeywordSlice(table: SovShareTable): SovKeywordShareSlice {
@@ -402,20 +307,7 @@ export function validateSovLeaderboardData(data: SovLeaderboardValidationInput):
 		ownShareInRange = sliceChecks.ownShareInRange;
 	}
 
-	const nineone = isNineoneClinicTarget(data);
-	const requireQueries = data.requireNineoneQueries === true;
-	const providedKeywords = (data.keywords || []).map(normalizeSovKeyword).filter(Boolean);
-	let keywordsPresent = true;
-
-	if (requireQueries) {
-		const missing = NINEONE_CLINIC_SOV_QUERIES.filter(
-			(query) => !providedKeywords.includes(normalizeSovKeyword(query)),
-		);
-		keywordsPresent = missing.length === 0;
-		for (const query of missing) {
-			pushError(errors, 'KEYWORD_MISSING', `타겟 키워드 누락: ${query}`);
-		}
-	}
+	const keywordsPresent = true;
 
 	let perKeywordTables = true;
 	let keywordTablesRefresh = true;
@@ -441,9 +333,7 @@ export function validateSovLeaderboardData(data: SovLeaderboardValidationInput):
 		}
 	}
 
-	const brandTokens = [data.brandName, ...(nineone ? [NINEONE_CLINIC_BRAND, '나인원', 'nineoneclinic'] : [])].filter(
-		(token): token is string => Boolean(token),
-	);
+	const brandTokens = [data.brandName].filter((token): token is string => Boolean(token));
 	const navigationalKeywords = (data.keywords || []).filter((keyword) => queryContainsBrandToken(keyword, brandTokens));
 	if (navigationalKeywords.length && slices && queryContainsBrandToken(navigationalKeywords[0] || '', brandTokens)) {
 		if (data.clientRank != null && data.clientRank !== 1 && queryContainsBrandToken(navigationalKeywords[0] || '', brandTokens)) {
@@ -476,21 +366,6 @@ export function validateSovLeaderboardData(data: SovLeaderboardValidationInput):
 		},
 		ui,
 		slices,
-		message: valid
-			? formatSovValidationPassMessage(data.brandName, data.siteUrl)
-			: errors[0]?.message || 'SoV 데이터 정합성 오류',
+		message: valid ? formatSovValidationPassMessage() : errors[0]?.message || 'SoV 데이터 정합성 오류',
 	};
-}
-
-export function validateNineoneClinicSovDiagnostic(
-	data: SovLeaderboardValidationInput = buildNineoneClinicSovDiagnosticDataset(),
-): SovValidationResult {
-	return validateSovLeaderboardData({
-		...buildNineoneClinicSovDiagnosticDataset(),
-		...data,
-		brandName: data.brandName || NINEONE_CLINIC_BRAND,
-		siteUrl: data.siteUrl || NINEONE_CLINIC_SITE_URL,
-		keywords: data.keywords || NINEONE_CLINIC_SOV_QUERIES,
-		requireNineoneQueries: data.requireNineoneQueries !== false,
-	});
 }

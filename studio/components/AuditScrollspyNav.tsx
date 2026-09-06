@@ -5,6 +5,7 @@ import { ArrowUp } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { DEFAULT_AUDIT_RESULT_TAB, type AuditResultTabId } from '@/components/audit/AuditResultTabs';
 import { FloatingTabIndicator } from '@/components/audit/FloatingTabIndicator';
+import { useAdminSession } from '@/lib/admin/use-admin-session';
 import { useContentSideRailLeft } from '@/lib/use-content-side-rail';
 
 export const AUDIT_TOP_ID = 'audit-top';
@@ -58,10 +59,10 @@ function isElementVisible(el: HTMLElement): boolean {
 	return style.display !== 'none' && style.visibility !== 'hidden';
 }
 
-function defaultSectionForTab(activeTab: AuditResultTabId): AuditScrollspySectionId {
+function defaultSectionForTab(activeTab: AuditResultTabId, showSovLeaderboard = false): AuditScrollspySectionId {
 	if (activeTab === 'onpage') return 'technical-score-summary';
 	if (activeTab === 'cwv') return 'cwv-score-summary';
-	return 'ai-sov-gap';
+	return showSovLeaderboard ? 'ai-sov-gap' : 'geo-score-summary';
 }
 
 function pickActiveSection(items: NavItem[]): AuditScrollspySectionId | null {
@@ -91,13 +92,14 @@ export function AuditScrollspyNav({
 	observeKey,
 }: AuditScrollspyNavProps) {
 	const t = useTranslations('audit.scrollspy');
+	const { isAdmin } = useAdminSession();
 	const [activeId, setActiveId] = useState<AuditScrollspySectionId>(
-		defaultSectionForTab(activeTab),
+		defaultSectionForTab(activeTab, false),
 	);
 
 	useEffect(() => {
-		setActiveId(defaultSectionForTab(activeTab));
-	}, [activeTab]);
+		setActiveId(defaultSectionForTab(activeTab, isAdmin));
+	}, [activeTab, isAdmin]);
 	/** gap -34 ≈ content right − 34px. minRailWidth covers the left-anchored tab card growing right. */
 	const { left, isXl } = useContentSideRailLeft(contentRef, -34, 220);
 
@@ -109,7 +111,7 @@ export function AuditScrollspyNav({
 	/** Track 2 · GEO / citation panels. */
 	const tab1NavItems = useMemo<NavItem[]>(
 		() => [
-			{ id: 'ai-sov-gap', label: t('sovLeaderboard') },
+			...(isAdmin ? [{ id: 'ai-sov-gap' as const, label: t('sovLeaderboard') }] : []),
 			{ id: 'geo-score-summary', label: t('geoScoreSummary') },
 			{ id: 'ai-engine-status', label: t('aiEngineStatus') },
 			{ id: 'trigger-keyword-depth', label: t('triggerKeywordDepth') },
@@ -119,7 +121,7 @@ export function AuditScrollspyNav({
 			{ id: 'geo-section-bot', label: t('geoBotIndex') },
 			{ id: 'action-plan-85', label: t('actionPlan85') },
 		],
-		[t],
+		[t, isAdmin],
 	);
 
 	/** Track 1 · technical integrity / Schema panels. */

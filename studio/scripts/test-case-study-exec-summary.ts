@@ -87,7 +87,7 @@ const noBase = buildExecutiveNarrative(sample({ hasBaseline: false }));
 assert('missing baseline uses after-only copy', noBase.variant === 'after-only');
 
 const href = resolveCaseStudyResultHref(sample());
-assert('result href opens audit original', href === '/audit/result?id=audit-93');
+assert('result href stays on the public case-study page', href === '/portfolio/case-study/nineone');
 
 const schema = sample().axes.find((axis) => axis.key === 'schema');
 assert('schema injection reads PASS badge', schemaInjectionLabel(schema, true) === 'JSON-LD 주입 완료');

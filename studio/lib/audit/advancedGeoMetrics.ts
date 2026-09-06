@@ -1931,9 +1931,6 @@ export {
 export type { SovLeaderboardItem, SovShareTable } from '@/lib/audit/sovLeaderboardData';
 export {
 	validateSovLeaderboardData,
-	validateNineoneClinicSovDiagnostic,
-	buildNineoneClinicSovDiagnosticDataset,
-	resolveDiagnosticSovPresets,
 	logSovValidationResult,
 	SOV_VALIDATION_PASS_MESSAGE,
 } from '@/lib/audit/sovDiagnosticValidation';

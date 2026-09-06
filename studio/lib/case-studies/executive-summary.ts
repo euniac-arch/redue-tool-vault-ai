@@ -15,13 +15,7 @@ export function formatCaseStudyScore(n: number): string {
 }
 
 export function resolveCaseStudyResultHref(data: CaseStudyData, override?: string): string {
-	return (
-		override ??
-		data.resultHref ??
-		(data.latestAuditId
-			? `/audit/result?id=${encodeURIComponent(data.latestAuditId)}`
-			: `/portfolio/case-study/${data.id}`)
-	);
+	return override ?? data.resultHref ?? `/portfolio/case-study/${data.id}`;
 }
 
 export function findCaseStudyAxis(axes: CaseStudyAxis[], key: string): CaseStudyAxis | undefined {

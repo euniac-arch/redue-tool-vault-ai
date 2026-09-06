@@ -1,23 +1,13 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, X } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { ContactInquiryForm } from '@/components/ContactInquiryForm';
 import { clampScore } from '@/lib/audit/score-grade';
-import {
-	PACKAGE_SCORE_BANDS,
-	SOLUTION_PACKAGES,
-	SOLUTION_PACKAGES_ID,
-	formatKrw,
-	packageScoreBand,
-	projectProScore,
-	projectStandardScore,
-	type PackageScoreBandId,
-	type PackageScoreProjection,
-	type SolutionPackageId,
-} from '@/lib/audit/solution-packages';
+import { SOLUTION_PACKAGES_ID, type SolutionPackageId } from '@/lib/audit/solution-packages';
+import { PRICING_PLAN_IDS, PRICING_PLANS, formatPlanPrice, type PricingPlanId } from '@/lib/pricing/plans';
 
 interface SolutionPackageCtaProps {
 	targetUrl: string;
@@ -26,11 +16,8 @@ interface SolutionPackageCtaProps {
 	currentScore: number;
 }
 
-const PLANS = [
-	{
-		key: 'standard',
-		itemKeys: ['jsonld', 'llms', 'meta', 'turnaround'],
-		benefitKeys: ['jsonld', 'llms', 'meta'],
+const PLAN_STYLES = {
+	speed: {
 		order: 'order-2 md:order-1',
 		card: 'bg-white border border-slate-200 shadow-sm dark:bg-slate-900/60 dark:border-slate-800 dark:shadow-none',
 		name: 'text-slate-900 text-lg font-bold dark:text-white',
@@ -38,14 +25,12 @@ const PLANS = [
 		price: 'text-slate-900 dark:text-white',
 		unit: 'text-slate-500',
 		list: 'text-slate-600 dark:text-slate-300',
-		badge: 'bg-indigo-50 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-200',
+		lift: 'border-indigo-200/80 bg-indigo-50 text-indigo-900 dark:border-indigo-400/25 dark:bg-indigo-500/15 dark:text-indigo-100',
+		liftChip: 'bg-indigo-600 text-white dark:bg-indigo-400 dark:text-indigo-950',
 		cta: 'border border-slate-200 bg-slate-50 py-3 font-medium text-slate-800 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700',
 		toggle: 'text-slate-500 hover:text-cyan-700 dark:text-slate-400 dark:hover:text-cyan-300',
 	},
-	{
-		key: 'pro',
-		itemKeys: ['standardAll', 'naver', 'eeat', 'faq', 'reaudit'],
-		benefitKeys: ['standardAll', 'naver', 'eeat', 'reaudit'],
+	pro: {
 		order: 'order-1 md:order-2',
 		popular: true,
 		card: 'relative overflow-hidden border-2 border-cyan-300 bg-gradient-to-b from-white via-white to-cyan-50 shadow-sm dark:border-cyan-500/50 dark:from-slate-900 dark:via-slate-900 dark:to-cyan-950/30 dark:shadow-[0_0_30px_rgba(6,182,212,0.15)] md:-translate-y-2',
@@ -54,32 +39,38 @@ const PLANS = [
 		price: 'text-slate-900 dark:text-white',
 		unit: 'text-slate-500 dark:text-slate-400',
 		list: 'text-slate-700 dark:text-slate-200',
-		badge: 'bg-cyan-50 text-cyan-800 dark:bg-cyan-500/15 dark:text-cyan-200',
+		lift: 'border-cyan-300/80 bg-cyan-50 text-cyan-950 dark:border-cyan-400/30 dark:bg-cyan-500/15 dark:text-cyan-50',
+		liftChip: 'bg-cyan-600 text-white dark:bg-cyan-400 dark:text-cyan-950',
 		cta: 'bg-gradient-to-r from-cyan-500 to-blue-600 py-3.5 font-bold text-white shadow-lg shadow-cyan-900/20 hover:from-cyan-400 hover:to-blue-500 dark:shadow-cyan-900/40',
 		toggle: 'text-cyan-700 hover:text-cyan-500 dark:text-cyan-300 dark:hover:text-cyan-200',
 	},
-	{
-		key: 'enterprise',
-		itemKeys: ['pr', 'wikidata', 'maps', 'rag', 'guard'],
-		benefitKeys: ['wikidata', 'pr', 'guard'],
+	enterprise: {
 		order: 'order-3',
-		comingSoon: true,
-		card: 'border border-slate-200 bg-slate-50 opacity-95 dark:border-slate-800/60 dark:bg-slate-950/40 dark:opacity-85',
-		name: 'text-lg font-bold text-slate-700 dark:text-slate-300',
-		tagline: 'text-slate-500',
-		price: 'text-slate-700 dark:text-slate-300',
-		unit: 'text-slate-500',
-		list: 'text-slate-500 dark:text-slate-400',
-		badge: 'bg-slate-100 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300',
-		cta: 'border border-slate-200 bg-white py-3 font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800',
-		toggle: 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200',
+		card: 'relative border border-slate-800/80 bg-gradient-to-b from-white via-white to-slate-100 shadow-sm dark:border-indigo-400/35 dark:from-slate-900 dark:via-slate-950 dark:to-indigo-950/40 dark:shadow-[0_0_28px_rgba(79,70,229,0.14)]',
+		name: 'text-lg font-bold text-slate-900 dark:text-indigo-100',
+		tagline: 'text-slate-600 dark:text-indigo-200/70',
+		price: 'text-slate-900 dark:text-white',
+		unit: 'text-slate-500 dark:text-slate-400',
+		list: 'text-slate-600 dark:text-slate-200',
+		lift: 'border-violet-200/80 bg-violet-50 text-violet-950 dark:border-violet-400/30 dark:bg-violet-500/15 dark:text-violet-50',
+		liftChip: 'bg-violet-700 text-white dark:bg-violet-300 dark:text-violet-950',
+		cta: 'bg-gradient-to-r from-slate-800 to-indigo-800 py-3.5 font-bold text-white shadow-lg shadow-slate-900/15 hover:from-slate-700 hover:to-indigo-700 dark:from-indigo-600 dark:to-violet-700 dark:shadow-indigo-950/40 dark:hover:from-indigo-500 dark:hover:to-violet-600',
+		toggle: 'text-indigo-700 hover:text-indigo-500 dark:text-indigo-300 dark:hover:text-indigo-200',
 	},
-] as const;
+} as const;
 
-type PlanConfig = (typeof PLANS)[number];
+type PlanConfig = {
+	key: PricingPlanId;
+} & (typeof PLAN_STYLES)[PricingPlanId];
+
+const PLANS: PlanConfig[] = PRICING_PLAN_IDS.map((key) => ({
+	key,
+	...PLAN_STYLES[key],
+}));
 
 export function SolutionPackageCta({ targetUrl, brandName, targetQuery, currentScore }: SolutionPackageCtaProps) {
 	const t = useTranslations('audit.packages');
+	const tPricing = useTranslations('landing.story.pricing');
 	const [selected, setSelected] = useState<SolutionPackageId | null>(null);
 
 	useEffect(() => {
@@ -98,9 +89,9 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery, currentS
 
 	const inquiryMessage = selected
 		? [
-				t('inquiryPrefillLead', { brand: brandName, url: targetUrl, package: t(`${selected}.name`) }),
+				t('inquiryPrefillLead', { brand: brandName, url: targetUrl, package: tPricing(`plans.${selected}.name`) }),
 				targetQuery ? t('inquiryPrefillKeyword', { keyword: targetQuery }) : '',
-				t('inquiryPrefillAsk', { package: t(`${selected}.name`) }),
+				t('inquiryPrefillAsk', { package: tPricing(`plans.${selected}.name`) }),
 			]
 				.filter(Boolean)
 				.join('\n')
@@ -113,16 +104,12 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery, currentS
 				<p className="break-keep text-[10px] text-slate-500 dark:text-slate-400">{t('subtitle')}</p>
 			</div>
 
-			<ScoreBandGuide currentScore={currentScore} />
+			<PlanLiftGuide currentScore={currentScore} />
 
 			<ul className="grid grid-cols-1 items-stretch gap-5 md:grid-cols-3">
 				{PLANS.map((plan) => (
 					<li key={plan.key} className={plan.order}>
-						<PackagePlanCard
-							plan={plan}
-							currentScore={currentScore}
-							onSelect={() => setSelected(plan.key)}
-						/>
+						<PackagePlanCard plan={plan} onSelect={() => setSelected(plan.key)} />
 					</li>
 				))}
 			</ul>
@@ -145,13 +132,13 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery, currentS
 								<div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10 md:px-5">
 									<div className="min-w-0">
 										<p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[#D4AF37]">
-											{t(`${selected}.kicker`)}
+											{tPricing(`plans.${selected}.name`)}
 										</p>
 										<h2
 											id="solution-package-inquiry-title"
 											className="mt-1 text-base font-extrabold text-slate-900 dark:text-white md:text-lg"
 										>
-											{t('inquiryTitle', { package: t(`${selected}.name`) })}
+											{t('inquiryTitle', { package: tPricing(`plans.${selected}.name`) })}
 										</h2>
 									</div>
 									<button
@@ -186,63 +173,73 @@ export function SolutionPackageCta({ targetUrl, brandName, targetQuery, currentS
 
 function PackagePlanCard({
 	plan,
-	currentScore,
 	onSelect,
 }: {
 	plan: PlanConfig;
-	currentScore: number;
 	onSelect: () => void;
 }) {
 	const t = useTranslations('audit.packages');
+	const tPricing = useTranslations('landing.story.pricing');
 	const locale = useLocale();
 	const lang = locale === 'en' ? 'en' : 'ko';
 	const [open, setOpen] = useState(false);
 	const panelId = useId();
-	const pkg = SOLUTION_PACKAGES[plan.key];
-	const projection = useMemo(() => {
-		if (plan.key === 'standard') return projectStandardScore(currentScore);
-		if (plan.key === 'pro') return projectProScore(currentScore);
-		return null;
-	}, [plan.key, currentScore]);
+	const pkg = PRICING_PLANS[plan.key];
+	const unit = tPricing(`plans.${plan.key}.unit`);
+	const note = tPricing.has(`plans.${plan.key}.note`) ? tPricing(`plans.${plan.key}.note`) : '';
+	const scopeNote = tPricing.has(`plans.${plan.key}.scopeNote`) ? tPricing(`plans.${plan.key}.scopeNote`) : '';
 
 	return (
 		<article className={`flex h-full flex-col rounded-2xl p-6 ${plan.card}`}>
 			<div className="min-w-0 flex-1">
 				{plan.key === 'pro' ? (
 					<span className="absolute right-3 top-3 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 px-2.5 py-1 text-[9px] font-bold text-white shadow-sm">
-						{t('pro.badge')}
+						{tPricing('popular')}
 					</span>
 				) : plan.key === 'enterprise' ? (
-					<span className="inline-flex rounded border border-slate-200 bg-slate-50 px-2 py-0.5 text-[9px] font-medium text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400">
-						{t('enterprise.badge')}
+					<span className="absolute right-3 top-3 rounded-full border border-indigo-200/80 bg-slate-900 px-2.5 py-1 text-[9px] font-bold text-slate-50 shadow-sm dark:border-indigo-400/40 dark:bg-indigo-950 dark:text-indigo-100">
+						{tPricing('enterpriseBadge')}
 					</span>
 				) : null}
 
-				<h4 className={`mt-2 break-keep ${plan.key === 'pro' ? 'pr-20' : ''} ${plan.name}`}>{t(`${plan.key}.name`)}</h4>
-				<p className={`mt-0.5 break-keep text-[10px] ${plan.tagline}`}>{t(`${plan.key}.tagline`)}</p>
+				<h4 className={`mt-2 break-keep ${plan.key === 'speed' ? '' : 'pr-20'} ${plan.name}`}>
+					{tPricing(`plans.${plan.key}.name`)}
+				</h4>
+				<p className={`mt-0.5 break-keep text-[10px] ${plan.tagline}`}>{tPricing(`plans.${plan.key}.tagline`)}</p>
 
-				<p className="mt-4 flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
-					<span className={`break-keep text-2xl font-bold tracking-tight ${plan.price}`}>
-						₩{formatKrw(pkg.priceKrw, lang)}
-						{pkg.openEnded ? '~' : ''}
-					</span>
-					<span className={`break-keep text-[11px] font-semibold ${plan.unit}`}>{t(`${plan.key}.vat`)}</span>
-					<span className={`break-keep text-xs font-normal ${plan.unit}`}>/ {t(`${plan.key}.unit`)}</span>
-				</p>
+				<div className="mt-4">
+					<p className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1">
+						<span className={`break-keep text-2xl font-bold tracking-tight ${plan.price}`}>
+							{formatPlanPrice(pkg.priceKrw, lang, pkg.openEnded)}
+						</span>
+						<span className={`break-keep text-[11px] font-semibold ${plan.unit}`}>
+							{tPricing(`plans.${plan.key}.vat`)}
+						</span>
+					</p>
+					{unit ? (
+						<p className={`mt-0.5 break-keep text-xs font-normal ${plan.unit}`}>{unit}</p>
+					) : null}
+				</div>
 
-				<ScoreGoalBadge planId={plan.key} projection={projection} className={plan.badge} />
+				<PlanLiftBadge planId={plan.key} className={plan.lift} chipClassName={plan.liftChip} />
 
 				<p className="mt-3 break-keep text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">
-					{t(`${plan.key}.target`)}
+					{tPricing(`plans.${plan.key}.target`)}
 				</p>
 
 				<ul className={`my-5 space-y-1.5 text-[9px] sm:text-[11px] ${plan.list}`}>
-					{plan.itemKeys.map((item) => (
+					{Array.from({ length: pkg.items }, (_, index) => String(index)).map((item) => (
 						<li key={item} className="break-keep leading-snug">
-							{t(`${plan.key}.items.${item}.title`)}
+							✓ {tPricing(`plans.${plan.key}.items.${item}.label`)}
 						</li>
 					))}
 				</ul>
+				{note ? (
+					<p className={`-mt-2 mb-3 break-keep text-[11px] font-semibold leading-relaxed ${plan.list}`}>{note}</p>
+				) : null}
+				{scopeNote ? (
+					<p className="mb-2 break-keep text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">{scopeNote}</p>
+				) : null}
 			</div>
 
 			<div className="mt-auto min-w-0">
@@ -272,20 +269,20 @@ function PackagePlanCard({
 				>
 					<div className="min-h-0 overflow-hidden">
 						<ul className="mb-3 space-y-1.5 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
-							{plan.benefitKeys.map((item) => (
+							{Array.from({ length: pkg.benefits }, (_, index) => String(index)).map((item) => (
 								<li
 									key={item}
 									className="flex min-w-0 items-start gap-1.5 text-[10px] font-normal leading-relaxed text-slate-600 dark:text-slate-300"
 								>
 									<span className="mt-px shrink-0 leading-relaxed" aria-hidden>
-										•
+										{tPricing(`plans.${plan.key}.benefits.${item}.icon`)}
 									</span>
 									<span className="min-w-0 break-keep">
 										<span className="font-semibold text-slate-800 dark:text-slate-100">
-											{t(`${plan.key}.items.${item}.benefitTitle`)}
+											{tPricing(`plans.${plan.key}.benefits.${item}.title`)}
 										</span>
 										<span> ➔ </span>
-										<span>{t(`${plan.key}.items.${item}.effect`)}</span>
+										<span>{tPricing(`plans.${plan.key}.benefits.${item}.desc`)}</span>
 									</span>
 								</li>
 							))}
@@ -298,104 +295,76 @@ function PackagePlanCard({
 					onClick={onSelect}
 					className={`mt-1 inline-flex w-full items-center justify-center rounded-xl text-center text-xs transition-all ${plan.cta}`}
 				>
-					{t(`${plan.key}.cta`)}
+					{tPricing(`plans.${plan.key}.cta`)}
 				</button>
 			</div>
 		</article>
 	);
 }
 
-function ScoreGoalBadge({
+function PlanLiftBadge({
 	planId,
-	projection,
 	className,
+	chipClassName,
 }: {
-	planId: SolutionPackageId;
-	projection: PackageScoreProjection | null;
+	planId: PricingPlanId;
 	className: string;
+	chipClassName: string;
 }) {
 	const t = useTranslations('audit.packages');
-
-	const label =
-		planId === 'enterprise' || !projection
-			? t('enterprise.scoreBadge')
-			: t('scoreLift.headline', {
-					current: projection.current,
-					goalLow: projection.goalLow,
-					goalHigh: projection.goalHigh,
-					liftLow: t(`${planId}.liftLow`),
-					liftHigh: t(`${planId}.liftHigh`),
-				});
+	const tPricing = useTranslations('landing.story.pricing');
 
 	return (
-		<p
-			className={`mt-3 flex w-full items-start gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold leading-snug ${className}`}
-		>
-			<span className="mt-0.5 shrink-0 leading-none" aria-hidden>
-				🚀
-			</span>
-			<span className="min-w-0 break-keep">{label}</span>
-		</p>
-	);
-}
-
-function ScoreBandGuide({ currentScore }: { currentScore: number }) {
-	const t = useTranslations('audit.packages');
-	const current = Math.round(clampScore(currentScore));
-	const active = packageScoreBand(current);
-
-	return (
-		<div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900/70">
-			<p className="text-center text-[10px] font-bold tabular-nums text-slate-900 dark:text-white">
-				{t('scoreGuide.current', { score: current })}
+		<div className={`mt-3 rounded-xl border px-3 py-2.5 ${className}`}>
+			<p className="break-keep text-[10px] font-bold tracking-wide">
+				{t('scoreLift.applied', { plan: tPricing(`plans.${planId}.name`) })}
 			</p>
-			<div className="mt-3 flex flex-wrap justify-center gap-1.5 sm:gap-2">
-				{PACKAGE_SCORE_BANDS.map((band) => {
-					const on = band.id === active;
-					return (
-						<span
-							key={band.id}
-							className={`inline-flex min-w-0 max-w-full flex-col rounded-xl border px-2 py-1.5 text-center sm:px-2.5 ${
-								on ? BAND_CHIP_ACTIVE[band.id] : 'border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400'
-							}`}
-						>
-							<span className="break-keep text-[8px] font-bold leading-snug">
-								{t(`scoreGuide.${band.id}.range`)} ({t(`scoreGuide.${band.id}.label`)})
-							</span>
-						</span>
-					);
-				})}
+			<div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+				<span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums leading-none ${chipClassName}`}>
+					{t(`scoreLift.${planId}.delta`)}
+				</span>
+				<span className="break-keep text-[10px] font-semibold leading-snug">{t(`scoreLift.${planId}.band`)}</span>
 			</div>
-			<p className="mt-2 break-keep text-center text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">
-				{t(`scoreGuide.${active}.desc`)}
+			<p className="mt-1.5 break-keep text-[10px] font-medium leading-relaxed opacity-90">
+				<span className="font-bold">{t('scoreLift.expected')}</span>
+				<span> {t(`scoreLift.${planId}.detail`)}</span>
 			</p>
-			<div className="relative mt-3">
-				<div className="flex h-2 overflow-hidden rounded-full">
-					{PACKAGE_SCORE_BANDS.map((band) => (
-						<div key={band.id} className={BAND_BAR[band.id]} style={{ width: `${band.barPercent}%` }} />
-					))}
-				</div>
-				<span
-					className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-slate-950 shadow"
-					style={{ left: `${Math.min(97, Math.max(3, current))}%` }}
-					title={`${current}`}
-					aria-hidden
-				/>
-			</div>
 		</div>
 	);
 }
 
-const BAND_CHIP_ACTIVE: Record<PackageScoreBandId, string> = {
-	risk: 'border-rose-400/60 bg-rose-500/20 text-rose-800 dark:text-rose-100 shadow-[0_0_12px_-4px_rgba(244,63,94,0.7)]',
-	fair: 'border-amber-400/60 bg-amber-500/20 text-amber-800 dark:text-amber-100 shadow-[0_0_12px_-4px_rgba(245,158,11,0.7)]',
-	optimized: 'border-emerald-400/60 bg-emerald-500/20 text-emerald-800 dark:text-emerald-100 shadow-[0_0_12px_-4px_rgba(16,185,129,0.7)]',
-	monopoly: 'border-indigo-400/60 bg-indigo-500/20 text-indigo-800 dark:text-indigo-100 shadow-[0_0_12px_-4px_rgba(99,102,241,0.7)]',
-};
+function PlanLiftGuide({ currentScore }: { currentScore: number }) {
+	const t = useTranslations('audit.packages');
+	const tPricing = useTranslations('landing.story.pricing');
+	const current = Math.round(clampScore(currentScore));
 
-const BAND_BAR: Record<PackageScoreBandId, string> = {
-	risk: 'h-full bg-rose-500/80',
-	fair: 'h-full bg-amber-400/80',
-	optimized: 'h-full bg-emerald-400/80',
-	monopoly: 'h-full bg-indigo-400/80',
-};
+	return (
+		<div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-900/70">
+			<p className="text-center text-[11px] font-extrabold text-slate-900 dark:text-white">{t('scoreLift.bannerTitle')}</p>
+			<p className="mt-1 text-center text-[10px] font-bold tabular-nums text-slate-700 dark:text-slate-200">
+				{t('scoreGuide.current', { score: current })}
+			</p>
+			<p className="mt-1 break-keep text-center text-[9px] leading-relaxed text-slate-500 dark:text-slate-400">
+				{t('scoreLift.bannerSubtitle')}
+			</p>
+			<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+				{PRICING_PLAN_IDS.map((id) => (
+					<div
+						key={id}
+						className={`rounded-xl border px-2.5 py-2 ${PLAN_STYLES[id].lift}`}
+					>
+						<p className="break-keep text-[9px] font-bold leading-snug">
+							{t('scoreLift.applied', { plan: tPricing(`plans.${id}.name`) })}
+						</p>
+						<p className="mt-1.5 flex flex-wrap items-center gap-1.5">
+							<span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black tabular-nums leading-none ${PLAN_STYLES[id].liftChip}`}>
+								{t(`scoreLift.${id}.delta`)}
+							</span>
+							<span className="break-keep text-[9px] font-semibold leading-snug">{t(`scoreLift.${id}.band`)}</span>
+						</p>
+					</div>
+				))}
+			</div>
+		</div>
+	);
+}
