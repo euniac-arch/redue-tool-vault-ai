@@ -15,6 +15,7 @@ import {
 import { buildTargetBrandTokens, stripBrandLegalSuffix } from '@/lib/audit/universal-sov-engine';
 import type {
 	LiveSovAnalysisResponse,
+	LiveSovPlacement,
 	LiveSovRecommendation,
 	LiveSovSlicePayload,
 } from '@/lib/audit/sov-live-overlay';

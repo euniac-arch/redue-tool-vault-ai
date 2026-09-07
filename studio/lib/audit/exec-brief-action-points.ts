@@ -117,7 +117,7 @@ function isUnexposed(engine: AIEngineTestResult, live?: LiveEngineCheckResult): 
 
 function isOfficialCite(engine: AIEngineTestResult, live?: LiveEngineCheckResult): boolean {
 	if (live?.mentionType === 'recommended' || live?.isCited === true) return true;
-	return engine.statusBadge === 'moderate' || engine.statusBadge === 'optimal' || engine.depthLevel === 2 || engine.depthLevel === 3;
+	return engine.depthLevel === 2 || engine.depthLevel === 3;
 }
 
 function isIndirectCite(

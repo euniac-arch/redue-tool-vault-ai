@@ -184,7 +184,7 @@ export function preserveCaseStudyBaseline(args: {
 	siteUrl?: string | null;
 }): CustomBaselineScores | null {
 	const resolved = resolveCaseStudyBaseline({
-		customBaseline: args.existingBaseline,
+		customBaseline: parseCustomBaseline(args.existingBaseline),
 		beforeOverall: null,
 		afterOverall: args.afterOverall,
 		beforeAxes: null,
