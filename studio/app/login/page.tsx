@@ -11,7 +11,7 @@ export default function LoginPage() {
 		<Suspense
 			fallback={
 				<div className="mx-auto flex min-h-[24rem] max-w-sm items-start py-10">
-					<div className="h-8 w-40 rounded bg-slate-800/80" />
+					<div className="h-8 w-40 rounded bg-slate-200 dark:bg-slate-800/80" />
 				</div>
 			}
 		>

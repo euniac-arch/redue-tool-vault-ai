@@ -26,8 +26,9 @@ interface MeResponse {
 }
 
 const MENU_ITEM_CLASS =
-	'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] leading-tight text-slate-200 transition-all hover:bg-slate-800/80 hover:text-cyan-400';
+	'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] leading-tight text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-slate-800/80 dark:hover:text-cyan-400';
 const MENU_ICON_CLASS = 'h-3.5 w-3.5 shrink-0';
+const MENU_DIVIDER_CLASS = 'mt-1 border-t border-slate-100 pt-1 dark:border-slate-800';
 
 const PLAN_NAME: Record<string, string> = {
 	starter: '무료 플랜',
@@ -206,34 +207,39 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 						id="header-user-menu"
 						role="menu"
 						aria-label="사용자 메뉴"
-						className={`absolute z-50 mt-2 w-64 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 shadow-2xl backdrop-blur-md ${
+						className={`absolute z-50 mt-2 w-64 rounded-2xl border border-slate-200/80 bg-white p-2 shadow-xl shadow-slate-200/50 ${
 							stacked ? 'left-0 right-0 w-full' : 'right-0'
-						}`}
+						} dark:border-slate-800 dark:bg-slate-900 dark:shadow-black/40`}
 					>
-						<div className="px-3 py-2.5">
+						<div className="border-b border-slate-100 px-3 py-2.5 dark:border-slate-800">
 							<div className="flex items-start gap-2.5">
-								<span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-800 text-xs font-bold text-cyan-300">
+								<span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-cyan-300">
 									<User className="h-3.5 w-3.5" aria-hidden />
 								</span>
 								<div className="min-w-0">
-									<p className="truncate text-sm font-semibold text-white">{name || '회원'}</p>
-									{email ? <p className="mt-0.5 truncate text-[11px] text-slate-400">{email}</p> : null}
+									<p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{name || '회원'}</p>
+									{email ? <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{email}</p> : null}
 								</div>
 							</div>
 							<div className="mt-2 flex flex-wrap gap-1.5">
-								<span className="rounded-full border border-slate-700 bg-slate-800/80 px-2 py-0.5 text-[10px] font-bold text-slate-200">
+								{isAdmin ? (
+									<span className="rounded-full border border-indigo-100 bg-indigo-50 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300">
+										ADMIN
+									</span>
+								) : null}
+								<span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200">
 									{gradeLabel}
 								</span>
 								<span
 									suppressHydrationWarning
-									className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold text-cyan-300"
+									className="rounded-full border border-cyan-200 bg-cyan-50 px-2 py-0.5 text-[10px] font-semibold text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-500/10 dark:text-cyan-300"
 								>
 									{planBadge}
 								</span>
 							</div>
 						</div>
 
-						<div className="mt-1 border-t border-slate-800 pt-1">
+						<div className="pt-1">
 							<MenuLink href="/mypage" onClick={closeMenu}>
 								<LayoutDashboard className={MENU_ICON_CLASS} aria-hidden />
 								마이페이지
@@ -263,7 +269,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 						</div>
 
 						{isAdmin && (
-							<div className="mt-1 border-t border-slate-800 pt-1">
+							<div className={MENU_DIVIDER_CLASS}>
 								<MenuLink href="/admin" onClick={closeMenu}>
 									<Shield className={MENU_ICON_CLASS} aria-hidden />
 									{t('admin')}
@@ -280,7 +286,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 							</div>
 						)}
 
-						<div className="mt-1 border-t border-slate-800 pt-1">
+						<div className={MENU_DIVIDER_CLASS}>
 							<button
 								type="button"
 								role="menuitem"
@@ -288,7 +294,7 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 									setMenuOpen(false);
 									void signOut({ callbackUrl: '/' });
 								}}
-								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] leading-tight text-slate-200 transition-all hover:bg-slate-800/80 hover:text-red-400"
+								className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-[13px] leading-tight text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
 							>
 								<LogOut className={MENU_ICON_CLASS} aria-hidden />
 								{t('logout')}

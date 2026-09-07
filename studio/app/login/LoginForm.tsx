@@ -11,7 +11,30 @@ import { validatePasswordStrength } from '@/lib/auth-account';
 type Mode = 'signin' | 'signup';
 
 const fieldClass =
-	'rounded-lg border border-slate-800 bg-slate-950 px-3 py-2.5 text-sm text-slate-100 outline-none placeholder-slate-500 focus:border-cyan-500 dark:border-white/[0.08] dark:bg-black/30';
+	'w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none placeholder:text-slate-400 transition-colors focus:border-cyan-500 focus:bg-white focus:ring-1 focus:ring-cyan-500 dark:border-white/[0.08] dark:bg-black/30 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-cyan-400 dark:focus:ring-cyan-400/30';
+
+function GoogleIcon() {
+	return (
+		<svg viewBox="0 0 24 24" aria-hidden="true" className="h-4 w-4">
+			<path
+				fill="#4285F4"
+				d="M23.52 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.47c-.28 1.5-1.13 2.77-2.4 3.62v3.01h3.86c2.26-2.08 3.59-5.14 3.59-8.66z"
+			/>
+			<path
+				fill="#34A853"
+				d="M12 24c3.24 0 5.95-1.08 7.93-2.92l-3.86-3.01c-1.07.72-2.44 1.15-4.07 1.15-3.13 0-5.78-2.12-6.73-4.96H1.24v3.11C3.2 21.3 7.26 24 12 24z"
+			/>
+			<path
+				fill="#FBBC05"
+				d="M5.27 14.26A7.14 7.14 0 0 1 4.9 12c0-.78.14-1.54.37-2.26V6.63H1.24A11.96 11.96 0 0 0 0 12c0 1.93.46 3.76 1.24 5.37l4.03-3.11z"
+			/>
+			<path
+				fill="#EA4335"
+				d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.94 1.19 15.24 0 12 0 7.26 0 3.2 2.7 1.24 6.63l4.03 3.11C6.22 6.9 8.87 4.75 12 4.75z"
+			/>
+		</svg>
+	);
+}
 
 type LoginFormProps = {
 	kakaoEnabled: boolean;
@@ -86,8 +109,9 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					disabled={!googleEnabled}
 					title={googleEnabled ? undefined : 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET 미설정 — .env.local에 등록해야 활성화됩니다.'}
 					onClick={() => signIn('google', { callbackUrl })}
-					className="flex items-center justify-center gap-2 rounded-lg border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm font-semibold text-slate-100 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-slate-950 dark:border-white/[0.08] dark:bg-white/5 dark:hover:bg-white/10"
+					className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-100 dark:shadow-none dark:hover:bg-white/10"
 				>
+					<GoogleIcon />
 					Google로 계속하기
 				</button>
 				<button
@@ -110,10 +134,10 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 				)}
 			</div>
 
-			<div className="flex items-center gap-3 text-xs text-slate-500">
-				<div className="h-px flex-1 bg-slate-800 dark:bg-white/[0.08]" />
+			<div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-500">
+				<div className="h-px flex-1 bg-slate-200 dark:bg-white/[0.08]" />
 				또는 이메일로 계속하기
-				<div className="h-px flex-1 bg-slate-800 dark:bg-white/[0.08]" />
+				<div className="h-px flex-1 bg-slate-200 dark:bg-white/[0.08]" />
 			</div>
 
 			<form onSubmit={handleEmailSubmit} className="flex flex-col gap-3">
@@ -157,11 +181,11 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 				/>
 				{mode === 'signin' ? (
 					<div className="flex justify-end gap-2 text-xs text-slate-500">
-						<Link href="/find-account?tab=id" className="hover:text-cyan-400">
+						<Link href="/find-account?tab=id" className="hover:text-cyan-600 dark:hover:text-cyan-400">
 							아이디 찾기
 						</Link>
 						<span aria-hidden>|</span>
-						<Link href="/find-account?tab=password" className="hover:text-cyan-400">
+						<Link href="/find-account?tab=password" className="hover:text-cyan-600 dark:hover:text-cyan-400">
 							비밀번호 찾기
 						</Link>
 					</div>
@@ -172,7 +196,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 				<button
 					type="submit"
 					disabled={loading}
-					className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white transition hover:bg-accent-light disabled:opacity-50"
+					className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50"
 				>
 					{loading ? '처리 중...' : mode === 'signin' ? '로그인' : '회원가입하고 무료 진단 5회 받기'}
 				</button>
