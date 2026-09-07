@@ -67,6 +67,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 		icon: '👥',
 		items: [
 			{ href: '/admin/users', label: '회원 관리', icon: '👤' },
+			{ href: '/admin/inquiries', label: '작업 문의 관리', icon: '📩' },
 			{ href: '/admin/subscriptions', label: '결제 및 구독 플랜 관리', icon: '💳' },
 			{ href: '/admin/usage', label: 'API 사용량 및 쿼터 관리', icon: '🎫' },
 		],

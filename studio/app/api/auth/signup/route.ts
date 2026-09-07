@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import { isAdminEmail } from '@/lib/admin';
 import { USER_FREE_CREDITS } from '@/lib/audit/free-audit-quota';
+import { normalizePhone, validatePasswordStrength } from '@/lib/auth-account';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -10,6 +11,7 @@ interface SignupBody {
 	email?: string;
 	password?: string;
 	name?: string;
+	phone?: string;
 }
 
 /**
@@ -23,12 +25,20 @@ export async function POST(request: Request) {
 	const email = body.email?.trim().toLowerCase();
 	const password = body.password ?? '';
 	const name = body.name?.trim() || null;
+	const phone = normalizePhone(body.phone ?? '');
 
 	if (!email || !email.includes('@')) {
 		return NextResponse.json({ error: '올바른 이메일을 입력해 주세요.' }, { status: 400 });
 	}
-	if (password.length < 8) {
-		return NextResponse.json({ error: '비밀번호는 8자 이상이어야 합니다.' }, { status: 400 });
+	if (!name) {
+		return NextResponse.json({ error: '이름을 입력해 주세요.' }, { status: 400 });
+	}
+	if (phone.length < 8) {
+		return NextResponse.json({ error: '아이디 찾기에 사용할 연락처를 입력해 주세요.' }, { status: 400 });
+	}
+	const passwordError = validatePasswordStrength(password);
+	if (passwordError) {
+		return NextResponse.json({ error: passwordError }, { status: 400 });
 	}
 
 	const existing = await prisma.user.findUnique({ where: { email } });
@@ -42,6 +52,7 @@ export async function POST(request: Request) {
 		data: {
 			email,
 			name,
+			phone,
 			passwordHash,
 			role: isAdminEmail(email) ? 'admin' : 'user',
 			creditsRemaining: USER_FREE_CREDITS,

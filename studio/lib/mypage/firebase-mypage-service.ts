@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { getClientFirestore, isFirebaseClientConfigured } from '@/lib/firebase/client';
 import { createdAtToIso } from '@/lib/firebase/audit-projects-types';
-import { formatInquiryDate, isWorkInquiryStatus, type WorkInquiry } from '@/lib/mypage/work-inquiries';
+import { formatInquiryDate, toUserInquiryStatus, type WorkInquiry } from '@/lib/mypage/work-inquiries';
 import type { ResearchScrap } from '@/lib/mypage/research-scraps';
 
 export const INQUIRIES_COLLECTION = 'inquiries';
@@ -70,18 +70,21 @@ export function mapInquiryDoc(id: string, data: Record<string, unknown>): WorkIn
 	const title = asTrimmed(data.title);
 	const content = asTrimmed(data.content);
 	if (!id || (!title && !content)) return null;
-	const rawStatus = String(data.status || '');
-	const status = isWorkInquiryStatus(rawStatus) ? rawStatus : 'pending';
+	const status = toUserInquiryStatus(data.status);
+	const createdIso = createdAtToIso(data.createdAt);
 	return {
 		id,
 		serviceType: asTrimmed(data.serviceType) || '기타 작업 의뢰',
 		title: title || content.slice(0, 48) || '작업 문의',
 		createdAt: displayDate(data.createdAt),
+		createdAtIso: createdIso,
 		status,
 		content: content || title,
 		adminReply: asTrimmed(data.adminReply) || null,
 		repliedAt: data.repliedAt ? (asTrimmed(data.repliedAt) || displayDate(data.repliedAt)) : null,
 		contactPhone: asTrimmed(data.contactPhone),
+		pageUrl: asTrimmed(data.pageUrl) || asTrimmed(data.url) || null,
+		inquiryType: asTrimmed(data.inquiryType) || undefined,
 	};
 }
 

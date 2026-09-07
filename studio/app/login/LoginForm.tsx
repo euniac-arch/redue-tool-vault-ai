@@ -1,10 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { signIn } from 'next-auth/react';
 import { startTopProgress } from '@/components/common/top-progress';
 import { describeNextAuthOAuthError } from '@/lib/auth-kakao-errors';
+import { validatePasswordStrength } from '@/lib/auth-account';
 
 type Mode = 'signin' | 'signup';
 
@@ -28,6 +30,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 	const [email, setEmail] = useState('');
 	const [password, setPassword] = useState('');
 	const [name, setName] = useState('');
+	const [phone, setPhone] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(oauthError);
 
@@ -37,10 +40,12 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 		setLoading(true);
 		try {
 			if (mode === 'signup') {
+				const strengthError = validatePasswordStrength(password);
+				if (strengthError) throw new Error(strengthError);
 				const res = await fetch('/api/auth/signup', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ email, password, name }),
+					body: JSON.stringify({ email, password, name, phone }),
 				});
 				const data = await res.json();
 				if (!res.ok) {
@@ -113,13 +118,24 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 
 			<form onSubmit={handleEmailSubmit} className="flex flex-col gap-3">
 				{mode === 'signup' && (
-					<input
-						type="text"
-						placeholder="이름"
-						value={name}
-						onChange={(event) => setName(event.target.value)}
-						className={fieldClass}
-					/>
+					<>
+						<input
+							type="text"
+							required
+							placeholder="이름"
+							value={name}
+							onChange={(event) => setName(event.target.value)}
+							className={fieldClass}
+						/>
+						<input
+							type="tel"
+							required
+							placeholder="연락처 (아이디 찾기용)"
+							value={phone}
+							onChange={(event) => setPhone(event.target.value)}
+							className={fieldClass}
+						/>
+					</>
 				)}
 				<input
 					type="text"
@@ -134,11 +150,22 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					type="password"
 					required
 					minLength={8}
-					placeholder="비밀번호 (8자 이상)"
+					placeholder={mode === 'signup' ? '비밀번호 (8자 이상, 영문/숫자/특수문자)' : '비밀번호'}
 					value={password}
 					onChange={(event) => setPassword(event.target.value)}
 					className={fieldClass}
 				/>
+				{mode === 'signin' ? (
+					<div className="flex justify-end gap-2 text-xs text-slate-500">
+						<Link href="/find-account?tab=id" className="hover:text-cyan-400">
+							아이디 찾기
+						</Link>
+						<span aria-hidden>|</span>
+						<Link href="/find-account?tab=password" className="hover:text-cyan-400">
+							비밀번호 찾기
+						</Link>
+					</div>
+				) : null}
 
 				{error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 

@@ -15,12 +15,52 @@ export type WorkInquiry = {
 	serviceType: string;
 	title: string;
 	createdAt: string;
+	createdAtIso?: string;
 	status: WorkInquiryStatus;
 	content: string;
 	adminReply: string | null;
 	repliedAt: string | null;
 	contactPhone?: string;
+	pageUrl?: string | null;
+	inquiryType?: string;
 };
+
+export const USER_INQUIRY_STATUS: Record<WorkInquiryStatus, { label: string; className: string }> = {
+	pending: {
+		label: '접수 완료',
+		className: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+	},
+	consulting: {
+		label: '검토 중',
+		className:
+			'bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800',
+	},
+	in_progress: {
+		label: '검토 중',
+		className:
+			'bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800',
+	},
+	completed: {
+		label: '답변 완료',
+		className:
+			'bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800',
+	},
+};
+
+export const USER_INQUIRY_STATUS_COMMENT: Record<WorkInquiryStatus, string> = {
+	pending: '문의가 접수되었습니다. 담당자가 내용을 확인한 뒤 안내드립니다.',
+	consulting: '담당자가 접수 내용을 검토하고 있습니다. 확인 후 유선 또는 메일로 안내드립니다.',
+	in_progress: '상담 및 작업이 진행 중입니다. 진행 상황은 본 화면에서 확인하실 수 있습니다.',
+	completed: '처리가 완료되었습니다. 추가 문의가 있으면 새 작업 문의로 남겨 주세요.',
+};
+
+export function toUserInquiryStatus(value: unknown): WorkInquiryStatus {
+	const raw = String(value || '').trim();
+	if (raw === 'completed') return 'completed';
+	if (raw === 'confirmed' || raw === 'consulting' || raw === 'reviewed') return 'consulting';
+	if (raw === 'in_progress') return 'in_progress';
+	return 'pending';
+}
 
 export const WORK_INQUIRY_STATUS: Record<
 	WorkInquiryStatus,
@@ -90,22 +130,32 @@ export function normalizeWorkInquiry(value: unknown): WorkInquiry | null {
 				? row.message.trim()
 				: '';
 	if (!id || (!title && !content)) return null;
-	const rawStatus = String(row.status || '');
-	const status = isWorkInquiryStatus(rawStatus) ? rawStatus : 'pending';
+	const status = toUserInquiryStatus(row.status);
 	const serviceType =
 		typeof row.serviceType === 'string' && row.serviceType.trim()
 			? row.serviceType.trim()
-			: INQUIRY_TYPE_LABEL[String(row.inquiryType || '')] || '기타 작업 의뢰';
+			: typeof row.inquiryTypeLabel === 'string' && row.inquiryTypeLabel.trim()
+				? row.inquiryTypeLabel.trim()
+				: INQUIRY_TYPE_LABEL[String(row.inquiryType || '')] || '기타 작업 의뢰';
+	const createdAtRaw = typeof row.createdAt === 'string' ? row.createdAt : '';
 	return {
 		id,
 		serviceType,
 		title: title || content.slice(0, 48) || '작업 문의',
-		createdAt: formatInquiryDate(typeof row.createdAt === 'string' ? row.createdAt : ''),
+		createdAt: formatInquiryDate(createdAtRaw),
+		createdAtIso: createdAtRaw || undefined,
 		status,
 		content: content || title,
 		adminReply: typeof row.adminReply === 'string' && row.adminReply.trim() ? row.adminReply : null,
 		repliedAt: typeof row.repliedAt === 'string' && row.repliedAt.trim() ? row.repliedAt : null,
 		contactPhone: typeof row.contactPhone === 'string' ? row.contactPhone : typeof row.phone === 'string' ? row.phone : '',
+		pageUrl:
+			typeof row.pageUrl === 'string' && row.pageUrl.trim()
+				? row.pageUrl.trim()
+				: typeof row.url === 'string' && row.url.trim()
+					? row.url.trim()
+					: null,
+		inquiryType: typeof row.inquiryType === 'string' ? row.inquiryType : undefined,
 	};
 }
 
@@ -114,7 +164,11 @@ export function mergeWorkInquiries(primary: WorkInquiry[], secondary: WorkInquir
 	for (const item of [...primary, ...secondary]) {
 		if (!byId.has(item.id)) byId.set(item.id, item);
 	}
-	return [...byId.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+	return [...byId.values()].sort((a, b) => {
+		const left = a.createdAtIso || a.createdAt;
+		const right = b.createdAtIso || b.createdAt;
+		return left < right ? 1 : left > right ? -1 : 0;
+	});
 }
 
 function isBrowser(): boolean {

@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
 import { signOut, useSession } from 'next-auth/react';
-import { Bookmark, LayoutDashboard, LogOut, Search, Settings, Shield, User } from 'lucide-react';
+import { Bookmark, KeyRound, LayoutDashboard, LogOut, MessageSquare, Search, Shield, User } from 'lucide-react';
+// [TEMP] 미연동 회원 메뉴 — 계정 및 구독 설정(요금제 · 히스토리)
+// import { Settings } from 'lucide-react';
 import { isInsightsProMember } from '@/lib/insights/insights-ai-research';
 import { AI_SEARCH_DAILY_LIMIT, readInsightsAiUsage } from '@/lib/insights/insights-ai-usage';
 import { HEADER_ICON_BUTTON_CLASS } from '@/lib/ui/header-chrome';
@@ -236,6 +238,10 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 								<LayoutDashboard className={MENU_ICON_CLASS} aria-hidden />
 								마이페이지
 							</MenuLink>
+							<MenuLink href="/mypage?tab=inquiries" onClick={closeMenu}>
+								<MessageSquare className={MENU_ICON_CLASS} aria-hidden />
+								내 작업 문의 내역
+							</MenuLink>
 							<MenuLink href="/audit?tab=history" onClick={closeMenu}>
 								<Search className={MENU_ICON_CLASS} aria-hidden />
 								나의 사이트 진단 이력
@@ -244,10 +250,16 @@ export function HeaderAuth({ variant = 'dark', stacked = false, onNavigate }: He
 								<Bookmark className={MENU_ICON_CLASS} aria-hidden />
 								스크랩 뉴스 / 프롬프트 보관함
 							</MenuLink>
+							<MenuLink href="/mypage?tab=password" onClick={closeMenu}>
+								<KeyRound className={MENU_ICON_CLASS} aria-hidden />
+								보안 / 비밀번호 변경
+							</MenuLink>
+							{/* [TEMP] 미연동 회원 메뉴 — 요금제 · 히스토리
 							<MenuLink href="/mypage?tab=overview" onClick={closeMenu}>
 								<Settings className={MENU_ICON_CLASS} aria-hidden />
 								계정 및 구독 설정
 							</MenuLink>
+							*/}
 						</div>
 
 						{isAdmin && (

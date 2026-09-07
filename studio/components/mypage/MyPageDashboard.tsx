@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-	createInquiry,
 	deleteResearchScrap,
 	fetchInquiries,
 	fetchScraps,
 } from '@/lib/mypage/firebase-mypage-service';
 import { resolveMypageUserId } from '@/lib/mypage/mypage-user-id';
+import { ChangePasswordCard } from '@/components/mypage/ChangePasswordCard';
+import { createUserInquiry, fetchUserInquiries, mergeUserInquiries } from '@/lib/mypage/user-inquiries';
 import { AI_SEARCH_DAILY_LIMIT } from '@/lib/insights/insights-ai-usage';
 import { resetInsightsLocalData } from '@/lib/insights/insights-local-reset';
 import {
@@ -25,13 +26,15 @@ import {
 } from '@/lib/insights/scrapped-videos';
 import { filterResearchScraps, mergeResearchScraps, type ResearchScrap } from '@/lib/mypage/research-scraps';
 import {
+	SERVICE_TYPE_TO_INQUIRY_TYPE,
+	USER_INQUIRY_STATUS,
+	USER_INQUIRY_STATUS_COMMENT,
 	WORK_INQUIRY_SERVICE_TYPES,
-	WORK_INQUIRY_STATUS,
 	type WorkInquiry,
 	type WorkInquiryServiceType,
 } from '@/lib/mypage/work-inquiries';
 
-export type MyPageDashboardTab = 'inquiries' | 'scraps';
+export type MyPageDashboardTab = 'inquiries' | 'scraps' | 'password';
 
 interface MyPageDashboardProps {
 	userId?: string;
@@ -94,10 +97,14 @@ export function MyPageDashboard({
 		}
 
 		applyScraps([]);
-		Promise.all([fetchInquiries(uid), fetchScraps(uid)])
-			.then(([nextInquiries, nextScraps]) => {
+		Promise.all([
+			fetchUserInquiries(),
+			fetchInquiries(uid).catch(() => [] as WorkInquiry[]),
+			fetchScraps(uid).catch(() => [] as ResearchScrap[]),
+		])
+			.then(([contactInquiries, firebaseInquiries, nextScraps]) => {
 				if (cancelled) return;
-				setInquiries(nextInquiries);
+				setInquiries(mergeUserInquiries(contactInquiries, firebaseInquiries));
 				applyScraps(nextScraps);
 			})
 			.catch((error) => {
@@ -182,14 +189,16 @@ export function MyPageDashboard({
 		setSubmitting(true);
 		setSubmitError(null);
 		try {
-			const created = await createInquiry({
-				userId: uid,
+			const created = await createUserInquiry({
+				name: userName || '회원',
+				email: userEmail,
+				phone: newInquiry.contactPhone.trim(),
+				inquiryType: SERVICE_TYPE_TO_INQUIRY_TYPE[newInquiry.serviceType] || 'general',
 				serviceType: newInquiry.serviceType,
 				title: newInquiry.title.trim(),
-				content: newInquiry.content.trim(),
-				contactPhone: newInquiry.contactPhone.trim(),
+				message: newInquiry.content.trim(),
 			});
-			setInquiries((prev) => [created, ...prev]);
+			setInquiries((prev) => mergeUserInquiries([created], prev));
 			setNewInquiry(EMPTY_FORM);
 			setIsWriteModalOpen(false);
 		} catch (error) {
@@ -226,7 +235,7 @@ export function MyPageDashboard({
 				</button>
 			</div>
 
-			<div className="flex gap-2 border-b border-slate-200 dark:border-slate-800">
+			<div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800">
 				<button
 					type="button"
 					onClick={() => onTabChange('inquiries')}
@@ -236,7 +245,7 @@ export function MyPageDashboard({
 							: 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
 					}`}
 				>
-					<span>1:1 작업 문의 내역</span>
+					<span>내 작업 문의 내역</span>
 					<span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
 						{inquiries.length}
 					</span>
@@ -255,9 +264,22 @@ export function MyPageDashboard({
 						{scraps.length + videos.length}
 					</span>
 				</button>
+				<button
+					type="button"
+					onClick={() => onTabChange('password')}
+					className={`relative flex items-center gap-2 px-4 pb-3 text-sm font-semibold transition-colors ${
+						activeTab === 'password'
+							? 'border-b-2 border-blue-600 text-blue-600 dark:text-blue-400'
+							: 'text-slate-500 hover:text-slate-900 dark:hover:text-white'
+					}`}
+				>
+					<span>보안 / 비밀번호 변경</span>
+				</button>
 			</div>
 
-			{loadError ? (
+			{activeTab === 'password' ? <ChangePasswordCard /> : null}
+
+			{loadError && activeTab !== 'password' ? (
 				<div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm font-semibold text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
 					{loadError}
 				</div>
@@ -271,55 +293,93 @@ export function MyPageDashboard({
 						</div>
 					) : inquiries.length === 0 ? (
 						<div className="rounded-2xl border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
-							<p className="text-sm text-slate-500">등록된 작업 문의가 없습니다.</p>
-							<button
-								type="button"
-								onClick={() => setIsWriteModalOpen(true)}
-								className="mt-3 text-sm font-semibold text-blue-600 hover:underline"
+							<p className="text-sm text-slate-500">아직 접수된 작업 문의 내역이 없습니다.</p>
+							<Link
+								href="/contact"
+								className="mt-4 inline-flex items-center justify-center rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700"
 							>
-								첫 작업 문의 남기기
-							</button>
+								작업 문의하러 가기
+							</Link>
 						</div>
 					) : (
-						inquiries.map((item) => {
-							const status = WORK_INQUIRY_STATUS[item.status] || WORK_INQUIRY_STATUS.pending;
-							return (
-								<button
-									key={item.id}
-									type="button"
-									onClick={() => setSelectedInquiry(item)}
-									className="flex w-full cursor-pointer flex-col justify-between gap-4 rounded-2xl border border-slate-200 bg-white p-5 text-left shadow-sm transition-all hover:border-blue-500/50 dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center"
-								>
-									<div className="flex-1 space-y-1.5">
-										<div className="flex flex-wrap items-center gap-2">
-											<span className="rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+						<div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+							<div className="hidden overflow-x-auto md:block">
+								<table className="w-full min-w-[720px] text-left text-sm">
+									<thead>
+										<tr className="border-b border-slate-200 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-950/60 dark:text-slate-400">
+											<th className="px-4 py-3 font-semibold">접수일자</th>
+											<th className="px-4 py-3 font-semibold">대상 URL</th>
+											<th className="px-4 py-3 font-semibold">문의 유형</th>
+											<th className="px-4 py-3 font-semibold">처리 상태</th>
+											<th className="px-4 py-3 font-semibold">관리</th>
+										</tr>
+									</thead>
+									<tbody>
+										{inquiries.map((item) => {
+											const status = USER_INQUIRY_STATUS[item.status] || USER_INQUIRY_STATUS.pending;
+											return (
+												<tr
+													key={item.id}
+													className="cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-800/50"
+													onClick={() => setSelectedInquiry(item)}
+												>
+													<td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">{item.createdAt}</td>
+													<td className="max-w-[240px] px-4 py-3">
+														<SiteUrlCell url={item.pageUrl} />
+													</td>
+													<td className="px-4 py-3">
+														<span className="rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+															{item.serviceType}
+														</span>
+													</td>
+													<td className="px-4 py-3">
+														<span className={`inline-flex rounded-md px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
+															{status.label}
+														</span>
+													</td>
+													<td className="px-4 py-3">
+														<button
+															type="button"
+															onClick={(event) => {
+																event.stopPropagation();
+																setSelectedInquiry(item);
+															}}
+															className="text-xs font-semibold text-blue-600 hover:underline"
+														>
+															상세보기
+														</button>
+													</td>
+												</tr>
+											);
+										})}
+									</tbody>
+								</table>
+							</div>
+							<div className="space-y-3 p-3 md:hidden">
+								{inquiries.map((item) => {
+									const status = USER_INQUIRY_STATUS[item.status] || USER_INQUIRY_STATUS.pending;
+									return (
+										<button
+											key={item.id}
+											type="button"
+											onClick={() => setSelectedInquiry(item)}
+											className="flex w-full flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 text-left dark:border-slate-800 dark:bg-slate-950/40"
+										>
+											<div className="flex items-center justify-between gap-2">
+												<span className="text-xs text-slate-500">{item.createdAt}</span>
+												<span className={`rounded-md px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
+													{status.label}
+												</span>
+											</div>
+											<span className="rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 self-start dark:bg-blue-950 dark:text-blue-300">
 												{item.serviceType}
 											</span>
-											<span className={`rounded-md px-2.5 py-0.5 text-xs font-semibold ${status.className}`}>
-												{status.label}
-											</span>
-											<span className="text-xs text-slate-500">{item.createdAt}</span>
-										</div>
-										<h3 className="line-clamp-1 text-base font-semibold text-slate-900 transition-colors hover:text-blue-600 dark:text-white">
-											{item.title}
-										</h3>
-										<p className="line-clamp-2 text-xs text-slate-500 sm:text-sm">{item.content}</p>
-									</div>
-									<div className="flex items-center justify-between gap-3 border-t border-slate-100 pt-2 dark:border-slate-800 md:justify-end md:border-t-0 md:pt-0">
-										{item.adminReply ? (
-											<span className="inline-flex items-center gap-1 rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400">
-												● 답변 완료
-											</span>
-										) : (
-											<span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800">
-												○ 답변 대기
-											</span>
-										)}
-										<span className="text-xs font-medium text-blue-600 md:hidden">상세보기 →</span>
-									</div>
-								</button>
-							);
-						})
+											<SiteUrlCell url={item.pageUrl} />
+										</button>
+									);
+								})}
+							</div>
+						</div>
 					)}
 				</div>
 			)}
@@ -455,11 +515,33 @@ export function MyPageDashboard({
 					<div className="relative max-h-[90vh] w-full max-w-xl space-y-5 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
 						<div className="flex items-start justify-between">
 							<div>
-								<span className="rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-950 dark:text-blue-300">
-									{selectedInquiry.serviceType}
-								</span>
+								<div className="flex flex-wrap items-center gap-2">
+									<span className="rounded-md bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-600 dark:bg-blue-950 dark:text-blue-300">
+										{selectedInquiry.serviceType}
+									</span>
+									<span
+										className={`rounded-md px-2.5 py-0.5 text-xs font-semibold ${
+											(USER_INQUIRY_STATUS[selectedInquiry.status] || USER_INQUIRY_STATUS.pending).className
+										}`}
+									>
+										{(USER_INQUIRY_STATUS[selectedInquiry.status] || USER_INQUIRY_STATUS.pending).label}
+									</span>
+								</div>
 								<h3 className="mt-2 text-lg font-bold text-slate-900 dark:text-white">{selectedInquiry.title}</h3>
-								<p className="mt-0.5 text-xs text-slate-500">작성일: {selectedInquiry.createdAt}</p>
+								<p className="mt-0.5 text-xs text-slate-500">접수일자: {selectedInquiry.createdAt}</p>
+								{selectedInquiry.pageUrl ? (
+									<p className="mt-1 text-xs text-slate-500">
+										대상 URL:{' '}
+										<a
+											href={safeHref(selectedInquiry.pageUrl)}
+											target="_blank"
+											rel="noopener noreferrer"
+											className="break-all text-blue-600 hover:underline"
+										>
+											{selectedInquiry.pageUrl}
+										</a>
+									</p>
+								) : null}
 							</div>
 							<button
 								type="button"
@@ -487,8 +569,8 @@ export function MyPageDashboard({
 									{selectedInquiry.adminReply}
 								</div>
 							) : (
-								<div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-xs text-slate-400 dark:border-slate-800 dark:bg-slate-950/30">
-									현재 담당자가 내용을 확인하고 있습니다. 확인 후 유선 또는 본 화면을 통해 안내드립니다.
+								<div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed text-slate-500 dark:border-slate-800 dark:bg-slate-950/30 dark:text-slate-400">
+									{USER_INQUIRY_STATUS_COMMENT[selectedInquiry.status] || USER_INQUIRY_STATUS_COMMENT.pending}
 								</div>
 							)}
 						</div>
@@ -589,4 +671,27 @@ export function MyPageDashboard({
 			)}
 		</div>
 	);
+}
+
+function SiteUrlCell({ url }: { url?: string | null }) {
+	if (!url?.trim()) {
+		return <span className="text-xs text-slate-400">—</span>;
+	}
+	return (
+		<a
+			href={safeHref(url)}
+			target="_blank"
+			rel="noopener noreferrer"
+			onClick={(event) => event.stopPropagation()}
+			className="inline-block max-w-full truncate text-xs text-cyan-700 hover:underline dark:text-cyan-300"
+		>
+			{url}
+		</a>
+	);
+}
+
+function safeHref(value: string): string {
+	const raw = value.trim();
+	if (/^https?:\/\//i.test(raw)) return raw;
+	return `https://${raw}`;
 }

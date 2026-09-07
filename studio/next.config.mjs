@@ -99,7 +99,7 @@ const nextConfig = {
 	// mysql2 is only used server-side (best-effort active-theme lookup); keep it
 	// out of the client bundle and let API routes require it at runtime.
 	experimental: {
-		serverComponentsExternalPackages: ['mysql2', 'basic-ftp', 'ssh2-sftp-client', 'ssh2', 'youtube-transcript'],
+		serverComponentsExternalPackages: ['mysql2', 'basic-ftp', 'ssh2-sftp-client', 'ssh2', 'youtube-transcript', 'nodemailer'],
 	},
 	webpack: (config, { isServer }) => {
 		// Suppress noisy webpack.cache.PackFileCacheStrategy / FileSystemInfo
