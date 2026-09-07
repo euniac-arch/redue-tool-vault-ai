@@ -66,6 +66,7 @@ export function DiagnosticsDashboard() {
 	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [firebaseHint, setFirebaseHint] = useState<string | null>(null);
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<DiagnosticFilters['category']>('all');
 	const [status, setStatus] = useState<DiagnosticFilters['status']>('all');
@@ -81,6 +82,7 @@ export function DiagnosticsDashboard() {
 	const requestIdRef = useRef(0);
 	const detailRequestRef = useRef(0);
 	const seededDetailRef = useRef<DiagnosticDetail | null>(null);
+	const firebaseToastShownRef = useRef(false);
 
 	const filters: DiagnosticFilters = useMemo(
 		() => ({ query, category, status, period }),
@@ -107,6 +109,16 @@ export function DiagnosticsDashboard() {
 			setTotal(result.totalCount ?? result.total);
 			setTotalPages(result.totalPages);
 			setKpi(result.kpi);
+			if (result.firebaseConfigured) {
+				setFirebaseHint(null);
+			} else {
+				const hint = result.firebaseHint || 'Firebase Admin 환경변수가 설정되지 않았습니다.';
+				setFirebaseHint(hint);
+				if (!firebaseToastShownRef.current) {
+					firebaseToastShownRef.current = true;
+					pushToast('Firebase 환경변수가 설정되지 않았습니다. 로컬에 저장된 이력을 표시합니다.');
+				}
+			}
 			if (result.page !== page) setPage(result.page);
 			setSelectedIds((prev) => prev.filter((id) => result.items.some((row) => row.id === id)));
 		} catch (loadError) {
@@ -288,6 +300,18 @@ export function DiagnosticsDashboard() {
 
 			<DiagnosticKpiCards kpi={kpi} loading={loading && items.length === 0} />
 
+			{firebaseHint ? (
+				<div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+					<p className="font-semibold">Firebase 환경변수가 설정되지 않았습니다</p>
+					<p className="mt-1 text-xs leading-relaxed">{firebaseHint}</p>
+					<p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+						로컬 Prisma에 저장된 진단 이력이 있으면 함께 표시합니다. Firestore 동기화를 쓰려면 `.env.local`에
+						`FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` 또는
+						`FIREBASE_SERVICE_ACCOUNT_KEY_PATH`를 등록하세요.
+					</p>
+				</div>
+			) : null}
+
 			{error ? (
 				<div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
 					<span className="inline-flex items-center gap-2">
@@ -362,9 +386,9 @@ export function DiagnosticsDashboard() {
 								</th>
 								<th className="px-4 py-3 font-semibold">진단번호</th>
 								<th className="px-4 py-3 font-semibold">사이트명</th>
-								<th className="px-4 py-3 font-semibold">업종</th>
-								<th className="px-4 py-3 font-semibold">종합점수</th>
-								<th className="px-4 py-3 font-semibold">주요 감점 이슈</th>
+								<th className="px-4 py-3 font-semibold">대상 URL</th>
+								<th className="px-4 py-3 font-semibold">3-트랙 점수</th>
+								<th className="px-4 py-3 font-semibold">결과 요약</th>
 								<th className="px-4 py-3 font-semibold">진단일시</th>
 								<th className="px-4 py-3 font-semibold">액션</th>
 							</tr>
@@ -390,7 +414,7 @@ export function DiagnosticsDashboard() {
 								<tr>
 									<td colSpan={8} className="px-4 py-16 text-center">
 										<p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-											조회된 진단 이력이 없습니다
+											등록된 진단 이력이 없습니다.
 										</p>
 										<p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
 											사이트 진단이 완료되면 이 목록에 자동으로 저장됩니다.
@@ -428,24 +452,33 @@ export function DiagnosticsDashboard() {
 											</td>
 											<td className="px-4 py-3">
 												<p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{row.siteName}</p>
+												<p className="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400">{row.domain}</p>
+											</td>
+											<td className="px-4 py-3">
 												<a
-													href={`https://${row.domain}`}
+													href={row.url || `https://${row.domain}`}
 													target="_blank"
 													rel="noopener noreferrer"
 													onClick={(event) => event.stopPropagation()}
-													className="mt-0.5 inline-block text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
+													className="inline-block max-w-[220px] truncate text-[11px] font-medium text-blue-600 hover:underline dark:text-blue-400"
 												>
-													{row.domain}
+													{row.url || `https://${row.domain}`}
 												</a>
 											</td>
 											<td className="px-4 py-3">
-												<DiagnosticCategoryBadge category={row.category} />
+												<div className="flex flex-wrap items-center gap-1.5">
+													<DiagnosticScoreBadge score={row.totalScore} />
+													<span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-700/70 dark:text-slate-300">
+														GEO {row.geoScore}
+													</span>
+													<span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600 dark:bg-slate-700/70 dark:text-slate-300">
+														스키마 {row.schemaScore}
+													</span>
+												</div>
 											</td>
 											<td className="px-4 py-3">
-												<DiagnosticScoreBadge score={row.totalScore} />
-											</td>
-											<td className="px-4 py-3">
-												<div className="flex max-w-[280px] flex-wrap gap-1">
+												<div className="flex max-w-[280px] flex-wrap items-center gap-1">
+													<DiagnosticCategoryBadge category={row.category} />
 													{row.issues.slice(0, 2).map((issue) => (
 														<span
 															key={issue}
@@ -470,8 +503,8 @@ export function DiagnosticsDashboard() {
 														type="button"
 														onClick={() => setDrawerId(row.id)}
 														className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 dark:hover:text-slate-100"
-														title="리포트 보기"
-														aria-label={`${row.id} 리포트 보기`}
+														title="리포트 상세 보기"
+														aria-label={`${row.id} 리포트 상세 보기`}
 													>
 														<Eye className="h-3.5 w-3.5" />
 													</button>

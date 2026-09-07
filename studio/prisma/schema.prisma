@@ -66,6 +66,9 @@ model User {
   lastAuditResetDate String?
   planRenewsAt       DateTime?
   createdAt        DateTime  @default(now())
+  status           String    @default("active") // active | suspended | withdrawn
+  memo             String?
+  lastLoginAt      DateTime?
 
   accounts           Account[]
   sessions           Session[]
@@ -75,6 +78,9 @@ model User {
   apiUsageLogs       ApiUsageLog[]
   apiKeys            ApiKey[]
   auditReports       AuditReport[]
+  notices            Notice[]
+  adminAuditLogs     AdminAuditLog[]
+  securityAccessLogs SecurityAccessLog[]
 }
 
 model CreditTransaction {
@@ -333,4 +339,77 @@ model IndexingLog {
   createdAt          DateTime @default(now())
 
   injectionHistory InjectionHistory @relation(fields: [injectionHistoryId], references: [id], onDelete: Cascade)
+}
+
+/// Admin notice / banner / popup CMS.
+model Notice {
+  id        String   @id @default(cuid())
+  type      String   @default("notice") // notice | system | event
+  title     String
+  content   String
+  target    String   @default("all") // all | user | admin
+  isPinned  Boolean  @default(false)
+  isPopup   Boolean  @default(false)
+  status    String   @default("draft") // published | draft | archived
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  authorId  String?
+
+  author User? @relation(fields: [authorId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([isPinned, createdAt])
+}
+
+/// Admin operation / audit trail.
+model AdminAuditLog {
+  id           String   @id @default(cuid())
+  operatorId   String?
+  operator     String
+  module       String // USER_MGMT | CONTENT | SYSTEM_CONFIG | AUTH | DIAGNOSIS
+  actionDetail String
+  result       String   @default("SUCCESS") // SUCCESS | INFO | PENDING
+  createdAt    DateTime @default(now())
+
+  operatorUser User? @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+
+  @@index([module, createdAt])
+  @@index([createdAt])
+}
+
+/// Auth / access telemetry for the admin "보안 및 접속 로그" dashboard.
+model SecurityAccessLog {
+  id        String   @id @default(cuid())
+  eventType String // LOGIN_SUCCESS | LOGIN_FAIL | LOGOUT | ADMIN_ACCESS | ADMIN_ACCESS_DENIED | API_QUOTA_EXCEEDED | PASSWORD_RESET
+  userEmail String   @default("Guest")
+  userId    String?
+  ipAddress String   @default("-")
+  userAgent String   @default("")
+  country   String   @default("KR")
+  status    String // SUCCESS | WARNING | FAIL
+  details   String   @default("")
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([eventType, createdAt])
+  @@index([status, createdAt])
+  @@index([userEmail, createdAt])
+}
+
+/// Daily product-API usage counters (AI research / YouTube / audit).
+/// `userId` is empty string for guests so SQLite unique constraints stay reliable.
+model DailyApiUsage {
+  id        String   @id @default(cuid())
+  dateKey   String
+  userId    String   @default("")
+  actorType String // member | guest
+  service   String // ai_research | youtube_search | audit
+  count     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([dateKey, userId, service, actorType])
+  @@index([dateKey, service])
 }

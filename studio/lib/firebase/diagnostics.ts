@@ -63,15 +63,58 @@ function asCategory(value: unknown): DiagnosticCategory {
 	return 'Corporate';
 }
 
-export function mapDiagnosticDoc(id: string, data: Record<string, unknown>): StoredDiagnostic | null {
-	const siteName = typeof data.siteName === 'string' ? data.siteName : '';
-	const domain = typeof data.domain === 'string' ? data.domain : '';
-	if (!siteName && !domain) return null;
+function asScore(value: unknown): number | null {
+	if (typeof value === 'number' && Number.isFinite(value)) return value;
+	if (typeof value === 'string' && value.trim() && Number.isFinite(Number(value))) return Number(value);
+	return null;
+}
 
-	const totalScore = typeof data.totalScore === 'number' ? data.totalScore : 0;
-	const geoScore = typeof data.geoScore === 'number' ? data.geoScore : 0;
-	const schemaScore = typeof data.schemaScore === 'number' ? data.schemaScore : 0;
-	const rawReport = data.reportData && typeof data.reportData === 'object' ? (data.reportData as Record<string, unknown>) : {};
+function hostnameFromLooseUrl(raw: string): string {
+	try {
+		return new URL(raw).hostname.replace(/^www\./i, '').toLowerCase() || raw;
+	} catch {
+		return raw
+			.replace(/^https?:\/\//i, '')
+			.replace(/^www\./i, '')
+			.split('/')[0]
+			.toLowerCase();
+	}
+}
+
+export function mapDiagnosticDoc(id: string, data: Record<string, unknown>): StoredDiagnostic | null {
+	const nestedReport =
+		data.report && typeof data.report === 'object'
+			? (data.report as Record<string, unknown>)
+			: data.auditPayload && typeof data.auditPayload === 'object'
+				? ((data.auditPayload as Record<string, unknown>).report as Record<string, unknown> | undefined)
+				: undefined;
+	const source = nestedReport && typeof nestedReport === 'object' ? { ...nestedReport, ...data } : data;
+
+	const url =
+		(typeof source.url === 'string' && source.url) ||
+		(typeof data.url === 'string' && data.url) ||
+		'';
+	const domain =
+		(typeof source.domain === 'string' && source.domain) ||
+		(typeof data.domain === 'string' && data.domain) ||
+		(url ? hostnameFromLooseUrl(url) : '');
+	const siteName =
+		(typeof source.siteName === 'string' && source.siteName) ||
+		(typeof data.siteName === 'string' && data.siteName) ||
+		(typeof data.brandName === 'string' && data.brandName) ||
+		(typeof data.name === 'string' && data.name) ||
+		'';
+	if (!siteName && !domain && !url) return null;
+
+	const totalScore =
+		asScore(source.totalScore) ??
+		asScore(data.totalScore) ??
+		asScore(data.score) ??
+		asScore(data.overallScore) ??
+		0;
+	const geoScore = asScore(source.geoScore) ?? asScore(data.geoScore) ?? totalScore;
+	const schemaScore = asScore(source.schemaScore) ?? asScore(data.schemaScore) ?? totalScore;
+	const rawReport = source.reportData && typeof source.reportData === 'object' ? (source.reportData as Record<string, unknown>) : {};
 	const recommendations = asRecommendations(rawReport.recommendations ?? data.recommendations);
 	const knowledgeGraphScore =
 		typeof rawReport.knowledgeGraphScore === 'number'
@@ -97,7 +140,7 @@ export function mapDiagnosticDoc(id: string, data: Record<string, unknown>): Sto
 			: Boolean(data.prescriptionIssued);
 	const createdAtIso = createdAtToIso(data.createdAt);
 	const reportData: DiagnosticReportData = {
-		url: typeof rawReport.url === 'string' ? rawReport.url : typeof data.url === 'string' ? data.url : undefined,
+		url: typeof rawReport.url === 'string' ? rawReport.url : url || undefined,
 		knowledgeGraphScore,
 		localSovScore,
 		schemaTypes: asStringArray(rawReport.schemaTypes),
@@ -109,8 +152,8 @@ export function mapDiagnosticDoc(id: string, data: Record<string, unknown>): Sto
 
 	return {
 		id,
-		siteName: siteName || domain,
-		domain,
+		siteName: siteName || domain || url,
+		domain: domain || (url ? hostnameFromLooseUrl(url) : ''),
 		category: asCategory(data.category),
 		totalScore,
 		geoScore,
@@ -224,9 +267,18 @@ export async function upsertDiagnostic(
 
 export async function getDiagnosticById(id: string): Promise<StoredDiagnostic | null> {
 	if (!id || !isFirebaseAdminConfigured()) return null;
-	const snap = await getAdminFirestore().collection(DIAGNOSTICS_COLLECTION).doc(id).get();
-	if (!snap.exists) return null;
-	return mapDiagnosticDoc(snap.id, snap.data() as Record<string, unknown>);
+	const db = getAdminFirestore();
+	for (const collectionName of [DIAGNOSTICS_COLLECTION, 'reports']) {
+		try {
+			const snap = await db.collection(collectionName).doc(id).get();
+			if (!snap.exists) continue;
+			const mapped = mapDiagnosticDoc(snap.id, snap.data() as Record<string, unknown>);
+			if (mapped) return mapped;
+		} catch (error) {
+			console.warn(`[diagnostics] get ${collectionName}/${id} skipped:`, error instanceof Error ? error.message : error);
+		}
+	}
+	return null;
 }
 
 export async function findLatestDiagnosticByDomain(domain: string): Promise<StoredDiagnostic | null> {
@@ -238,17 +290,36 @@ export async function findLatestDiagnosticByDomain(domain: string): Promise<Stor
 
 export async function listDiagnostics(limit = 400): Promise<StoredDiagnostic[]> {
 	if (!isFirebaseAdminConfigured()) return [];
-	const snap = await getAdminFirestore()
-		.collection(DIAGNOSTICS_COLLECTION)
-		.orderBy('createdAt', 'desc')
-		.limit(limit)
-		.get();
-	const rows: StoredDiagnostic[] = [];
-	for (const docSnap of snap.docs) {
-		const mapped = mapDiagnosticDoc(docSnap.id, docSnap.data() as Record<string, unknown>);
-		if (mapped) rows.push(mapped);
+	try {
+		const db = getAdminFirestore();
+		const rows: StoredDiagnostic[] = [];
+		const seen = new Set<string>();
+		for (const collectionName of [DIAGNOSTICS_COLLECTION, 'reports']) {
+			try {
+				let snap;
+				try {
+					snap = await db.collection(collectionName).orderBy('createdAt', 'desc').limit(limit).get();
+				} catch {
+					snap = await db.collection(collectionName).limit(limit).get();
+				}
+				for (const docSnap of snap.docs) {
+					if (seen.has(docSnap.id)) continue;
+					const mapped = mapDiagnosticDoc(docSnap.id, docSnap.data() as Record<string, unknown>);
+					if (mapped) {
+						seen.add(docSnap.id);
+						rows.push(mapped);
+					}
+				}
+			} catch (error) {
+				console.warn(`[diagnostics] list ${collectionName} skipped:`, error instanceof Error ? error.message : error);
+			}
+		}
+		rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+		return rows.slice(0, limit);
+	} catch (error) {
+		console.error('[diagnostics] list failed:', error);
+		return [];
 	}
-	return rows;
 }
 
 export async function deleteDiagnosticsByIds(ids: string[]): Promise<number> {

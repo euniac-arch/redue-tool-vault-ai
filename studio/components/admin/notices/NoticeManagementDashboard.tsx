@@ -56,6 +56,7 @@ export function NoticeManagementDashboard() {
 	const [total, setTotal] = useState(0);
 	const [totalPages, setTotalPages] = useState(1);
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const [query, setQuery] = useState('');
 	const [type, setType] = useState<NoticeFilters['type']>('all');
 	const [status, setStatus] = useState<NoticeFilters['status']>('all');
@@ -78,6 +79,7 @@ export function NoticeManagementDashboard() {
 	const reload = useCallback(async () => {
 		const requestId = ++requestIdRef.current;
 		setLoading(true);
+		setLoadError(null);
 		try {
 			const result = await fetchNoticeList({
 				filters,
@@ -93,7 +95,9 @@ export function NoticeManagementDashboard() {
 			if (result.page !== page) setPage(result.page);
 		} catch (error) {
 			if (requestId !== requestIdRef.current) return;
-			pushToast(error instanceof Error ? error.message : '공지 목록을 불러오지 못했습니다.', 'error');
+			const message = error instanceof Error ? error.message : '공지 목록을 불러오지 못했습니다.';
+			setLoadError(message);
+			pushToast(message, 'error');
 		} finally {
 			if (requestId === requestIdRef.current) setLoading(false);
 		}
@@ -289,6 +293,15 @@ export function NoticeManagementDashboard() {
 						/>
 					</div>
 				</div>
+
+				{loadError && (
+					<div className="flex items-center justify-between gap-3 border-b border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+						<p>{loadError}</p>
+						<button type="button" onClick={() => void reload()} className="font-semibold underline">
+							다시 시도
+						</button>
+					</div>
+				)}
 
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[960px] text-left text-sm">

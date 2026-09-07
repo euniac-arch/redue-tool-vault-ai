@@ -8,6 +8,7 @@ import {
 	insightsPublicError,
 	logInsightsFailure,
 } from '@/lib/insights/insights-api-errors';
+import { recordDailyApiUsage } from '@/lib/server/daily-usage';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -72,6 +73,7 @@ export async function POST(request: Request) {
 
 	try {
 		const result = await runInsightsAiResearch(query, apiKey);
+		recordDailyApiUsage({ service: 'ai_research', userId: sessionUser?.id, actorType: 'member' });
 		return insightsNoStoreJson(result, 200, requestId);
 	} catch (error) {
 		logInsightsFailure('insights/ai-search', error, { requestId, ms: Date.now() - started });

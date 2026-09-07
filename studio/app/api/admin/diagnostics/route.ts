@@ -9,8 +9,6 @@ import {
 	type DiagnosticSortBy,
 	type DiagnosticStatus,
 } from '@/lib/admin/diagnostic-management';
-import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
-
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
@@ -48,10 +46,6 @@ export async function GET(request: Request) {
 	const admin = await requireAdmin();
 	if (!admin) {
 		return NextResponse.json({ error: '관리자 권한이 필요합니다.' }, { status: 403 });
-	}
-
-	if (!isFirebaseAdminConfigured()) {
-		return NextResponse.json({ error: 'Firebase가 설정되지 않았습니다.' }, { status: 503 });
 	}
 
 	try {

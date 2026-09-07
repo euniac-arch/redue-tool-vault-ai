@@ -47,9 +47,23 @@ export interface ApiQuotaCallStats {
 	daily: ApiQuotaDailyPoint[];
 }
 
+export type ProductUsageService = 'ai_research' | 'youtube_search' | 'audit';
+
+export interface ProductUsageRow {
+	service: ProductUsageService;
+	label: string;
+	memberDaily: number;
+	guestDaily: number;
+	memberLimit: number;
+	guestLimit: number;
+	memberRemaining: number;
+	guestRemaining: number;
+}
+
 export interface ApiQuotaSnapshot {
 	quotas: ApiQuotaUsage[];
 	callStats: ApiQuotaCallStats[];
+	productUsage?: ProductUsageRow[];
 	/** ISO 8601 timestamp this snapshot was generated at. */
 	generatedAt: string;
 }

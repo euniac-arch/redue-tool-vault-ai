@@ -26,6 +26,7 @@ import {
 	sanitizeAuthMeta,
 } from './auth-kakao-errors';
 import { ensureMasterAdminUser } from './ensure-master-admin';
+import { recordSecurityLog } from './logger';
 import { prisma } from './prisma';
 
 applyRuntimeAuthEnv();
@@ -136,9 +137,20 @@ export const authOptions: AuthOptions = {
 				email: { label: '이메일', type: 'text' },
 				password: { label: '비밀번호', type: 'password' },
 			},
-			async authorize(credentials) {
-				if (!credentials?.email || !credentials?.password) {
+			async authorize(credentials, req) {
+				const fail = (email: string | null | undefined, reason: string) => {
+					recordSecurityLog({
+						eventType: 'LOGIN_FAIL',
+						userEmail: email,
+						status: 'FAIL',
+						details: `이메일 로그인 실패: ${reason}`,
+						headers: req?.headers,
+					});
 					return null;
+				};
+
+				if (!credentials?.email || !credentials?.password) {
+					return fail(credentials?.email, '이메일 또는 비밀번호 누락');
 				}
 
 				const loginId = credentials.email.trim();
@@ -160,11 +172,11 @@ export const authOptions: AuthOptions = {
 				const email = normalizeLoginIdentifier(loginId);
 				const user = await prisma.user.findUnique({ where: { email } });
 				if (!user?.passwordHash) {
-					return null;
+					return fail(email, '계정을 찾을 수 없거나 비밀번호가 설정되지 않음');
 				}
 				const valid = await bcrypt.compare(password, user.passwordHash);
 				if (!valid) {
-					return null;
+					return fail(email, '비밀번호 불일치');
 				}
 
 				const role = sessionRoleForUser(user.email, user.role);
@@ -267,6 +279,20 @@ export const authOptions: AuthOptions = {
 					hasName: Boolean(user?.name),
 				});
 			}
+			const providerLabel =
+				account?.provider === 'google'
+					? 'Google 소셜 로그인'
+					: account?.provider === 'kakao'
+						? '카카오 소셜 로그인'
+						: '이메일 로그인';
+			recordSecurityLog({
+				eventType: 'LOGIN_SUCCESS',
+				userEmail: user?.email,
+				userId: user?.id,
+				status: 'SUCCESS',
+				details: `${providerLabel} 성공`,
+				headers: await readIncomingHeaders(),
+			});
 			try {
 				if (user?.email && isAdminEmail(user.email)) {
 					await prisma.user.updateMany({
@@ -278,5 +304,25 @@ export const authOptions: AuthOptions = {
 				console.error('[auth] signIn admin role bootstrap failed:', err);
 			}
 		},
+		async signOut(message) {
+			const token = 'token' in message ? message.token : null;
+			recordSecurityLog({
+				eventType: 'LOGOUT',
+				userEmail: typeof token?.email === 'string' ? token.email : null,
+				userId: typeof token?.uid === 'string' ? token.uid : typeof token?.sub === 'string' ? token.sub : null,
+				status: 'SUCCESS',
+				details: '로그아웃',
+				headers: await readIncomingHeaders(),
+			});
+		},
 	},
 };
+
+async function readIncomingHeaders() {
+	try {
+		const { headers } = await import('next/headers');
+		return headers();
+	} catch {
+		return undefined;
+	}
+}

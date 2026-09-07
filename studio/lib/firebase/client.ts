@@ -1,4 +1,4 @@
-import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getFirestore, initializeFirestore, type Firestore } from 'firebase/firestore';
 
 let cachedApp: FirebaseApp | null = null;
@@ -14,7 +14,7 @@ export function isFirebaseClientConfigured(): boolean {
 export function getFirebaseClientApp(): FirebaseApp {
 	if (cachedApp) return cachedApp;
 	if (getApps().length > 0) {
-		cachedApp = getApps()[0]!;
+		cachedApp = getApp();
 		return cachedApp;
 	}
 
@@ -31,15 +31,34 @@ export function getFirebaseClientApp(): FirebaseApp {
 		);
 	}
 
-	cachedApp = initializeApp({
-		apiKey,
-		authDomain: authDomain || `${projectId}.firebaseapp.com`,
-		projectId,
-		storageBucket: storageBucket || `${projectId}.appspot.com`,
-		messagingSenderId,
-		appId,
-	});
+	try {
+		cachedApp = initializeApp({
+			apiKey,
+			authDomain: authDomain || `${projectId}.firebaseapp.com`,
+			projectId,
+			storageBucket: storageBucket || `${projectId}.appspot.com`,
+			messagingSenderId,
+			appId,
+		});
+	} catch {
+		if (getApps().length > 0) {
+			cachedApp = getApp();
+			return cachedApp;
+		}
+		throw new Error(
+			'Firebase client is not configured. Set NEXT_PUBLIC_FIREBASE_API_KEY and NEXT_PUBLIC_FIREBASE_PROJECT_ID.',
+		);
+	}
 	return cachedApp;
+}
+
+export function tryGetFirebaseClientApp(): FirebaseApp | null {
+	if (!isFirebaseClientConfigured()) return null;
+	try {
+		return getFirebaseClientApp();
+	} catch {
+		return null;
+	}
 }
 
 export function getClientFirestore(): Firestore {

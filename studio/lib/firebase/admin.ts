@@ -2,7 +2,7 @@ import 'server-only';
 
 import { existsSync, readFileSync } from 'fs';
 import { isAbsolute, resolve } from 'path';
-import { cert, getApps, initializeApp, type App, type ServiceAccount } from 'firebase-admin/app';
+import { cert, getApp, getApps, initializeApp, type App, type ServiceAccount } from 'firebase-admin/app';
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 import { getStorage, type Storage } from 'firebase-admin/storage';
 
@@ -43,19 +43,21 @@ function resolveServiceAccountPath(): string | null {
 function loadServiceAccountFromFile(): ServiceAccount | null {
 	const path = resolveServiceAccountPath();
 	if (!path) return null;
-	const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
-		project_id?: string;
-		client_email?: string;
-		private_key?: string;
-	};
-	if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
-		throw new Error(`Invalid Firebase service account JSON at ${path}`);
+	try {
+		const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
+			project_id?: string;
+			client_email?: string;
+			private_key?: string;
+		};
+		if (!parsed.project_id || !parsed.client_email || !parsed.private_key) return null;
+		return {
+			projectId: parsed.project_id,
+			clientEmail: parsed.client_email,
+			privateKey: parsed.private_key.replace(/\\n/g, '\n'),
+		};
+	} catch {
+		return null;
 	}
-	return {
-		projectId: parsed.project_id,
-		clientEmail: parsed.client_email,
-		privateKey: parsed.private_key.replace(/\\n/g, '\n'),
-	};
 }
 
 function loadServiceAccountFromEnv(): ServiceAccount | null {
@@ -69,8 +71,28 @@ function loadServiceAccountFromEnv(): ServiceAccount | null {
 
 /** True when a JSON key file or valid Admin env credentials are available. */
 export function isFirebaseAdminConfigured(): boolean {
-	if (resolveServiceAccountPath()) return true;
-	return Boolean(loadServiceAccountFromEnv());
+	return Boolean(loadServiceAccountFromFile() || loadServiceAccountFromEnv());
+}
+
+export function describeFirebaseAdminSetup(): {
+	configured: boolean;
+	missing: string[];
+	hint: string;
+} {
+	const configured = isFirebaseAdminConfigured();
+	if (configured) return { configured: true, missing: [], hint: '' };
+
+	const missing: string[] = [];
+	if (!resolveServiceAccountPath()) missing.push('FIREBASE_SERVICE_ACCOUNT_KEY_PATH');
+	if (!process.env.FIREBASE_PROJECT_ID?.trim()) missing.push('FIREBASE_PROJECT_ID');
+	if (!process.env.FIREBASE_CLIENT_EMAIL?.trim()) missing.push('FIREBASE_CLIENT_EMAIL');
+	if (!process.env.FIREBASE_PRIVATE_KEY?.trim()) missing.push('FIREBASE_PRIVATE_KEY');
+
+	return {
+		configured: false,
+		missing,
+		hint: `Firestore 연동을 쓰려면 .env.local에 FIREBASE_SERVICE_ACCOUNT_KEY_PATH(서비스 계정 JSON) 또는 FIREBASE_PROJECT_ID / FIREBASE_CLIENT_EMAIL / FIREBASE_PRIVATE_KEY 를 등록하세요.`,
+	};
 }
 
 export function getFirebaseAdminApp(): App {
@@ -83,7 +105,7 @@ export function getFirebaseAdminApp(): App {
 	}
 
 	if (getApps().length > 0) {
-		cachedApp = getApps()[0]!;
+		cachedApp = getApp();
 		g.__redueFirebaseAdminApp = cachedApp;
 		return cachedApp;
 	}
@@ -103,13 +125,29 @@ export function getFirebaseAdminApp(): App {
 		process.env.FIREBASE_STORAGE_BUCKET?.trim() ||
 		`${account.projectId}.appspot.com`;
 
-	cachedApp = initializeApp({
-		credential: cert(account),
-		projectId: account.projectId,
-		storageBucket,
-	});
+	try {
+		cachedApp = initializeApp({
+			credential: cert(account),
+			projectId: account.projectId,
+			storageBucket,
+		});
+	} catch (error) {
+		if (getApps().length > 0) {
+			cachedApp = getApp();
+		} else {
+			throw error;
+		}
+	}
 	g.__redueFirebaseAdminApp = cachedApp;
 	return cachedApp;
+}
+
+export function tryGetFirebaseAdminApp(): App | null {
+	try {
+		return getFirebaseAdminApp();
+	} catch {
+		return null;
+	}
 }
 
 /**

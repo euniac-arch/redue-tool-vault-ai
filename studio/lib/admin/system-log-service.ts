@@ -1,42 +1,12 @@
-/**
- * Admin "시스템 운영 및 작업 내역" data-access layer.
- *
- *   fetchSystemLogs     -> GET  /api/admin/system-logs
- *   fetchSystemLogKpi   -> GET  /api/admin/system-logs/kpi
- *   exportSystemLogsCsv -> POST /api/admin/system-logs/export
- *
- * Toggle `USE_MOCK` once the real endpoints exist.
- */
-import {
-	MOCK_SYSTEM_LOGS,
-	cloneSystemLogs,
-	filterSystemLogs,
-	paginateSystemLogs,
-	sortSystemLogs,
-	summarizeSystemLogs,
-	toSystemLogCsv,
-	type SortDirection,
-	type SystemLog,
-	type SystemLogFilters,
-	type SystemLogKpi,
-} from './system-log-management';
-
-const USE_MOCK = true;
-const MOCK_LATENCY_MS = 280;
-
-function delay<T>(value: T, ms = MOCK_LATENCY_MS): Promise<T> {
-	return new Promise((resolve) => {
-		setTimeout(() => resolve(value), ms);
-	});
-}
-
-const logStore: SystemLog[] = cloneSystemLogs(MOCK_SYSTEM_LOGS);
+import { fetchAdminApi } from '@/lib/admin/admin-api';
+import { toSystemLogCsv, type SortDirection, type SystemLog, type SystemLogFilters, type SystemLogKpi } from './system-log-management';
 
 export type FetchSystemLogsParams = {
 	filters: SystemLogFilters;
 	sortDir: SortDirection;
 	page: number;
 	pageSize: number;
+	enabled?: boolean;
 };
 
 export type FetchSystemLogsResult = {
@@ -47,65 +17,45 @@ export type FetchSystemLogsResult = {
 	totalPages: number;
 };
 
-/** GET /api/admin/system-logs */
+async function unwrap<T>(url: string, init?: RequestInit & { enabled?: boolean }, fallback = '요청에 실패했습니다.'): Promise<T> {
+	const result = await fetchAdminApi<T>(url, init);
+	if (!result.ok) throw new Error(result.message || fallback);
+	return result.data;
+}
+
 export async function fetchSystemLogs(params: FetchSystemLogsParams): Promise<FetchSystemLogsResult> {
-	if (!USE_MOCK) {
-		const query = new URLSearchParams({
-			q: params.filters.query,
-			module: params.filters.module,
-			sortDir: params.sortDir,
-			page: String(params.page),
-			pageSize: String(params.pageSize),
-		});
-		const res = await fetch(`/api/admin/system-logs?${query.toString()}`);
-		if (!res.ok) throw new Error('작업 내역을 불러오지 못했습니다.');
-		return res.json();
-	}
-
-	const filtered = filterSystemLogs(logStore, params.filters);
-	const sorted = sortSystemLogs(filtered, params.sortDir);
-	const totalPages = Math.max(1, Math.ceil(sorted.length / params.pageSize));
-	const safePage = Math.min(Math.max(1, params.page), totalPages);
-	const items = paginateSystemLogs(sorted, safePage, params.pageSize);
-
-	return delay({
-		items: cloneSystemLogs(items),
-		total: sorted.length,
-		page: safePage,
-		pageSize: params.pageSize,
-		totalPages,
+	const query = new URLSearchParams({
+		q: params.filters.query,
+		module: params.filters.module,
+		sortDir: params.sortDir,
+		page: String(params.page),
+		pageSize: String(params.pageSize),
 	});
+	return unwrap<FetchSystemLogsResult>(`/api/admin/system-logs?${query.toString()}`, {
+		enabled: params.enabled,
+	}, '작업 내역을 불러오지 못했습니다.');
 }
 
-/** GET /api/admin/system-logs/kpi */
 export async function fetchSystemLogKpi(): Promise<SystemLogKpi> {
-	if (!USE_MOCK) {
-		const res = await fetch('/api/admin/system-logs/kpi');
-		if (!res.ok) throw new Error('작업 통계를 불러오지 못했습니다.');
-		return res.json();
-	}
-	return delay(summarizeSystemLogs(logStore), 160);
+	return unwrap<SystemLogKpi>('/api/admin/system-logs/kpi', undefined, '작업 통계를 불러오지 못했습니다.');
 }
 
-/** POST /api/admin/system-logs/export — mock CSV download of the current rows. */
 export async function exportSystemLogsCsv(rows: SystemLog[]): Promise<{ filename: string }> {
 	const filename = `system-logs-${new Date().toISOString().slice(0, 10)}.csv`;
-	if (!USE_MOCK) {
-		const res = await fetch('/api/admin/system-logs/export', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ ids: rows.map((row) => row.id) }),
-		});
-		if (!res.ok) throw new Error('CSV를 내보내지 못했습니다.');
-		const blob = await res.blob();
-		downloadBlob(blob, filename);
+	const result = await fetch('/api/admin/system-logs/export', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'same-origin',
+		body: JSON.stringify({ ids: rows.map((row) => row.id) }),
+	});
+	if (!result.ok) {
+		const csv = toSystemLogCsv(rows);
+		downloadBlob(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' }), filename);
 		return { filename };
 	}
-
-	const csv = toSystemLogCsv(rows);
-	const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+	const blob = await result.blob();
 	downloadBlob(blob, filename);
-	return delay({ filename }, 140);
+	return { filename };
 }
 
 function downloadBlob(blob: Blob, filename: string) {

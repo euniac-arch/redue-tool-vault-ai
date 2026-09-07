@@ -10,28 +10,32 @@ import {
 	Coins,
 	Eye,
 	Loader2,
+	RefreshCw,
 	Search,
+	Shield,
 	ShieldCheck,
 	Trash2,
 	UserX,
 } from 'lucide-react';
 import {
 	PAGE_SIZE_OPTIONS,
-	USER_KPI_MOCK,
 	formatDateTime,
 	type AdminMember,
 	type AuthProvider,
 	type MemberFilters,
+	type MemberRole,
 	type MemberSortKey,
 	type MembershipPlan,
 	type PageSize,
 	type SortDirection,
+	type UserKpiSummary,
 } from '@/lib/admin/user-management';
 import {
 	deleteUser,
 	fetchAdminUsers,
 	updateUserCredits,
 	updateUserMemo,
+	updateUserRole,
 	updateUserStatus,
 } from '@/lib/admin/users-service';
 import { UserAvatar } from './UserAvatar';
@@ -73,13 +77,24 @@ const SELECT_CLASS =
 
 const INSTANT_CREDIT = 50;
 
+const EMPTY_KPI: UserKpiSummary = {
+	totalMembers: 0,
+	totalMembersDeltaPct: 0,
+	todaySignups: 0,
+	todaySignupsByProvider: { email: 0, kakao: 0, google: 0 },
+	todayAudits: 0,
+	paidActiveUsers: 0,
+};
+
 type Toast = { id: number; message: string; tone?: 'default' | 'error' };
 
 export function UserManagementDashboard() {
 	const [items, setItems] = useState<AdminMember[]>([]);
+	const [kpi, setKpi] = useState<UserKpiSummary>(EMPTY_KPI);
 	const [total, setTotal] = useState(0);
 	const [totalPages, setTotalPages] = useState(1);
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const [query, setQuery] = useState('');
 	const [plan, setPlan] = useState<MemberFilters['plan']>('all');
 	const [provider, setProvider] = useState<MemberFilters['provider']>('all');
@@ -111,16 +126,20 @@ export function UserManagementDashboard() {
 	const reload = useCallback(async () => {
 		const requestId = ++requestIdRef.current;
 		setLoading(true);
+		setLoadError(null);
 		try {
 			const result = await fetchAdminUsers({ filters, sortKey, sortDir, page, pageSize });
 			if (requestId !== requestIdRef.current) return;
 			setItems(result.items);
 			setTotal(result.total);
 			setTotalPages(result.totalPages);
+			if (result.kpi) setKpi(result.kpi);
 			if (result.page !== page) setPage(result.page);
 		} catch (error) {
 			if (requestId !== requestIdRef.current) return;
-			pushToast(error instanceof Error ? error.message : '회원 목록을 불러오지 못했습니다.', 'error');
+			const message = error instanceof Error ? error.message : '회원 목록을 불러오지 못했습니다.';
+			setLoadError(message);
+			pushToast(message, 'error');
 		} finally {
 			if (requestId === requestIdRef.current) setLoading(false);
 		}
@@ -179,6 +198,23 @@ export function UserManagementDashboard() {
 		[patchLocal, pushToast],
 	);
 
+	const handleRoleChange = useCallback(
+		async (id: string, role: MemberRole) => {
+			setPendingId(id);
+			setMenuId(null);
+			try {
+				const updated = await updateUserRole(id, role);
+				patchLocal(updated);
+				pushToast(`${id} 권한을 ${role === 'admin' ? '관리자' : '일반회원'}로 변경`);
+			} catch (error) {
+				pushToast(error instanceof Error ? error.message : '권한 변경에 실패했습니다.', 'error');
+			} finally {
+				setPendingId(null);
+			}
+		},
+		[patchLocal, pushToast],
+	);
+
 	const handleToggleStatus = useCallback(
 		async (id: string) => {
 			const current = items.find((member) => member.id === id);
@@ -225,7 +261,7 @@ export function UserManagementDashboard() {
 
 	return (
 		<div className="flex flex-col gap-5">
-			<UserKpiCards kpi={USER_KPI_MOCK} />
+			<UserKpiCards kpi={kpi} />
 
 			<section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-700">
 				<div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 lg:flex-row lg:items-center lg:justify-between dark:border-slate-700">
@@ -282,6 +318,16 @@ export function UserManagementDashboard() {
 						/>
 					</div>
 				</div>
+
+				{loadError && (
+					<div className="flex items-center justify-between gap-3 border-b border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+						<p>{loadError}</p>
+						<button type="button" onClick={() => void reload()} className="inline-flex items-center gap-1 font-semibold underline">
+							<RefreshCw className="h-3 w-3" />
+							다시 시도
+						</button>
+					</div>
+				)}
 
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[1180px] text-left text-sm">
@@ -393,6 +439,15 @@ export function UserManagementDashboard() {
 														role="menu"
 														className="absolute bottom-9 right-0 z-20 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:bg-slate-800 dark:border-slate-700"
 													>
+														<button
+															type="button"
+															role="menuitem"
+															onClick={() => handleRoleChange(member.id, member.role === 'admin' ? 'user' : 'admin')}
+															className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+														>
+															<Shield className="h-3.5 w-3.5 text-indigo-500" />
+															{member.role === 'admin' ? '일반회원으로 변경' : '관리자로 승격'}
+														</button>
 														{member.status !== 'withdrawn' && (
 															<button
 																type="button"
@@ -470,6 +525,7 @@ export function UserManagementDashboard() {
 					onMemoChange={handleMemoChange}
 					onCreditDelta={handleCreditDelta}
 					onToggleStatus={handleToggleStatus}
+					onRoleChange={handleRoleChange}
 					onDelete={handleDelete}
 				/>
 			)}

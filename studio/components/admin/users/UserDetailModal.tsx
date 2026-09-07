@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Ban, Globe, Mail, Minus, Plus, Save, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Ban, Globe, Mail, Minus, Plus, Save, Shield, ShieldCheck, Trash2, X } from 'lucide-react';
 import {
 	formatDateTime,
 	type AdminMember,
@@ -19,6 +19,7 @@ interface UserDetailModalProps {
 	onMemoChange: (id: string, memo: string) => void;
 	onCreditDelta: (id: string, delta: number) => void;
 	onToggleStatus: (id: string) => void;
+	onRoleChange?: (id: string, role: 'admin' | 'user') => void;
 	onDelete?: (id: string) => void;
 }
 
@@ -28,6 +29,7 @@ export function UserDetailModal({
 	onMemoChange,
 	onCreditDelta,
 	onToggleStatus,
+	onRoleChange,
 	onDelete,
 }: UserDetailModalProps) {
 	const [memo, setMemo] = useState(member.memo);
@@ -220,6 +222,16 @@ export function UserDetailModal({
 
 				<footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-5 py-3 dark:border-slate-700">
 					<div className="flex items-center gap-2">
+						{onRoleChange && (
+							<button
+								type="button"
+								onClick={() => onRoleChange(member.id, member.role === 'admin' ? 'user' : 'admin')}
+								className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+							>
+								<Shield className="h-3.5 w-3.5" />
+								{member.role === 'admin' ? '일반회원으로 변경' : '관리자로 승격'}
+							</button>
+						)}
 						{member.status !== 'withdrawn' && (
 							<button
 								type="button"

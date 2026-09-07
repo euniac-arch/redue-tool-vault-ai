@@ -5,6 +5,7 @@ import { AlertCircle, RefreshCw } from 'lucide-react';
 import { fetchApiQuotaUsage, type ApiQuotaSnapshot } from '@/lib/admin/api-quota';
 import { ApiQuotaCallStatsPanel } from './ApiQuotaCallStatsPanel';
 import { ApiQuotaCard } from './ApiQuotaCard';
+import { ProductUsageSection } from './ProductUsageSection';
 
 export function ApiQuotaSection() {
 	const [snapshot, setSnapshot] = useState<ApiQuotaSnapshot | null>(null);
@@ -68,10 +69,15 @@ export function ApiQuotaSection() {
 			</div>
 
 			{error && (
-				<div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-					{error}
+				<div className="flex items-center justify-between gap-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+					<p>{error}</p>
+					<button type="button" onClick={() => void load()} className="font-semibold underline">
+						다시 시도
+					</button>
 				</div>
 			)}
+
+			{snapshot?.productUsage ? <ProductUsageSection rows={snapshot.productUsage} /> : null}
 
 			<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
 				{loading && !snapshot

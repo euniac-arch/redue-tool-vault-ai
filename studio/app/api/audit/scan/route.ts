@@ -22,6 +22,9 @@ import {
 } from '@/lib/audit/free-audit-quota-server';
 import { MASTER_ADMIN_ID, resolveNextAuthSecret } from '@/lib/master-admin';
 import { prisma } from '@/lib/prisma';
+import { recordDailyApiUsage } from '@/lib/server/daily-usage';
+import { writeAdminAuditLog } from '@/lib/admin/admin-audit-log';
+import { recordSecurityLog } from '@/lib/logger';
 import { syncProjectFromAuditLead } from '@/lib/projects-sync';
 import {
 	deletePsiCacheForUrl,
@@ -581,6 +584,13 @@ export async function POST(request: Request) {
 			const limitMessage = quota.userId
 				? `오늘 무료 진단 횟수(${quota.limit}회)를 모두 소진했습니다. 내일 자정에 충전됩니다.`
 				: `비회원 무료 진단 횟수(${quota.limit}회)를 모두 사용했습니다. 지금 가입하면 5회 무료 심층 진단을 받을 수 있습니다.`;
+			recordSecurityLog({
+				eventType: 'API_QUOTA_EXCEEDED',
+				userId: quota.userId,
+				status: 'WARNING',
+				details: `audit/scan 쿼터 초과: ${limitMessage}`,
+				headers: request.headers,
+			});
 			return noStoreJson(limitReachedPayload(quota, limitMessage), { status: 402 });
 		}
 
@@ -823,6 +833,18 @@ export async function POST(request: Request) {
 			diagnosedAt: diagnosedAt.toISOString(),
 		});
 		if (!nextQuota.unlimited) applyGuestAuditCookie(response, nextQuota.used);
+		recordDailyApiUsage({
+			service: 'audit',
+			userId: sessionUserId,
+			actorType: sessionUserId ? 'member' : 'guest',
+		});
+		if (userType === 'admin') {
+			void writeAdminAuditLog({
+				operator: actor.email || '관리자',
+				module: 'USER_MGMT',
+				actionDetail: `진단 실행 — ${report.url}`,
+			});
+		}
 		console.log('[audit/scan][결과 조합] 최종 응답 반환 (200 OK):', {
 			url: report.url,
 			auditId,

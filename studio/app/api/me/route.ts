@@ -57,6 +57,7 @@ export async function GET() {
 		});
 
 		if (user) {
+			void prisma.user.update({ where: { id: session.user.id }, data: { lastLoginAt: new Date() } }).catch(() => undefined);
 			const admin =
 				isDbAdminRole(user.role) ||
 				isMasterAdminLoginId(user.email || '') ||

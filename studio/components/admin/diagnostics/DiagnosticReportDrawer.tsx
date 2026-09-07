@@ -125,12 +125,12 @@ export function DiagnosticReportDrawer({
 										</p>
 									</div>
 									<a
-										href={`https://${detail.domain}`}
+										href={detail.url || detail.reportData?.url || `https://${detail.domain}`}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="truncate text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
+										className="max-w-[14rem] truncate text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400"
 									>
-										{detail.domain}
+										{detail.url || detail.reportData?.url || detail.domain}
 									</a>
 								</div>
 								<p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">{detail.summary}</p>

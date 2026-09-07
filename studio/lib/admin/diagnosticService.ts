@@ -35,6 +35,10 @@ export type FetchDiagnosticHistoryResult = {
 		avgGeoScore: number;
 		reportCount: number;
 	};
+	firebaseConfigured: boolean;
+	firebaseHint: string;
+	firebaseMissing: string[];
+	source: 'firestore+prisma' | 'prisma';
 };
 
 async function readError(res: Response, fallback: string): Promise<string> {
@@ -71,6 +75,10 @@ export async function fetchDiagnosticHistory(
 		totalPages?: number;
 		kpiSummary?: FetchDiagnosticHistoryResult['kpiSummary'];
 		kpi?: DiagnosticKpi;
+		firebaseConfigured?: boolean;
+		firebaseHint?: string;
+		firebaseMissing?: string[];
+		source?: FetchDiagnosticHistoryResult['source'];
 	};
 	const kpiSummary = data.kpiSummary || {
 		totalCount: data.kpi?.totalCount ?? 0,
@@ -88,6 +96,10 @@ export async function fetchDiagnosticHistory(
 		totalPages: Number(data.totalPages) || 1,
 		kpi: fromKpiSummary(kpiSummary),
 		kpiSummary,
+		firebaseConfigured: data.firebaseConfigured !== false,
+		firebaseHint: data.firebaseHint || '',
+		firebaseMissing: Array.isArray(data.firebaseMissing) ? data.firebaseMissing : [],
+		source: data.source === 'prisma' ? 'prisma' : 'firestore+prisma',
 	};
 }
 

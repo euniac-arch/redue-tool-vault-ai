@@ -16,6 +16,7 @@ const FULL_WIDTH_PATHS = [
 	'/admin/diagnostics',
 	'/admin/users',
 	'/admin/inquiries',
+	'/admin/subscriptions',
 	'/admin/usage',
 	'/admin/notices',
 	'/admin/system-logs',

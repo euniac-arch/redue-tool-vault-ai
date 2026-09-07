@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import { normalizeEmail, resetIdentifier, validatePasswordStrength } from '@/lib/auth-account';
+import { recordSecurityLog } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -54,6 +55,15 @@ export async function POST(request: Request) {
 		}),
 		prisma.verificationToken.deleteMany({ where: { identifier } }),
 	]);
+
+	recordSecurityLog({
+		eventType: 'PASSWORD_RESET',
+		userEmail: email,
+		userId: user.id,
+		status: 'SUCCESS',
+		details: '비밀번호 재설정 완료',
+		headers: request.headers,
+	});
 
 	return NextResponse.json({ ok: true });
 }

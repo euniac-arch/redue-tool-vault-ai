@@ -27,10 +27,6 @@ export async function POST(request: Request, context: { params: { id: string } }
 	if (!admin) {
 		return NextResponse.json({ error: '관리자 권한이 필요합니다.' }, { status: 403 });
 	}
-	if (!isFirebaseAdminConfigured()) {
-		return NextResponse.json({ error: 'Firebase가 설정되지 않았습니다.' }, { status: 503 });
-	}
-
 	const id = String(context.params?.id || '').trim();
 	if (!id) {
 		return NextResponse.json({ error: '진단 ID가 필요합니다.' }, { status: 400 });
@@ -78,18 +74,20 @@ export async function POST(request: Request, context: { params: { id: string } }
 			overwrite: true,
 		});
 
-		try {
-			const projectInput = buildAuditProjectCreateInput(report, {
-				userType: 'admin',
-				userId: admin.id,
-				userAgent: request.headers.get('user-agent'),
-			});
-			const updated = existing ? await updateAuditProject(existing.id, projectInput) : null;
-			if (!updated) {
-				await addAuditProject(projectInput);
+		if (isFirebaseAdminConfigured()) {
+			try {
+				const projectInput = buildAuditProjectCreateInput(report, {
+					userType: 'admin',
+					userId: admin.id,
+					userAgent: request.headers.get('user-agent'),
+				});
+				const updated = existing ? await updateAuditProject(existing.id, projectInput) : null;
+				if (!updated) {
+					await addAuditProject(projectInput);
+				}
+			} catch (error) {
+				console.error('[admin/diagnostics/rerun] audit_projects sync failed:', error);
 			}
-		} catch (error) {
-			console.error('[admin/diagnostics/rerun] audit_projects sync failed:', error);
 		}
 
 		if (!saved) {

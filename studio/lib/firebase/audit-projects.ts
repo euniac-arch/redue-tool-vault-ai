@@ -221,18 +221,23 @@ export async function getAuditProjectById(id: string): Promise<AuditProjectDoc |
 export async function listAuditProjects(limit = 200): Promise<AuditProjectDoc[]> {
 	if (!isFirebaseAdminConfigured()) return [];
 
-	const snap = await getAdminFirestore()
-		.collection(AUDIT_PROJECTS_COLLECTION)
-		.orderBy('createdAt', 'desc')
-		.limit(limit)
-		.get();
+	try {
+		const snap = await getAdminFirestore()
+			.collection(AUDIT_PROJECTS_COLLECTION)
+			.orderBy('createdAt', 'desc')
+			.limit(limit)
+			.get();
 
-	const rows: AuditProjectDoc[] = [];
-	for (const docSnap of snap.docs) {
-		const mapped = mapAuditProjectDoc(docSnap.id, docSnap.data() as Record<string, unknown>);
-		if (mapped) rows.push(mapped);
+		const rows: AuditProjectDoc[] = [];
+		for (const docSnap of snap.docs) {
+			const mapped = mapAuditProjectDoc(docSnap.id, docSnap.data() as Record<string, unknown>);
+			if (mapped) rows.push(mapped);
+		}
+		return rows;
+	} catch (error) {
+		console.error('[audit-projects] list failed:', error);
+		return [];
 	}
-	return rows;
 }
 
 /** Firestore batch write hard limit is 500 ops; each doc here deletes both the

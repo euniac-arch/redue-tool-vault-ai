@@ -89,7 +89,6 @@ export const CONNECTION_META: {
 	{ id: 'google', label: 'Google OAuth', caption: '구글 소셜 로그인' },
 ];
 
-const USE_MOCK = true;
 const FETCH_LATENCY_MS = 280;
 const SAVE_LATENCY_MS = 420;
 const TEST_LATENCY_MS = 1000;
@@ -242,89 +241,36 @@ export function __resetApiConfigMockStore() {
 
 /** GET /api/admin/api-settings */
 export async function fetchApiConfig(): Promise<ApiConfig> {
-	if (!USE_MOCK) {
-		const res = await fetch('/api/admin/api-settings', { cache: 'no-store' });
-		if (!res.ok) throw new Error('연동 설정을 불러오지 못했습니다.');
-		return (await res.json()) as ApiConfig;
-	}
-	await delay(FETCH_LATENCY_MS);
-	return cloneConfig(ensureStore());
+	const res = await fetch('/api/admin/api-settings', { cache: 'no-store', credentials: 'same-origin' });
+	if (!res.ok) throw new Error('연동 설정을 불러오지 못했습니다.');
+	return (await res.json()) as ApiConfig;
 }
 
 /** PUT /api/admin/api-settings */
 export async function saveApiConfig(
 	draft: Pick<ApiConfig, 'firebase' | 'llm' | 'social'>,
 ): Promise<SaveApiConfigResult> {
-	if (!USE_MOCK) {
-		const res = await fetch('/api/admin/api-settings', {
-			method: 'PUT',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(draft),
-		});
-		if (!res.ok) throw new Error('연동 설정을 저장하지 못했습니다.');
-		return (await res.json()) as SaveApiConfigResult;
-	}
-
-	await delay(SAVE_LATENCY_MS);
-	const next: ApiConfig = {
-		firebase: { ...draft.firebase },
-		llm: { ...draft.llm },
-		social: { ...draft.social },
-		statuses: deriveStatuses(draft),
-		updatedAt: new Date().toISOString(),
-	};
-	configStore = next;
-	persist(next);
-	return { config: cloneConfig(next), message: '설정이 저장되었습니다.' };
+	const res = await fetch('/api/admin/api-settings', {
+		method: 'PUT',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'same-origin',
+		body: JSON.stringify(draft),
+	});
+	if (!res.ok) throw new Error('연동 설정을 저장하지 못했습니다.');
+	return (await res.json()) as SaveApiConfigResult;
 }
 
-/** POST /api/admin/api-settings/test — mock waits ~1s then returns a result. */
+/** POST /api/admin/api-settings/test */
 export async function testApiConnection(
 	target: TestableTarget,
 	draft?: Pick<ApiConfig, 'firebase' | 'llm' | 'social'>,
 ): Promise<TestApiConnectionResult> {
-	if (!USE_MOCK) {
-		const res = await fetch('/api/admin/api-settings/test', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ target, draft }),
-		});
-		if (!res.ok) throw new Error('연결 테스트에 실패했습니다.');
-		return (await res.json()) as TestApiConnectionResult;
-	}
-
-	await delay(TEST_LATENCY_MS);
-	const current = ensureStore();
-	const working: ApiConfig = draft
-		? {
-				firebase: { ...draft.firebase },
-				llm: { ...draft.llm },
-				social: { ...draft.social },
-				statuses: { ...current.statuses },
-				updatedAt: current.updatedAt,
-			}
-		: cloneConfig(current);
-
-	const check = requiredFieldsFor(target, working);
-	const next = applyTestStatus(working, target, check.ok ? 'connected' : 'unset');
-	configStore = next;
-	persist(next);
-
-	if (!check.ok) {
-		return {
-			target,
-			ok: false,
-			message: `필수 값이 비어 있습니다. (${check.missing})`,
-			status: next.statuses[target === 'llm' ? 'gemini' : target],
-			config: cloneConfig(next),
-		};
-	}
-
-	return {
-		target,
-		ok: true,
-		message: '연결 성공',
-		status: 'connected',
-		config: cloneConfig(next),
-	};
+	const res = await fetch('/api/admin/api-settings/test', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'same-origin',
+		body: JSON.stringify({ target, draft }),
+	});
+	if (!res.ok) throw new Error('연결 테스트에 실패했습니다.');
+	return (await res.json()) as TestApiConnectionResult;
 }

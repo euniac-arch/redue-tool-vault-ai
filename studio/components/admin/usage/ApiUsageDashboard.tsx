@@ -70,7 +70,7 @@ export function ApiUsageDashboard() {
 						API 사용량 및 쿼터 관리
 					</h1>
 					<p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-						OpenAI · Anthropic · Perplexity · Gemini · Maps · 이미지 API의 원가와 Rate Limit을 한 화면에서 관제합니다.
+						회원/비회원별 AI 리서치 · 유튜브 검색 · 진단 API 일일 호출과 잔여 쿼터를 모니터링합니다.
 					</p>
 				</div>
 			</div>

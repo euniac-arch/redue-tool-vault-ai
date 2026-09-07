@@ -23,6 +23,7 @@ export type DiagnosticRecord = {
 	/** `YYYY-MM-DD HH:mm` */
 	createdAt: string;
 	reportShareUrl: string;
+	url?: string;
 };
 
 export type RecommendationPriority = 'high' | 'medium' | 'low';
@@ -241,6 +242,7 @@ export function toDiagnosticRecord(row: DiagnosticDetail): DiagnosticRecord {
 		requestedBy: row.requestedBy,
 		createdAt: row.createdAt,
 		reportShareUrl: row.reportShareUrl,
+		url: row.url || row.reportData?.url,
 	};
 }
 
@@ -269,7 +271,8 @@ export function filterDiagnostics(rows: DiagnosticDetail[], filters: DiagnosticF
 		return (
 			row.siteName.toLowerCase().includes(query) ||
 			row.domain.toLowerCase().includes(query) ||
-			row.id.toLowerCase().includes(query)
+			row.id.toLowerCase().includes(query) ||
+			(row.url || '').toLowerCase().includes(query)
 		);
 	});
 }

@@ -1,4 +1,7 @@
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
 import { readYoutubeApiKey, searchYoutubeVideos } from '@/lib/insights/insights-youtube-engine';
+import { recordDailyApiUsage } from '@/lib/server/daily-usage';
 import { YOUTUBE_SEARCH_MAX } from '@/lib/insights/insights-youtube';
 import {
 	createInsightsRequestId,
@@ -31,6 +34,15 @@ async function runSearch(query: string, channelId = '', playlistId = '') {
 
 	try {
 		const result = await searchYoutubeVideos(query, apiKey, { channelId, playlistId });
+		try {
+			const session = await getServerSession(authOptions);
+			const userId = session && typeof session === 'object' && 'user' in session
+				? (session as { user?: { id?: string } }).user?.id
+				: undefined;
+			recordDailyApiUsage({ service: 'youtube_search', userId, actorType: userId ? 'member' : 'guest' });
+		} catch {
+			recordDailyApiUsage({ service: 'youtube_search', actorType: 'guest' });
+		}
 		return insightsNoStoreJson(
 			{
 				...result,

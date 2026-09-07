@@ -1,7 +1,9 @@
 /**
  * Persist a completed site audit into Firestore `diagnostics`.
+ * Falls back to Prisma `AuditReport` when Firebase Admin is not configured.
  * Called from `POST /api/audit/scan` and `POST /api/diagnostics`.
  */
+import { persistSignedInAuditReport } from '@/lib/audit/persist-audit-report';
 import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
 import {
 	addDiagnostic,
@@ -59,8 +61,6 @@ function toWriteInput(
 export async function persistDiagnosticFromReport(
 	opts: PersistDiagnosticInput,
 ): Promise<DiagnosticDetail | null> {
-	if (!isFirebaseAdminConfigured()) return null;
-
 	const requestedBy = requestedByFromActor({
 		email: opts.requestedBy,
 		userType: opts.userType,
@@ -79,7 +79,19 @@ export async function persistDiagnosticFromReport(
 		id,
 		createdAt: stampedAt,
 		reportShareUrl: `/audit/result?id=${encodeURIComponent(id)}`,
+		url: detail.url || opts.report.url,
 	});
+
+	if (!isFirebaseAdminConfigured()) {
+		const saved = await persistSignedInAuditReport({
+			report: opts.report,
+			userId: opts.userId || '',
+			preferredId,
+			replaceId: opts.replaceId,
+		});
+		if (saved) return withId(saved.id);
+		return preferredId ? withId(preferredId) : null;
+	}
 
 	if (preferredId && opts.overwrite) {
 		const existing = await getDiagnosticById(preferredId);

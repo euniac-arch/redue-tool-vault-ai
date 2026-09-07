@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { RESET_TOKEN_TTL_MS, isValidEmail, normalizeEmail, resetIdentifier } from '@/lib/auth-account';
 import { sendPasswordResetMail } from '@/lib/auth-mail';
+import { recordSecurityLog } from '@/lib/logger';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -70,6 +71,15 @@ export async function POST(request: Request) {
 		console.error('[reset-password] 메일 발송 실패:', error);
 		return NextResponse.json({ error: '재설정 메일 발송에 실패했습니다. 잠시 후 다시 시도해 주세요.' }, { status: 502 });
 	}
+
+	recordSecurityLog({
+		eventType: 'PASSWORD_RESET',
+		userEmail: email,
+		userId: user.id,
+		status: 'WARNING',
+		details: '비밀번호 재설정 메일 발송',
+		headers: request.headers,
+	});
 
 	return NextResponse.json({ ok: true, message: '비밀번호 재설정 링크가 이메일로 발송되었습니다.' });
 }

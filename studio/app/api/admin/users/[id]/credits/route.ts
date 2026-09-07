@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
+import { writeAdminAuditLog } from '@/lib/admin/admin-audit-log';
+import { findAdminMember } from '@/lib/admin/user-query';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -9,11 +11,6 @@ interface CreditAdjustBody {
 	reason?: string;
 }
 
-/**
- * POST /api/admin/users/[id]/credits — the "크레딧 수동 지급/차감" action from
- * the member management table. `delta` may be positive (grant) or negative
- * (deduct); credits are clamped at 0.
- */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
 	const admin = await requireAdmin();
 	if (!admin) {
@@ -34,7 +31,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 	const nextCredits = Math.max(0, target.creditsRemaining + delta);
 	const appliedDelta = nextCredits - target.creditsRemaining;
 
-	const [updated] = await prisma.$transaction([
+	await prisma.$transaction([
 		prisma.user.update({ where: { id: target.id }, data: { creditsRemaining: nextCredits } }),
 		prisma.creditTransaction.create({
 			data: {
@@ -45,5 +42,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
 		}),
 	]);
 
-	return NextResponse.json({ ok: true, creditsRemaining: updated.creditsRemaining });
+	await writeAdminAuditLog({
+		admin,
+		module: 'USER_MGMT',
+		actionDetail: `회원 크레딧 ${appliedDelta >= 0 ? '지급' : '회수'} — ${target.email || target.id} ${appliedDelta >= 0 ? '+' : ''}${appliedDelta}`,
+	});
+
+	const member = await findAdminMember(target.id);
+	return NextResponse.json(member);
 }

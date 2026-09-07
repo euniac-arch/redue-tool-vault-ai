@@ -35,6 +35,7 @@ export function SystemLogDashboard() {
 	const [total, setTotal] = useState(0);
 	const [totalPages, setTotalPages] = useState(1);
 	const [loading, setLoading] = useState(true);
+	const [loadError, setLoadError] = useState<string | null>(null);
 	const [exporting, setExporting] = useState(false);
 	const [query, setQuery] = useState('');
 	const [module, setModule] = useState<SystemLogFilters['module']>('all');
@@ -62,6 +63,7 @@ export function SystemLogDashboard() {
 	const reload = useCallback(async () => {
 		const requestId = ++requestIdRef.current;
 		setLoading(true);
+		setLoadError(null);
 		try {
 			const result = await fetchSystemLogs({ filters, sortDir, page, pageSize: PAGE_SIZE });
 			if (requestId !== requestIdRef.current) return;
@@ -71,7 +73,9 @@ export function SystemLogDashboard() {
 			if (result.page !== page) setPage(result.page);
 		} catch (error) {
 			if (requestId !== requestIdRef.current) return;
-			pushToast(error instanceof Error ? error.message : '작업 내역을 불러오지 못했습니다.', 'error');
+			const message = error instanceof Error ? error.message : '작업 내역을 불러오지 못했습니다.';
+			setLoadError(message);
+			pushToast(message, 'error');
 		} finally {
 			if (requestId === requestIdRef.current) setLoading(false);
 		}
@@ -151,6 +155,15 @@ export function SystemLogDashboard() {
 						</button>
 					</div>
 				</div>
+
+				{loadError && (
+					<div className="flex items-center justify-between gap-3 border-b border-rose-100 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+						<p>{loadError}</p>
+						<button type="button" onClick={() => void reload()} className="font-semibold underline">
+							다시 시도
+						</button>
+					</div>
+				)}
 
 				<div className="overflow-x-auto">
 					<table className="w-full min-w-[960px] text-left text-sm">
