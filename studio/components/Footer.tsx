@@ -102,38 +102,35 @@ export function Footer({ clearFloatingBar = false }: { clearFloatingBar?: boolea
 					className="mt-4 border-t border-slate-200 pt-8 text-xs leading-relaxed text-slate-500 dark:border-slate-800/60 dark:text-slate-500"
 				>
 					<meta itemProp="url" content="https://redue.kr" />
-					<p>
-						<span className="text-slate-500 dark:text-slate-400">{t('legal.nameLabel')}</span>{' '}
-						<strong itemProp="name" className="font-semibold text-slate-800 dark:text-slate-300">
-							{t('legal.name')}
-						</strong>
+					<p className="flex flex-wrap items-baseline gap-x-0 gap-y-1">
+						<span>
+							<span className="text-slate-500 dark:text-slate-400">{t('legal.nameLabel')}</span>{' '}
+							<strong itemProp="name" className="font-semibold text-slate-800 dark:text-slate-300">
+								{t('legal.name')}
+							</strong>
+						</span>
 						<span className="mx-1.5 text-slate-300 dark:text-slate-700" aria-hidden>
 							|
 						</span>
-						<span className="text-slate-500 dark:text-slate-400">{t('legal.ceoLabel')}</span>{' '}
-						<span className="text-slate-800 dark:text-slate-300">{t('legal.ceo')}</span>
+						<span>
+							<span className="text-slate-500 dark:text-slate-400">{t('legal.ceoLabel')}</span>{' '}
+							<span className="text-slate-800 dark:text-slate-300">{t('legal.ceo')}</span>
+						</span>
 						<span className="mx-1.5 text-slate-300 dark:text-slate-700" aria-hidden>
 							|
 						</span>
-						<span className="text-slate-500 dark:text-slate-400">{t('legal.bizNoLabel')}</span>{' '}
-						<span className="text-slate-800 dark:text-slate-300">{t('legal.bizNo')}</span>
+						<span>
+							<span className="text-slate-500 dark:text-slate-400">{t('legal.bizNoLabel')}</span>{' '}
+							<span className="text-slate-800 dark:text-slate-300">{t('legal.bizNo')}</span>
+						</span>
 					</p>
-					<p className="mt-1.5">
-						<span className="text-slate-500 dark:text-slate-400">{t('legal.mailOrderLabel')}</span>{' '}
-						<span className="text-slate-800 dark:text-slate-300">{t('legal.mailOrder')}</span>
-						<span className="mx-1.5 text-slate-300 dark:text-slate-700" aria-hidden>
-							|
+					<p className="mt-1.5 flex flex-wrap items-baseline gap-x-0 gap-y-1">
+						<span>
+							<span className="text-slate-500 dark:text-slate-400">{t('legal.phoneLabel')}</span>{' '}
+							<a itemProp="telephone" href="tel:01032109801" className="text-slate-800 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
+								{t('legal.phone')}
+							</a>
 						</span>
-						<span className="text-slate-500 dark:text-slate-400">{t('legal.emailLabel')}</span>{' '}
-						<a itemProp="email" href="mailto:contact@redue.kr" className="text-slate-800 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
-							{t('legal.email')}
-						</a>
-					</p>
-					<p className="mt-1.5">
-						<span className="text-slate-500 dark:text-slate-400">{t('legal.phoneLabel')}</span>{' '}
-						<a itemProp="telephone" href="tel:01032109801" className="text-slate-800 hover:text-slate-950 dark:text-slate-300 dark:hover:text-white">
-							{t('legal.phone')}
-						</a>
 						<span className="mx-1.5 text-slate-300 dark:text-slate-700" aria-hidden>
 							|
 						</span>
@@ -148,25 +145,27 @@ export function Footer({ clearFloatingBar = false }: { clearFloatingBar?: boolea
 					<p className="mt-1.5 text-slate-500 dark:text-slate-600">{t('legal.stack')}</p>
 				</div>
 
-				<div className="mt-6 flex flex-col items-center justify-between gap-3 border-t border-slate-200 pt-6 text-[11px] text-slate-500 sm:flex-row dark:border-slate-900 dark:text-slate-600">
-					<div className="flex flex-col items-center gap-2 sm:items-start">
-						<p>{t('copyright')}</p>
-						<p className="mt-2 text-[10.5px] text-slate-500">{t('trademarkNotice')}</p>
-						<nav className="flex flex-wrap items-center gap-x-2" aria-label={t('legalNavAria')}>
-							<Link href="/terms" className="py-1 hover:text-slate-900 dark:hover:text-slate-300">
-								{t('links.terms')}
-							</Link>
-							<span aria-hidden>·</span>
-							<Link href="/privacy" className="py-1 hover:text-slate-900 dark:hover:text-slate-300">
-								{t('links.privacy')}
-							</Link>
-							<span aria-hidden>·</span>
-							<Link href="/terms" className="py-1 hover:text-slate-900 dark:hover:text-slate-300">
-								{t('links.refund')}
-							</Link>
-						</nav>
+				<div className="mt-6 flex flex-col items-start gap-3 border-t border-slate-200 pt-6 text-left text-[11px] text-slate-500 dark:border-slate-900 dark:text-slate-500">
+					<p>{t('copyright')}</p>
+					<div className="flex w-full flex-col items-start gap-1 text-left text-xs leading-relaxed text-slate-500 dark:text-slate-500">
+						<p>{t('trademarkNotice')}</p>
+						<p>{t('disclaimer')}</p>
 					</div>
-					<p className="max-w-md text-center sm:text-right">{t('disclaimer')}</p>
+					<nav className="flex flex-wrap items-center gap-x-2" aria-label={t('legalNavAria')}>
+						<Link href="/terms" className="py-1 hover:text-slate-900 dark:hover:text-slate-300">
+							{t('links.terms')}
+						</Link>
+						<span aria-hidden>·</span>
+						<Link href="/privacy" className="py-1 hover:text-slate-900 dark:hover:text-slate-300">
+							{t('links.privacy')}
+						</Link>
+						{/* 환불규정 — 추후 재노출
+						<span aria-hidden>·</span>
+						<Link href="/terms" className="py-1 hover:text-slate-900 dark:hover:text-slate-300">
+							{t('links.refund')}
+						</Link>
+						*/}
+					</nav>
 				</div>
 			</div>
 		</footer>

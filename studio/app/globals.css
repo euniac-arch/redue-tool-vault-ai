@@ -2785,10 +2785,20 @@ html.pdf-preview-capturing .exec-briefing-card article,
 	}
 }
 
-/* ─── Page-top horizon image (all public menu pages) ───────────────────────
+/* ─── Page-top horizon image (home / landing only) ─────────────────────────
    Fixed to the viewport so the plate stays put while content scrolls over it.
    Anchored center / top 0 so the magenta→cyan beam sits in the first screen.
-   A vertical mask fades the plate into the solid page background. */
+   A vertical mask fades the plate into the solid page background.
+   Subpages use `.subpage-shell` and do not mount this layer. */
+
+html.dark .subpage-shell {
+	background-color: rgb(4 16 27 / var(--tw-bg-opacity, 1));
+}
+
+html.dark .subpage-shell .app-site-header {
+	background-color: rgb(4 16 27 / 0.82);
+}
+
 .page-horizon {
 	position: fixed;
 	top: 0;

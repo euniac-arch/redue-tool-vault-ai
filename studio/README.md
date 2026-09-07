@@ -63,7 +63,7 @@ REDUE AI SEO & GEO 플랫폼을 유료 SaaS로 전환하는 인증/과금 레이
 - **크레딧 게이팅**: `/api/patch/run`([app/api/patch/run/route.ts](app/api/patch/run/route.ts))이
   로그인 세션과 `creditsRemaining > 0`을 확인한 뒤 실제 주입을 실행하고, 크레딧을 1 차감하며
   주입 전 원본 파일을 `studio/.data/backups/{userId}/`에 zip으로 백업합니다.
-- **요금제/결제**: [lib/plans.ts](lib/plans.ts)에 Starter(무료 1회) / Pro(월 29,000원, 10회) /
+- **요금제/결제**: [lib/plans.ts](lib/plans.ts)에 Starter(가입 시 무료 진단 5회) / Pro(월 29,000원, 10회) /
   Agency(월 99,000원, 50회) / 단건충전(5,000원, 1회)이 정의되어 있습니다. 결제는 Toss Payments
   결제위젯 SDK(`@tosspayments/tosspayments-sdk`)로 연동되어 있으며, `.env.example`에 있는 토스
   공식 문서 공개 테스트 키로 가입 없이 바로 결제창 테스트가 가능합니다(테스트 카드

@@ -344,7 +344,7 @@ export function Header() {
 
 	return (
 		<header
-			className={`print:hidden sticky top-0 w-full shrink-0 border-b-0 bg-background/80 backdrop-blur-md ${
+			className={`app-site-header print:hidden sticky top-0 w-full shrink-0 border-b-0 bg-background/80 backdrop-blur-md ${
 				isMenuOpen ? 'z-[9999]' : 'z-50'
 			}`}
 		>

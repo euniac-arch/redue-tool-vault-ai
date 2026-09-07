@@ -4,8 +4,9 @@ import type { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import {
 	AUDIT_LIMIT_CODE,
-	FREE_AUDIT_LIMIT,
+	GUEST_MAX_COUNT,
 	SEO_AUDIT_COOKIE,
+	USER_FREE_CREDITS,
 	buildAuditQuota,
 	isUnlimitedAuditAccess,
 	parseGuestAuditCount,
@@ -227,7 +228,7 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 
 	if (sessionLooksAdmin(session)) {
 		return {
-			...buildAuditQuota(0, true, date),
+			...buildAuditQuota(0, true, date, USER_FREE_CREDITS),
 			userId,
 			planId: 'pro',
 			role: 'admin',
@@ -247,18 +248,11 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 					isAdminEmail(user.email || '') ||
 					isMasterAdminLoginId(user.email || '');
 				const stored = await readStoredDailyUsageState(userId, date);
-				// Same-day DB rows (including an explicit reset to 0) win over the
-				// leftover guest cookie so a quota reset is not immediately overwritten.
-				const mergedUsed = unlimited
-					? stored.used
-					: stored.recordedToday
-						? stored.used
-						: Math.max(stored.used, guestUsed);
-				if (!unlimited && !stored.recordedToday && mergedUsed > stored.used) {
-					await writeStoredDailyUsage(userId, mergedUsed, date);
-				}
+				// Signed-in members get a fresh USER_FREE_CREDITS pool (daily). Do not
+				// import the leftover guest cookie — signup is meant to grant 5 new audits.
+				const mergedUsed = stored.used;
 				return {
-					...buildAuditQuota(mergedUsed, unlimited, date),
+					...buildAuditQuota(mergedUsed, unlimited, date, USER_FREE_CREDITS),
 					userId,
 					planId: user.planId,
 					role: user.role,
@@ -268,7 +262,7 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 			console.error('[audit-quota] user lookup failed:', err);
 		}
 		return {
-			...buildAuditQuota(guestUsed, false, date),
+			...buildAuditQuota(guestUsed, false, date, USER_FREE_CREDITS),
 			userId,
 			planId: null,
 			role: session?.user?.role || null,
@@ -276,7 +270,7 @@ export async function resolveAuditQuota(): Promise<ResolvedAuditQuota> {
 	}
 
 	return {
-		...buildAuditQuota(guestUsed, false, date),
+		...buildAuditQuota(guestUsed, false, date, GUEST_MAX_COUNT),
 		userId: null,
 		planId: null,
 		role: null,
@@ -298,7 +292,8 @@ export function limitReachedPayload(quota: AuditQuotaSnapshot, message: string) 
 export async function incrementAuditUsage(quota: ResolvedAuditQuota): Promise<AuditQuotaSnapshot> {
 	if (quota.unlimited) return quota;
 	const date = todayStamp();
-	const nextUsed = Math.min(FREE_AUDIT_LIMIT, quota.used + 1);
+	const limit = quota.userId ? USER_FREE_CREDITS : GUEST_MAX_COUNT;
+	const nextUsed = Math.min(limit, quota.used + 1);
 	if (quota.userId) {
 		try {
 			await writeStoredDailyUsage(quota.userId, nextUsed, date);
@@ -306,5 +301,5 @@ export async function incrementAuditUsage(quota: ResolvedAuditQuota): Promise<Au
 			console.error('[audit-quota] increment failed:', err);
 		}
 	}
-	return buildAuditQuota(nextUsed, false, date);
+	return buildAuditQuota(nextUsed, false, date, limit);
 }

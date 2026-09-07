@@ -99,7 +99,7 @@ export async function POST(request: Request) {
 	// response cannot change `cookies()` mid-flight, so force used=0 here.
 	const quota = resolved.unlimited
 		? resolved
-		: { ...resolved, ...buildAuditQuota(0, false, resolved.date) };
+		: { ...resolved, ...buildAuditQuota(0, false, resolved.date, resolved.limit) };
 	const response = noStoreJson({
 		ok: true,
 		reset,

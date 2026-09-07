@@ -44,7 +44,7 @@ async function main() {
 				passwordHash,
 				role: 'user',
 				planId: 'starter',
-				creditsRemaining: 1,
+				creditsRemaining: 5,
 			},
 		});
 		console.log(`[create-test-user] created user "${EMAIL}" / password "${PASSWORD}" id="${user.id}" (role=user)`);

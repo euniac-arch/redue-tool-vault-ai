@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { NextResponse } from 'next/server';
 import { isAdminEmail } from '@/lib/admin';
+import { USER_FREE_CREDITS } from '@/lib/audit/free-audit-quota';
 import { prisma } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
@@ -13,9 +14,9 @@ interface SignupBody {
 
 /**
  * POST /api/auth/signup — creates an email/password account. The Starter
- * plan (`planId: "starter"`, `creditsRemaining: 1`) comes from the Prisma
- * schema defaults; we additionally log it in the credit ledger so it shows
- * up alongside OAuth signups on /mypage.
+ * plan (`planId: "starter"`, `creditsRemaining: USER_FREE_CREDITS`) comes from
+ * the Prisma schema defaults; we additionally log it in the credit ledger so it
+ * shows up alongside OAuth signups on /mypage.
  */
 export async function POST(request: Request) {
 	const body = (await request.json().catch(() => ({}))) as SignupBody;
@@ -38,11 +39,17 @@ export async function POST(request: Request) {
 	const passwordHash = await bcrypt.hash(password, 10);
 
 	const user = await prisma.user.create({
-		data: { email, name, passwordHash, role: isAdminEmail(email) ? 'admin' : 'user' },
+		data: {
+			email,
+			name,
+			passwordHash,
+			role: isAdminEmail(email) ? 'admin' : 'user',
+			creditsRemaining: USER_FREE_CREDITS,
+		},
 	});
 
 	await prisma.creditTransaction.create({
-		data: { userId: user.id, delta: 1, reason: 'signup_bonus' },
+		data: { userId: user.id, delta: USER_FREE_CREDITS, reason: 'signup_bonus' },
 	});
 
 	return NextResponse.json({ ok: true, email: user.email });

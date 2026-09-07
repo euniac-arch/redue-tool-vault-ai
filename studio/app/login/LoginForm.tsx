@@ -68,7 +68,11 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 				<h1 className="text-2xl font-bold text-slate-900 dark:text-white">
 					{mode === 'signin' ? '로그인' : '회원가입'}
 				</h1>
-				<p className="mt-1 text-sm text-slate-600 dark:text-slate-400">REDUE AI SEO & GEO Studio에 오신 것을 환영합니다.</p>
+				<p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+					{mode === 'signup'
+						? '회원가입 시 경쟁사 분석 및 심층 리포트를 위한 5회 무료 진단권이 즉시 지급됩니다.'
+						: 'REDUE AI SEO & GEO Studio에 오신 것을 환영합니다.'}
+				</p>
 			</div>
 
 			<div className="flex flex-col gap-2">
@@ -143,7 +147,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					disabled={loading}
 					className="rounded-lg bg-accent px-4 py-2.5 text-sm font-bold text-white transition hover:bg-accent-light disabled:opacity-50"
 				>
-					{loading ? '처리 중...' : mode === 'signin' ? '로그인' : '회원가입하고 1회 무료 체험 받기'}
+					{loading ? '처리 중...' : mode === 'signin' ? '로그인' : '회원가입하고 무료 진단 5회 받기'}
 				</button>
 			</form>
 

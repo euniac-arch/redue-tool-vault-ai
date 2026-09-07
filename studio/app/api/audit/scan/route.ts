@@ -579,8 +579,8 @@ export async function POST(request: Request) {
 		const quota = await resolveAuditQuota();
 		if (quota.exhausted) {
 			const limitMessage = quota.userId
-				? '오늘 무료 진단 횟수(3회)를 모두 소진했습니다. 내일 자정에 충전됩니다.'
-				: '게스트 무료 진단 횟수(3회)를 모두 사용했습니다. 로그인/회원가입하면 계속 진단할 수 있습니다.';
+				? `오늘 무료 진단 횟수(${quota.limit}회)를 모두 소진했습니다. 내일 자정에 충전됩니다.`
+				: `비회원 무료 진단 횟수(${quota.limit}회)를 모두 사용했습니다. 지금 가입하면 5회 무료 심층 진단을 받을 수 있습니다.`;
 			return noStoreJson(limitReachedPayload(quota, limitMessage), { status: 402 });
 		}
 

@@ -59,7 +59,7 @@ model User {
   passwordHash     String?
   role             String    @default("user") // "user" | "admin" — see lib/auth.ts ADMIN_EMAILS bootstrap
   planId           String    @default("starter")
-  creditsRemaining Int       @default(1)
+  creditsRemaining Int       @default(5)
   freeAuditsUsed     Int       @default(0)
   dailyAuditCount    Int       @default(0)
   lastAuditResetDate String?

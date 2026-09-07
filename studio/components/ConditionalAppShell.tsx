@@ -42,9 +42,12 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 	}
 
 	return (
-		<div className="page-horizon--faint relative flex min-h-screen min-h-dvh flex-col bg-background text-foreground">
-			<div className="page-horizon print:hidden" aria-hidden="true" />
-			<div className="relative z-[1] flex min-h-screen min-h-dvh flex-col overflow-x-hidden">
+		<div className="subpage-shell relative isolate flex min-h-screen min-h-dvh flex-col overflow-x-clip bg-slate-50 text-slate-900 dark:bg-[#04101b] dark:text-slate-100">
+			<div
+				className="pointer-events-none absolute left-1/2 top-0 z-0 h-[500px] w-[min(800px,140vw)] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-500/20 via-blue-600/10 to-transparent blur-3xl print:hidden dark:from-cyan-400/25 dark:via-sky-500/15 dark:to-transparent"
+				aria-hidden
+			/>
+			<div className="relative z-[1] flex min-h-screen min-h-dvh flex-col">
 				<Header />
 				{/* Sticky footer: this column stretches to fill remaining viewport height
 				    (`flex-1`) so a short page's Footer still lands flush on the screen bottom.

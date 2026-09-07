@@ -2345,7 +2345,7 @@
 			},
 			"plans": {
 				"speed": "Speed Setup (₩190,000, excl. VAT)",
-				"pro": "GEO Pro package (₩490,000, excl. VAT)",
+				"pro": "GEO Pro (₩490,000, excl. VAT)",
 				"enterprise": "Enterprise custom quote",
 				"reaudit": "Live check after delivery + week 2 (2 total)",
 				"report": "Deploy note & live AI citation report"
@@ -2549,20 +2549,21 @@
 	"audit": {
 		"quota": {
 			"remainingBadge": "Free audits today: {remaining}/{limit} left",
-			"guestRemainingBadge": "Guest free audits ({remaining}/{limit} left)",
+			"guestRemainingBadge": "Guest remaining: {remaining} / {limit}",
+			"guestPolicyCaption": "2 free guest audits (5 more when you sign up)",
 			"buttonExhausted": "Today's limit reached",
 			"guestButtonExhausted": "Guest audits used up",
 			"kicker": "DAILY FREE LIMIT",
 			"guestKicker": "GUEST FREE LIMIT",
 			"modalTitle": "Today's free audits are used up",
-			"modalBody": "You have used all 3 free site audits today. The count resets at midnight. Upgrade to a paid plan for unlimited audits.",
-			"guestModalTitle": "You've used all 3 guest audits",
-			"guestModalBody": "Signed-out visitors get up to 3 free audits. Sign in or create an account to keep diagnosing.",
-			"modalLogin": "Sign in / Sign up",
+			"modalBody": "You have used all 5 free site audits today. The count resets at midnight. Upgrade to a paid plan for unlimited audits.",
+			"guestModalTitle": "Your 2 free guest audits are used up",
+			"guestModalBody": "Create a free account in 3 seconds and get 5 more in-depth audits.",
+			"modalLogin": "Sign up free and get 5 →",
 			"modalUpgrade": "View paid plans",
 			"modalContact": "Contact us",
 			"modalClose": "Close",
-			"limitReached": "You have used all 3 free audits. Sign in or create an account to keep diagnosing."
+			"limitReached": "You have used all 2 guest audits. Sign up to get 5 in-depth audits."
 		},
 		"engine": {
 			"kicker": "DIAGNOSTIC ENGINE",

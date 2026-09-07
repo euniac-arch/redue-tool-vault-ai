@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
-import { buildAuditQuota, readGuestAuditCount, writeGuestAuditCount, type AuditQuotaSnapshot } from '@/lib/audit/free-audit-quota';
+import {
+	GUEST_MAX_COUNT,
+	USER_FREE_CREDITS,
+	buildAuditQuota,
+	readGuestAuditCount,
+	writeGuestAuditCount,
+	type AuditQuotaSnapshot,
+} from '@/lib/audit/free-audit-quota';
 
 export function useAuditQuota() {
 	const { status } = useSession();
@@ -16,17 +23,27 @@ export function useAuditQuota() {
 		const localUsed = readGuestAuditCount();
 		try {
 			const res = await fetch('/api/audit/quota', { cache: 'no-store' });
-			const data = (await res.json()) as { used?: number; unlimited?: boolean; authenticated?: boolean };
+			const data = (await res.json()) as {
+				used?: number;
+				unlimited?: boolean;
+				authenticated?: boolean;
+				limit?: number;
+			};
 			const unlimited = data.unlimited === true;
 			const serverUsed = Number(data.used) || 0;
+			const limit = Number(data.limit) > 0
+				? Number(data.limit)
+				: data.authenticated
+					? USER_FREE_CREDITS
+					: GUEST_MAX_COUNT;
 			// Server (Prisma + cookie) is the source of truth. Mirroring it here
 			// keeps localStorage from re-inflating a just-reset count.
-			if (!unlimited) writeGuestAuditCount(serverUsed);
-			const next = buildAuditQuota(serverUsed, unlimited);
+			if (!unlimited && !data.authenticated) writeGuestAuditCount(serverUsed);
+			const next = buildAuditQuota(serverUsed, unlimited, undefined, limit);
 			setQuota(next);
 			return next;
 		} catch {
-			const next = buildAuditQuota(localUsed, false);
+			const next = buildAuditQuota(localUsed, false, undefined, GUEST_MAX_COUNT);
 			setQuota(next);
 			return next;
 		} finally {

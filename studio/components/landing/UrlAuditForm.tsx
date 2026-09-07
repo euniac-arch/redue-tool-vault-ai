@@ -87,9 +87,15 @@ export function UrlAuditForm({
 			}
 		>
 			{!quota.unlimited ? (
-				<div className={isEngine ? 'mb-4 flex justify-center' : 'mb-2'}>
+				<div
+					className={
+						isEngine
+							? 'mb-4 flex flex-nowrap items-center justify-center gap-4'
+							: 'mb-2 flex flex-nowrap items-center justify-center gap-4'
+					}
+				>
 					<p
-						className={`inline-flex items-center rounded-full border text-xs ${
+						className={`inline-flex items-center whitespace-nowrap rounded-full border text-xs ${
 							isEngine
 								? 'border-slate-200/30 bg-slate-100 px-3 py-1 text-slate-500 dark:border-white/30 dark:bg-slate-800/80 dark:text-slate-300'
 								: exhausted
@@ -101,6 +107,11 @@ export function UrlAuditForm({
 							? tQuota('remainingBadge', { remaining: quota.remaining, limit: quota.limit })
 							: tQuota('guestRemainingBadge', { remaining: quota.remaining, limit: quota.limit })}
 					</p>
+					{!signedIn ? (
+						<p className="whitespace-nowrap text-[11px] font-medium text-slate-500 dark:text-slate-400">
+							*{tQuota('guestPolicyCaption')}
+						</p>
+					) : null}
 				</div>
 			) : null}
 

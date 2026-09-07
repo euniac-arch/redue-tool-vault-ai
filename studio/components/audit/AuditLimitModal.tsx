@@ -86,7 +86,7 @@ export function AuditLimitModal({ open, onClose }: AuditLimitModalProps) {
 							</button>
 						) : (
 							<Link
-								href="/login?callbackUrl=/"
+								href="/login?mode=signup&callbackUrl=/"
 								className="inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-3 text-sm font-bold text-white"
 							>
 								{t('modalLogin')}
