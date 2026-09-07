@@ -159,7 +159,9 @@ async function callGemini(userPrompt: string): Promise<{ recs: LiveSovRecommenda
 	return { ...parseLiveLlmPayload(text), model };
 }
 
-function resolveProvider(): { primary: LiveSovProvider; fallback: LiveSovProvider | null } | null {
+type LiveLlmProvider = Exclude<LiveSovProvider, 'estimate'>;
+
+function resolveProvider(): { primary: LiveLlmProvider; fallback: LiveLlmProvider | null } | null {
 	const hasOpenAI = Boolean(envString('OPENAI_API_KEY')) && !isEnvTrue('MOCK_OPENAI');
 	const hasGemini =
 		Boolean(
@@ -176,7 +178,7 @@ function resolveProvider(): { primary: LiveSovProvider; fallback: LiveSovProvide
 async function recommendOne(
 	query: string,
 	region: string,
-	provider: Exclude<LiveSovProvider, 'estimate'>,
+	provider: LiveLlmProvider,
 ): Promise<{ recs: LiveSovRecommendation[]; recommendationSnippet: string; model: string; provider: LiveSovProvider }> {
 	const prompt = buildLiveSovUserPrompt(query, region);
 	if (provider === 'openai') {
