@@ -179,39 +179,54 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					onChange={(event) => setPassword(event.target.value)}
 					className={fieldClass}
 				/>
-				{mode === 'signin' ? (
-					<div className="flex justify-end gap-2 text-xs text-slate-500">
-						<Link href="/find-account?tab=id" className="hover:text-cyan-600 dark:hover:text-cyan-400">
-							아이디 찾기
-						</Link>
-						<span aria-hidden>|</span>
-						<Link href="/find-account?tab=password" className="hover:text-cyan-600 dark:hover:text-cyan-400">
-							비밀번호 찾기
-						</Link>
-					</div>
-				) : null}
-
 				{error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
 
-				<button
-					type="submit"
-					disabled={loading}
-					className="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50"
-				>
-					{loading ? '처리 중...' : mode === 'signin' ? '로그인' : '회원가입하고 무료 진단 5회 받기'}
-				</button>
+				<div>
+					<button
+						type="submit"
+						disabled={loading}
+						className="w-full rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50"
+					>
+						{loading ? '처리 중...' : mode === 'signin' ? '로그인' : '회원가입하고 무료 진단 5회 받기'}
+					</button>
+					{mode === 'signin' ? (
+						<div className="mt-3 flex items-center justify-center gap-2 text-xs text-zinc-500">
+							<Link href="/find-account?tab=id" className="transition-colors hover:text-zinc-700 dark:hover:text-zinc-300">
+								아이디 찾기
+							</Link>
+							<span aria-hidden className="select-none text-zinc-400 dark:text-zinc-600">
+								|
+							</span>
+							<Link href="/find-account?tab=password" className="transition-colors hover:text-zinc-700 dark:hover:text-zinc-300">
+								비밀번호 찾기
+							</Link>
+						</div>
+					) : null}
+				</div>
 			</form>
 
-			<button
-				type="button"
-				onClick={() => {
-					setError(null);
-					setMode(mode === 'signin' ? 'signup' : 'signin');
-				}}
-				className="text-center text-sm text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
-			>
-				{mode === 'signin' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
-			</button>
+			<div className="border-t border-zinc-200 pt-6 text-center dark:border-zinc-800">
+				<button
+					type="button"
+					onClick={() => {
+						setError(null);
+						setMode(mode === 'signin' ? 'signup' : 'signin');
+					}}
+					className="text-sm text-zinc-500"
+				>
+					{mode === 'signin' ? (
+						<>
+							계정이 없으신가요?{' '}
+							<span className="font-medium text-cyan-600 hover:underline dark:text-cyan-400">회원가입</span>
+						</>
+					) : (
+						<>
+							이미 계정이 있으신가요?{' '}
+							<span className="font-medium text-cyan-600 hover:underline dark:text-cyan-400">로그인</span>
+						</>
+					)}
+				</button>
+			</div>
 		</main>
 	);
 }

@@ -3,6 +3,7 @@
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import { useTransition } from 'react';
+import { isSupportedLocale, persistLocaleCookie } from '@/i18n/locales';
 
 const OPTIONS: { code: 'ko' | 'en'; label: string }[] = [
 	{ code: 'ko', label: 'KR' },
@@ -21,12 +22,21 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 	const forceLight = variant === 'light';
 
 	async function switchTo(code: string) {
-		if (code === locale) return;
-		await fetch('/api/locale', {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ locale: code }),
-		});
+		if (code === locale || !isSupportedLocale(code)) return;
+		persistLocaleCookie(code);
+		try {
+			const res = await fetch('/api/locale', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				credentials: 'same-origin',
+				body: JSON.stringify({ locale: code }),
+			});
+			if (!res.ok) {
+				console.warn('[LocaleSwitcher] locale API responded', res.status);
+			}
+		} catch (error) {
+			console.warn('[LocaleSwitcher] locale API failed; using client cookie', error);
+		}
 		startTransition(() => {
 			router.refresh();
 		});
@@ -43,7 +53,7 @@ export function LocaleSwitcher({ variant = 'dark' }: LocaleSwitcherProps) {
 			{OPTIONS.map((option) => (
 				<button
 					key={option.code}
-					onClick={() => switchTo(option.code)}
+					onClick={() => void switchTo(option.code)}
 					disabled={pending}
 					aria-pressed={locale === option.code}
 					className={`flex h-7 min-w-[30px] items-center justify-center rounded-full px-2 transition-all duration-200 ${

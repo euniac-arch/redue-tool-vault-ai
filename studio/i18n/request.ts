@@ -1,11 +1,9 @@
 import { cookies } from 'next/headers';
 import { getRequestConfig } from 'next-intl/server';
 import { getIntlMessageFallback, onIntlError } from './intl-error-handling';
+import { DEFAULT_LOCALE, LOCALE_COOKIE, SUPPORTED_LOCALES, type SupportedLocale } from './locales';
 
-export const SUPPORTED_LOCALES = ['ko', 'en'] as const;
-export type SupportedLocale = (typeof SUPPORTED_LOCALES)[number];
-export const DEFAULT_LOCALE: SupportedLocale = 'ko';
-export const LOCALE_COOKIE = 'NEXT_LOCALE';
+export { DEFAULT_LOCALE, LOCALE_COOKIE, SUPPORTED_LOCALES, type SupportedLocale } from './locales';
 
 function normalizeLocale(value: string | undefined): SupportedLocale {
 	return SUPPORTED_LOCALES.includes(value as SupportedLocale) ? (value as SupportedLocale) : DEFAULT_LOCALE;
