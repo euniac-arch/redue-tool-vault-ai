@@ -29,7 +29,7 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 
 	if (isHome) {
 		return (
-			<div className="landing-shell page-horizon--faint relative flex min-h-screen min-h-dvh flex-col bg-slate-50 text-slate-900 dark:bg-[#080B11] dark:text-white">
+			<div className="landing-shell page-horizon--faint relative flex min-h-screen min-h-dvh flex-col bg-white text-slate-900 dark:bg-[#080B11] dark:text-white">
 				<div className="page-horizon print:hidden" aria-hidden="true" />
 				<div className="relative z-[1] flex min-h-0 flex-1 flex-col overflow-x-hidden">
 					<Header />
@@ -42,9 +42,9 @@ export function ConditionalAppShell({ children }: { children: ReactNode }) {
 	}
 
 	return (
-		<div className="subpage-shell relative isolate flex min-h-screen min-h-dvh flex-col overflow-x-clip bg-slate-50 text-slate-900 dark:bg-[#04101b] dark:text-slate-100">
+		<div className="subpage-shell relative isolate flex min-h-screen min-h-dvh flex-col overflow-x-clip bg-white text-slate-900 dark:bg-[#04101b] dark:text-slate-100">
 			<div
-				className="pointer-events-none absolute left-1/2 top-0 z-0 h-[500px] w-[min(800px,140vw)] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-500/20 via-blue-600/10 to-transparent blur-3xl print:hidden dark:from-cyan-400/25 dark:via-sky-500/15 dark:to-transparent"
+				className="pointer-events-none absolute left-1/2 top-0 z-0 hidden h-[500px] w-[min(800px,140vw)] -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-cyan-400/25 via-sky-500/15 to-transparent blur-3xl print:hidden dark:block"
 				aria-hidden
 			/>
 			<div className="relative z-[1] flex min-h-screen min-h-dvh flex-col">

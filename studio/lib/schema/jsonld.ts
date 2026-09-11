@@ -80,6 +80,9 @@ export type SchemaJsonLdConfig = {
 	pageName?: string;
 	pageType?: string;
 	inLanguage?: string;
+	/** SoftwareApplication extras — set only when `orgTypes` includes `SoftwareApplication`. */
+	applicationCategory?: string;
+	operatingSystem?: string;
 };
 
 function compact(value: string | null | undefined): string {
@@ -197,6 +200,8 @@ export function schemaConfigToGroundTruth(config: SchemaJsonLdConfig): GroundTru
 		alumniOf: alumniName(founder?.alumniOf),
 		knowsAbout: (founder?.knowsAbout || []).map(compact).filter(Boolean),
 		sameAs: mergeSameAsFromConfig(config),
+		applicationCategory: compact(config.applicationCategory),
+		operatingSystem: compact(config.operatingSystem),
 	};
 }
 

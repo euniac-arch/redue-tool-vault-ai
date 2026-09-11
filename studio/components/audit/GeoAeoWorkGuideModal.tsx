@@ -1,8 +1,11 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslations } from 'next-intl';
+import { resolveGeoWorkGuideModel } from '@/lib/audit/geo-work-guide';
+import type { AuditReport } from '@/lib/site-auditor';
+import { withKoreanParticle } from '@/lib/utils/korean';
 import './geo-aeo-work-guide.css';
 
 const GUIDE_FONTS_ID = 'geo-aeo-guide-fonts';
@@ -20,68 +23,6 @@ function readStoredGuideTheme(): GuideTheme {
 		return 'dark';
 	}
 }
-
-const CHECK_ITEMS = [
-	{
-		id: '1',
-		kicker: '온페이지',
-		copy: 'MedicalClinic + MedicalProcedure + FAQPage 통합 JSON-LD 삽입 완료 여부 검증',
-	},
-	{
-		id: '2',
-		kicker: '검색 포털',
-		copy: 'Bing Places 등록 신청 및 Google 비즈니스 프로필 세부 시술명 최적화',
-	},
-	{
-		id: '3',
-		kicker: '의료 플랫폼',
-		copy: '모두닥, 나만의닥터 프로필 정보 갱신 및 주요 진료 과목 태그 설정',
-	},
-	{
-		id: '4',
-		kicker: '콘텐츠',
-		copy: "공식 사이트 질환별 페이지 내 '의학 기전' 중심 텍스트 보강 및 감수 의료진 명시",
-	},
-] as const;
-
-const ENGINES = [
-	{
-		name: 'Gemini',
-		source: 'Google 웹 인덱스, Google 지도(GBP), 공인 의료 평가 플랫폼',
-		criteria: 'E-E-A-T 신뢰도, 전문의 프로필, 지식 그래프 일치 여부',
-		action: 'GBP 정밀 등록, 모두닥·나만의닥터 입점, MedicalClinic 스키마 주입',
-	},
-	{
-		name: 'ChatGPT',
-		source: 'Bing 웹 인덱스, Bing Places, OpenAI SearchBot 수집 데이터',
-		criteria: '세부 시술·장비명 키워드 매칭, 공인 NAP 일치도',
-		action: 'Bing Places 등록 필수, 장비 원리(파장·기전) 텍스트 명시, 뷰티 플랫폼 노출 유지',
-	},
-	{
-		name: 'Perplexity',
-		source: '멀티 웹 크롤러, 리뷰 집계 플랫폼, 소셜 및 블로그',
-		criteria: '출처 교차 검증 — 공식 사이트와 제3자 채널 간 합의도',
-		action: '강남언니·바비톡·닥터나우·네이버 블로그 브랜드 풋프린트 유지, FAQPage 스키마 동기화',
-	},
-	{
-		name: 'Claude',
-		source: '파트너 검색 엔진(Brave 등), 고품질 웹 문서',
-		criteria: '도메인 엔티티 일치도, 텍스트 정보 밀도, 비광고성 객관 정보',
-		action: 'Title/Meta의 질환 쿼리 정합성 강화, 불필요한 수식어 배제·의학 가이드화',
-	},
-	{
-		name: 'Copilot',
-		source: 'Bing 웹 인덱스, Bing Places, Microsoft 지식 그래프',
-		criteria: 'Bing 생태계 내 공식 상호·주소·연락처(NAP) 데이터',
-		action: 'Bing 웹마스터 도구 색인 제출, Bing Places 프로필 100% 완성',
-	},
-	{
-		name: 'Clova',
-		source: '네이버 검색 인덱스, 네이버 스마트플레이스, 블로그/카페',
-		criteria: '스마트플레이스 정확도, 플레이스 리뷰, 전문 지식인/공식 블로그',
-		action: '네이버 플레이스 대표 키워드 등록, 브랜드 블로그 의학 칼럼 발행 및 플레이스 연결',
-	},
-] as const;
 
 function ensureGuideFonts() {
 	if (typeof document === 'undefined' || document.getElementById(GUIDE_FONTS_ID)) return;
@@ -104,7 +45,15 @@ function ensureGuideFonts() {
 	document.head.appendChild(stylesheet);
 }
 
-function EntityGraph({ playKey }: { playKey: number }) {
+interface EntityGraphLabels {
+	core: string;
+	person: string;
+	asset: string;
+	location: string;
+	service: string;
+}
+
+function EntityGraph({ playKey, labels }: { playKey: number; labels: EntityGraphLabels }) {
 	return (
 		<svg key={playKey} id="entityGraph" viewBox="0 0 800 210" xmlns="http://www.w3.org/2000/svg" aria-hidden>
 			<path className="g-edge" d="M400,105 L180,60" style={{ animationDelay: '.15s' }} />
@@ -118,7 +67,7 @@ function EntityGraph({ playKey }: { playKey: number }) {
 				<g className="g-node-inner" style={{ animationDelay: '.05s' }}>
 					<circle r="34" />
 					<text textAnchor="middle" dy="4">
-						병원명
+						{labels.core}
 					</text>
 				</g>
 			</g>
@@ -126,7 +75,7 @@ function EntityGraph({ playKey }: { playKey: number }) {
 				<g className="g-node-inner" style={{ animationDelay: '.3s' }}>
 					<circle r="26" />
 					<text textAnchor="middle" dy="4">
-						의료진
+						{labels.person}
 					</text>
 				</g>
 			</g>
@@ -134,7 +83,7 @@ function EntityGraph({ playKey }: { playKey: number }) {
 				<g className="g-node-inner" style={{ animationDelay: '.45s' }}>
 					<circle r="26" />
 					<text textAnchor="middle" dy="4">
-						보유 장비
+						{labels.asset}
 					</text>
 				</g>
 			</g>
@@ -142,7 +91,7 @@ function EntityGraph({ playKey }: { playKey: number }) {
 				<g className="g-node-inner" style={{ animationDelay: '.6s' }}>
 					<circle r="26" />
 					<text textAnchor="middle" dy="4">
-						지역
+						{labels.location}
 					</text>
 				</g>
 			</g>
@@ -150,7 +99,7 @@ function EntityGraph({ playKey }: { playKey: number }) {
 				<g className="g-node-inner" style={{ animationDelay: '.75s' }}>
 					<circle r="26" />
 					<text textAnchor="middle" dy="4">
-						시술 항목
+						{labels.service}
 					</text>
 				</g>
 			</g>
@@ -158,12 +107,23 @@ function EntityGraph({ playKey }: { playKey: number }) {
 	);
 }
 
-export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function GeoAeoWorkGuideModal({
+	open,
+	onClose,
+	report,
+}: {
+	open: boolean;
+	onClose: () => void;
+	/** Currently diagnosed audit — every guide string binds to its live brand/industry/NAP data. */
+	report: AuditReport | null;
+}) {
 	const t = useTranslations('audit.share');
 	const [mounted, setMounted] = useState(false);
 	const [graphKey, setGraphKey] = useState(0);
 	const [doneIds, setDoneIds] = useState<string[]>([]);
 	const [theme, setTheme] = useState<GuideTheme>('dark');
+
+	const model = useMemo(() => (report ? resolveGeoWorkGuideModel(report, 'ko') : null), [report]);
 
 	useEffect(() => {
 		setMounted(true);
@@ -191,10 +151,10 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 		};
 	}, [open, onClose]);
 
-	if (!mounted) return null;
+	if (!mounted || !model) return null;
 
 	const doneCount = doneIds.length;
-	const total = CHECK_ITEMS.length;
+	const total = model.checklistItems.length;
 
 	function toggleCheck(id: string) {
 		setDoneIds((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
@@ -254,21 +214,24 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 					<div className="wrap">
 						<section className="hero" style={{ borderBottom: 'none', paddingBottom: 0 }}>
 							<div className="hero-kicker">GEO / AEO WORKING GUIDE</div>
-							<h1 id="geo-guide-modal-title">생성형 AI 검색엔진, 어떻게 병원을 인용하는가</h1>
+							<h1 id="geo-guide-modal-title">
+								생성형 AI 검색엔진, {withKoreanParticle(model.brandName, '을/를')} 어떻게 인용하는가
+							</h1>
 							<p className="hero-sub">
-								6대 AI 검색엔진은 각기 다른 크롤러와 지식 그래프를 기준으로 인용 여부를 판단합니다. 나인원의원 실측
-								데이터를 바탕으로, 온페이지 기술 구축과 외부 데이터 동기화를 함께 진행하기 위한 표준 작업 가이드입니다.
+								6대 AI 검색엔진은 각기 다른 크롤러와 지식 그래프를 기준으로 인용 여부를 판단합니다. {model.brandName}{' '}
+								실측 데이터를 바탕으로, 온페이지 기술 구축과 외부 데이터 동기화를 함께 진행하기 위한 표준 작업
+								가이드입니다.
 							</p>
 							<div className="hero-meta">
 								<span>
 									대상 <b>Gemini · ChatGPT · Perplexity · Claude · Copilot · Clova</b>
 								</span>
 								<span>
-									기준 데이터 <b>나인원의원 실측</b>
+									기준 데이터 <b>{model.brandName} 실측</b>
 								</span>
 							</div>
 							<div className="graph-holder">
-								{open ? <EntityGraph playKey={graphKey} /> : null}
+								{open ? <EntityGraph playKey={graphKey} labels={model.entityLabels} /> : null}
 							</div>
 						</section>
 
@@ -279,7 +242,7 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 								엔진마다 참조하는 인덱스와 채택 기준이 다르므로, 한 채널만 최적화해서는 전체 노출을 담보할 수 없습니다.
 							</p>
 							<div className="engine-grid">
-								{ENGINES.map((engine) => (
+								{model.engines.map((engine) => (
 									<div key={engine.name} className="engine-card">
 										<p className="engine-name">{engine.name}</p>
 										<div className="engine-row">
@@ -308,16 +271,39 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 							<div className="stack">
 								<div className="item">
 									<div className="item-title">
+										Title / Meta / H1
+										<br />
+										구성 예시
+									</div>
+									<div className="item-body">
+										<p>
+											{model.brandName}과 {model.mainService} 키워드를 Title / Meta Description / H1에 일관되게
+											바인딩하면 크롤러와 AI가 동일한 엔티티로 식별합니다.
+										</p>
+										<span className="schema-line">Title — {model.titleExample}</span>
+										<span className="schema-line">Meta Description — {model.metaExample}</span>
+										<span className="schema-line">H1 — {model.h1Example}</span>
+									</div>
+								</div>
+								<div className="item">
+									<div className="item-title">
 										완전체 구조화 데이터
 										<br />
 										(JSON-LD) 구축
 									</div>
 									<div className="item-body">
-										<p>단일 페이지만 등록하지 않고, MedicalClinic을 최상위에 둔 뒤 하위 페이지별로 스키마를 분기합니다.</p>
+										<p>
+											단일 페이지만 등록하지 않고, {model.schemaType}을 최상위에 둔 뒤 하위 페이지별로 스키마를
+											분기합니다.
+										</p>
 										<span className="schema-line">
-											메인 페이지 — MedicalClinic · PostalAddress · GeoCoordinates · Physician · sameAs
+											메인 페이지 — {model.schemaType} · PostalAddress · GeoCoordinates · {model.personSchemaType} ·
+											sameAs
 										</span>
-										<span className="schema-line">시술 상세 페이지 — MedicalProcedure · FAQPage (본문 문답과 100% 일치)</span>
+										<span className="schema-line">
+											{model.mainService} 상세 페이지 — {model.detailSchemaType} · FAQPage (본문 문답과 100% 일치)
+										</span>
+										<pre className="code-block">{model.jsonLdSample}</pre>
 										<p className="dim">sameAs에는 네이버 플레이스, 인스타그램, 유튜브, 블로그 등 공식 채널 URL을 연결합니다.</p>
 									</div>
 								</div>
@@ -328,12 +314,26 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 										정보 밀도 재설계
 									</div>
 									<div className="item-body">
-										<p>이벤트 가격표나 &quot;최고의 맞춤 진료&quot; 같은 마케팅 문구는 AI가 답변 근거로 채택하지 않습니다.</p>
-										<p className="dim">
-											질환명(박스카·롤링·아이스픽·비후성·켈로이드), 장비 사양(울트라클리어 2910nm 어블레이티브, 미라젯
-											무바늘 마이크로젯), 시술 기전(기계적 섬유아세포 자극, 자가 콜라겐 리모델링)을 객관적 서술문으로
-											기술해야 Claude·ChatGPT의 텍스트 매칭 점수가 오릅니다.
+										<p>
+											이벤트 가격표나 &quot;최고의 맞춤 {model.mainService}&quot; 같은 마케팅 문구는 AI가 답변 근거로
+											채택하지 않습니다.
 										</p>
+										<p className="dim">
+											핵심 서비스명({model.servicesLabel}), 세부 사양·구성 요소, 제공 절차를 객관적 서술문으로 기술해야
+											Claude·ChatGPT의 텍스트 매칭 점수가 오릅니다.
+										</p>
+									</div>
+								</div>
+								<div className="item">
+									<div className="item-title">
+										AI 쿼리 매칭
+										<br />
+										FAQ 구조화 예시
+									</div>
+									<div className="item-body">
+										<p>대화형 질의와 동일한 문장 구조의 Q/A를 FAQPage 스키마로 노출하면 AI 답변 채택률이 오릅니다.</p>
+										<span className="schema-line">Q — {model.faq.question}</span>
+										<span className="schema-line">A — {model.faq.answer}</span>
 									</div>
 								</div>
 								<div className="item">
@@ -345,8 +345,8 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 									<div className="item-body">
 										<p>Bingbot, GPTBot 등 AI 브라우징 봇은 무거운 자바스크립트 렌더링에 취약합니다.</p>
 										<p className="dim">
-											핵심 FAQ 텍스트와 진료 정보는 클라이언트 사이드 스크립트 실행 없이 초기 HTML 소스에 텍스트로
-											노출(SSR)되도록 구현합니다.
+											핵심 FAQ 텍스트와 {model.mainService} 정보는 클라이언트 사이드 스크립트 실행 없이 초기 HTML
+											소스에 텍스트로 노출(SSR)되도록 구현합니다.
 										</p>
 									</div>
 								</div>
@@ -359,6 +359,13 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 							<p className="section-intro">
 								모든 검색 로봇은 비즈니스 실존성과 위치를 인증하기 위해 NAP(Name·Address·Phone) 일치율을 검증합니다.
 							</p>
+							{model.hasNap ? (
+								<span className="schema-line">
+									기준 NAP — {model.brandName}
+									{model.address ? ` · ${model.address}` : ''}
+									{model.phone ? ` · ${model.phone}` : ''}
+								</span>
+							) : null}
 							<div className="stack">
 								<div className="item">
 									<div className="item-title">
@@ -369,8 +376,8 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 									<div className="item-body">
 										<span className="target-tag">TARGET · ChatGPT / Copilot</span>
 										<p>
-											ChatGPT 실측 미노출의 가장 주된 원인입니다. 사업자등록증 기준으로 병원을 등록하고 사이트 URL,
-											진료시간, 진료 과목을 입력합니다.
+											ChatGPT 실측 미노출의 가장 주된 원인입니다. 사업자등록증 기준으로 {model.brandName}을 등록하고
+											사이트 URL, 운영시간, {model.mainService} 항목을 입력합니다.
 										</p>
 									</div>
 								</div>
@@ -383,8 +390,8 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 									<div className="item-body">
 										<span className="target-tag">TARGET · Gemini</span>
 										<p>
-											카테고리를 &apos;피부과 클리닉&apos;, &apos;성형외과&apos;로 다중 설정하고, 서비스 항목에 여드름 흉터
-											치료·수술 흉터 복원·레이저 리프팅 등 세부 항목을 개별 등록합니다.
+											카테고리를 &apos;{model.defaultCategory}&apos;로 설정하고, 서비스 항목에 {model.servicesLabel} 등
+											세부 항목을 개별 등록합니다.
 										</p>
 									</div>
 								</div>
@@ -397,8 +404,8 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 									<div className="item-body">
 										<span className="target-tag">TARGET · Clova</span>
 										<p>
-											상세 소개란에 대표 보유 장비(울트라클리어, 미라젯 등)를 빠짐없이 기재하고, 네이버 예약 및 톡톡
-											기능을 활성화해 사용자 상호작용 지수를 확보합니다.
+											상세 소개란에 핵심 강점({model.servicesLabel})을 빠짐없이 기재하고, 네이버 예약 및 톡톡 기능을
+											활성화해 사용자 상호작용 지수를 확보합니다.
 										</p>
 									</div>
 								</div>
@@ -409,22 +416,22 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 							<div className="part-label">04 — 외부 채널</div>
 							<h2>분산 인용 풋프린트 확장</h2>
 							<p className="section-intro">
-								Perplexity가 나인원의원을 빠르게 인용한 이유는 공식 사이트 외 여러 3rd Party 플랫폼에서 동일 엔티티
-								정보가 누적 감지되었기 때문입니다.
+								Perplexity가 {withKoreanParticle(model.brandName, '을/를')} 빠르게 인용하려면 공식 사이트 외 여러
+								3rd Party 플랫폼에서 동일 엔티티 정보가 누적 감지되어야 합니다.
 							</p>
 							<div className="stack">
 								<div className="item">
 									<div className="item-title">
-										의료 평가 플랫폼
+										업종별 평가 플랫폼
 										<br />
 										데이터 보강
 									</div>
 									<div className="item-body">
 										<span className="target-tag">핵심 · Gemini</span>
 										<p>
-											Gemini는 로컬 추천 질의 시 모두닥·나만의닥터·굿닥·닥터나우의 텍스트 데이터를 핵심 출처로 참조합니다.
-											병원 상세 정보, 보유 장비, 의료진 프로필을 빠짐없이 등록하고 시술 키워드가 포함된 리뷰가 누적되도록
-											유도합니다.
+											Gemini는 로컬 추천 질의 시 {model.platformsLabel}의 텍스트 데이터를 핵심 출처로 참조합니다.
+											{model.brandName} 상세 정보, 핵심 강점, {model.representativeTitle} 프로필을 빠짐없이 등록하고{' '}
+											{model.mainService} 키워드가 포함된 리뷰가 누적되도록 유도합니다.
 										</p>
 									</div>
 								</div>
@@ -436,12 +443,13 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 									</div>
 									<div className="item-body">
 										<p>
-											사람인, 잡코리아 등 채용 플랫폼에 공식 사업자명과 병원 소개가 등록되어 있으면 LLM은 이를 실제 운영
-											중인 정상 법인·사업체로 강하게 판별합니다.
+											사람인, 잡코리아 등 채용 플랫폼에 공식 사업자명과 {model.brandName} 소개가 등록되어 있으면
+											LLM은 이를 실제 운영 중인 정상 법인·사업체로 강하게 판별합니다.
 										</p>
 										<p className="dim">
-											보도자료 배포 시 대표원장의 학술 활동(학회 발표, 키닥터 선정, 라이브 세미나 등)을 &apos;원장명 +
-											병원명 + 지역명 + 시술명&apos;으로 명시해 주요 포털 뉴스 탭에 남깁니다.
+											보도자료 배포 시 {model.representativeTitle}의 대외 활동(강연, 수상, 세미나 등)을 &apos;
+											{model.representativeTitle}명 + {model.brandName} + 지역명 + {model.mainService}명&apos;으로
+											명시해 주요 포털 뉴스 탭에 남깁니다.
 										</p>
 									</div>
 								</div>
@@ -452,7 +460,7 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 										비디오 스키마 연동
 									</div>
 									<div className="item-body">
-										<p>유튜브 채널 설명란과 영상 본문에 공식 도메인, 주소, 진료 과목을 기재합니다.</p>
+										<p>유튜브 채널 설명란과 영상 본문에 공식 도메인, 주소, {model.mainService} 항목을 기재합니다.</p>
 										<p className="dim">
 											공식 블로그와 인스타그램 프로필 링크를 공식 사이트와 상호 백링크로 연결해 하나의 견고한 지식 그래프
 											클러스터를 만듭니다.
@@ -478,7 +486,7 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 								/>
 							</div>
 							<div id="checklist">
-								{CHECK_ITEMS.map((item) => {
+								{model.checklistItems.map((item) => {
 									const done = doneIds.includes(item.id);
 									return (
 										<button
@@ -504,7 +512,7 @@ export function GeoAeoWorkGuideModal({ open, onClose }: { open: boolean; onClose
 							</div>
 						</section>
 
-						<footer>나인원의원 GEO / AEO 실측 기반 표준 작업 가이드</footer>
+						<footer>{model.brandName} GEO / AEO 실측 기반 표준 작업 가이드</footer>
 					</div>
 				</div>
 			</div>

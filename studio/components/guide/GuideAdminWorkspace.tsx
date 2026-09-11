@@ -13,6 +13,8 @@ import { copyGuideShareUrl, guideSharePath, printGuideReport } from '@/lib/guide
 import { emptyGuideData, NINEONE_GUIDE_SAMPLE } from '@/lib/guide/sample';
 import { createGuideId, suggestGuideSlug } from '@/lib/guide/slug';
 import { loadGuideDraft, saveGuide, saveGuideDraft } from '@/lib/guide/storage';
+import { isUsableNapMatrix } from '@/lib/audit/nap-matrix';
+import type { AuditReport } from '@/lib/site-auditor';
 import type {
 	AiEngineDiagnosis,
 	ChannelBadgeType,
@@ -96,15 +98,21 @@ export function GuideAdminWorkspace() {
 					key === 'brandName' ? String(value) : next.brandName,
 				);
 			}
+			if (key === 'brandName' || key === 'brandNameEng' || key === 'address' || key === 'telephone' || key === 'socialLinks') {
+				return ensureGuideData({ ...next, napMatrix: undefined });
+			}
 			return next;
 		});
 	}
 
 	function patchSocial(key: keyof GuideSocialLinks, value: string) {
-		setData((prev) => ({
-			...prev,
-			socialLinks: { ...prev.socialLinks, [key]: value },
-		}));
+		setData((prev) =>
+			ensureGuideData({
+				...prev,
+				socialLinks: { ...prev.socialLinks, [key]: value },
+				napMatrix: undefined,
+			}),
+		);
 	}
 
 	function patchDiagnosis(engine: AiEngineDiagnosis['engine'], next: Partial<AiEngineDiagnosis>) {
@@ -161,31 +169,51 @@ export function GuideAdminWorkspace() {
 
 	function handleSelectHistory(row: GuideHistoryRow) {
 		setSelectingHistoryId(row.id);
-		try {
-			const fromAudit = guideDataFromHistoryRow(row);
-			applyGuide(fromAudit, Boolean(fromAudit.slug));
-			rememberSnapshot(fromAudit);
-			setHistoryOpen(false);
-			setStatus(
-				`${fromAudit.brandName || row.brandName} 진단을 불러왔습니다 — SEO ${fromAudit.observedSeoScore}/${fromAudit.seoMaxScore || GUIDE_SEO_MAX_DEFAULT}, AI TRUST ${fromAudit.aiTrustScore}. 추천 해시태그 ${fromAudit.keywords.length}개.`,
-			);
-		} catch (error) {
-			console.error('[guide] select history failed', error);
-			applyGuide(
-				ensureGuideData({
-					brandName: row.brandName,
-					socialLinks: { website: row.url },
-					observedSeoScore: row.seoScore,
-					seoMaxScore: row.seoMaxScore,
-					aiTrustScore: row.aiTrustScore,
-				}),
-				Boolean(row.brandName),
-			);
-			setHistoryOpen(false);
-			setStatus('선택한 진단의 일부 필드가 비어 기본값으로 미리보기를 열었습니다.');
-		} finally {
-			setSelectingHistoryId(null);
-		}
+		void (async () => {
+			try {
+				let fromAudit = guideDataFromHistoryRow(row);
+				// Prefer the hydrated server report (napMatrix synthesis) when history rows are stale.
+				if (row.id && !isUsableNapMatrix(fromAudit.napMatrix)) {
+					try {
+						const res = await fetch(`/api/audit/${encodeURIComponent(row.id)}`, { cache: 'no-store' });
+						if (res.ok) {
+							const payload = (await res.json()) as { report?: AuditReport };
+							if (payload?.report?.url) {
+								fromAudit = guideDataFromHistoryRow({
+									...row,
+									hasReport: true,
+									entry: { ...row.entry, report: payload.report },
+								});
+							}
+						}
+					} catch {
+						/* keep local mapping */
+					}
+				}
+				applyGuide(fromAudit, Boolean(fromAudit.slug));
+				rememberSnapshot(fromAudit);
+				setHistoryOpen(false);
+				setStatus(
+					`${fromAudit.brandName || row.brandName} 진단을 불러왔습니다 — SEO ${fromAudit.observedSeoScore}/${fromAudit.seoMaxScore || GUIDE_SEO_MAX_DEFAULT}, AI TRUST ${fromAudit.aiTrustScore}. 추천 해시태그 ${fromAudit.keywords.length}개.`,
+				);
+			} catch (error) {
+				console.error('[guide] select history failed', error);
+				applyGuide(
+					ensureGuideData({
+						brandName: row.brandName,
+						socialLinks: { website: row.url },
+						observedSeoScore: row.seoScore,
+						seoMaxScore: row.seoMaxScore,
+						aiTrustScore: row.aiTrustScore,
+					}),
+					Boolean(row.brandName),
+				);
+				setHistoryOpen(false);
+				setStatus('선택한 진단의 일부 필드가 비어 기본값으로 미리보기를 열었습니다.');
+			} finally {
+				setSelectingHistoryId(null);
+			}
+		})();
 	}
 
 	function handleRestoreAudit() {

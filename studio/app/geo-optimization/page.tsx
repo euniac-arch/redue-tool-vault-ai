@@ -118,10 +118,10 @@ const PRESCRIPTION_CHIPS = ['엔티티', '스키마', '/llms.txt', 'FAQPage', 'E
 
 export default function GeoOptimizationPage() {
 	return (
-		<div className="relative left-1/2 w-screen -translate-x-1/2 overflow-x-hidden bg-slate-50 text-slate-900 transition-colors duration-300 -mt-10 -mb-10 pb-20 dark:bg-[#04101b] dark:text-slate-100">
-			{/* Ambient glow */}
-			<div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden>
-				<div className="absolute -top-32 left-1/2 h-[460px] w-[760px] -translate-x-1/2 rounded-full bg-gradient-to-r from-[#5565C7]/10 to-[#0C9AA7]/10 blur-[110px] dark:from-[#5565C7]/15 dark:to-[#0C9AA7]/15" />
+		<div className="relative left-1/2 w-screen -translate-x-1/2 overflow-x-hidden bg-white text-slate-900 transition-colors duration-300 -mt-10 -mb-10 pb-20 dark:bg-[#04101b] dark:text-slate-100">
+			{/* Ambient glow — dark-mode-only decoration */}
+			<div className="pointer-events-none absolute inset-0 hidden overflow-hidden dark:block" aria-hidden>
+				<div className="absolute -top-32 left-1/2 h-[460px] w-[760px] -translate-x-1/2 rounded-full bg-gradient-to-r from-[#5565C7]/15 to-[#0C9AA7]/15 blur-[110px]" />
 			</div>
 
 			<main className="relative z-[1] mx-auto flex w-full max-w-5xl flex-col gap-20 px-6 pt-16 sm:gap-28">
@@ -220,7 +220,7 @@ export default function GeoOptimizationPage() {
 							className={`relative overflow-hidden ${CARD_BASE} flex flex-col gap-5 border border-cyan-300 p-6 shadow-[0_10px_40px_-15px_rgba(6,182,212,0.28)] dark:border-[rgba(12,154,167,0.35)] dark:shadow-[0_0_50px_-18px_rgba(12,154,167,0.55)] sm:p-7`}
 						>
 							<div
-								className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#0C9AA7]/15 blur-3xl"
+								className="pointer-events-none absolute -right-10 -top-10 hidden h-40 w-40 rounded-full bg-[#0C9AA7]/15 blur-3xl dark:block"
 								aria-hidden
 							/>
 							<div className="relative flex items-center justify-between">
@@ -430,7 +430,7 @@ export default function GeoOptimizationPage() {
 							className={`relative flex flex-col gap-4 overflow-hidden ${CARD_BASE} border border-cyan-400 shadow-[0_10px_44px_-14px_rgba(6,182,212,0.35)] dark:border-[#0C9AA7]/50 dark:shadow-[0_0_56px_-16px_rgba(12,154,167,0.6)] p-6 sm:p-7`}
 						>
 							<div
-								className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-[#0C9AA7]/15 blur-3xl"
+								className="pointer-events-none absolute -right-10 -top-10 hidden h-40 w-40 rounded-full bg-[#0C9AA7]/15 blur-3xl dark:block"
 								aria-hidden
 							/>
 							<div className="relative flex items-center gap-2">

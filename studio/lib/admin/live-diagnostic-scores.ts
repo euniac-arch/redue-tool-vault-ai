@@ -4,6 +4,7 @@
  * `totalScore` from the same Meta 30 + JSON-LD 40 + Knowledge Graph 30 table.
  */
 import { normalizeSchemaType, parseJsonLdDocument } from '@/lib/audit/parser';
+import { diagnoseCanonicalUrl } from '@/lib/audit/canonical-url';
 import {
 	extractUniversalSameAs,
 	harvestHttpUrls,
@@ -80,13 +81,59 @@ export function collectSameAsFromNodes(nodes: Record<string, unknown>[]): string
 	return Array.from(urls);
 }
 
-export function scoreMeta(meta: LiveMetaSnapshot): { points: number; issues: LiveDiagnosticIssue[] } {
+const CANONICAL_WEIGHT = 4;
+
+/**
+ * Canonical is scored by strict URL correctness — not mere tag presence —
+ * whenever the request URL (and ideally every raw `<link rel="canonical">`
+ * href) is available. A canonical tag that exists but points at the wrong
+ * page (e.g. a subpage's canonical pointing at site root) must NOT earn
+ * points; a bare "is it non-empty?" check previously let that false
+ * positive through.
+ */
+function scoreCanonicalCheck(
+	meta: LiveMetaSnapshot,
+	requestUrl?: string,
+): { points: number; issue: LiveDiagnosticIssue | null } {
+	if (!requestUrl) {
+		// No request URL context available — fall back to presence-only check.
+		if (present(meta.canonical)) return { points: CANONICAL_WEIGHT, issue: null };
+		return {
+			points: 0,
+			issue: issue(
+				'meta-canonical',
+				'canonical 누락',
+				'페이지 head에서 canonical을 찾지 못했습니다. 검색·AI 인용 시 엔티티 식별이 약해집니다.',
+				'warning',
+			),
+		};
+	}
+
+	const diagnosis = diagnoseCanonicalUrl({
+		requestUrl,
+		canonicalHrefs: meta.canonicalHrefs?.length ? meta.canonicalHrefs : meta.canonical ? [meta.canonical] : [],
+		ogUrl: meta.ogUrl,
+	});
+
+	if (diagnosis.status === 'PASS') return { points: CANONICAL_WEIGHT, issue: null };
+
+	const severity: LiveIssueSeverity = diagnosis.status === 'FAIL' ? 'critical' : 'warning';
+	const points = diagnosis.status === 'WARN' ? Math.round((CANONICAL_WEIGHT * diagnosis.score) / 100) : 0;
+	return {
+		points,
+		issue: issue(`meta-canonical-${diagnosis.code.toLowerCase()}`, `canonical ${diagnosis.code}`, diagnosis.message, severity),
+	};
+}
+
+export function scoreMeta(
+	meta: LiveMetaSnapshot,
+	requestUrl?: string,
+): { points: number; issues: LiveDiagnosticIssue[] } {
 	const checks = [
 		{ id: 'title', label: '<title>', value: meta.title, weight: 8 },
 		{ id: 'description', label: 'meta description', value: meta.description, weight: 8 },
 		{ id: 'og-title', label: 'og:title', value: meta.ogTitle, weight: 5 },
 		{ id: 'og-image', label: 'og:image', value: meta.ogImage, weight: 5 },
-		{ id: 'canonical', label: 'canonical', value: meta.canonical, weight: 4 },
 	] as const;
 	let points = 0;
 	const issues: LiveDiagnosticIssue[] = [];
@@ -104,6 +151,11 @@ export function scoreMeta(meta: LiveMetaSnapshot): { points: number; issues: Liv
 			);
 		}
 	}
+
+	const canonicalResult = scoreCanonicalCheck(meta, requestUrl);
+	points += canonicalResult.points;
+	if (canonicalResult.issue) issues.push(canonicalResult.issue);
+
 	if (issues.length === 0) {
 		issues.push(
 			issue('meta-ok', '메타태그 완결', 'title / description / og:title / og:image / canonical이 모두 확인되었습니다.', 'good'),
@@ -261,6 +313,8 @@ export function scoreLiveDiagnosticPage(input: {
 	detected: LiveDetectedSchema;
 	nodes: Record<string, unknown>[];
 	html: string;
+	/** The actually-crawled page URL — enables strict canonical correctness scoring. */
+	requestUrl?: string;
 }): {
 	scores: LiveDiagnosticScores;
 	scoreBreakdown: LiveScoreBreakdown;
@@ -269,7 +323,7 @@ export function scoreLiveDiagnosticPage(input: {
 	jsonLdPoints: number;
 	kgPoints: number;
 } {
-	const metaScore = scoreMeta(input.meta);
+	const metaScore = scoreMeta(input.meta, input.requestUrl);
 	const jsonLdScore = scoreJsonLd(input.industry, input.detected, input.nodes);
 	const kgScore = scoreKnowledgeGraph(input.detected.sameAs, input.html);
 	const composed = composeLiveDiagnosticScores({

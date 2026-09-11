@@ -3205,7 +3205,13 @@
 			"insightCitedPath": "Detected citation path:",
 			"insightActionRequired": "Required action:",
 			"insightNextStep": "Recommended next step:",
-			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Only Gemini, ChatGPT, Perplexity, and Claude verify live web-search citations."
+			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Only Gemini, ChatGPT, Perplexity, and Claude verify live web-search citations.",
+			"fixGuideTitle": "💡 Fix & recommended actions",
+			"fixGuideToggleExpand": "View fix guide",
+			"fixGuideToggleCollapse": "Hide fix guide",
+			"fixGuideChecklistTitle": "Checklist",
+			"fixGuideCopyCode": "Copy code",
+			"fixGuideCopied": "Copied!"
 		},
 		"aiRankingModal": {
 			"kicker": "Market Share",
@@ -4947,6 +4953,7 @@
 			"restore": "Restore",
 			"minimizedLabel": "REDUE AI Audit Report",
 			"minimizedOpen": "Open",
+			"minimizedClose": "Close report",
 			"zoomFit": "Fit",
 			"saving": "Saving PDF...",
 			"savingHint": "Capturing and compressing each A4 page. This usually takes a few seconds.",

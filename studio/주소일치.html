@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>나인원의원 - 채널별 NAP 일관성 확보 매트릭스</title>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --border-color: #e2e8f0;
+      --border-subtle: #f1f5f9;
+      --text-main: #0f172a;
+      --text-muted: #475569;
+      --text-dim: #64748b;
+      --indigo-bg: #eef2ff;
+      --indigo-border: #c7d2fe;
+      --indigo-text: #4338ca;
+      --amber-bg: #fffbeb;
+      --amber-text: #b45309;
+      --amber-border: #fde68a;
+      --hover-bg: #f8fafc;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Pretendard", sans-serif;
+      padding: 44px 22px;
+      display: flex;
+      justify-content: center;
+      line-height: 1.55;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1240px;
+    }
+
+    .header-area {
+      margin-bottom: 26px;
+    }
+
+    .badge-header {
+      display: inline-block;
+      font-size: 13.2px;
+      font-weight: 700;
+      color: var(--indigo-text);
+      background: var(--indigo-bg);
+      border: 1px solid var(--indigo-border);
+      padding: 5px 12px;
+      border-radius: 9999px;
+      margin-bottom: 10px;
+      letter-spacing: 0.02em;
+    }
+
+    h1 {
+      font-size: 24.2px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    p.desc {
+      font-size: 15.4px;
+      color: var(--text-muted);
+    }
+
+    .table-wrapper {
+      width: 100%;
+      overflow-x: auto;
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      background-color: var(--card-bg);
+      box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 14.85px;
+      min-width: 960px;
+    }
+
+    thead th {
+      background-color: #f1f5f9;
+      color: #334155;
+      font-size: 13.2px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background-color 0.15s ease;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background-color: var(--hover-bg);
+    }
+
+    tbody tr.standard-row {
+      background-color: #f5f7ff;
+    }
+
+    tbody tr.standard-row:hover {
+      background-color: #edf0ff;
+    }
+
+    td {
+      padding: 16px 18px;
+      vertical-align: middle;
+      color: var(--text-main);
+    }
+
+    .channel-title {
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: #0f172a;
+    }
+
+    .channel-url {
+      display: block;
+      font-size: 12.65px;
+      color: var(--text-dim);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      margin-top: 3px;
+    }
+
+    .badge-primary {
+      font-size: 11.55px;
+      font-weight: 700;
+      padding: 2.5px 7px;
+      border-radius: 4px;
+      background: var(--indigo-bg);
+      color: var(--indigo-text);
+      border: 1px solid var(--indigo-border);
+    }
+
+    .phone-text {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      white-space: nowrap;
+      color: #1e293b;
+      font-weight: 600;
+    }
+
+    .highlight-diff {
+      color: var(--amber-text);
+      background-color: var(--amber-bg);
+      border: 1px solid var(--amber-border);
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+
+    .sub-note {
+      display: block;
+      font-size: 13.2px;
+      color: var(--amber-text);
+      font-weight: 600;
+      margin-top: 3px;
+    }
+
+    .italic-note {
+      font-style: italic;
+      color: var(--text-dim);
+    }
+
+    ul.note-list {
+      padding-left: 18px;
+      margin: 0;
+      font-size: 13.2px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    ul.note-list li {
+      margin-bottom: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <div class="header-area">
+      <span class="badge-header">REDUE AI · NAP AUDIT MATRIX</span>
+      <h1>채널별 실제 구현 데이터 대조 현황 (나인원의원)</h1>
+      <p class="desc">검색엔진 및 AI 지식그래프의 단일 개체 인식을 위한 각 채널별 실제 등록 정보 대조 결과입니다.</p>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 20%;">채널 구분</th>
+            <th style="width: 18%;">실제 확인된 상호명</th>
+            <th style="width: 33%;">실제 확인된 주소 표기</th>
+            <th style="width: 13%;">대표 전화</th>
+            <th style="width: 26%;">비고 및 불일치 요인</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- 공식 홈페이지 (기준) -->
+          <tr class="standard-row">
+            <td>
+              <div class="channel-title">
+                <span>공식 홈페이지</span>
+                <span class="badge-primary">기준 데이터</span>
+              </div>
+              <span class="channel-url">nineoneclinic.com</span>
+            </td>
+            <td><strong style="color: #1e1b4b;">나인원의원</strong></td>
+            <td>대구 동구 동부로26길 6 대구메리어트호텔 및 서비스드레지던스 <span class="highlight-diff">203-205호</span></td>
+            <td class="phone-text">053-746-9191</td>
+            <td>
+              <ul class="note-list">
+                <li>'대구광역시' 대신 '대구'로 축약 표기</li>
+                <li>호수가 203-205호로 표기됨</li>
+              </ul>
+            </td>
+          </tr>
+
+          <!-- 네이버 플레이스 -->
+          <tr>
+            <td><strong>네이버 플레이스 / 지도</strong></td>
+            <td>나인원의원</td>
+            <td>대구광역시 동구 동부로26길 6 대구 메리어트 호텔 및 서비스드 레지던스 2층 <span class="highlight-diff">203, 204, 205호</span> (신천동)</td>
+            <td class="phone-text">053-746-9191</td>
+            <td style="font-size: 13.2px; color: var(--text-muted);">• 법정동(신천동) 및 층수(2층), 쉼표 구분 표기</td>
+          </tr>
+
+          <!-- 카카오맵 -->
+          <tr>
+            <td><strong>카카오맵 / 카카오 채널</strong></td>
+            <td>
+              나인원의원
+              <span class="sub-note">(채널명: 나인원클리닉)</span>
+            </td>
+            <td>대구 동구 동부로26길 6 메리어트호텔레지던스 2층 <span class="highlight-diff">203~205호</span></td>
+            <td class="phone-text">053-746-9191</td>
+            <td>
+              <ul class="note-list">
+                <li>카카오 채널에서는 '나인원클리닉' 혼용</li>
+                <li>물결표(~) 호수 표기</li>
+              </ul>
+            </td>
+          </tr>
+
+          <!-- 구글 비즈니스 프로필 -->
+          <tr>
+            <td><strong>구글 비즈니스 프로필 (GBP)</strong></td>
+            <td>
+              나인원의원
+              <span class="channel-url">(Nine One Clinic)</span>
+            </td>
+            <td>대구광역시 동구 동부로26길 6 대구 메리어트 호텔 및 서비스드 레지던스 2층 <span class="highlight-diff">203호</span></td>
+            <td class="phone-text">053-746-9191</td>
+            <td style="font-size: 13.2px; color: var(--text-muted);">• 건물명 띄어쓰기 및 단일 호수(203호) 표기 여부 확인 필요</td>
+          </tr>
+
+          <!-- 인스타그램 -->
+          <tr>
+            <td><strong>인스타그램 (SNS)</strong></td>
+            <td>나인원의원 / nineoneclinic</td>
+            <td class="italic-note">프로필 소개란 내 '대구 메리어트 호텔 2층' 약식 기재</td>
+            <td style="font-size: 13.2px; color: var(--text-dim);">링크/카카오 연동</td>
+            <td style="font-size: 13.2px; color: var(--text-muted);">• 도로명 풀주소 대신 랜드마크 중심 약식 기재 다수</td>
+          </tr>
+
+          <!-- 유튜브 -->
+          <tr>
+            <td><strong>유튜브 (YouTube)</strong></td>
+            <td>
+              나인원의원
+              <span class="channel-url">(공식 채널)</span>
+            </td>
+            <td class="italic-note">'대구 메리어트 호텔 본점' 형태의 키워드 위주</td>
+            <td class="phone-text">053-746-9191</td>
+            <td style="font-size: 13.2px; color: var(--text-muted);">• 정규 주소 표기 누락 또는 요약 표기</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</body>
+</html>

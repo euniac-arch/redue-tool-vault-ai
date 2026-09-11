@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
+import { useTheme } from '@/components/theme/ThemeProvider';
 import { MetricImpactCard } from '@/components/audit/MetricImpactCard';
 import {
 	ENTITY_DISAMBIGUATION_WEIGHTS,
@@ -33,6 +34,8 @@ export function EntityIdentificationGauge({
 	children?: ReactNode;
 }) {
 	const t = useTranslations('audit.advancedGeo.entity');
+	const { theme } = useTheme();
+	const isLight = theme === 'light';
 	const clamped = Math.min(100, Math.max(0, entity.score));
 	const radius = 46;
 	const circ = 2 * Math.PI * radius;
@@ -75,7 +78,11 @@ export function EntityIdentificationGauge({
 	return (
 		<section
 			id="entity-knowledge-graph"
-			className="flex flex-col gap-4 rounded-2xl border border-indigo-200/80 bg-gradient-to-br from-indigo-50/80 via-white to-cyan-50/60 p-4 dark:border-indigo-400/20 dark:from-indigo-500/[0.08] dark:via-transparent dark:to-cyan-500/[0.06] sm:p-5"
+			className={`flex flex-col gap-4 rounded-2xl border p-4 sm:p-5 ${
+				isLight
+					? 'border-slate-200 bg-white shadow-sm'
+					: 'border-indigo-400/20 bg-gradient-to-br from-indigo-500/[0.08] via-transparent to-cyan-500/[0.06] shadow-none'
+			}`}
 		>
 			<div className="flex flex-wrap items-center gap-4">
 				<svg viewBox="0 0 116 116" className="h-28 w-28 shrink-0" aria-hidden>
@@ -114,7 +121,12 @@ export function EntityIdentificationGauge({
 				{rows.map((row) => {
 					const pct = row.max > 0 ? Math.round((row.score / row.max) * 100) : 0;
 					return (
-						<li key={row.id} className="rounded-xl border border-slate-200 bg-white/80 px-3 py-2.5 dark:border-white/[0.08] dark:bg-black/25">
+						<li
+							key={row.id}
+							className={`rounded-xl border px-3 py-2.5 ${
+								isLight ? 'border-slate-200 bg-white/80' : 'border-white/[0.08] bg-black/25'
+							}`}
+						>
 							<div className="flex items-center justify-between gap-2">
 								<p className="text-xs font-extrabold text-slate-800 dark:text-slate-100">{row.label}</p>
 								<p className="text-[11px] font-bold tabular-nums text-slate-500">

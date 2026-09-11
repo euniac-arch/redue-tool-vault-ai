@@ -241,7 +241,7 @@ export function AiEngineVisibilityPanel({ report }: AiEngineVisibilityPanelProps
 				<p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-400">{t('subtitle')}</p>
 			</div>
 
-			<div className="grid gap-3 rounded-2xl border border-indigo-200 dark:border-indigo-400/20 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-indigo-950/40 dark:via-slate-950/20 dark:to-cyan-950/20 p-4 sm:grid-cols-3 sm:p-5">
+			<div className="grid gap-3 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-indigo-400/20 dark:bg-gradient-to-br dark:from-indigo-950/40 dark:via-slate-950/20 dark:to-cyan-950/20 dark:shadow-none p-4 sm:grid-cols-3 sm:p-5">
 				<div>
 					<p className="text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
 						{t('exposureIndex')}

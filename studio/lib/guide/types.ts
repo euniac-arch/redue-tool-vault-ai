@@ -8,6 +8,15 @@ export type {
 	GuideData,
 	GuideFaq,
 	GuideSocialLinks,
+	LlmNapChannel,
+	LlmNapMatrix,
+	NapChannelCollected,
+	NapChannelId,
+	NapChannelRow,
+	NapConsistencyStatus,
+	NapMatrix,
+	NapRecommendation,
+	NapStandard,
 	SubScores,
 } from '@/types/guide';
 

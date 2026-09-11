@@ -1,9 +1,11 @@
 'use client';
 
 import { useLocale, useTranslations } from 'next-intl';
+import { NapConsistencyMatrix } from '@/components/guide/NapConsistencyMatrix';
 import { useOptionalAuditData, useResolvedReputation } from '@/components/audit/AuditDataContext';
 import { GeoMeasuredCardHeader } from '@/components/audit/GeoMeasuredCardHeader';
 import { GeoSubMetricGrid, type SubMetricItem } from '@/components/audit/GeoSubMetricGrid';
+import { isUsableNapMatrix } from '@/lib/audit/nap-matrix';
 import { GEO_PILLAR_ANCHOR_IDS } from '@/lib/audit/geoScoreCalculator';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import type { AuditReport } from '@/lib/site-auditor';
@@ -27,8 +29,13 @@ export function GeoLocalNapCard({
 	const reputation = useResolvedReputation(report, reportData, lang);
 	const brandTrust = reputation?.brandTrust;
 	const digitalFootprint = reputation?.digitalFootprint;
-	const localItems = useOptionalAuditData()?.snapshot.geoComprehensive.pillars.local_nap.items ?? [];
+	const auditPacket = useOptionalAuditData();
+	const localItems = auditPacket?.snapshot.geoComprehensive.pillars.local_nap.items ?? [];
+	const napMatrix = auditPacket?.napMatrix || report.napMatrix || reportData?.napMatrix;
 	if (!brandTrust || !digitalFootprint) return null;
+	const brand = (report.siteMeta?.brandName || report.siteMeta?.organizationName || '').trim() || '해당 브랜드';
+	const address = (report.siteMeta?.address || '').trim();
+	const telephone = (report.siteMeta?.telephone || '').trim();
 	const naverItem = localItems.find((item) => item.id === 'naver_place_nap');
 	const googleItem = localItems.find((item) => item.id === 'google_map_profile');
 	const bingItem = localItems.find((item) => item.id === 'bing_places_signal');
@@ -151,6 +158,35 @@ export function GeoLocalNapCard({
 						</p>
 					</div>
 				</div>
+			</div>
+
+			<div className="mt-1">
+				<div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+					<p className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+						NAP 일관성 매트릭스
+					</p>
+					{isUsableNapMatrix(napMatrix) && napMatrix?.consistencyScore != null ? (
+						<span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-extrabold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+							일치 점수 {napMatrix.consistencyScore}
+						</span>
+					) : null}
+				</div>
+				<NapConsistencyMatrix
+					matrix={napMatrix}
+					addressDisplay={address || '도로명 주소 미등록'}
+					phoneDisplay={telephone || '대표 전화 미등록'}
+					hasAddress={Boolean(address)}
+					hasPhone={Boolean(telephone)}
+					compactFallback
+					fallbackRows={[
+						['공식 홈페이지', brand],
+						['네이버 플레이스 / 지도', brand],
+						['카카오맵 / 카카오 채널', brand],
+						['구글 비즈니스 프로필 (GBP)', brand],
+						['인스타그램 (SNS)', brand],
+						['유튜브 (YouTube)', brand],
+					]}
+				/>
 			</div>
 		</section>
 	);

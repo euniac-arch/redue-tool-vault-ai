@@ -287,7 +287,7 @@ export function PDFPreviewModal({
 	if (!isOpen || typeof document === 'undefined') return null;
 
 	const containerClassName = isMinimized
-		? 'report-preview-modal pdf-preview-root fixed bottom-6 right-6 z-50 flex w-auto items-center transition-all duration-300 ease-out'
+		? 'report-preview-modal pdf-preview-root pdf-preview-minimized fixed bottom-6 right-6 z-50 flex w-auto items-center transition-all duration-300 ease-out'
 		: isMaximized
 			? 'report-preview-modal pdf-preview-root animate-fadeIn fixed inset-0 z-50 flex flex-col overflow-hidden bg-slate-900/90 p-4 transition-all duration-300 ease-out'
 			: `report-preview-modal pdf-preview-root animate-fadeIn fixed inset-0 z-[9999] flex h-screen w-screen flex-col bg-slate-900/95 transition-all duration-300 ease-out ${
@@ -298,168 +298,196 @@ export function PDFPreviewModal({
 		<div
 			className={containerClassName}
 			role="dialog"
-			aria-modal="true"
+			aria-modal={!isMinimized}
 			aria-busy={showLoader || downloading}
 			aria-labelledby="pdf-preview-modal-title"
 		>
 			{isMinimized ? (
-				<button
-					type="button"
-					onClick={restorePreview}
-					className="pdf-preview-capsule flex items-center gap-2.5 rounded-full border border-white/10 bg-slate-900 py-2.5 pl-4 pr-3 text-sm font-bold text-white shadow-2xl shadow-black/40 transition hover:bg-slate-800"
+				<div
+					className="pdf-preview-capsule flex items-center gap-1 rounded-full border border-slate-200 bg-white/95 p-1.5 pl-4 shadow-xl shadow-slate-900/15 backdrop-blur-md transition-shadow hover:shadow-2xl dark:border-slate-800 dark:bg-slate-900/95"
+					role="group"
+					aria-label={`${t('minimizedLabel')}${pageCount > 0 ? ` (${pageCount}P)` : ''}`}
 				>
-					<span aria-hidden>📄</span>
-					<span className="max-w-[13rem] truncate">
-						{t('minimizedLabel')}
-						{pageCount > 0 ? ` (${pageCount}P)` : ''}
-					</span>
-					<span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-extrabold text-cyan-300">
-						{t('minimizedOpen')}
-					</span>
-				</button>
-			) : (
-				<>
-					<header className="preview-toolbar pdf-preview-chrome sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-slate-900 px-4 py-3 sm:px-6">
-						<div className="min-w-0">
-							<h2
-								id="pdf-preview-modal-title"
-								className="m-0 truncate text-sm font-extrabold tracking-tight text-white sm:text-base"
-							>
-								{t('title')}
-							</h2>
-							{isDataReady && pageCount > 0 ? (
-								<p className="mt-0.5 text-[11px] font-medium text-slate-400">
-									{t('pageLabel', { total: pageCount })}
-								</p>
-							) : null}
-						</div>
-						<div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-							{isMaximized ? (
-								<div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
-									{ZOOM_PRESETS.map((preset) => (
-										<button
-											key={preset}
-											type="button"
-											onClick={() => setZoomPreset(preset)}
-											className={`rounded-md px-2 py-1 text-xs font-bold transition ${
-												zoomPreset === preset
-													? 'bg-cyan-500 text-white'
-													: 'text-slate-300 hover:bg-white/10 hover:text-white'
-											}`}
-										>
-											{preset === 'fit' ? t('zoomFit') : `${preset}%`}
-										</button>
-									))}
-								</div>
-							) : null}
-							{shareUrl ? (
-								<ReportShareLinkButton shareUrl={shareUrl} variant="preview" />
-							) : null}
-							<button
-								type="button"
-								onClick={handleSystemPrint}
-								className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/20"
-							>
-								{t('print')}
-							</button>
-							{isDataReady ? (
-								<button
-									type="button"
-									onClick={() => void handleDownload()}
-									disabled={downloading || pageCount === 0}
-									className="rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-500 px-3.5 py-2 text-sm font-extrabold text-white shadow-lg shadow-indigo-950/40 transition hover:from-cyan-400 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									{downloading ? t('saving') : t('download')}
-								</button>
-							) : null}
-							<span className="mx-0.5 h-6 w-px shrink-0 bg-white/10" aria-hidden />
-							<button
-								type="button"
-								onClick={minimizePreview}
-								aria-label={t('minimize')}
-								title={t('minimize')}
-								className="rounded-lg border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20"
-							>
-								<Minus className="h-4 w-4" aria-hidden />
-							</button>
-							<button
-								type="button"
-								onClick={toggleMaximize}
-								aria-label={isMaximized ? t('restore') : t('maximize')}
-								title={isMaximized ? t('restore') : t('maximize')}
-								className="rounded-lg border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20"
-							>
-								{isMaximized ? (
-									<Minimize2 className="h-4 w-4" aria-hidden />
-								) : (
-									<Maximize2 className="h-4 w-4" aria-hidden />
-								)}
-							</button>
-							<button
-								type="button"
-								onClick={onClose}
-								aria-label={t('close')}
-								title={t('close')}
-								className="rounded-lg border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20"
-							>
-								<X className="h-4 w-4" aria-hidden />
-							</button>
-						</div>
-					</header>
-
-					<div
-						ref={scrollRef}
-						className={`pdf-preview-scroll relative bg-slate-900 ${
-							isMaximized ? 'flex-1 overflow-y-auto' : 'min-h-[calc(100vh-4.5rem)]'
-						}`}
+					<button
+						type="button"
+						onClick={restorePreview}
+						aria-label={t('restore')}
+						title={t('restore')}
+						className="flex items-center gap-2.5 rounded-full py-1 text-sm font-bold text-slate-700 transition hover:text-cyan-600 dark:text-slate-200 dark:hover:text-cyan-300"
 					>
-						{downloading ? (
-							<PdfDownloadSpinner
-								label={t('saving')}
-								hint={t('savingHint')}
-								currentPage={downloadProgress.current}
-								totalPages={downloadProgress.total}
-								progressLabel={
-									downloadProgress.total > 0
-										? t('savingProgress', {
-												current: downloadProgress.current,
-												total: downloadProgress.total,
-											})
-										: undefined
-								}
-							/>
-						) : null}
-						{showLoader ? (
-							<div className="pdf-preview-chrome fixed inset-x-0 bottom-0 top-[57px] z-10">
-								<PdfGeneratingLoader
-									key={`pdf-loader-${dataRevision}`}
-									isReady={pagesReady}
-									onComplete={() => setLoaderComplete(true)}
-								/>
-							</div>
-						) : null}
-						{error ? (
-							<p className="pdf-preview-chrome mx-auto mt-4 max-w-xl rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800">
-								{error}
+						<span aria-hidden className="text-base leading-none">
+							📄
+						</span>
+						<span className="max-w-[11rem] truncate">
+							{t('minimizedLabel')}
+							{pageCount > 0 ? ` (${pageCount}P)` : ''}
+						</span>
+						<Maximize2 className="h-3.5 w-3.5 shrink-0 text-cyan-500 dark:text-cyan-400" aria-hidden />
+					</button>
+					<span className="mx-1 h-5 w-px shrink-0 bg-slate-200 dark:bg-slate-700" aria-hidden />
+					<button
+						type="button"
+						onClick={onClose}
+						aria-label={t('minimizedClose')}
+						title={t('minimizedClose')}
+						className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+					>
+						<X className="h-3.5 w-3.5" aria-hidden />
+					</button>
+				</div>
+			) : null}
+
+			{/*
+			 * `display: contents` keeps the header/scroll/content subtree — and
+			 * critically the imperatively-mounted A4 page DOM inside
+			 * `previewRef` — mounted in React's tree at all times. Minimizing
+			 * only toggles this wrapper to `hidden`; it never unmounts the 34+
+			 * page capture, so scroll position and rendered pages survive a
+			 * minimize → restore round trip intact instead of being rebuilt
+			 * from scratch (which previously required the full `mountPdfPreviewPages`
+			 * pass to rerun and could desync from the underlying report).
+			 */}
+			<div className={isMinimized ? 'hidden' : 'contents'}>
+				<header className="preview-toolbar pdf-preview-chrome sticky top-0 z-20 flex shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-slate-900 px-4 py-3 sm:px-6">
+					<div className="min-w-0">
+						<h2
+							id="pdf-preview-modal-title"
+							className="m-0 truncate text-sm font-extrabold tracking-tight text-white sm:text-base"
+						>
+							{t('title')}
+						</h2>
+						{isDataReady && pageCount > 0 ? (
+							<p className="mt-0.5 text-[11px] font-medium text-slate-400">
+								{t('pageLabel', { total: pageCount })}
 							</p>
 						) : null}
-						<div
-							className="pdf-preview-zoom-wrapper mx-auto w-full transition-[zoom] duration-150"
-							style={zoomStyle}
+					</div>
+					<div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+						{isMaximized ? (
+							<div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 p-1">
+								{ZOOM_PRESETS.map((preset) => (
+									<button
+										key={preset}
+										type="button"
+										onClick={() => setZoomPreset(preset)}
+										className={`rounded-md px-2 py-1 text-xs font-bold transition ${
+											zoomPreset === preset
+												? 'bg-cyan-500 text-white'
+												: 'text-slate-300 hover:bg-white/10 hover:text-white'
+										}`}
+									>
+										{preset === 'fit' ? t('zoomFit') : `${preset}%`}
+									</button>
+								))}
+							</div>
+						) : null}
+						{shareUrl ? (
+							<ReportShareLinkButton shareUrl={shareUrl} variant="preview" />
+						) : null}
+						<button
+							type="button"
+							onClick={handleSystemPrint}
+							className="rounded-lg border border-white/20 bg-white/10 px-3 py-2 text-sm font-bold text-white transition hover:bg-white/20"
 						>
-							<div
-								id="print-report-container"
-								key={`pdf-preview-${dataRevision}`}
-								ref={previewRef}
-								aria-hidden={!isDataReady}
-								className={`print-report-container pdf-preview-content mx-auto flex w-full flex-col items-center gap-8 px-4 py-8 text-slate-900 transition-opacity duration-300 sm:px-8 ${
-									isDataReady ? 'opacity-100' : 'pointer-events-none opacity-0'
-								}`}
+							{t('print')}
+						</button>
+						{isDataReady ? (
+							<button
+								type="button"
+								onClick={() => void handleDownload()}
+								disabled={downloading || pageCount === 0}
+								className="rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-500 px-3.5 py-2 text-sm font-extrabold text-white shadow-lg shadow-indigo-950/40 transition hover:from-cyan-400 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+							>
+								{downloading ? t('saving') : t('download')}
+							</button>
+						) : null}
+						<span className="mx-0.5 h-6 w-px shrink-0 bg-white/10" aria-hidden />
+						<button
+							type="button"
+							onClick={minimizePreview}
+							aria-label={t('minimize')}
+							title={t('minimize')}
+							className="rounded-lg border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20"
+						>
+							<Minus className="h-4 w-4" aria-hidden />
+						</button>
+						<button
+							type="button"
+							onClick={toggleMaximize}
+							aria-label={isMaximized ? t('restore') : t('maximize')}
+							title={isMaximized ? t('restore') : t('maximize')}
+							className="rounded-lg border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20"
+						>
+							{isMaximized ? (
+								<Minimize2 className="h-4 w-4" aria-hidden />
+							) : (
+								<Maximize2 className="h-4 w-4" aria-hidden />
+							)}
+						</button>
+						<button
+							type="button"
+							onClick={onClose}
+							aria-label={t('close')}
+							title={t('close')}
+							className="rounded-lg border border-white/20 bg-white/10 p-2 text-white transition hover:bg-white/20"
+						>
+							<X className="h-4 w-4" aria-hidden />
+						</button>
+					</div>
+				</header>
+
+				<div
+					ref={scrollRef}
+					className={`pdf-preview-scroll relative bg-slate-900 ${
+						isMaximized ? 'flex-1 overflow-y-auto' : 'min-h-[calc(100vh-4.5rem)]'
+					}`}
+				>
+					{downloading ? (
+						<PdfDownloadSpinner
+							label={t('saving')}
+							hint={t('savingHint')}
+							currentPage={downloadProgress.current}
+							totalPages={downloadProgress.total}
+							progressLabel={
+								downloadProgress.total > 0
+									? t('savingProgress', {
+											current: downloadProgress.current,
+											total: downloadProgress.total,
+										})
+									: undefined
+							}
+						/>
+					) : null}
+					{showLoader ? (
+						<div className="pdf-preview-chrome fixed inset-x-0 bottom-0 top-[57px] z-10">
+							<PdfGeneratingLoader
+								key={`pdf-loader-${dataRevision}`}
+								isReady={pagesReady}
+								onComplete={() => setLoaderComplete(true)}
 							/>
 						</div>
+					) : null}
+					{error ? (
+						<p className="pdf-preview-chrome mx-auto mt-4 max-w-xl rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-800">
+							{error}
+						</p>
+					) : null}
+					<div
+						className="pdf-preview-zoom-wrapper mx-auto w-full transition-[zoom] duration-150"
+						style={zoomStyle}
+					>
+						<div
+							id="print-report-container"
+							key={`pdf-preview-${dataRevision}`}
+							ref={previewRef}
+							aria-hidden={!isDataReady}
+							className={`print-report-container pdf-preview-content mx-auto flex w-full flex-col items-center gap-8 px-4 py-8 text-slate-900 transition-opacity duration-300 sm:px-8 ${
+								isDataReady ? 'opacity-100' : 'pointer-events-none opacity-0'
+							}`}
+						/>
 					</div>
-				</>
-			)}
+				</div>
+			</div>
 		</div>,
 		document.body,
 	);

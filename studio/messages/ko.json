@@ -3205,7 +3205,13 @@
 			"insightCitedPath": "인용 감지 경로:",
 			"insightActionRequired": "필수 조치:",
 			"insightNextStep": "권장 조치:",
-			"liveCheckFooterNotice": "Copilot과 Clova 카드는 실시간 API 실측이 아닌 Bing·네이버 색인 기반 시뮬레이션 추정 데이터입니다. Gemini, ChatGPT, Perplexity, Claude만 실시간 웹 검색 인용 여부를 직접 검증합니다."
+			"liveCheckFooterNotice": "Copilot과 Clova 카드는 실시간 API 실측이 아닌 Bing·네이버 색인 기반 시뮬레이션 추정 데이터입니다. Gemini, ChatGPT, Perplexity, Claude만 실시간 웹 검색 인용 여부를 직접 검증합니다.",
+			"fixGuideTitle": "💡 해결 방법 & 추천 조치",
+			"fixGuideToggleExpand": "해결 방법 보기",
+			"fixGuideToggleCollapse": "해결 방법 닫기",
+			"fixGuideChecklistTitle": "체크리스트",
+			"fixGuideCopyCode": "코드 복사",
+			"fixGuideCopied": "복사됨!"
 		},
 		"aiRankingModal": {
 			"kicker": "Market Share",
@@ -4925,6 +4931,7 @@
 			"restore": "이전 크기로 복원",
 			"minimizedLabel": "REDUE AI 진단 리포트",
 			"minimizedOpen": "열기",
+			"minimizedClose": "리포트 완전히 닫기",
 			"zoomFit": "맞춤",
 			"saving": "PDF 저장 중...",
 			"savingHint": "페이지별로 JPEG 압축 저장 중입니다. 잠시만 기다려 주세요.",

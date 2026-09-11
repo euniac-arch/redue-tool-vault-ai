@@ -38,6 +38,8 @@ import { PdfSchemaGraphTable } from '@/components/audit/print/PdfSchemaGraphTabl
 import { PrintSectionBoundary } from '@/components/audit/print/pdf-print-shared';
 import { buildDiagnosisScoreSnapshot } from '@/lib/audit/diagnosis-scores';
 import { executiveSummaryWithMeasuredScore } from '@/lib/audit/executive-summary';
+import { resolveProjectSiteName } from '@/lib/audit/project-site-name';
+import { hydrateReportNapMatrix, resolveNapMatrix } from '@/lib/audit/nap-matrix';
 import type { AuditReport } from '@/lib/site-auditor';
 
 const JUST_REFRESHED_MS = 120_000;
@@ -131,9 +133,36 @@ export function AuditReportDocument({
 		() => buildDiagnosisScoreSnapshot(liveReport, geoNarrative, lang, { coreWebVitalsScore100: psiPerformanceScore }),
 		[liveReport, geoNarrative, lang, psiPerformanceScore],
 	);
+	const napMatrix = useMemo(() => {
+		const brandName =
+			liveReport.siteMeta?.brandName ||
+			liveReport.siteMeta?.organizationName ||
+			(() => {
+				try {
+					return resolveProjectSiteName(liveReport);
+				} catch {
+					return '';
+				}
+			})();
+		return (
+			resolveNapMatrix(geoNarrative?.napMatrix || liveReport.napMatrix, {
+				brandName,
+				address:
+					liveReport.siteMeta?.address ||
+					[liveReport.siteMeta?.addressRegion, liveReport.siteMeta?.addressLocality, liveReport.siteMeta?.streetAddress]
+						.filter(Boolean)
+						.join(' '),
+				telephone: liveReport.siteMeta?.telephone,
+				sameAs: liveReport.siteMeta?.sameAs,
+				collectedUrls: liveReport.collectedUrls,
+				socialLinks: { website: liveReport.url },
+				existing: geoNarrative?.napMatrix || liveReport.napMatrix,
+			}) || hydrateReportNapMatrix(liveReport)?.napMatrix
+		);
+	}, [liveReport, geoNarrative?.napMatrix]);
 	const auditData = useMemo(
-		() => ({ scores: scoreSnapshot.scores, snapshot: scoreSnapshot }),
-		[scoreSnapshot],
+		() => ({ scores: scoreSnapshot.scores, snapshot: scoreSnapshot, napMatrix }),
+		[scoreSnapshot, napMatrix],
 	);
 	// Once the live PageSpeed(Lighthouse) read resolves, patch the stored history
 	// row's measuredScore/grade to this exact value — keeps the history list badge

@@ -94,10 +94,10 @@ function CwvScoreHeroCard({
 	return (
 		<div
 			id="cwv-score-summary"
-			className="pdf-page-item audit-report-section scroll-mt-24 relative w-full max-w-full box-border overflow-visible flex flex-col gap-5 rounded-2xl border border-emerald-200 dark:border-emerald-400/20 bg-gradient-to-br from-emerald-50 via-teal-50 to-white dark:from-[#06231C] dark:via-[#062A26] dark:to-[#04150F] p-6"
+			className="pdf-page-item audit-report-section scroll-mt-24 relative w-full max-w-full box-border overflow-visible flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-emerald-400/20 dark:bg-gradient-to-br dark:from-[#06231C] dark:via-[#062A26] dark:to-[#04150F] dark:shadow-none p-6"
 		>
 			<div
-				className="pointer-events-none absolute inset-0 opacity-40 print:hidden"
+				className="pointer-events-none absolute inset-0 hidden opacity-40 print:hidden dark:block"
 				style={{
 					background:
 						'radial-gradient(circle at 15% 20%, rgba(16,185,129,0.2), transparent 45%), radial-gradient(circle at 85% 15%, rgba(45,212,191,0.2), transparent 45%)',

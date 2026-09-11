@@ -104,6 +104,9 @@ export type GroundTruthFacts = {
 	navItems?: Array<{ name?: string; url?: string }>;
 	/** True when taxID was captured next to a 사업자번호 label (pattern match, checksum optional). */
 	taxIdLabeled?: boolean;
+	/** SoftwareApplication extras — only emitted when a real value is provided. */
+	applicationCategory?: string;
+	operatingSystem?: string;
 };
 
 export type StrictJsonLdNode = Record<string, unknown>;
@@ -338,6 +341,8 @@ export function buildStrictSchemaGraph(facts: GroundTruthFacts): StrictSchemaGra
 	setIf(orgNode, 'telephone', telephone);
 	setIf(orgNode, 'faxNumber', faxNumber);
 	setIf(orgNode, 'taxID', taxId);
+	setIf(orgNode, 'applicationCategory', facts.applicationCategory);
+	setIf(orgNode, 'operatingSystem', facts.operatingSystem);
 	if (logo) {
 		orgNode.logo = { '@type': 'ImageObject', url: logo };
 	}

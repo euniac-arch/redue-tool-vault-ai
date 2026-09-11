@@ -1,6 +1,6 @@
 import type { SchemaJsonLdConfig } from '@/lib/schema/jsonld';
 
-export const REDUE_SITE_ORIGIN = 'https://redue-tool-vault-ai.vercel.app';
+export const REDUE_SITE_ORIGIN = 'https://reduegeo.com';
 
 /**
  * Runtime config for this Next.js app.
@@ -39,18 +39,19 @@ export const REDUE_SITE_ORIGIN = 'https://redue-tool-vault-ai.vercel.app';
  * ```
  */
 export const REDUE_SITE_SCHEMA: SchemaJsonLdConfig = {
-	name: 'REDUE AI SEO & GEO Studio',
+	name: 'REDUE AI SEO & GEO STUDIO',
 	url: REDUE_SITE_ORIGIN,
-	logo: `${REDUE_SITE_ORIGIN}/web/upload/logo.png`,
-	description: 'AI 기반 SEO & GEO 자동 주입',
-	orgTypes: ['Organization', 'ProfessionalService'],
+	description: 'AI 검색 최적화(GEO), AEO 진단 및 구글/네이버/ChatGPT 실시간 인용 분석 솔루션',
+	orgTypes: ['Organization', 'SoftwareApplication'],
+	applicationCategory: 'BusinessApplication',
+	operatingSystem: 'All',
 	inLanguage: 'ko-KR',
 	channels: {
 		naverBlog: '',
 		naverCafe: '',
 		naverPlace: '',
-		instagram: '',
-		youtube: '',
+		instagram: 'https://www.instagram.com/redueai',
+		youtube: 'https://www.youtube.com/@redueai',
 		facebook: '',
 	},
 	founder: {

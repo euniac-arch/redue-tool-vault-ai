@@ -446,6 +446,19 @@
 	white-space: nowrap;
 }
 
+.geo-guide-modal-wrap .code-block {
+	font-family: var(--mono);
+	font-size: 12px;
+	background: var(--blue-tint);
+	color: var(--ink);
+	padding: 12px 14px;
+	margin: 8px 0;
+	border-radius: 6px;
+	line-height: 1.6;
+	white-space: pre-wrap;
+	overflow-x: auto;
+}
+
 .geo-guide-modal-wrap .target-tag {
 	display: inline-block;
 	font-family: var(--mono);

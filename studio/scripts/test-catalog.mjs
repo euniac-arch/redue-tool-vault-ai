@@ -68,6 +68,7 @@ export const TEST_GROUPS = {
 		'scripts/test-smart-hashtags.ts',
 		'scripts/test-guide-mapping.ts',
 		'scripts/test-guide-history-picker.ts',
+		'scripts/test-geo-work-guide.ts',
 		'scripts/test-generic-sov.ts',
 		'scripts/test-sov-live-measure.ts',
 		'scripts/test-audit-pdf-lock.ts',

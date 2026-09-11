@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, Flame, LayoutGrid, RefreshCw, Search, Sparkles, type LucideIcon } from 'lucide-react';
 import { resolveLucideIcon } from '@/components/admin/ai-tools/ai-tools-badges';
 import { MarketShareBar } from '@/components/admin/ai-tools/MarketShareBar';
@@ -27,6 +27,27 @@ export function AiHubDashboard() {
 	const [sortKey, setSortKey] = useState<AiToolSortKey>('rank');
 	const [activeToolId, setActiveToolId] = useState<string | null>(null);
 	const [rankModalOpen, setRankModalOpen] = useState(false);
+	const [rankModalPending, setRankModalPending] = useState(false);
+	const [rankModalError, setRankModalError] = useState<string | null>(null);
+
+	// "오늘자 순위 분석 보기" must always pull the latest KST-day computation —
+	// the hook's own in-memory cache only busts once per day, so a plain
+	// `setRankModalOpen(true)` could silently reopen a stale snapshot fetched
+	// on page load. Force a real refetch (bypasses client cache + hits the
+	// API with `?refresh=1`, `cache: 'no-store'`) every time the button is
+	// clicked, with visible pending/error feedback instead of a dead click.
+	const handleOpenTodayRankModal = useCallback(async () => {
+		setRankModalError(null);
+		setRankModalPending(true);
+		try {
+			await refetch();
+			setRankModalOpen(true);
+		} catch (err) {
+			setRankModalError(err instanceof Error ? err.message : '오늘자 순위 데이터를 불러오지 못했습니다.');
+		} finally {
+			setRankModalPending(false);
+		}
+	}, [refetch]);
 
 	const isTrending = category === 'trending';
 	const tabCategories = useMemo(() => getPublicAiHubCategories(tools), [tools]);
@@ -104,18 +125,32 @@ export function AiHubDashboard() {
 				) : null}
 
 				{!isTrending && tools.length > 0 && (
-					<div className="flex flex-col items-stretch gap-3 sm:flex-row">
-						<div className="flex-1">
-							<MarketShareBar tools={tools} category={category} dateKey={date} />
+					<div className="flex flex-col items-stretch gap-2">
+						<div className="flex flex-col items-stretch gap-3 sm:flex-row">
+							<div className="flex-1">
+								<MarketShareBar tools={tools} category={category} dateKey={date} />
+							</div>
+							<button
+								type="button"
+								onClick={() => void handleOpenTodayRankModal()}
+								disabled={rankModalPending}
+								aria-busy={rankModalPending}
+								className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-cyan-400/50 bg-transparent px-4 py-2.5 text-xs font-bold text-cyan-400 transition hover:border-cyan-400/70 hover:text-cyan-300 disabled:cursor-wait disabled:opacity-70 sm:w-auto sm:self-stretch"
+							>
+								{rankModalPending ? (
+									<RefreshCw className="h-4 w-4 animate-spin" aria-hidden />
+								) : (
+									<BarChart3 className="h-4 w-4" aria-hidden />
+								)}
+								{rankModalPending ? '오늘자 순위 불러오는 중...' : '오늘자 순위 분석 보기'}
+							</button>
 						</div>
-						<button
-							type="button"
-							onClick={() => setRankModalOpen(true)}
-							className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-cyan-400/50 bg-transparent px-4 py-2.5 text-xs font-bold text-cyan-400 transition hover:border-cyan-400/70 hover:text-cyan-300 sm:w-auto sm:self-stretch"
-						>
-							<BarChart3 className="h-4 w-4" aria-hidden />
-							오늘자 순위 분석 보기
-						</button>
+						{rankModalError ? (
+							<p className="flex items-center gap-1.5 text-xs font-semibold text-rose-500 dark:text-rose-400">
+								<AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
+								{rankModalError}
+							</p>
+						) : null}
 					</div>
 				)}
 			</section>

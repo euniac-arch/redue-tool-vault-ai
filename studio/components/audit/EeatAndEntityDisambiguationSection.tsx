@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { useTheme } from '@/components/theme/ThemeProvider';
 import { EntityIdentificationGauge } from '@/components/audit/EntityIdentificationGauge';
 import { GeoMeasuredCardHeader } from '@/components/audit/GeoMeasuredCardHeader';
 import { SchemaCompletenessChecklist } from '@/components/geo/SchemaCompletenessChecklist';
@@ -55,10 +56,15 @@ function EntityMetadataBars({
 	'personName' | 'personJobTitle' | 'recommendedSchema' | 'industryCategory' | 'keywords' | 'missingKeyword'
 >) {
 	const t = useTranslations('audit.brandTrust');
+	const { theme } = useTheme();
+	const metaCardClass =
+		theme === 'light'
+			? 'space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5'
+			: 'space-y-1 rounded-xl border border-slate-800/60 bg-slate-950/50 px-3.5 py-3.5';
 
 	return (
 		<div className="grid grid-cols-1 gap-3 pt-1 sm:grid-cols-3">
-			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-slate-800/60 dark:bg-slate-950/50">
+			<div className={metaCardClass}>
 				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('personLabel')}</div>
 				<div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 dark:text-white">
 					<span>{personJobTitle ? `${personName} (${personJobTitle})` : personName}</span>
@@ -66,7 +72,7 @@ function EntityMetadataBars({
 				<p className="truncate text-[10px] leading-tight text-slate-500 dark:text-slate-500">{t('personHint')}</p>
 			</div>
 
-			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-slate-800/60 dark:bg-slate-950/50">
+			<div className={metaCardClass}>
 				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('recommendedSchema')}</div>
 				<div className="font-mono text-xs font-bold text-indigo-700 dark:text-indigo-300">{recommendedSchema}</div>
 				<p className="text-[10px] leading-tight text-slate-500 dark:text-slate-500">
@@ -74,7 +80,7 @@ function EntityMetadataBars({
 				</p>
 			</div>
 
-			<div className="space-y-1 rounded-xl border border-slate-200 bg-white/80 px-3.5 py-3.5 dark:border-slate-800/60 dark:bg-slate-950/50">
+			<div className={metaCardClass}>
 				<div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">{t('keywordsLabel')}</div>
 				<div className="flex flex-wrap gap-1">
 					{keywords.map((kw) => (

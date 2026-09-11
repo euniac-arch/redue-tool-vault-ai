@@ -36,7 +36,7 @@ export function LlmsTxtCopyBox({
 		<section
 			id={GEO_PILLAR_ANCHOR_IDS.bot_index}
 			data-geo-pillar="bot_index"
-			className="pdf-page-item audit-report-section scroll-mt-24 space-y-6 rounded-2xl border border-cyan-200/90 bg-gradient-to-br from-cyan-50 via-white to-indigo-50 p-5 dark:border-cyan-400/25 dark:from-cyan-500/[0.10] dark:via-[#0B1028] dark:to-indigo-500/[0.08] sm:p-6"
+			className="pdf-page-item audit-report-section scroll-mt-24 space-y-6 rounded-2xl border border-slate-200 bg-white shadow-sm p-5 dark:border-cyan-400/25 dark:bg-gradient-to-br dark:from-cyan-500/[0.10] dark:via-[#0B1028] dark:to-indigo-500/[0.08] dark:shadow-none sm:p-6"
 		>
 			<GeoMeasuredCardHeader
 				pillarId="bot_index"

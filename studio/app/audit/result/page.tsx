@@ -816,6 +816,7 @@ function AuditResultContent() {
 						shareUrl={shareUrl}
 						score={(displayReport ?? resultData).score}
 						statusLabel={(displayReport ?? resultData).statusLabel}
+						report={displayReport ?? resultData}
 						onOpenPdfPreview={handleOpenPdfPreview}
 						onOpenExecBrief={handleOpenExecBrief}
 					/>

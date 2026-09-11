@@ -152,11 +152,11 @@ export function AIEngineSummaryHeader({ report, isAfter = false }: AIEngineSumma
 	return (
 		<section
 			id="sec-ai-engine-summary"
-			className="pdf-page-item audit-report-section relative flex w-full min-w-0 max-w-full flex-col gap-5 overflow-hidden rounded-2xl border border-indigo-200 dark:border-indigo-400/20 bg-gradient-to-br from-indigo-50 via-white to-cyan-50 dark:from-[#0E1140] dark:via-[#0B1028] dark:to-[#062016] p-5 sm:p-6 ring-1 ring-indigo-400/20"
+			className="pdf-page-item audit-report-section relative flex w-full min-w-0 max-w-full flex-col gap-5 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-indigo-400/20 dark:bg-gradient-to-br dark:from-[#0E1140] dark:via-[#0B1028] dark:to-[#062016] dark:shadow-none p-5 sm:p-6 ring-1 ring-slate-200/80 dark:ring-indigo-400/20"
 			aria-labelledby="ai-engine-summary-heading"
 		>
 			<div
-				className="pointer-events-none absolute inset-0 opacity-40 print:hidden"
+				className="pointer-events-none absolute inset-0 hidden opacity-40 print:hidden dark:block"
 				style={{
 					background:
 						'radial-gradient(circle at 12% 18%, rgba(56,189,248,0.22), transparent 46%), radial-gradient(circle at 88% 12%, rgba(16,185,129,0.16), transparent 42%)',

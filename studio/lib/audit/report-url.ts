@@ -1,4 +1,4 @@
-const FALLBACK_ORIGIN = 'https://redue-tool-vault-ai.vercel.app';
+const FALLBACK_ORIGIN = 'https://reduegeo.com';
 
 export function siteLabelFromUrl(raw: string): string {
 	try {

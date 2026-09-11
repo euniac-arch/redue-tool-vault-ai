@@ -58,8 +58,8 @@ export default function PortfolioPage() {
 						onClick={() => setActiveCategory(tab.id)}
 						className={`rounded-md border px-4 py-1.5 text-sm font-semibold transition-colors ${
 							activeCategory === tab.id
-								? 'border-cyan-500 bg-cyan-500 text-slate-950'
-								: 'border-slate-200 bg-white text-slate-600 hover:border-cyan-500/40 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-[#0E162B]'
+								? 'border-blue-600 bg-blue-600 text-white shadow-sm dark:border-blue-500/30 dark:bg-blue-500/20 dark:text-blue-400 dark:shadow-none'
+								: 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-400 dark:hover:text-slate-200'
 						}`}
 					>
 						{tab.label}

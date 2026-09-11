@@ -65,6 +65,80 @@ export interface GuideFaq {
 	answer: string;
 }
 
+/** Channel NAP consistency vs the official homepage baseline. */
+export type NapConsistencyStatus = 'MATCH' | 'WARNING' | 'MISMATCH' | 'NOT_FOUND' | 'UNAVAILABLE';
+
+export type NapChannelId =
+	| 'homepage'
+	| 'naver_place'
+	| 'google_business'
+	| 'youtube'
+	| 'sns'
+	| 'bing_places'
+	| 'kakao_tmap';
+
+export interface NapChannelCollected {
+	name?: string;
+	address?: string;
+	phone?: string;
+	/** True when the channel exists (or is expected) but live NAP could not be scraped/API-fetched. */
+	blocked?: boolean;
+	blockReason?: string;
+}
+
+export interface NapChannelRow {
+	channelId: NapChannelId;
+	channelLabel: string;
+	collectedName: string;
+	collectedAddress: string;
+	collectedPhone: string;
+	status: NapConsistencyStatus;
+	/** Human-readable gap note (spacing, unit number, missing listing, …). */
+	discrepancyNote?: string;
+	/** Official homepage — sort first and highlight. */
+	isCanonical?: boolean;
+}
+
+export interface NapRecommendation {
+	channelId: NapChannelId;
+	channelLabel: string;
+	prescription: string;
+}
+
+export interface NapStandard {
+	name: string;
+	address: string;
+	phone: string;
+}
+
+/** Wire format returned by Gemini/OpenAI diagnosis JSON. */
+export interface LlmNapChannel {
+	channelName: string;
+	targetName: string;
+	targetAddress: string;
+	targetPhone: string;
+	status: NapConsistencyStatus | string;
+	discrepancyNote?: string;
+}
+
+export interface LlmNapMatrix {
+	standard: NapStandard;
+	channels: LlmNapChannel[];
+	consistencyScore?: number;
+}
+
+export interface NapMatrix {
+	/** Official homepage NAP used as the comparison baseline. */
+	canonical: NapStandard;
+	/** Alias kept so LLM `standard` payloads round-trip. */
+	standard?: NapStandard;
+	rows: NapChannelRow[];
+	recommendations: NapRecommendation[];
+	consistencyScore?: number;
+	/** Optional LLM channel list (normalized after parse). */
+	channels?: LlmNapChannel[];
+}
+
 export interface GuideData {
 	id: string;
 	/** URL용 영문 식별자 (예: nineone) */
@@ -96,5 +170,7 @@ export interface GuideData {
 	faq: GuideFaq;
 	/** 6대 AI 엔진별 분석 결과 */
 	aiEngineDiagnoses: AiEngineDiagnosis[];
+	/** Channel NAP matrix from the latest diagnosis. Absent on legacy guides. */
+	napMatrix?: NapMatrix;
 	createdAt: string;
 }

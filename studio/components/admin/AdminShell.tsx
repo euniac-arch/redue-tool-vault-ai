@@ -12,6 +12,7 @@ const AUTO_COLLAPSE_MAX = 1023;
 
 /** Data-heavy admin pages that should use the full main column (no max-width). */
 const FULL_WIDTH_PATHS = [
+	'/admin/analytics',
 	'/admin/crawling/list',
 	'/admin/diagnostics',
 	'/admin/users',
@@ -69,7 +70,7 @@ export function AdminShell({ children, firebaseConfigured }: AdminShellProps) {
 
 	return (
 		<AdminAuthGuard>
-			<div className="admin-wrapper flex h-dvh max-h-dvh overflow-hidden bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
+			<div className="admin-wrapper flex h-dvh max-h-dvh overflow-hidden bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100">
 				<AdminSidebar collapsed={collapsed} />
 				<div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
 					<AdminHeader

@@ -10,11 +10,14 @@ import { FLOATING_LOCKED_CLASS, MemberLockBadge } from '@/components/audit/Membe
 import { ReportShareLinkButton } from '@/components/audit/ReportShareLinkButton';
 import { useAuditMemberGate } from '@/lib/audit/use-audit-member-gate';
 import { shareToKakao } from '@/lib/kakao-share';
+import type { AuditReport } from '@/lib/site-auditor';
 
 interface AuditShareBarProps {
 	shareUrl: string;
 	score: number;
 	statusLabel: string;
+	/** Currently diagnosed audit — bound into the GEO/AEO work guide modal. */
+	report: AuditReport;
 	onOpenPdfPreview: () => void;
 	onOpenExecBrief: () => void;
 }
@@ -69,6 +72,7 @@ function AuditShareBarInner({
 	shareUrl,
 	score,
 	statusLabel,
+	report,
 	onOpenPdfPreview,
 	onOpenExecBrief,
 }: AuditShareBarProps) {
@@ -262,7 +266,7 @@ function AuditShareBarInner({
 				) : null}
 			</aside>
 
-			<GeoAeoWorkGuideModal open={geoGuideOpen} onClose={closeGeoGuide} />
+			<GeoAeoWorkGuideModal open={geoGuideOpen} onClose={closeGeoGuide} report={report} />
 			<AuthModal open={authModalOpen} onClose={closeAuthModal} message={authModalMessage} />
 		</>
 	);

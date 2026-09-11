@@ -1,4 +1,5 @@
 import { emptyAiEngineDiagnoses, emptyChannelBriefing } from '@/lib/analysis/evaluateAiBottlenecks';
+import { buildNapMatrix } from '@/lib/audit/nap-matrix';
 import { distributeSubScoresFromTrust } from '@/lib/guide/scores';
 import type { AiEngineDiagnosis, ChannelStatusBriefing, GuideData, SubScores } from '@/lib/guide/types';
 import {
@@ -158,6 +159,32 @@ export const NINEONE_GUIDE_SAMPLE: GuideData = {
 			'대구 동구 신천동(대구 메리어트호텔 2층)에 위치한 나인원의원에서 울트라클리어 및 덴서티를 활용한 복합 흉터 복원 및 피부 탄력 리프팅 치료를 시행하고 있습니다.',
 	},
 	aiEngineDiagnoses: NINEONE_AI_DIAGNOSES,
+	napMatrix: buildNapMatrix({
+		brandName: '나인원의원',
+		brandNameEng: 'Nine One Clinic',
+		address: '대구광역시 동구 동부로 26길 6 대구 메리어트호텔 2층',
+		telephone: '053-123-4567',
+		socialLinks: { website: 'https://nineoneclinic.com' },
+		naverPlaceLinked: true,
+		googleMapsLinked: true,
+		collectedByChannel: {
+			naver_place: {
+				name: '나인원 의원',
+				address: '대구광역시 동구 동부로26길 6 메리어트호텔 2층',
+				phone: '053-123-4567',
+			},
+			google_business: {
+				name: '나인원의원 (Nine One Clinic)',
+				address: '대구광역시 동구 동부로 26길 6 대구 메리어트호텔 2층',
+				phone: '0531234567',
+			},
+			kakao_tmap: {
+				name: '나인원의원',
+				address: '대구 동구 신천동 100-1',
+				phone: '053-123-4567',
+			},
+		},
+	}),
 	createdAt: '2026-03-01T00:00:00.000Z',
 };
 

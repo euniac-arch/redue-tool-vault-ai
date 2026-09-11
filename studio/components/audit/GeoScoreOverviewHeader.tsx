@@ -119,10 +119,10 @@ export function GeoScoreOverviewHeader({
 	return (
 		<div
 			id="geo-score-summary"
-			className={`pdf-page-item audit-report-section scroll-mt-24 relative w-full max-w-full box-border overflow-visible flex flex-col gap-5 rounded-2xl border border-indigo-200 dark:border-indigo-400/20 bg-gradient-to-br from-indigo-50 via-violet-50 to-white dark:from-[#0E1140] dark:via-[#1B1150] dark:to-[#0A0C2E] p-6 ring-1 ${styles.ring}`}
+			className={`pdf-page-item audit-report-section scroll-mt-24 relative w-full max-w-full box-border overflow-visible flex flex-col gap-5 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-indigo-400/20 dark:bg-gradient-to-br dark:from-[#0E1140] dark:via-[#1B1150] dark:to-[#0A0C2E] dark:shadow-none p-6 ring-1 ${styles.ring}`}
 		>
 			<div
-				className="pointer-events-none absolute inset-0 opacity-40 print:hidden"
+				className="pointer-events-none absolute inset-0 hidden opacity-40 print:hidden dark:block"
 				style={{
 					background:
 						'radial-gradient(circle at 15% 20%, rgba(56,189,248,0.25), transparent 45%), radial-gradient(circle at 85% 15%, rgba(168,85,247,0.25), transparent 45%)',

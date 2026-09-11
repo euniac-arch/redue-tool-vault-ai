@@ -238,6 +238,8 @@ export async function executeLiveUrlDiagnostic(
 		ogTitle: parsedMeta.ogTitle || '',
 		ogImage: parsedMeta.ogImage || '',
 		canonical: parsedMeta.canonical || '',
+		canonicalHrefs: parsedMeta.canonicalHrefs,
+		ogUrl: parsedMeta.ogUrl || undefined,
 	};
 
 	const scored = scoreLiveDiagnosticPage({
@@ -246,6 +248,7 @@ export async function executeLiveUrlDiagnostic(
 		detected,
 		nodes,
 		html,
+		requestUrl: finalUrl,
 	});
 
 	if (!https) {

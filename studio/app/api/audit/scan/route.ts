@@ -32,6 +32,7 @@ import {
 } from '@/lib/audit/pagespeed-fetch';
 import type { PageSpeedSnapshot } from '@/lib/audit/pagespeed';
 import { coerceHttpUrl } from '@/lib/audit/normalize-url';
+import { enrichReportNapMatrix } from '@/lib/audit/collect-channel-nap';
 import { auditSite, buildDegradedAuditReport, type AuditLang, type AuditReport } from '@/lib/site-auditor';
 import { UnsafeAuditUrlError } from '@/lib/ssrf-guard';
 
@@ -681,6 +682,7 @@ export async function POST(request: Request) {
 			// return whatever on-page signals we can still score.
 			report = buildDegradedAuditReport(psiTargetUrl || rawUrl, lang, err);
 		}
+		report = (await enrichReportNapMatrix(report)) || report;
 		completedReport = report;
 		const quotaIncPromise = incrementAuditUsage(quota).catch((err) => {
 			console.error('[audit/scan] incrementAuditUsage failed — using prior quota snapshot:', errorMessage(err));

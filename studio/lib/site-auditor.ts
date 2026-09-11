@@ -53,7 +53,7 @@ import {
 	fallbackSiteMetadata,
 	type SiteMetadata,
 } from '@/lib/audit/site-metadata';
-import { canonicalMatches, evaluateCanonicalAccuracy } from '@/lib/audit/canonical-url';
+import { diagnoseCanonicalUrl } from '@/lib/audit/canonical-url';
 import { checklistWeightForEngineId } from '@/lib/audit/checklistDefinitions';
 import {
 	HTTPS_CHECK_ID,
@@ -370,6 +370,8 @@ export interface AuditReport {
 	geoCitationScore?: number;
 	/** Brand / category / location signals for dynamic GEO simulators. */
 	siteMeta?: SiteMetadata;
+	/** Channel NAP matrix synthesized from crawl + optional LLM channel rows. */
+	napMatrix?: import('@/types/guide').NapMatrix;
 	/** High-res brand logo extracted from schema / header / icons / og:image. */
 	logoUrl?: string;
 	/** As-Is keywords crawled from meta / HTML / schema (alias of siteMeta.detectedKeywords). */
@@ -1034,10 +1036,16 @@ function buildSeoChecks(
 	const descOk = meta.metaDescriptionLength >= 70 && meta.metaDescriptionLength <= 160;
 	const descWarn = meta.metaDescriptionLength > 0 && !descOk;
 	const ogOk = Boolean(meta.ogTitle && meta.ogDescription && meta.ogImage);
-	const canOk = Boolean(meta.canonical) && canonicalMatches(pageUrl, meta.canonical);
+	const canonicalDiagnosis = diagnoseCanonicalUrl({
+		requestUrl: pageUrl,
+		canonicalHrefs: meta.canonicalHrefs,
+		ogUrl: meta.ogUrl,
+	});
 	const crawlBlocked = crawl?.robotsBlocksAll === true;
 	const discoveryGap = crawl?.sitemapOk === false && crawl?.robotsOk === false;
-	const canWarn = (Boolean(meta.canonical) && !canOk) || (canOk && (crawlBlocked || discoveryGap));
+	const canOk = canonicalDiagnosis.status === 'PASS' && !crawlBlocked && !discoveryGap;
+	const canWarn =
+		canonicalDiagnosis.status === 'WARN' || (canonicalDiagnosis.status === 'PASS' && (crawlBlocked || discoveryGap));
 
 	return [
 		check(
@@ -1080,15 +1088,14 @@ function buildSeoChecks(
 			evidence: (() => {
 				const sitemapBit = crawl?.sitemapOk ? 'sitemap ✓' : 'sitemap ✗';
 				const robotsBit = crawl?.robotsOk ? 'robots.txt ✓' : 'robots.txt ✗';
-				if (!meta.canonical) return `— canonical link missing · ${sitemapBit} · ${robotsBit}`;
-				const result = evaluateCanonicalAccuracy(meta.canonical, pageUrl);
-				if (result.status === 'PASS') {
-					return `rel=canonical href="${truncate(result.canonical, 80)}" · ${sitemapBit} · ${robotsBit}`;
+				const codeBit = canonicalDiagnosis.code !== 'CANONICAL_OK' ? ` [${canonicalDiagnosis.code}]` : '';
+				if (canonicalDiagnosis.code === 'MISSING_CANONICAL' || canonicalDiagnosis.code === 'DUPLICATE_CANONICAL') {
+					return `— ${canonicalDiagnosis.message}${codeBit} · ${sitemapBit} · ${robotsBit}`;
 				}
-				if ('extracted' in result) {
-					return `rel=canonical href="${truncate(result.extracted, 60)}" (expected ${truncate(result.expected, 40)}) · ${sitemapBit}`;
+				if (canonicalDiagnosis.status === 'PASS') {
+					return `rel=canonical href="${truncate(canonicalDiagnosis.details.canonicalUrl, 80)}" · ${sitemapBit} · ${robotsBit}`;
 				}
-				return `rel=canonical href="${truncate(meta.canonical, 80)}" · ${sitemapBit}`;
+				return `rel=canonical href="${truncate(canonicalDiagnosis.details.canonicalUrl, 60)}"${codeBit} — ${truncate(canonicalDiagnosis.message, 90)} · ${sitemapBit}`;
 			})(),
 			why: S.why.canonical,
 			passWhy: S.passWhy.canonical,

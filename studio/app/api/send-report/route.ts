@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 		try {
 			return new URL(reportUrl).origin;
 		} catch {
-			return process.env.NEXTAUTH_URL || 'https://redue-tool-vault-ai.vercel.app';
+			return process.env.NEXTAUTH_URL || 'https://reduegeo.com';
 		}
 	})();
 

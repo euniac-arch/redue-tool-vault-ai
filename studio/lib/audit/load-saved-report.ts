@@ -1,6 +1,7 @@
 import { getAuditProjectById } from '@/lib/firebase/audit-projects';
 import { prisma } from '@/lib/prisma';
 import { ensureExecutiveSummary } from '@/lib/audit/executive-summary';
+import { hydrateReportNapMatrix } from '@/lib/audit/nap-matrix';
 import type { AuditReport } from '@/lib/site-auditor';
 
 export type SavedAuditReport = {
@@ -20,7 +21,7 @@ function fromJson(id: string, reportJson: string, createdAt: Date, score?: numbe
 			id,
 			createdAt: createdAt.toISOString(),
 			score,
-			report: ensureExecutiveSummary(report),
+			report: hydrateReportNapMatrix(ensureExecutiveSummary(report)) || ensureExecutiveSummary(report),
 			source: 'prisma',
 		};
 	} catch {
@@ -44,7 +45,9 @@ export async function loadSavedAuditReport(id: string): Promise<SavedAuditReport
 			createdAt: firestoreDoc.createdAt,
 			score: firestoreDoc.score,
 			issueCount: firestoreDoc.issueCount,
-			report: ensureExecutiveSummary(firestoreDoc.auditPayload.report),
+			report:
+				hydrateReportNapMatrix(ensureExecutiveSummary(firestoreDoc.auditPayload.report)) ||
+				ensureExecutiveSummary(firestoreDoc.auditPayload.report),
 			source: 'firestore',
 		};
 	}

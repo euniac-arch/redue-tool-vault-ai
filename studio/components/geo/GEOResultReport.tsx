@@ -74,7 +74,7 @@ export function GEOResultReport({
 					headingId="geo-prescription-report-heading"
 				/>
 			) : (
-				<div className="rounded-2xl border border-emerald-200 dark:border-emerald-400/25 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 dark:from-emerald-500/[0.12] dark:via-[#0B1028] dark:to-cyan-500/[0.08] p-5 sm:p-6">
+				<div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-emerald-400/25 dark:bg-gradient-to-br dark:from-emerald-500/[0.12] dark:via-[#0B1028] dark:to-cyan-500/[0.08] dark:shadow-none p-5 sm:p-6">
 					<div className="flex items-start gap-3">
 						<span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
 							<Sparkles className="h-5 w-5" aria-hidden />
@@ -102,7 +102,7 @@ export function GEOResultReport({
 				</div>
 			) : null}
 
-			<div className="mt-4 rounded-2xl border border-emerald-200 dark:border-emerald-400/25 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 dark:from-emerald-500/[0.12] dark:via-[#0B1028] dark:to-cyan-500/[0.08] p-5 sm:p-6">
+			<div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-emerald-400/25 dark:bg-gradient-to-br dark:from-emerald-500/[0.12] dark:via-[#0B1028] dark:to-cyan-500/[0.08] dark:shadow-none p-5 sm:p-6">
 				<div>
 					<p className="text-[11px] font-extrabold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
 						{t('patchesTitle')}

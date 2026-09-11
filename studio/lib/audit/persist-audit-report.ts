@@ -5,6 +5,7 @@ import { buildDiagnosisScoreSnapshot } from '@/lib/audit/diagnosis-scores';
 import { resolveReportTrack3Score } from '@/lib/audit/pagespeed';
 import { gradeForScore } from '@/lib/audit/score-grade';
 import { formatTargetCategory, resolveTargetBrandName } from '@/lib/audit/target-entity';
+import { hydrateReportNapMatrix } from '@/lib/audit/nap-matrix';
 import type { AuditReport as SiteAuditReport } from '@/lib/site-auditor';
 
 function errorMessage(err: unknown): string {
@@ -23,11 +24,12 @@ export function auditDomainFromReport(report: SiteAuditReport): string {
 }
 
 function persistFields(report: SiteAuditReport) {
-	const domain = auditDomainFromReport(report);
-	const brandName = resolveTargetBrandName(report) || domain;
-	const category = formatTargetCategory(report.siteMeta, report.lang === 'en' ? 'en' : 'ko');
-	const snapshot = buildDiagnosisScoreSnapshot(report, null, report.lang === 'en' ? 'en' : 'ko', {
-		coreWebVitalsScore100: resolveReportTrack3Score(report),
+	const hydrated = hydrateReportNapMatrix(report) || report;
+	const domain = auditDomainFromReport(hydrated);
+	const brandName = resolveTargetBrandName(hydrated) || domain;
+	const category = formatTargetCategory(hydrated.siteMeta, hydrated.lang === 'en' ? 'en' : 'ko');
+	const snapshot = buildDiagnosisScoreSnapshot(hydrated, null, hydrated.lang === 'en' ? 'en' : 'ko', {
+		coreWebVitalsScore100: resolveReportTrack3Score(hydrated),
 	});
 	const score = snapshot.measuredScore;
 	const grade = String(snapshot.grade || gradeForScore(score));
@@ -37,8 +39,8 @@ function persistFields(report: SiteAuditReport) {
 		category,
 		score,
 		grade,
-		statusLabel: report.statusLabel,
-		reportJson: JSON.stringify(report),
+		statusLabel: hydrated.statusLabel,
+		reportJson: JSON.stringify(hydrated),
 	};
 }
 

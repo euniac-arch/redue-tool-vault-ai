@@ -4,6 +4,7 @@ import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { DiagnosisScoreSnapshot } from '@/lib/audit/diagnosis-scores';
 import type { GeoNarrativeReport } from '@/lib/audit/geo-narrative';
 import { resolveExternalReputation, type GeoExternalReputationReport } from '@/lib/audit/geo-score';
+import type { NapMatrix } from '@/lib/audit/nap-matrix';
 import type { AuditScores } from '@/lib/audit/scoreCalculator';
 import type { AuditReport } from '@/lib/site-auditor';
 
@@ -14,6 +15,8 @@ import type { AuditReport } from '@/lib/site-auditor';
 export interface AuditData {
 	scores: AuditScores;
 	snapshot: DiagnosisScoreSnapshot;
+	/** Channel NAP consistency matrix — absent on legacy diagnosis packets. */
+	napMatrix?: NapMatrix;
 }
 
 const AuditDataContext = createContext<AuditData | null>(null);

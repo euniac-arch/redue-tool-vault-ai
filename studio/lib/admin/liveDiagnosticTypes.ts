@@ -51,6 +51,10 @@ export type LiveMetaSnapshot = {
 	ogTitle: string;
 	ogImage: string;
 	canonical: string;
+	/** Every `<link rel="canonical">` href found — enables strict duplicate/mismatch detection. */
+	canonicalHrefs?: string[];
+	/** `<meta property="og:url">` content, for canonical cross-checking. */
+	ogUrl?: string;
 };
 
 export type LiveCrawlSnapshot = {

@@ -53,7 +53,7 @@ html.dark .df-summary-box {
 
 	html:not(.dark) {
 		color-scheme: light;
-		background: #f8fafc;
+		background: #ffffff;
 	}
 
 	html.dark {
@@ -68,7 +68,7 @@ html.dark .df-summary-box {
 	}
 
 	html:not(.dark) body {
-		background: #f8fafc;
+		background: #ffffff;
 		color: #0f172a;
 	}
 
@@ -79,7 +79,7 @@ html.dark .df-summary-box {
 
 	/* Semantic tokens mapped to the public-site palette (body / landing-card / cyan brand). */
 	:root {
-		--background: 210 40% 98%; /* #f8fafc */
+		--background: 0 0% 100%; /* #ffffff */
 		--foreground: 222 47% 11%; /* #0f172a */
 		--card: 0 0% 100%;
 		--card-foreground: 222 47% 11%;
@@ -196,7 +196,7 @@ html:has(.admin-wrapper) body {
 
 .admin-wrapper {
 	color-scheme: light;
-	background: #f8fafc;
+	background: #ffffff;
 	color: #0f172a;
 	--admin-surface: #ffffff;
 	--admin-border: #e2e8f0;
@@ -2186,7 +2186,15 @@ html.pdf-printing .pdf-page-node-inner {
 		min-height: 100% !important;
 	}
 
-	body:has(.report-preview-modal) {
+	/*
+	 * While the preview is minimized (floating capsule only, see
+	 * `.pdf-preview-minimized` in `PDFPreviewModal.tsx`) none of the
+	 * full-screen restore rules below may apply — otherwise they fight the
+	 * component's own `bottom-6 right-6` capsule layout and permanently
+	 * relock body scroll / repaint a full-viewport backdrop over the real
+	 * audit result page underneath.
+	 */
+	body:has(.report-preview-modal):not(:has(.pdf-preview-minimized)) {
 		position: static !important;
 		width: auto !important;
 		max-width: none !important;
@@ -2195,7 +2203,7 @@ html.pdf-printing .pdf-page-node-inner {
 		overflow: hidden !important;
 	}
 
-	.report-preview-modal {
+	.report-preview-modal:not(.pdf-preview-minimized) {
 		position: fixed !important;
 		inset: 0 !important;
 		left: 0 !important;
@@ -2213,6 +2221,10 @@ html.pdf-printing .pdf-page-node-inner {
 		overflow: auto !important;
 		z-index: 9999 !important;
 		box-shadow: none !important;
+	}
+
+	.report-preview-modal.pdf-preview-minimized {
+		background: transparent !important;
 	}
 
 	.report-preview-modal,
@@ -2829,8 +2841,8 @@ html.dark .subpage-shell .app-site-header {
 }
 
 html:not(.dark) .page-horizon {
-	opacity: 0.08;
-	filter: brightness(2.2) saturate(0.4);
+	/* Light mode: fully hide the ambient beam glow — dark-mode-only decoration. */
+	opacity: 0;
 }
 
 html.dark .page-horizon {

@@ -20,6 +20,7 @@ import {
 import { EXPANDED_TRIGGER_QUERY_RULES, formatColloquialLocation } from '@/lib/geo/query-location';
 import { getJosa } from '@/lib/korean-josa';
 import type { AuditCheckItem, AuditReport } from '@/lib/site-auditor';
+import { resolveNapMatrix, type NapMatrix } from '@/lib/audit/nap-matrix';
 
 export { buildCoreTechnicalFailsFromReport };
 
@@ -55,6 +56,8 @@ export interface GeoNarrativeReport {
 	technicalFails?: string[];
 	/** AI external-reputation & GEO score panel — always populated (LLM-enriched or heuristic fallback). */
 	externalReputation?: GeoExternalReputationReport;
+	/** Channel NAP consistency — required on new diagnoses, synthesized for legacy. */
+	napMatrix?: NapMatrix;
 }
 
 export interface GeoNarrativeRequest {
@@ -74,6 +77,10 @@ export interface GeoNarrativeRequest {
 	industryType?: string;
 	schemaTypes?: string[];
 	lang?: 'ko' | 'en';
+	address?: string;
+	telephone?: string;
+	sameAs?: string[];
+	collectedUrls?: string[];
 }
 
 export { extractOfficialBrandName } from '@/lib/audit/brand-name';
@@ -225,8 +232,15 @@ Your task is to analyze the client's actual technical fail evidence and generate
      * improvedState = concrete upside AFTER the fix, with top-visibility signals.
    - channelTitle must name the affected surface (e.g. "구글 검색 / Canonical", "AI 검색 · FAQPage", "온페이지 / Heading", "페이지 속도 / Defer", "이미지 / Alt").
 5. NO DUPLICATE SENTENCES: Every section must contain distinct, unique, and professional prose. Avoid generic repetitive phrases.
-6. OUTPUT: Return ONLY valid JSON. No markdown fences.
-7. LOCATION & expanded_trigger_query LANGUAGE:
+6. OUTPUT: Return ONLY valid JSON. No markdown fences. The JSON MUST include a napMatrix object.
+7. NAP MATRIX (required):
+   - "standard" MUST copy the crawled official name / road-address / phone from the user prompt. Never invent a different official NAP.
+   - "channels" MUST include at least: 공식 홈페이지, 네이버 플레이스 / 지도, 카카오맵 / 카카오 채널, 구글 비즈니스 프로필 (GBP), 인스타그램 (SNS), 유튜브 (YouTube).
+   - status is one of MATCH | WARNING | MISMATCH | NOT_FOUND.
+   - Do NOT copy the official address onto every channel as if they all matched. If a channel listing was not observed, leave target fields empty and use NOT_FOUND (or WARNING + "NAP 원문 미수집" when a sameAs/profile URL exists).
+   - WARNING = spacing / unit-number / tilde / landmark-only difference. MISMATCH = a different fact. NOT_FOUND = channel not identified.
+   - consistencyScore is 0–100 (MATCH=100, WARNING=70, MISMATCH=30, NOT_FOUND=0, average of non-homepage channels).
+8. LOCATION & expanded_trigger_query LANGUAGE:
 ${EXPANDED_TRIGGER_QUERY_RULES}
 - searchQuery must use spoken location forms only (서울, 부산, 대구 — never 서울특별시/부산광역시). Prefer “서울 서초구 암치료 클리닉” over “서초구 서울특별시 암치료 클리닉”.
 
@@ -257,6 +271,11 @@ Website context (from live crawl — treat as ground truth):
 - preComputedBrandName (USE THIS as brandName unless clearly wrong): ${preBrand}
 - category/service hint: ${input.category || '(unknown)'}
 - location hint: ${formatColloquialLocation(input.broadLocation || input.location || '') || '(unknown)'}
+- official NAP name (use as napMatrix.standard.name): ${preBrand}
+- official NAP address (use as napMatrix.standard.address): ${input.address || '(not crawled)'}
+- official NAP phone (use as napMatrix.standard.phone): ${input.telephone || '(not crawled)'}
+- sameAs / official channel URLs: ${(input.sameAs || []).join(', ') || '(none)'}
+- extra harvested URLs: ${(input.collectedUrls || []).slice(0, 12).join(', ') || '(none)'}
 
 technicalFails = 🔴 items ONLY from the live 6-core checklist (Canonical / Heading / Script Defer / AboutPage·MedicalWebPage or NewsArticle-if-press / FAQPage / Image Alt).
 Cite ONLY these in beforeImpact, beforeAnswer, and impactItems.currentIssue. Never invent unlisted fails (especially do not invent NewsArticle missing on a clinic or ordinary business):
@@ -293,6 +312,64 @@ Required JSON shape:
 				: 'AI answer BEFORE GEO — must explain non-citation using specific listed technicalFails; do NOT present the brand as a source'
 		}",
     "afterAnswer": "AI answer AFTER GEO — cite brandName (${preBrand}) as the top answer card using the recommendedSchemas"
+  },
+  "napMatrix": {
+    "standard": {
+      "name": "${preBrand}",
+      "address": "${(input.address || '').replace(/"/g, '') || 'crawled official road address'}",
+      "phone": "${(input.telephone || '').replace(/"/g, '') || 'crawled official phone'}"
+    },
+    "channels": [
+      {
+        "channelName": "공식 홈페이지",
+        "targetName": "crawled name",
+        "targetAddress": "crawled address including unit",
+        "targetPhone": "crawled phone",
+        "status": "MATCH",
+        "discrepancyNote": ""
+      },
+      {
+        "channelName": "네이버 플레이스 / 지도",
+        "targetName": "observed listing name or empty",
+        "targetAddress": "observed place address or empty",
+        "targetPhone": "observed phone or empty",
+        "status": "WARNING",
+        "discrepancyNote": "호수 구분 표기 차이"
+      },
+      {
+        "channelName": "카카오맵 / 카카오 채널",
+        "targetName": "observed name or empty",
+        "targetAddress": "observed address or empty",
+        "targetPhone": "observed phone or empty",
+        "status": "NOT_FOUND",
+        "discrepancyNote": ""
+      },
+      {
+        "channelName": "구글 비즈니스 프로필 (GBP)",
+        "targetName": "observed GBP name or empty",
+        "targetAddress": "observed GBP address or empty",
+        "targetPhone": "observed phone or empty",
+        "status": "MATCH",
+        "discrepancyNote": ""
+      },
+      {
+        "channelName": "인스타그램 (SNS)",
+        "targetName": "profile name or empty",
+        "targetAddress": "profile address or empty",
+        "targetPhone": "profile contact or empty",
+        "status": "WARNING",
+        "discrepancyNote": "정규 도로명 주소 누락"
+      },
+      {
+        "channelName": "유튜브 (YouTube)",
+        "targetName": "channel name or empty",
+        "targetAddress": "about address or empty",
+        "targetPhone": "business contact or empty",
+        "status": "WARNING",
+        "discrepancyNote": "도로명 주소 누락"
+      }
+    ],
+    "consistencyScore": 75
   }
 }
 
@@ -304,7 +381,8 @@ Hard constraints:
 - impactItems MUST contain 2–5 objects ONLY for channels with real defects in technicalFails (or maintenance upsides if empty). Never invent defects not supported by evidence.
 - Each impactItems entry: currentIssue = cause/harm; improvedState = matching post-fix benefit with ranking/citation signal. ids must be unique kebab-case.
 - afterBenefits titles must all be different.
-- Do not wrap JSON in markdown.`;
+- Do not wrap JSON in markdown.
+- napMatrix is REQUIRED. standard MUST equal the crawled official NAP above. Do not invent a different official address/phone. Empty channel target fields + NOT_FOUND when the listing was not observed.`;
 }
 
 function asBenefit(value: unknown, index: number): GeoNarrativeBenefit {
@@ -820,6 +898,13 @@ export function normalizeGeoNarrative(raw: unknown, input: GeoNarrativeRequest):
 		},
 		technicalFails: fails,
 		externalReputation,
+		napMatrix: resolveNapMatrix(obj.napMatrix, {
+			brandName,
+			address: input.address,
+			telephone: input.telephone,
+			sameAs: input.sameAs,
+			collectedUrls: input.collectedUrls,
+		}),
 	};
 }
 

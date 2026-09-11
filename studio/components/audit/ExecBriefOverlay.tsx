@@ -28,6 +28,17 @@ const RING_R = 44;
 const RING_C = 2 * Math.PI * RING_R;
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+const SECTION_KICKER =
+	'text-[11px] font-extrabold uppercase tracking-[0.16em] text-blue-700 dark:text-[#D4AF37]';
+const POINT_BADGE =
+	'inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-extrabold text-blue-700 dark:border-transparent dark:bg-[#D4AF37]/15 dark:text-[#C9A227]';
+const SECONDARY_ACTION =
+	'inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10 dark:hover:text-white';
+const PDF_ACTION =
+	'inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-bold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 disabled:opacity-60 dark:border-[#D4AF37]/40 dark:bg-[#D4AF37]/10 dark:text-[#C9A227] dark:hover:bg-[#D4AF37]/20';
+const CLOSE_BUTTON =
+	'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white';
+
 const LEVEL_CHIP: Record<'1' | '2' | '3' | 'none', string> = {
 	'3': 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-400/40 dark:bg-emerald-500/15 dark:text-emerald-300',
 	'2': 'bg-amber-50 text-amber-800 ring-1 ring-amber-400/40 dark:bg-amber-500/15 dark:text-amber-300',
@@ -69,7 +80,14 @@ function IndexRing({ score }: { score: number }) {
 						<stop offset="100%" stopColor={tone.stroke} />
 					</linearGradient>
 				</defs>
-				<circle cx="60" cy="60" r={RING_R} fill="none" className="stroke-slate-200 dark:stroke-white/10" strokeWidth="12" />
+				<circle
+					cx="60"
+					cy="60"
+					r={RING_R}
+					fill="none"
+					className="stroke-slate-200 dark:stroke-white/10"
+					strokeWidth="12"
+				/>
 				<circle
 					cx="60"
 					cy="60"
@@ -91,7 +109,7 @@ const EXEC_BRIEF_BG_LIGHT = '#ffffff';
 const ROI_EFFECTS_BG_DARK = '#0f172a';
 const ROI_EFFECTS_BG_LIGHT = '#f8fafc';
 const PERFECT_GUIDE_BG_DARK = '#0f172a';
-const PERFECT_GUIDE_BG_LIGHT = '#f8fafc';
+const PERFECT_GUIDE_BG_LIGHT = '#ffffff';
 
 function flattenCloneBackground(node: HTMLElement, color: string) {
 	node.style.backgroundImage = 'none';
@@ -371,7 +389,7 @@ export function ExecBriefModal({
 			{open ? (
 				<motion.div
 					key="exec-brief-overlay"
-					className="print:hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+					className="print:hidden fixed inset-0 z-[70] flex items-end justify-center bg-black/20 p-0 backdrop-blur-sm dark:bg-black/70 sm:items-center sm:p-4"
 					role="dialog"
 					aria-modal="true"
 					aria-labelledby="exec-brief-title"
@@ -393,7 +411,7 @@ export function ExecBriefModal({
 							ref={cardRef}
 							id="exec-brief-card"
 							data-capture-target="true"
-							className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white shadow-2xl dark:border-white/10 dark:bg-[#0B1028] sm:rounded-2xl"
+							className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-t-2xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-white/10 dark:bg-[#0B1028] dark:text-slate-100 sm:rounded-2xl"
 						>
 							<ExecBriefCard
 								brief={brief}
@@ -437,10 +455,10 @@ function ExecBriefCard({
 
 	return (
 		<>
-			<header className="h-auto shrink-0 overflow-visible border-b border-slate-200 px-4 py-4 dark:border-white/10 sm:px-6">
+			<header className="h-auto shrink-0 overflow-visible border-b border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-transparent sm:px-6">
 				<div className="flex items-start justify-between gap-3">
 					<div className="flex h-auto min-w-0 flex-col overflow-visible">
-						<span className="break-words text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
+						<span className="break-words text-xs font-bold uppercase tracking-wider text-blue-700 dark:text-amber-400">
 							{t('kicker')}
 						</span>
 						<h2
@@ -457,7 +475,7 @@ function ExecBriefCard({
 						type="button"
 						data-exec-brief-chrome
 						onClick={onClose}
-						className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-slate-800 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+						className={CLOSE_BUTTON}
 						aria-label={t('closeAria')}
 					>
 						<X className="h-4 w-4" aria-hidden />
@@ -465,19 +483,20 @@ function ExecBriefCard({
 				</div>
 			</header>
 
-			<div data-exec-brief-scroll className="min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-6">
+			<div
+				data-exec-brief-scroll
+				className="min-h-0 flex-1 overflow-y-auto bg-white px-4 py-5 dark:bg-transparent sm:px-6"
+			>
 				<section>
-					<p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#D4AF37]">
-						{t('statusKicker')}
-					</p>
+					<p className={SECTION_KICKER}>{t('statusKicker')}</p>
 					<div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-[auto_1fr]">
-						<div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-black/25">
+						<div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-white/10 dark:bg-black/25">
 							<IndexRing score={brief.aiIndex} />
 							<div className="min-w-0">
-								<p className="break-keep text-[11px] font-extrabold leading-snug text-slate-800 dark:text-slate-100">
+								<p className="break-keep text-[11px] font-extrabold leading-snug text-slate-900 dark:text-slate-100">
 									{t('aiIndexLabel')}
 								</p>
-								<p className="mt-1.5 inline-flex rounded-full bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold leading-snug text-indigo-700 dark:text-indigo-300">
+								<p className="mt-1.5 inline-flex rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[10px] font-bold leading-snug text-blue-700 dark:border-indigo-400/20 dark:bg-indigo-500/10 dark:text-indigo-300">
 									{t('aiIndexFormula')}
 								</p>
 								<p className={`mt-1.5 text-sm font-extrabold ${tone.text}`}>
@@ -486,18 +505,18 @@ function ExecBriefCard({
 										total: brief.totalEngines,
 									})}
 								</p>
-								<span className="mt-1.5 inline-flex rounded-full bg-[#D4AF37]/15 px-2 py-0.5 text-[10px] font-extrabold text-[#C9A227]">
+								<span className={`mt-1.5 ${POINT_BADGE}`}>
 									{brief.statusTone === 'brandOnly' && brief.urgencyLevel === 'urgent'
 										? t('unbrandedUrgent')
 										: tUrgency(brief.urgencyLevel)}
 								</span>
 							</div>
 						</div>
-						<div className="rounded-2xl border border-indigo-200/80 bg-indigo-50/70 px-4 py-3.5 dark:border-indigo-400/20 dark:bg-indigo-500/10">
-							<p className="text-[10px] font-bold uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+						<div className="rounded-2xl border border-blue-200 bg-blue-50/80 px-4 py-3.5 dark:border-indigo-400/20 dark:bg-indigo-500/10">
+							<p className="text-[10px] font-bold uppercase tracking-wide text-blue-700 dark:text-indigo-300">
 								{t('statusLineLabel')}
 							</p>
-							<p className="mt-1.5 break-keep text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+							<p className="mt-1.5 break-keep text-sm font-semibold leading-relaxed text-slate-700 dark:text-slate-100">
 								“{brief.statusHeadline}”
 							</p>
 							{brief.judgmentText ? (
@@ -561,17 +580,15 @@ function ExecBriefCard({
 				</section>
 
 				<section className="mt-7">
-					<p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#D4AF37]">
-						{t('improveKicker')}
-					</p>
+					<p className={SECTION_KICKER}>{t('improveKicker')}</p>
 					<ol className="mt-3 flex flex-col gap-2.5">
 						{brief.improvements.length > 0 ? (
 							brief.improvements.slice(0, 3).map((item, index) => (
 								<li
 									key={`${item.id}-${index}`}
-									className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 dark:border-white/10 dark:bg-black/25"
+									className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3.5 py-3 dark:border-white/10 dark:bg-black/25"
 								>
-									<span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0B1C2C] text-[11px] font-extrabold text-[#D4AF37] dark:bg-[#D4AF37] dark:text-[#0B1C2C]">
+									<span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-blue-200 bg-blue-50 text-[11px] font-extrabold text-blue-700 dark:border-transparent dark:bg-[#D4AF37] dark:text-[#0B1C2C]">
 										{String(index + 1).padStart(2, '0')}
 									</span>
 									<div className="min-w-0">
@@ -620,11 +637,9 @@ function ExecBriefCard({
 				</section>
 
 				<section className="mt-7">
-					<p className="text-[11px] font-extrabold uppercase tracking-[0.16em] text-[#D4AF37]">
-						{t('roiKicker')}
-					</p>
+					<p className={SECTION_KICKER}>{t('roiKicker')}</p>
 					<div className="mt-3 grid grid-cols-1 items-stretch gap-3 sm:grid-cols-[1fr_auto_1fr]">
-						<div className="rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-black/25">
+						<div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-black/25">
 							<p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">{t('roiCurrent')}</p>
 							<div className="mt-1 flex items-baseline gap-1.5">
 								<span className="text-3xl font-extrabold tabular-nums text-slate-900 dark:text-white">
@@ -637,8 +652,8 @@ function ExecBriefCard({
 							</p>
 						</div>
 						<div className="flex items-center justify-center">
-							<div className="rounded-xl border border-[#D4AF37]/30 bg-[#D4AF37]/10 px-4 py-2.5 text-center">
-								<p className="text-sm font-extrabold text-[#D4AF37]">
+							<div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-center dark:border-[#D4AF37]/30 dark:bg-[#D4AF37]/10">
+								<p className="text-sm font-extrabold text-blue-700 dark:text-[#D4AF37]">
 									{brief.gain > 0 ? t('roiGain', { gain: brief.gain }) : t('roiGainNone')}
 								</p>
 							</div>
@@ -675,7 +690,7 @@ function ExecBriefCard({
 
 					<div
 						data-exec-brief-roi-effects
-						className="relative mt-4 overflow-hidden rounded-xl border border-slate-200 bg-[#f8fafc] p-5 shadow-inner dark:border-slate-700 dark:bg-[#0f172a]"
+						className="relative mt-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 p-5 shadow-inner dark:border-slate-700 dark:bg-[#0f172a]"
 					>
 						<div
 							className="pointer-events-none absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-emerald-400 to-cyan-500"
@@ -683,7 +698,7 @@ function ExecBriefCard({
 						/>
 						<div className="flex items-start gap-3.5 pl-2">
 							<div
-								className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-[#ecfdf5] text-lg text-emerald-600 dark:border-[#34d399]/30 dark:bg-[#064e3b] dark:text-emerald-400"
+								className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-lg text-emerald-600 dark:border-emerald-400/30 dark:bg-emerald-900 dark:text-emerald-400"
 								aria-hidden
 							>
 								{brief.roiEffects.length > 0 ? '📈' : '🎯'}
@@ -724,7 +739,7 @@ function ExecBriefCard({
 					{brief.perfectGuide ? (
 						<div
 							data-exec-brief-perfect-guide
-							className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/60"
+							className="mt-4 rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900/60"
 						>
 							<h4 className="font-bold text-slate-900 dark:text-white">
 								{t('perfectGuideTitle')}
@@ -758,7 +773,7 @@ function ExecBriefCard({
 				</section>
 			</div>
 
-			<footer className="shrink-0 border-t border-slate-200 px-4 py-4 dark:border-white/10 sm:px-6">
+			<footer className="shrink-0 border-t border-slate-200 bg-white px-4 py-4 dark:border-white/10 dark:bg-transparent sm:px-6">
 				<div className="mb-4 border-t border-slate-200 pt-3 text-[10.5px] leading-relaxed text-slate-500 dark:border-slate-800">
 					{t('disclaimer')}
 				</div>
@@ -776,7 +791,7 @@ function ExecBriefCard({
 							type="button"
 							onClick={() => onSave('png')}
 							disabled={Boolean(saving)}
-							className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm font-bold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:hover:bg-white/10"
+							className={SECONDARY_ACTION}
 						>
 							{saving === 'png' ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImageDown className="h-4 w-4" />}
 							{t('saveImage')}
@@ -785,7 +800,7 @@ function ExecBriefCard({
 							type="button"
 							onClick={() => onSave('pdf')}
 							disabled={Boolean(saving)}
-							className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#D4AF37]/40 bg-[#D4AF37]/10 px-3.5 py-3 text-sm font-bold text-[#C9A227] transition hover:bg-[#D4AF37]/20 disabled:opacity-60"
+							className={PDF_ACTION}
 						>
 							{saving === 'pdf' ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
 							{t('savePdf')}

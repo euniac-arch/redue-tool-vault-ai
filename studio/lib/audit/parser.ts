@@ -40,9 +40,13 @@ export interface ParsedMeta {
 	metaDescription: string;
 	metaDescriptionLength: number;
 	canonical: string | null;
+	/** Every `<link rel="canonical">` href found (raw, unresolved) — length > 1 means duplicate declarations. */
+	canonicalHrefs: string[];
 	ogTitle: string | null;
 	ogDescription: string | null;
 	ogImage: string | null;
+	/** `<meta property="og:url">` content, for canonical cross-checking. */
+	ogUrl: string | null;
 	htmlLang: string | null;
 }
 
@@ -717,15 +721,19 @@ function firstMetaContent($: CheerioAPI, attr: 'name' | 'property', keys: readon
 }
 
 function firstCanonicalHref($: CheerioAPI): string | null {
-	let href: string | null = null;
+	return allCanonicalHrefs($)[0] || null;
+}
+
+/** Every `<link rel="canonical">` href in document order — duplicates included, never deduped. */
+function allCanonicalHrefs($: CheerioAPI): string[] {
+	const hrefs: string[] = [];
 	$('link[rel]').each((_, el) => {
-		if (href) return;
 		const rel = ($(el).attr('rel') || '').toLowerCase();
 		if (!/\bcanonical\b/.test(rel)) return;
 		const raw = ($(el).attr('href') || '').trim();
-		if (raw) href = extractPureUrl(raw) || raw;
+		if (raw) hrefs.push(extractPureUrl(raw) || raw);
 	});
-	return href;
+	return hrefs;
 }
 
 export function parseMeta($: CheerioAPI, siteName?: string, hydration?: HydrationSignals): ParsedMeta {
@@ -753,6 +761,7 @@ export function parseMeta($: CheerioAPI, siteName?: string, hydration?: Hydratio
 		metaDescription,
 		metaDescriptionLength: metaDescription.length,
 		canonical: firstCanonicalHref($) || hydration?.canonical || null,
+		canonicalHrefs: allCanonicalHrefs($),
 		ogTitle,
 		ogDescription:
 			firstMetaContent($, 'property', ['og:description']) ||
@@ -764,6 +773,7 @@ export function parseMeta($: CheerioAPI, siteName?: string, hydration?: Hydratio
 			firstMetaContent($, 'name', ['og:image', 'twitter:image']) ||
 			hydration?.ogImage ||
 			null,
+		ogUrl: firstMetaContent($, 'property', ['og:url']) || null,
 		htmlLang: $('html').attr('lang')?.trim() || $('html').attr('xml:lang')?.trim() || null,
 	};
 }
@@ -1087,9 +1097,11 @@ export function emptyPageParseResult(): PageParseResult {
 			metaDescription: '',
 			metaDescriptionLength: 0,
 			canonical: null,
+			canonicalHrefs: [],
 			ogTitle: null,
 			ogDescription: null,
 			ogImage: null,
+			ogUrl: null,
 			htmlLang: null,
 		},
 		headings: {

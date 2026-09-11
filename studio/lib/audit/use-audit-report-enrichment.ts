@@ -106,6 +106,10 @@ export function useAuditReportEnrichment(report: AuditReport | null) {
 							industryType: report.siteMeta?.industryType,
 							schemaTypes: report.metrics?.schemaTypes,
 							lang: locale === 'en' ? 'en' : 'ko',
+							address: report.siteMeta?.address,
+							telephone: report.siteMeta?.telephone,
+							sameAs: report.siteMeta?.sameAs,
+							collectedUrls: report.collectedUrls,
 						}),
 					});
 					const data = await res.json();

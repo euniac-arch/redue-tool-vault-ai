@@ -35,27 +35,27 @@ export function FreeAuditHero({
 	return (
 		<section
 			id={AUDIT_HERO_ID}
-			className="relative isolate flex min-h-[640px] w-full scroll-mt-24 items-center justify-center overflow-hidden bg-slate-100 py-16 font-['Pretendard',sans-serif] tracking-tight dark:bg-[#050714] sm:py-24"
+			className="relative isolate flex min-h-[640px] w-full scroll-mt-24 items-center justify-center overflow-hidden bg-white py-16 font-['Pretendard',sans-serif] tracking-tight dark:bg-[#050714] sm:py-24"
 		>
 			<div className="pointer-events-none absolute inset-0 select-none overflow-hidden" aria-hidden>
 				<img
 					src="/images/hero-bg.png"
 					alt=""
-					className="absolute inset-0 h-full w-full object-cover object-center opacity-25 dark:opacity-85"
+					className="hidden dark:block absolute inset-0 h-full w-full object-cover object-center opacity-85"
 				/>
-				<div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-slate-100 via-slate-100/40 to-transparent dark:from-[#050714] dark:via-[#050714]/40" />
-				<div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-slate-100 via-slate-100/40 to-transparent dark:from-[#050714] dark:via-[#050714]/40" />
-				<div className="absolute inset-0 bg-white/55 dark:bg-[#050714]/30" />
+				<div className="absolute inset-x-0 top-0 hidden h-28 bg-gradient-to-b from-[#050714] via-[#050714]/40 to-transparent dark:block" />
+				<div className="absolute inset-x-0 bottom-0 hidden h-28 bg-gradient-to-t from-[#050714] via-[#050714]/40 to-transparent dark:block" />
+				<div className="absolute inset-0 bg-white dark:bg-[#050714]/30" />
 			</div>
 
 			<div className="relative z-10 mx-auto w-full max-w-5xl px-6">
-				<div className="relative w-full overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-b from-white via-white/90 to-slate-50 p-6 text-center shadow-[0_0_60px_rgba(6,182,212,0.08)] backdrop-blur-xl dark:border-cyan-500/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-[#0B1120]/95 dark:shadow-[0_0_60px_rgba(6,182,212,0.12)] sm:p-12">
+				<div className="relative w-full overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-b from-white via-white/90 to-slate-50 p-6 text-center shadow-sm backdrop-blur-xl dark:border-cyan-500/30 dark:from-slate-900/90 dark:via-slate-900/60 dark:to-[#0B1120]/95 dark:shadow-[0_0_60px_rgba(6,182,212,0.12)] sm:p-12">
 					<div
-						className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-500/10 via-transparent to-transparent dark:from-cyan-500/15"
+						className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-500/15 via-transparent to-transparent dark:block"
 						aria-hidden
 					/>
 					<div
-						className="pointer-events-none absolute -top-24 left-1/2 h-48 w-96 -translate-x-1/2 rounded-full bg-cyan-400/15 blur-[80px] dark:bg-cyan-500/20"
+						className="pointer-events-none absolute -top-24 left-1/2 hidden h-48 w-96 -translate-x-1/2 rounded-full bg-cyan-500/20 blur-[80px] dark:block"
 						aria-hidden
 					/>
 

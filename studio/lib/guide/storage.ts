@@ -33,6 +33,7 @@ function normalizeGuideData(row: GuideData): GuideData {
 			Array.isArray(row.aiEngineDiagnoses) && row.aiEngineDiagnoses.length
 				? row.aiEngineDiagnoses
 				: emptyAiEngineDiagnoses(),
+		napMatrix: row.napMatrix,
 	};
 }
 

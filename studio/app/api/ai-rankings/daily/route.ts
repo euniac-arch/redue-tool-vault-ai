@@ -19,7 +19,17 @@ import { getDailyAiRankingsPayload } from '@/lib/ai-hub/daily-ai-rankings-servic
 import { getKstDateKey, msUntilNextKstMidnight, parseDateKey } from '@/lib/ai-hub/live-ai-rankings';
 
 export const runtime = 'nodejs';
-export const revalidate = 86400;
+// This handler is invoked with a `date`/`refresh` query string, but Next.js
+// can still statically optimize (and therefore Vercel-cache) a GET Route
+// Handler when it only sees `export const revalidate` without an explicit
+// `dynamic` opt-out — on Vercel that froze every visitor onto whichever
+// KST-day payload happened to be computed at build/first-hit time, so the
+// "오늘자 순위 분석 보기" button kept reopening the same stale ranking no
+// matter when it was clicked. Force real per-request execution here; the
+// `Cache-Control` headers returned below already handle CDN-level caching
+// until the next KST midnight, so no `revalidate` export is needed.
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 export const maxDuration = 60;
 
 function wantsRefresh(searchParams: URLSearchParams): boolean {

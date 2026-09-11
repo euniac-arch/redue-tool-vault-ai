@@ -176,12 +176,12 @@ function IdentityColumn({
 								event.stopPropagation();
 								onViewResult?.();
 							}}
-							className="group/btn inline-flex items-center gap-2 rounded-xl border border-slate-700/70 bg-slate-900/90 px-4 py-2 text-xs font-bold tracking-wide text-slate-300 opacity-100 shadow-md backdrop-blur-md transition-all duration-300 ease-out hover:border-cyan-400/60 hover:bg-cyan-950/50 hover:text-cyan-200 hover:shadow-[0_0_18px_rgba(6,182,212,0.2)] md:text-sm md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100"
+							className="group/btn inline-flex items-center gap-2 rounded-xl border border-blue-600 bg-blue-600 px-4 py-2 text-xs font-bold tracking-wide text-white opacity-100 shadow-md transition-all duration-200 ease-out hover:bg-blue-700 hover:shadow-md dark:border-slate-700/70 dark:bg-slate-900/90 dark:text-slate-300 dark:shadow-md dark:backdrop-blur-md dark:hover:border-cyan-400/60 dark:hover:bg-cyan-950/50 dark:hover:text-cyan-200 dark:hover:shadow-[0_0_18px_rgba(6,182,212,0.2)] md:text-sm md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100"
 						>
-							<span className="h-1.5 w-1.5 rounded-full bg-cyan-400 shadow-[0_0_6px_#22d3ee]" aria-hidden />
+							<span className="h-1.5 w-1.5 rounded-full bg-white shadow-none dark:bg-cyan-400 dark:shadow-[0_0_6px_#22d3ee]" aria-hidden />
 							<span>진단 결과보기</span>
 							<ArrowRight
-								className="h-3.5 w-3.5 text-cyan-400 transition-transform duration-200 group-hover/btn:translate-x-1"
+								className="h-3.5 w-3.5 text-white transition-transform duration-200 group-hover/btn:translate-x-1 dark:text-cyan-400"
 								strokeWidth={2.25}
 								aria-hidden
 							/>

@@ -1,3 +1,4 @@
+import { NapConsistencyMatrix } from '@/components/guide/NapConsistencyMatrix';
 import { generateSmartHashtags, normalizeHashtagList } from '@/lib/analysis/generateSmartHashtags';
 import { ensureGuideData } from '@/lib/guide/ensure-guide-data';
 import { GUIDE_SEO_MAX_DEFAULT, type AiEngineDiagnosis, type ChannelStatusItem, type GuideData, type GuideFaq, type GuideSocialLinks, type SubScores } from '@/lib/guide/types';
@@ -740,42 +741,22 @@ export function GuideReportTemplate({ data: incoming }: GuideReportTemplateProps
 						모든 검색 엔진, AI 모델, SNS 플랫폼이 {withJosa(brand, '을/를')} <strong>독립된 하나의 개체</strong>로 식별할 수 있도록
 						채널 간 정보를 100% 일치시켜야 합니다.
 					</p>
-					<div className="guide-report__table-wrap">
-						<table>
-							<thead>
-								<tr>
-									<th>채널 구분</th>
-									<th>상호명 표기</th>
-									<th>주소 표기 (100% 동일 유지)</th>
-									<th>대표 전화</th>
-								</tr>
-							</thead>
-							<tbody>
-								{[
-									['공식 홈페이지', brand],
-									['네이버 플레이스', brand],
-									['구글 비즈니스 프로필', brandEng ? `${brand} (${brandEng})` : brand],
-									['유튜브 공식 채널', data.socialLinks.youtube ? `${brand} (${brandEng || '공식'})` : `${brand} · ${emptyLabel('유튜브')}`],
-									['인스타그램 / 페이스북', handle ? `${brand} (${handle})` : `${brand} · ${emptyLabel('SNS')}`],
-									['Bing Places', brand],
-									['카카오맵 / T맵', brand],
-								].map(([channel, name]) => (
-									<tr key={channel}>
-										<td>
-											<span className="guide-report__channel">{channel}</span>
-										</td>
-										<td>{name}</td>
-										<td>
-											<span className={address ? 'guide-report__exact' : 'guide-report__empty'}>{addressDisplay}</span>
-										</td>
-										<td>
-											<span className={telephone ? 'guide-report__exact' : 'guide-report__empty'}>{phoneDisplay}</span>
-										</td>
-									</tr>
-								))}
-							</tbody>
-						</table>
-					</div>
+					<NapConsistencyMatrix
+						matrix={data.napMatrix}
+						addressDisplay={addressDisplay}
+						phoneDisplay={phoneDisplay}
+						hasAddress={Boolean(address)}
+						hasPhone={Boolean(telephone)}
+						fallbackRows={[
+							['공식 홈페이지', brand],
+							['네이버 플레이스 / 지도', brand],
+							['카카오맵 / 카카오 채널', brand],
+							['구글 비즈니스 프로필 (GBP)', brandEng ? `${brand} (${brandEng})` : brand],
+							['인스타그램 (SNS)', handle ? `${brand} (${handle})` : `${brand} · ${emptyLabel('SNS')}`],
+							['유튜브 (YouTube)', data.socialLinks.youtube ? `${brand} (${brandEng || '공식'})` : `${brand} · ${emptyLabel('유튜브')}`],
+							['Bing Places', brand],
+						]}
+					/>
 				</section>
 
 				<footer className="guide-report__footer">
@@ -972,6 +953,10 @@ const GUIDE_REPORT_CSS = `
   font-size: 0.85rem; font-weight: 600; border: 1px solid #bae6fd;
 }
 .guide-report__table-wrap { overflow-x: auto; margin-top: 16px; border-radius: 8px; border: 1px solid var(--guide-slate-200); }
+.guide-report .guide-nap-matrix table { width: 100%; border-collapse: collapse; text-align: left; }
+.guide-report .guide-nap-matrix thead th { background: transparent; border-bottom: 0; }
+.guide-report .guide-nap-matrix tbody td { border-bottom: 0; }
+.guide-report .guide-nap-matrix tbody tr:nth-child(even) { background: transparent; }
 .guide-report table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.92rem; }
 .guide-report thead th {
   background: var(--guide-slate-100); color: var(--guide-slate-900); font-weight: 700;
@@ -1078,7 +1063,8 @@ const GUIDE_REPORT_CSS = `
   .guide-report__section, .guide-report__card, .guide-report__chip,
   .guide-report__highlight, .guide-report__ai-alert, .guide-report__exact, .guide-report thead th,
   .guide-report__engine-card, .guide-report__status, .guide-report__kpi, .guide-report__sub-strip,
-  .guide-report__channel-card, .guide-report__channel-badge, .guide-report__signal, .guide-report__badge {
+  .guide-report__channel-card, .guide-report__channel-badge, .guide-report__signal, .guide-report__badge,
+  .guide-nap-matrix table, .guide-nap-matrix th, .guide-nap-matrix td, .guide-nap-matrix aside {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }

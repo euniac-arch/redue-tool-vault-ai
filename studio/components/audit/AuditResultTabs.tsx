@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslations } from 'next-intl';
+import { useTheme } from '@/components/theme/ThemeProvider';
 import {
 	MOUNT_AUDIT_RESULT_TABS_EVENT,
 	SWITCH_AUDIT_RESULT_TAB_EVENT,
@@ -64,31 +65,36 @@ const TRACK_ACTIVE_SUBTITLE: Record<1 | 2 | 3, string> = {
 
 const TRACK_ACTIVE_THEME: Record<
 	1 | 2 | 3,
-	{ border: string; glow: string; bg: string; badge: string }
+	{ border: string; glow: string; bgLight: string; bgDark: string; badge: string }
 > = {
 	1: {
 		border: 'border-cyan-300 dark:border-cyan-400',
 		glow: 'shadow-sm shadow-cyan-200/60 dark:shadow-[0_0_30px_rgba(6,182,212,0.4),inset_0_0_15px_rgba(6,182,212,0.15)]',
-		bg: 'bg-gradient-to-b from-cyan-50 to-white dark:from-cyan-950/40 dark:via-slate-900/90 dark:to-slate-950',
+		bgLight: 'bg-white',
+		bgDark: 'bg-gradient-to-b from-cyan-950/40 via-slate-900/90 to-slate-950',
 		badge: 'bg-cyan-500 text-white font-bold shadow-sm shadow-cyan-200/70 dark:bg-cyan-400 dark:text-slate-950 dark:shadow-[0_0_10px_rgba(6,182,212,0.5)]',
 	},
 	2: {
 		border: 'border-purple-300 dark:border-purple-400',
 		glow: 'shadow-sm shadow-purple-200/60 dark:shadow-[0_0_30px_rgba(168,85,247,0.4),inset_0_0_15px_rgba(168,85,247,0.15)]',
-		bg: 'bg-gradient-to-b from-purple-50 to-white dark:from-purple-950/40 dark:via-slate-900/90 dark:to-slate-950',
+		bgLight: 'bg-white',
+		bgDark: 'bg-gradient-to-b from-purple-950/40 via-slate-900/90 to-slate-950',
 		badge: 'bg-purple-500 text-white font-bold shadow-sm shadow-purple-200/70 dark:bg-purple-400 dark:text-slate-950 dark:shadow-[0_0_10px_rgba(168,85,247,0.5)]',
 	},
 	3: {
 		border: 'border-emerald-300 dark:border-emerald-400',
 		glow: 'shadow-sm shadow-emerald-200/60 dark:shadow-[0_0_30px_rgba(16,185,129,0.4),inset_0_0_15px_rgba(16,185,129,0.15)]',
-		bg: 'bg-gradient-to-b from-emerald-50 to-white dark:from-emerald-950/40 dark:via-slate-900/90 dark:to-slate-950',
+		bgLight: 'bg-white',
+		bgDark: 'bg-gradient-to-b from-emerald-950/40 via-slate-900/90 to-slate-950',
 		badge: 'bg-emerald-500 text-white font-bold shadow-sm shadow-emerald-200/70 dark:bg-emerald-400 dark:text-slate-950 dark:shadow-[0_0_10px_rgba(16,185,129,0.5)]',
 	},
 };
 
-/** Common inactive-tab style shared by all three tracks. */
-const INACTIVE_TAB_CLASS =
-	'border-slate-200 bg-white text-slate-500 shadow-none hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700 dark:border-slate-800/80 dark:bg-slate-900/40 dark:text-slate-400 dark:hover:border-slate-700 dark:hover:bg-slate-900/70 dark:hover:text-slate-200';
+/** Common inactive-tab style shared by all three tracks. `bg-white` is light-only. */
+const INACTIVE_TAB_CLASS_LIGHT =
+	'border-slate-200 bg-white text-slate-500 shadow-none hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700';
+const INACTIVE_TAB_CLASS_DARK =
+	'border-slate-800/80 bg-slate-900/40 text-slate-400 shadow-none hover:border-slate-700 hover:bg-slate-900/70 hover:text-slate-200';
 
 /** Tab navigation header — floating widget scrolls here on tab switch. */
 export const AUDIT_TAB_ANCHOR_ID = 'audit-tab-anchor';
@@ -168,6 +174,8 @@ export function AuditResultTabs({
 	forceStack = false,
 }: AuditResultTabsProps) {
 	const t = useTranslations('audit.tabs');
+	const { theme } = useTheme();
+	const isLight = theme === 'light';
 	const [internalTab, setInternalTab] = useState<AuditResultTabId>(DEFAULT_AUDIT_RESULT_TAB);
 	const [printExpand, setPrintExpand] = useState(() => forceStack || isPdfPrintingRoot());
 	const [mountedTabs, setMountedTabs] = useState<Record<AuditResultTabId, boolean>>({
@@ -274,7 +282,7 @@ export function AuditResultTabs({
 			>
 				{navItems.map((item) => {
 					const isActive = tab === item.id;
-					const theme = TRACK_ACTIVE_THEME[item.track];
+					const trackTheme = TRACK_ACTIVE_THEME[item.track];
 					return (
 						<button
 							key={item.id}
@@ -282,13 +290,17 @@ export function AuditResultTabs({
 							onClick={() => setTab(item.id)}
 							aria-pressed={isActive}
 							className={`group flex w-full flex-col items-center justify-center gap-1 rounded-xl border-2 px-4 py-2.5 text-center transition-all duration-300 ease-out ${
-								isActive ? `${theme.border} ${theme.bg} ${theme.glow}` : INACTIVE_TAB_CLASS
+								isActive
+									? `${trackTheme.border} ${isLight ? trackTheme.bgLight : trackTheme.bgDark} ${trackTheme.glow}`
+									: isLight
+										? INACTIVE_TAB_CLASS_LIGHT
+										: INACTIVE_TAB_CLASS_DARK
 							}`}
 						>
 							<span className="flex items-center justify-center gap-1.5">
 								<span
 									className={`flex h-6 shrink-0 items-center justify-center rounded-full px-2 text-[10px] tracking-wide ${
-										isActive ? theme.badge : 'font-extrabold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400'
+										isActive ? trackTheme.badge : 'font-extrabold bg-slate-100 dark:bg-white/10 text-slate-600 dark:text-slate-400'
 									}`}
 								>
 									{t('trackBadge', { n: item.track })}

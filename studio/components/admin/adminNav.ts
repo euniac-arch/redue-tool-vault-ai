@@ -19,7 +19,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 		id: 'dashboard',
 		label: '대시보드',
 		icon: '📌',
-		items: [{ href: '/admin', label: '통합 현황 대시보드', icon: '📊', exact: true }],
+		items: [
+			{ href: '/admin', label: '통합 현황 대시보드', icon: '📊', exact: true },
+			{ href: '/admin/analytics', label: '웹 분석', icon: '📈' },
+		],
 	},
 	{
 		id: 'diagnosis',

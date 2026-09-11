@@ -18,6 +18,7 @@ import { createGuideId, suggestGuideSlug } from '@/lib/guide/slug';
 import type { GuideHistoryRow } from '@/lib/guide/history-picker';
 import type { AuditReport } from '@/lib/site-auditor';
 import { GUIDE_SEO_MAX_DEFAULT, type GuideData, type GuideFaq, type GuideSocialLinks, type SubScores } from '@/lib/guide/types';
+import { buildNapMatrixFromReport, resolveNapMatrix } from '@/lib/audit/nap-matrix';
 import { withJosa } from '@/lib/utils/korean';
 
 function uniqueStrings(values: Array<string | undefined | null>, limit = 8): string[] {
@@ -161,6 +162,7 @@ function fallbackGuideFromHistoryRow(row: GuideHistoryRow): GuideData {
 		address,
 		coreFeatures,
 	}).map(stripHashtagPrefix);
+	const fallbackWebsite = row?.url || report?.url || '';
 	return ensureGuideData({
 		brandName,
 		brandNameEng: '',
@@ -173,7 +175,15 @@ function fallbackGuideFromHistoryRow(row: GuideHistoryRow): GuideData {
 		observedSeoScore: row?.seoScore,
 		seoMaxScore: row?.seoMaxScore,
 		aiTrustScore: row?.aiTrustScore,
-		socialLinks: { website: row?.url || report?.url || '' },
+		socialLinks: { website: fallbackWebsite },
+		napMatrix: report
+			? buildNapMatrixFromReport(report)
+			: resolveNapMatrix(undefined, {
+					brandName,
+					address,
+					telephone: (meta?.telephone || '').trim(),
+					socialLinks: { website: fallbackWebsite },
+				}),
 		createdAt: row?.timestamp || new Date().toISOString(),
 	});
 }
@@ -269,6 +279,17 @@ export function guideDataFromReport(report: AuditReport | null | undefined): Gui
 		socialLinks,
 		faq,
 		aiEngineDiagnoses: analysis.aiEngineDiagnoses,
+		napMatrix:
+			buildNapMatrixFromReport(report) ||
+			resolveNapMatrix((report as AuditReport & { napMatrix?: unknown }).napMatrix, {
+				brandName,
+				brandNameEng,
+				address,
+				telephone,
+				socialLinks,
+				sameAs: meta?.sameAs,
+				collectedUrls: report.collectedUrls,
+			}),
 		createdAt: new Date().toISOString(),
 	});
 	} catch (error) {

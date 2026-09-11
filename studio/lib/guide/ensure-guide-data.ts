@@ -1,4 +1,5 @@
 import { emptyAiEngineDiagnoses, emptyChannelBriefing } from '@/lib/analysis/evaluateAiBottlenecks';
+import { resolveNapMatrix } from '@/lib/audit/nap-matrix';
 import { sanitizeGuideScores } from '@/lib/guide/scores';
 import { emptyGuideData } from '@/lib/guide/sample';
 import { createGuideId, suggestGuideSlug } from '@/lib/guide/slug';
@@ -99,5 +100,13 @@ export function ensureGuideData(input?: Partial<GuideData> | null): GuideData {
 			naverPlace: { ...briefing.naverPlace, ...raw.channelBriefing?.naverPlace },
 		},
 		aiEngineDiagnoses: asDiagnoses(raw.aiEngineDiagnoses),
+		napMatrix: resolveNapMatrix(raw.napMatrix, {
+			brandName: asText(raw.brandName),
+			brandNameEng: asText(raw.brandNameEng),
+			address: asText(raw.address),
+			telephone: asText(raw.telephone),
+			socialLinks: asSocialLinks(raw.socialLinks),
+			existing: raw.napMatrix,
+		}),
 	};
 }

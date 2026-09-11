@@ -46,6 +46,14 @@ function parseBody(raw: unknown): GeoNarrativeRequest | null {
 			? body.schemaTypes.map((item) => String(item).trim()).filter(Boolean)
 			: undefined,
 		lang: String(body.lang ?? 'ko') === 'en' ? 'en' : 'ko',
+		address: String(body.address ?? '').trim() || undefined,
+		telephone: String(body.telephone ?? body.phone ?? '').trim() || undefined,
+		sameAs: Array.isArray(body.sameAs)
+			? body.sameAs.map((item) => String(item).trim()).filter(Boolean)
+			: undefined,
+		collectedUrls: Array.isArray(body.collectedUrls)
+			? body.collectedUrls.map((item) => String(item).trim()).filter(Boolean)
+			: undefined,
 	};
 }
 
@@ -132,6 +140,44 @@ async function generateWithAnthropic(input: GeoNarrativeRequest): Promise<GeoNar
 	return normalizeGeoNarrative(extractJsonObject(text), input);
 }
 
+function geminiGenerateUrl(model: string): string {
+	return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+}
+
+async function generateWithGemini(input: GeoNarrativeRequest): Promise<GeoNarrativeReport> {
+	const apiKey = (
+		process.env.GEMINI_API_KEY ||
+		process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+		process.env.GOOGLE_API_KEY ||
+		process.env.GOOGLE_AI_API_KEY ||
+		''
+	).trim();
+	if (!apiKey) throw new Error('GEMINI_API_KEY missing');
+	const model = process.env.GEO_GEMINI_MODEL?.trim() || process.env.GEMINI_MODEL?.trim() || 'gemini-2.5-flash';
+
+	const res = await fetch(`${geminiGenerateUrl(model)}?key=${encodeURIComponent(apiKey)}`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({
+			contents: [{ role: 'user', parts: [{ text: `${SYSTEM_PROMPT}\n\n${buildUserPrompt(input)}` }] }],
+			generationConfig: {
+				temperature: 0.25,
+				maxOutputTokens: 4096,
+				responseMimeType: 'application/json',
+			},
+		}),
+	});
+
+	const data = (await res.json()) as {
+		error?: { message?: string };
+		candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+	};
+	if (!res.ok) throw new Error(data.error?.message || `Gemini HTTP ${res.status}`);
+	const text = data.candidates?.[0]?.content?.parts?.map((part) => part.text || '').join('') || '';
+	if (!text) throw new Error('Empty Gemini response');
+	return normalizeGeoNarrative(extractJsonObject(text), input);
+}
+
 /**
  * POST /api/generate-geo-report
  * Body: { domain, siteTitle, metaDescription, technicalFails, ...hints }
@@ -151,15 +197,25 @@ export async function POST(request: Request) {
 	}
 
 	const hasOpenAI = Boolean(process.env.OPENAI_API_KEY?.trim());
+	const hasGemini = Boolean(
+		(process.env.GEMINI_API_KEY ||
+			process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+			process.env.GOOGLE_API_KEY ||
+			process.env.GOOGLE_AI_API_KEY ||
+			'').trim(),
+	);
 	const hasAnthropic = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 
 	try {
 		let report: GeoNarrativeReport;
-		let provider: 'openai' | 'anthropic' | 'heuristic' = 'heuristic';
+		let provider: 'openai' | 'gemini' | 'anthropic' | 'heuristic' = 'heuristic';
 
 		if (hasOpenAI) {
 			report = await generateWithOpenAI(input);
 			provider = 'openai';
+		} else if (hasGemini) {
+			report = await generateWithGemini(input);
+			provider = 'gemini';
 		} else if (hasAnthropic) {
 			report = await generateWithAnthropic(input);
 			provider = 'anthropic';
