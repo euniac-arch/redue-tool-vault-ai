@@ -24,8 +24,9 @@ export const THIRD_PARTY_SHARE = 52;
 export const SOV_LEADER_RESIDUAL_RATIO = 0.62;
 /** #2 takes the remainder (~38%) so integer percents always sum with brand + 3rd-party to 100. */
 export const SOV_RUNNER_RESIDUAL_RATIO = 0.38;
-/** [Real-Time SoV] external search API budget — bounded per requirement (#4). */
-export const REAL_COMPETITOR_FETCH_TIMEOUT_MS = 4_000;
+/** [Real-Time SoV] external search API budget — strict AbortController ceiling so a
+ *  slow Naver/Google search never stacks extra latency onto the diagnosis pipeline. */
+export const REAL_COMPETITOR_FETCH_TIMEOUT_MS = 2_500;
 /** Fetch extra local listings so industry filtering can still fill a top-5. */
 const SOV_SEARCH_DISPLAY = 15;
 

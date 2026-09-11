@@ -19,6 +19,7 @@ import {
 	scanSiteOnce,
 	upsertGuestAuditOnRescan,
 	type AuditHistoryEntry,
+	type AuditScanProgressPayload,
 } from '@/lib/audit-history-storage';
 import { archiveLocalProjectFromAudit } from '@/lib/projects-local';
 import {
@@ -120,6 +121,10 @@ function AuditResultContent() {
 	const [isFetching, setIsFetching] = useState(true);
 	const [isAnalyzing, setIsAnalyzing] = useState(isLiveAnalysis);
 	const [isDataReady, setIsDataReady] = useState(false);
+	/** Live per-phase/per-page status from the `/api/audit/scan` NDJSON stream — lets
+	 *  `AuditLoading` show real progress instead of a fixed placeholder once a
+	 *  menu-heavy site's full-audit crawl runs long. `null` until the first event lands. */
+	const [scanProgress, setScanProgress] = useState<AuditScanProgressPayload | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [limitOpen, setLimitOpen] = useState(false);
 	const [deletedOrMissing, setDeletedOrMissing] = useState(false);
@@ -319,9 +324,13 @@ function AuditResultContent() {
 				targetUrl,
 				replaceId: opts?.replaceId || null,
 			});
+			setScanProgress(null);
 			const data = await scanSiteOnce(targetUrl, locale, {
 				forceRefresh: true,
 				replaceId: opts?.replaceId,
+				onProgress: (progress) => {
+					if (!cancelled) setScanProgress(progress);
+				},
 			});
 			console.log('[audit/result] re-audit: response parsed, binding report to state', {
 				targetUrl,
@@ -671,6 +680,7 @@ function AuditResultContent() {
 						isDataReady={isDataReady}
 						forceRefresh={forceRefresh}
 						onComplete={handleLoadingComplete}
+						liveProgress={scanProgress}
 					/>
 				)}
 

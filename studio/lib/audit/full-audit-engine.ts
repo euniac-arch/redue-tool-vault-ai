@@ -59,23 +59,38 @@ import { detectCmsFromHtml, isGnuboardHtml } from '@/lib/crawling/cms-from-html'
 export const FULL_AUDIT_CONCURRENCY = 10;
 export const FULL_AUDIT_FETCH_TIMEOUT_MS = 4_000;
 /**
- * Public lead-magnet scan: homepage + GNB + key CMS/sitemap pages.
- * Not a 500-page census — that ceiling never finished inside the serverless budget.
+ * Public lead-magnet scan ceiling. Sized to cover a typical business site's *entire*
+ * GNB + submenu structure (homepage + nav + CMS/sitemap pages), not just the first N —
+ * a site with more menu/sub-link entries than this would previously have some of its
+ * navigation silently dropped from the diagnosis. Still short of the 500-page admin
+ * census; sites that legitimately need that depth should use `fullAuditDepth: 'deep'`.
+ * Small sites are unaffected either way: the BFS loop below exits as soon as its queue
+ * is drained, regardless of how high this ceiling is — raising it only helps sites that
+ * actually have enough pages/links to need it.
  */
-export const FULL_AUDIT_MAX_PAGES = 40;
+export const FULL_AUDIT_MAX_PAGES = 120;
 /** Admin / deep recrawl ceiling. Still time-boxed; not a guaranteed full-site walk. */
 export const FULL_AUDIT_DEEP_MAX_PAGES = 500;
 export const FULL_AUDIT_MAX_HTML_CHARS = 1_500_000;
-export const FULL_AUDIT_MAX_BFS_ROUNDS = 1;
+/**
+ * BFS hops beyond the seed batch. `1` extra hop is not enough to reach a nested
+ * dropdown (GNB → submenu → sub-submenu) that is only linked from a page discovered in
+ * the first hop — bumped to `2` so those pages are queued instead of silently missed.
+ */
+export const FULL_AUDIT_MAX_BFS_ROUNDS = 2;
 export const FULL_AUDIT_DEEP_MAX_BFS_ROUNDS = 2;
 /**
  * Wall-clock ceiling on the whole BFS crawl below. Each page fetch already has its own
  * `FULL_AUDIT_FETCH_TIMEOUT_MS` cap, but with up to `FULL_AUDIT_MAX_PAGES` pages that per-page
  * cap alone does not bound total runtime. Stop picking up new pages once this budget is
- * exceeded and return whatever is already parsed — sized so Track 1/2 can finish in 5–15s
- * even when a few in-flight fetches overshoot by one timeout.
+ * exceeded and return whatever is already parsed. Sized so a menu-heavy site's full nav
+ * (up to `FULL_AUDIT_MAX_PAGES`) can realistically finish rather than being cut off
+ * partway — this is intentionally longer than a "few seconds" scan; see the NDJSON
+ * progress stream (`/api/audit/scan`) for how the UI stays informative while this runs.
+ * Small/typical sites still finish in a few seconds regardless, since the BFS loop exits
+ * once its queue is drained.
  */
-export const FULL_AUDIT_TIME_BUDGET_MS = 8_000;
+export const FULL_AUDIT_TIME_BUDGET_MS = 28_000;
 /** Deep recrawl budget — matches the pre-quick-scan HEAD census window. */
 export const FULL_AUDIT_DEEP_TIME_BUDGET_MS = 45_000;
 /** Live sitemap index walk is optional; the scan path already fetched a urlset. */

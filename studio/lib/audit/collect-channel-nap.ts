@@ -26,8 +26,14 @@ import {
 import type { AuditReport } from '@/lib/site-auditor';
 import type { NapMatrix } from '@/types/guide';
 
-const FETCH_MS = 3_800;
-const OVERALL_MS = 6_500;
+/** Strict per-request ceiling (AbortController-based, via `AbortSignal.timeout`) — every
+ *  external channel-search call (Naver/Google/Kakao Local, YouTube, SERP fallback) is
+ *  capped here so a single slow/hung API can never stack extra latency onto the diagnosis. */
+const FETCH_MS = 2_500;
+/** Outer safety net for the whole multi-channel harvest. All legs below now run
+ *  concurrently (`Promise.allSettled`), so this only needs a little headroom over
+ *  `FETCH_MS`, not the old sum-of-sequential-legs budget. */
+const OVERALL_MS = 3_200;
 const NAVER_LOCAL_ENDPOINT = 'https://openapi.naver.com/v1/search/local.json';
 const GOOGLE_TEXT_SEARCH_ENDPOINT = 'https://maps.googleapis.com/maps/api/place/textsearch/json';
 const GOOGLE_PLACE_DETAILS_ENDPOINT = 'https://maps.googleapis.com/maps/api/place/details/json';
@@ -277,7 +283,7 @@ async function searchSerpSnippet(query: string, input: NapMatrixBuildInput): Pro
 	}
 }
 
-async function fetchYoutubeTitle(profileUrl: string): Promise<string> {
+async function fetchYoutubeTitleUncapped(profileUrl: string): Promise<string> {
 	const oembed = await fetchJson<{ title?: string; author_name?: string }>(
 		`https://www.youtube.com/oembed?url=${encodeURIComponent(profileUrl)}&format=json`,
 	);
@@ -295,6 +301,16 @@ async function fetchYoutubeTitle(profileUrl: string): Promise<string> {
 	else url.searchParams.set('forHandle', handle || '');
 	const data = await fetchJson<{ items?: Array<{ snippet?: { title?: string } }> }>(url.toString());
 	return compact(data?.items?.[0]?.snippet?.title);
+}
+
+/** oEmbed + Data-API fallback are two sequential hops — cap the combined wall-clock at
+ *  `FETCH_MS` (instead of up to 2×`FETCH_MS`) so this single leg can never blow the
+ *  `Promise.allSettled` batch's overall budget in `collectExternalChannelNap`. */
+async function fetchYoutubeTitle(profileUrl: string): Promise<string> {
+	return Promise.race([
+		fetchYoutubeTitleUncapped(profileUrl).catch(() => ''),
+		new Promise<string>((resolve) => setTimeout(() => resolve(''), FETCH_MS)),
+	]);
 }
 
 function blocked(reason = NAP_COLLECTION_BLOCKED_NOTE): NapChannelCollected {
@@ -328,16 +344,25 @@ export async function collectExternalChannelNap(
 	const urls = classifyUrls(urlPool);
 	const query = searchQuery(input);
 
-	const [naver, google, kakao] = await Promise.all([
+	// [Search API fan-out] — every external lookup (Naver/Google/Kakao Local, the
+	// SERP last-resort fallback, and YouTube) fires in the SAME `Promise.allSettled`
+	// batch instead of two sequential legs (Promise.all(3) → await SERP → await
+	// YouTube). Each call already carries its own `FETCH_MS` AbortController timeout,
+	// so the whole batch is bounded by the single slowest leg (~2.5s) rather than the
+	// sum of up to five sequential external round-trips (previously up to ~12s).
+	const [naverR, googleR, kakaoR, serpR, youtubeR] = await Promise.allSettled([
 		searchNaverLocal(query, input),
 		searchGooglePlaces(query, input),
 		searchKakaoLocal(query, input),
+		searchSerpSnippet(query, input),
+		urls.youtube ? fetchYoutubeTitle(urls.youtube) : Promise.resolve(''),
 	]);
-
-	let serp: Listing | null = null;
-	if (!naver && !google && !kakao) {
-		serp = await searchSerpSnippet(query, input);
-	}
+	const naver = naverR.status === 'fulfilled' ? naverR.value : null;
+	const google = googleR.status === 'fulfilled' ? googleR.value : null;
+	const kakao = kakaoR.status === 'fulfilled' ? kakaoR.value : null;
+	// SERP is a last-resort fallback — only used when every structured API came up empty.
+	const serp = !naver && !google && !kakao && serpR.status === 'fulfilled' ? serpR.value : null;
+	const youtubeTitle = youtubeR.status === 'fulfilled' ? youtubeR.value : '';
 
 	const out: Partial<Record<NapChannelId, NapChannelCollected>> = {};
 
@@ -376,8 +401,7 @@ export async function collectExternalChannelNap(
 	}
 
 	if (urls.youtube) {
-		const title = await fetchYoutubeTitle(urls.youtube);
-		out.youtube = title ? { name: title } : blocked('데이터 수집 불가(YouTube oEmbed/API 차단)');
+		out.youtube = youtubeTitle ? { name: youtubeTitle } : blocked('데이터 수집 불가(YouTube oEmbed/API 차단)');
 	}
 
 	if (urls.sns) {

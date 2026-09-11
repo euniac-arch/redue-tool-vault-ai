@@ -78,6 +78,15 @@ import {
 	snapshotHasRealCompetitors,
 	type RealCompetitorSnapshot,
 } from '@/lib/audit/realCompetitors';
+import { detectEnginePlatformSignals } from '@/lib/audit/engine-analysis';
+import { validateChannelSignals } from '@/lib/audit/extractors/universal-same-as';
+import {
+	buildNapMatrix,
+	type NapChannelCollected,
+	type NapChannelId,
+	type NapMatrixBuildInput,
+} from '@/lib/audit/nap-matrix';
+import { collectExternalChannelNap } from '@/lib/audit/collect-channel-nap';
 import { generateQueryMatrix } from '@/lib/geo/query-matrix';
 import { resolveIndustryConfigFromSite } from '@/lib/registry/universalIndustryRegistry';
 import {
@@ -96,13 +105,24 @@ import { assertPublicHttpUrl } from './ssrf-guard';
 
 /** [CONNECT] main DOM fetch — hard cap so slow/hung hosts (e.g. Cafe24) never stall the pipeline. */
 const FETCH_TIMEOUT_MS = 5_000;
-/** `/robots.txt`, `/llms.txt` and other auxiliary same-origin resources. */
-const AUX_FETCH_TIMEOUT_MS = 3_000;
+/** `/robots.txt`, `/llms.txt` and other auxiliary same-origin resources — strict
+ *  AbortController ceiling (via `AbortSignal.timeout` inside `fetchPageResource`) since
+ *  these are 404-prone/best-effort and must never stack extra latency onto the diagnosis. */
+const AUX_FETCH_TIMEOUT_MS = 2_500;
 /** Isolated sub-analysis (greeting/doctor/location/SoV/logo) — fail open after this. */
 const SUBTASK_TIMEOUT_MS = 5_000;
-/** Whole `auditSite()` wall-clock target (main fetch + parallel crawl + CPU score). */
-const AUDIT_SITE_BUDGET_MS = 12_000;
-/** Full-audit / shallow crawl ceiling, including one in-flight fetch overshoot. */
+/**
+ * Whole `auditSite()` wall-clock target used only to size the *tail* SoV/logo/NAP
+ * batch's remaining budget (`tailMs` below) — not a cap on the page crawl itself (that
+ * has its own `pageMetasTimeoutMs`, sized from `fullAuditLimits.timeBudgetMs`). Sized
+ * generously above the raised full-audit budget so a menu-heavy site's longer crawl
+ * doesn't starve the SoV/logo/NAP tail batch down to an unusable floor.
+ */
+const AUDIT_SITE_BUDGET_MS = 30_000;
+/** Shallow crawl ceiling (used only when `fullAudit` is off / `useFullAudit` shallow
+ *  path). The full-audit path below always sizes its own timeout from
+ *  `fullAuditLimits.timeBudgetMs` instead, so raising `FULL_AUDIT_TIME_BUDGET_MS` is
+ *  never silently clipped by a shorter hardcoded outer wrapper. */
 const PAGE_METAS_TIMEOUT_MS = 10_000;
 
 type FetchedPageResult = Awaited<ReturnType<typeof fetchPageResource>>;
@@ -372,6 +392,11 @@ export interface AuditReport {
 	siteMeta?: SiteMetadata;
 	/** Channel NAP matrix synthesized from crawl + optional LLM channel rows. */
 	napMatrix?: import('@/types/guide').NapMatrix;
+	/** Raw per-channel NAP harvested live from Naver/Google/Kakao/YouTube search APIs
+	 *  (see `collectExternalChannelNap`) — kept alongside `napMatrix` so a later
+	 *  re-hydrate (`buildNapMatrixFromReport`) can re-run the comparison without
+	 *  re-fetching every external channel. */
+	collectedNap?: Partial<Record<import('@/types/guide').NapChannelId, import('@/types/guide').NapChannelCollected>>;
 	/** High-res brand logo extracted from schema / header / icons / og:image. */
 	logoUrl?: string;
 	/** As-Is keywords crawled from meta / HTML / schema (alias of siteMeta.detectedKeywords). */
@@ -984,8 +1009,11 @@ export interface AuditSiteOptions {
 	fullAudit?: boolean;
 	/**
 	 * Crawl depth when `fullAudit` is on.
-	 * `quick` (default) = public 40-page / 8s precision scan.
-	 * `deep` = admin recrawl ceiling (500 / 45s). Does not change checklist score meaning.
+	 * `quick` (default) = public scan, sized to cover a full GNB/submenu structure
+	 * (up to `FULL_AUDIT_MAX_PAGES` pages / `FULL_AUDIT_TIME_BUDGET_MS` — see
+	 * `full-audit-engine.ts`). A small/typical site still finishes in a few seconds;
+	 * the ceiling only matters for menu-heavy sites that actually need more time.
+	 * `deep` = admin recrawl ceiling (500 pages / 45s). Does not change checklist score meaning.
 	 */
 	fullAuditDepth?: FullAuditDepth;
 	/** Reuse unchanged pages via content_hash. Default true. */
@@ -1363,8 +1391,12 @@ export async function auditSite(
 	const forceRefresh = options?.forceRefresh === true;
 	const useFullAudit = options?.fullAudit !== false;
 	const fullAuditLimits = resolveFullAuditLimits(options?.fullAuditDepth === 'deep' ? 'deep' : 'quick');
-	const pageMetasTimeoutMs =
-		options?.fullAuditDepth === 'deep' ? fullAuditLimits.timeBudgetMs + 5_000 : PAGE_METAS_TIMEOUT_MS;
+	// Always derive the outer wrapper from the full-audit engine's OWN budget (+5s
+	// overshoot margin) when the full-audit path is in play — for both `quick` and
+	// `deep` — so raising `FULL_AUDIT_TIME_BUDGET_MS` is never silently re-clipped by a
+	// shorter hardcoded outer timeout here. `PAGE_METAS_TIMEOUT_MS` only applies to the
+	// shallow (`fullAudit: false`) GNB-only path, which has no comparable inner budget.
+	const pageMetasTimeoutMs = useFullAudit ? fullAuditLimits.timeBudgetMs + 5_000 : PAGE_METAS_TIMEOUT_MS;
 	const useDeltaCache = options?.useDeltaCache !== false;
 	const fetchOpts = { forceRefresh };
 	const pipelineStart = Date.now();
@@ -1570,6 +1602,46 @@ export async function auditSite(
 			console.error('[auditSite] live competitor fetch failed:', error);
 			console.log(`[Audit Timer] 3. External SoV Search API (failed): ${Date.now() - sovStart}ms`);
 			return undefined;
+		});
+
+	// [NAP Channel Search] — same "fire early, await late" shape as SoV above: the
+	// Naver/Google/Kakao Local + YouTube channel lookups (`collectExternalChannelNap`)
+	// are fired here, as soon as brand/address/phone are known from the DOM parse, so
+	// their external-API round-trips overlap with SoV/logo/page-metas instead of
+	// running as a second serial pass after `auditSite()` returns.
+	const napPlatformSignals = detectEnginePlatformSignals({
+		schemaTypes: parsed.schema.types,
+		jsonLdCorpus: parsed.schema.fullSnippets.join('\n'),
+		extraCorpus: [...gnbCollectedUrls, footerText, ...(siteMeta.sameAs || [])].join('\n'),
+		sameAs: siteMeta.sameAs,
+	});
+	const napInput: NapMatrixBuildInput = {
+		brandName: siteMeta.brandName || siteMeta.organizationName || '',
+		brandNameEng: [siteMeta.organizationName, siteMeta.ogSiteName].find(
+			(name): name is string => Boolean(name && /[a-z]/i.test(name) && !/[가-힣]/.test(name)),
+		),
+		address:
+			siteMeta.address ||
+			[siteMeta.addressRegion, siteMeta.addressLocality, siteMeta.streetAddress].filter(Boolean).join(' '),
+		telephone: siteMeta.telephone,
+		sameAs: siteMeta.sameAs,
+		collectedUrls: gnbCollectedUrls.length > 0 ? gnbCollectedUrls : parsed.internalLinks,
+		socialLinks: { website: finalUrl.toString() },
+		naverPlaceLinked: napPlatformSignals.naverPlaceLinked,
+		googleMapsLinked: napPlatformSignals.googleMapsLinked,
+		bingPlacesLinked: napPlatformSignals.bingPlacesLinked,
+		kakaoLinked: validateChannelSignals([...(siteMeta.sameAs || []), ...gnbCollectedUrls]).isKakaoLinked,
+	};
+	const napStart = Date.now();
+	const napTask = collectExternalChannelNap(napInput)
+		.then((result) => {
+			console.log(`[Audit Timer] 4. NAP Channel Search API: ${Date.now() - napStart}ms`);
+			return result;
+		})
+		.catch((error) => {
+			console.error('[auditSite] NAP channel search failed:', error);
+			console.log(`[Audit Timer] 4. NAP Channel Search API (failed): ${Date.now() - napStart}ms`);
+			return {} as Partial<Record<NapChannelId, NapChannelCollected>>;
 		});
 	const shallowPageMetas = () =>
 		crawlCollectedPageMetas({
@@ -2142,13 +2214,22 @@ export async function auditSite(
 		.sort((a, b) => (a.severity === b.severity ? 0 : a.severity === 'critical' ? -1 : 1))
 		.slice(0, 8);
 
+	// Floor raised from a token 200ms to `AUX_FETCH_TIMEOUT_MS` — even after a long
+	// menu-heavy crawl eats most of `AUDIT_SITE_BUDGET_MS`, SoV/logo/NAP each still get
+	// one real shot at their own external call instead of being guaranteed to fall back.
 	const tailMs = Math.max(
-		200,
+		AUX_FETCH_TIMEOUT_MS,
 		Math.min(SUBTASK_TIMEOUT_MS, AUDIT_SITE_BUDGET_MS - (Date.now() - pipelineStart)),
 	);
-	const [fetchedCompetitors, resolvedLogo] = await Promise.all([
+	const [fetchedCompetitors, resolvedLogo, harvestedNap] = await Promise.all([
 		withTimeoutFallback(competitorTask, tailMs, 'competitor SoV', undefined),
 		withTimeoutFallback(logoTask, tailMs, 'logo resolve', siteMeta.logoUrl ?? null),
+		withTimeoutFallback(
+			napTask,
+			tailMs,
+			'NAP channel search',
+			{} as Partial<Record<NapChannelId, NapChannelCollected>>,
+		),
 	]);
 	const realCompetitors = snapshotHasRealCompetitors(fetchedCompetitors)
 		? fetchedCompetitors
@@ -2156,6 +2237,9 @@ export async function auditSite(
 	if (resolvedLogo) {
 		siteMeta.logoUrl = resolvedLogo;
 	}
+	// Built from purely local signals (no I/O) + whatever external channel data landed
+	// within `tailMs` above — never blocks longer than the SoV/logo tail budget already does.
+	const napMatrix = buildNapMatrix({ ...napInput, collectedByChannel: harvestedNap });
 
 	console.log(`[Audit Timer] Total Pre-Dashboard Pipeline: ${Date.now() - pipelineStart}ms`);
 
@@ -2177,6 +2261,8 @@ export async function auditSite(
 		schemaCoverage,
 		geoCitationScore,
 		siteMeta,
+		napMatrix,
+		collectedNap: harvestedNap,
 		logoUrl: siteMeta?.logoUrl,
 		detectedKeywords: siteMeta?.detectedKeywords,
 		serverLocation,

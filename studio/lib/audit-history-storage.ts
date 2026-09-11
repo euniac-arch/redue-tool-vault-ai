@@ -16,6 +16,12 @@ import {
 	writeGuestAuditCount,
 	type AuditQuotaSnapshot,
 } from '@/lib/audit/free-audit-quota';
+import {
+	consumeAuditScanResponse,
+	type AuditScanProgressPayload,
+} from '@/lib/audit/scan-stream-client';
+
+export type { AuditScanProgressPayload };
 
 export type { AuditHistoryEntry } from '@/lib/audit/history-entry';
 export { reportToHistoryEntry } from '@/lib/audit/history-entry';
@@ -33,13 +39,17 @@ const DELETED_IDS_MAX = 200;
 const SCAN_SINGLE_FLIGHT_MS = 8_000;
 /**
  * Client-side ceiling on the `/api/audit/scan` request. The server's own `maxDuration=90`
- * (plus its internal Track 1/2 + persistence safety timeouts) bounds how long it can take
- * to respond, but without a matching client-side abort a stalled connection (dead socket,
- * proxy timeout that never surfaces an error, etc.) previously left the result page's
- * loading terminal spinning forever. Set comfortably above the server ceiling so a
- * genuinely slow-but-completing scan is never cut off early.
+ * (plus its internal Track 1/2 + persistence safety timeouts, see `TRACK_1_2_DEADLINE_MS`
+ * in `route.ts`) bounds how long it can take to respond, but without a matching
+ * client-side abort a stalled connection (dead socket, proxy timeout that never surfaces
+ * an error, etc.) would leave the result page's loading terminal spinning forever. Set
+ * comfortably above the server ceiling so a menu-heavy site's genuinely slow-but-completing
+ * full-audit crawl (up to `FULL_AUDIT_TIME_BUDGET_MS`) is never cut off early — the
+ * `/api/audit/scan` response now streams NDJSON progress lines throughout the crawl (see
+ * `consumeAuditScanResponse`), so this ceiling only needs to guard against a truly dead
+ * connection, not a quiet-but-alive one.
  */
-const SCAN_FETCH_TIMEOUT_MS = 30_000;
+const SCAN_FETCH_TIMEOUT_MS = 100_000;
 
 function isBrowser(): boolean {
 	return typeof window !== 'undefined';
@@ -570,6 +580,14 @@ export interface ScanSiteOptions {
 	forceRefresh?: boolean;
 	/** Existing history / Firestore id to overwrite on the server. */
 	replaceId?: string | null;
+	/**
+	 * Fires as each NDJSON progress line arrives from `/api/audit/scan` (crawl
+	 * phase/page-by-page status — see `full-audit-engine.ts`'s `FullAuditProgress`).
+	 * Lets a caller show real status during a menu-heavy site's longer full-audit crawl
+	 * instead of a fixed "still computing" placeholder. Never fires for a cached/legacy
+	 * plain-JSON response (no crawl happened).
+	 */
+	onProgress?: (progress: AuditScanProgressPayload) => void;
 }
 
 /**
@@ -679,11 +697,20 @@ export function scanSiteOnce(
 			unlimited?: boolean;
 			quota?: AuditQuotaSnapshot;
 		};
+		let status: number;
+		let ok: boolean;
 		let data: ScanApiResponse;
 		try {
-			data = (await res.json()) as ScanApiResponse;
+			// Reads either the NDJSON progress stream (typical path — a menu-heavy site's
+			// crawl can take tens of seconds, and `onProgress` fires per phase/page as it
+			// happens) or a legacy/pre-flight plain-JSON error body (400 invalid URL, 402
+			// quota exceeded — those still return synchronously before the scan even starts).
+			const consumed = await consumeAuditScanResponse(res, opts?.onProgress);
+			status = consumed.status;
+			ok = consumed.ok;
+			data = consumed.data as ScanApiResponse;
 		} catch (err) {
-			console.error('[audit/scan][client] response JSON parse failed', {
+			console.error('[audit/scan][client] response stream read failed', {
 				targetUrl,
 				status: res.status,
 				message: err instanceof Error ? err.message : String(err),
@@ -691,7 +718,7 @@ export function scanSiteOnce(
 			throw new Error('진단 응답을 해석하지 못했습니다. 잠시 후 다시 시도해 주세요.');
 		}
 
-		if (data.code === AUDIT_LIMIT_CODE || res.status === 402) {
+		if (data.code === AUDIT_LIMIT_CODE || status === 402) {
 			console.warn('[audit/scan][client] quota limit reached', { targetUrl, used: data.used });
 			throw new AuditLimitError(data.error ?? 'AUDIT_LIMIT_REACHED', {
 				used: data.used ?? data.quota?.used,
@@ -699,16 +726,16 @@ export function scanSiteOnce(
 				date: data.quota?.date,
 			});
 		}
-		if (!res.ok && !isScanReportPayload(data)) {
+		if (!ok && !isScanReportPayload(data)) {
 			console.error('[audit/scan][client] non-ok response without a usable report', {
 				targetUrl,
-				status: res.status,
+				status,
 				error: data.error,
 			});
 			throw new Error(data.error ?? 'Audit failed.');
 		}
 		if (!isScanReportPayload(data)) {
-			console.error('[audit/scan][client] response missing report shape', { targetUrl, status: res.status });
+			console.error('[audit/scan][client] response missing report shape', { targetUrl, status });
 			throw new Error(data.error ?? 'Audit failed.');
 		}
 		if (data.quota && !data.quota.unlimited) {

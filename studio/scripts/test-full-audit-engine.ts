@@ -145,7 +145,7 @@ if (sitemapIdx >= 0 && gnbIdx >= 0) {
 
 const quickLimits = resolveFullAuditLimits('quick');
 const deepLimits = resolveFullAuditLimits('deep');
-assert(FULL_AUDIT_MAX_PAGES === 40, 'public scan page cap is 40');
+assert(FULL_AUDIT_MAX_PAGES === 120, 'public scan page cap is 120');
 assert(FULL_AUDIT_DEEP_MAX_PAGES === 500, 'deep recrawl page cap stays 500');
 assert(quickLimits.maxPages === FULL_AUDIT_MAX_PAGES, 'quick profile uses public cap');
 assert(deepLimits.maxPages === FULL_AUDIT_DEEP_MAX_PAGES, 'deep profile uses census cap');

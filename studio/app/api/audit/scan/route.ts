@@ -32,9 +32,10 @@ import {
 } from '@/lib/audit/pagespeed-fetch';
 import type { PageSpeedSnapshot } from '@/lib/audit/pagespeed';
 import { coerceHttpUrl } from '@/lib/audit/normalize-url';
-import { enrichReportNapMatrix } from '@/lib/audit/collect-channel-nap';
+import { buildNapMatrixFromReport } from '@/lib/audit/nap-matrix';
 import { auditSite, buildDegradedAuditReport, type AuditLang, type AuditReport } from '@/lib/site-auditor';
-import { UnsafeAuditUrlError } from '@/lib/ssrf-guard';
+import { assertPublicHttpUrl, UnsafeAuditUrlError } from '@/lib/ssrf-guard';
+import { createAuditScanNdjsonResponse } from '@/lib/audit/scan-stream';
 
 export const runtime = 'nodejs';
 // Force this route (and every fetch it triggers) off Next.js's Data Cache / Full Route
@@ -537,12 +538,16 @@ function clientErrorPayload(err: unknown): { status: number; error: string; stag
  * (default true) cache-busts the live crawl and overwrites the existing audit
  * row (replaceId or latest same-URL doc) instead of returning stored cache.
  */
-/** Hard ceiling on Track 1/2 for the public *quick* scan (40 pages). Sized for a
- *  5–15s dashboard — well under `maxDuration=90` so persistence + background PSI
- *  still have headroom. Admin recrawl uses `fullAuditDepth: 'deep'` and does not
- *  share this deadline. If `auditSite()` is still running when this fires, the
- *  response proceeds with a degraded report. */
-const TRACK_1_2_DEADLINE_MS = 16_000;
+/**
+ * Hard ceiling on Track 1/2 for the public *quick* scan (now up to
+ * `FULL_AUDIT_MAX_PAGES` pages / `FULL_AUDIT_TIME_BUDGET_MS` — see `full-audit-engine.ts`
+ * — so a menu-heavy site's full nav can genuinely finish instead of being cut off
+ * partway). A small/typical site still resolves in a few seconds regardless: this is a
+ * safety net for a genuinely hung request, not the normal-path limiter. Sized with
+ * headroom under `maxDuration=90` for persistence + background PSI. Admin recrawl uses
+ * `fullAuditDepth: 'deep'` and does not share this deadline. If `auditSite()` is still
+ * running when this fires, the response proceeds with a degraded report. */
+const TRACK_1_2_DEADLINE_MS = 60_000;
 /** Hard ceiling on each individual Firestore/Prisma persistence call. */
 const PERSIST_DEADLINE_MS = 5_000;
 
@@ -596,8 +601,7 @@ export async function POST(request: Request) {
 		}
 
 		// Same protocol/Punycode normalization `auditSite` applies internally — PSI must
-		// target the same absolute URL, and computing it here doesn't need the DNS lookup
-		// `assertPublicHttpUrl` performs, so it's safe to do before `auditSite` resolves.
+		// target the same absolute URL.
 		const psiTargetUrl = (() => {
 			try {
 				return coerceHttpUrl(rawUrl).toString();
@@ -606,252 +610,314 @@ export async function POST(request: Request) {
 			}
 		})();
 
-		let report: AuditReport;
-		// Defaults so `scheduleTrack3Backfill` below always has real promises to await even
-		// if the try block throws before either PSI fetch is fired (e.g. `deletePsiCacheForUrl`
-		// throwing synchronously) — never left "used before assigned".
-		let desktopPsiPromise: Promise<PageSpeedSnapshot | null> = Promise.resolve(null);
-		let mobilePsiPromise: Promise<PageSpeedSnapshot | null> = Promise.resolve(null);
-		const sessionPromise = getServerSession(authOptions).catch((err) => {
-			console.error('[audit/scan] session lookup failed:', errorMessage(err), errorStack(err));
-			return null;
-		});
-		const jwtActorPromise = readJwtActor(request).catch((err) => {
-			console.error('[audit/scan] JWT actor read failed:', errorMessage(err), errorStack(err));
-			return { userId: null, email: null, role: null };
-		});
+		// [Pre-flight URL validation] — resolved BEFORE the NDJSON stream below starts, so
+		// an invalid/unsafe URL (private IP, malformed, SSRF target) can still return a
+		// plain 400 JSON error exactly like before. Once the stream starts flowing, the
+		// HTTP status/headers can no longer change, so this can't be deferred into it.
 		try {
-			// Track 1/2 (HTML meta + schema) is the only thing this response waits on —
-			// Track 3 (PageSpeed/Lighthouse) is fired here but never awaited, so the
-			// result screen can enter the dashboard in ~5-15s instead of ~45-60s. Both
-			// PSI reads keep running in the background: `fetchPageSpeedDeduped` warms the
-			// shared cache/in-flight map so the client's own `/api/audit/pagespeed` call
-			// (fired by `useAuditReportEnrichment` once it notices `pageSpeedDesktop`/
-			// `pageSpeedMobile` are missing) reuses this same read instead of duplicating
-			// it, and `scheduleTrack3Backfill` (below) patches the already-persisted
-			// report once they land.
-			if (forceRefresh) {
-				deletePsiCacheForUrl(psiTargetUrl);
-			}
-			const psiOpts = { forceRefresh };
-			console.log('[audit/scan][Track 3] PageSpeed(CWV) 조회 시작 (백그라운드, 응답을 막지 않음):', {
-				url: psiTargetUrl,
-			});
-			desktopPsiPromise = fetchPageSpeedDeduped(psiTargetUrl, 'desktop', psiOpts).catch((err) => {
-				console.error('[audit/scan][Track 3] background PageSpeed desktop fetch failed:', {
-					url: psiTargetUrl,
-					error: errorMessage(err),
-				});
-				return null;
-			});
-			mobilePsiPromise = fetchPageSpeedDeduped(psiTargetUrl, 'mobile', psiOpts).catch((err) => {
-				console.error('[audit/scan][Track 3] background PageSpeed mobile fetch failed:', {
-					url: psiTargetUrl,
-					error: errorMessage(err),
-				});
-				return null;
-			});
-
-			console.log('[audit/scan][Track 1-2] 크롤링 + AI/스키마 분석 시작:', { url: rawUrl, forceRefresh, fullAudit });
-			const track12StartedAt = Date.now();
-			report = await withDeadline(
-				auditSite(rawUrl, lang, { forceRefresh, fullAudit, useDeltaCache, fullAuditDepth: 'quick' }),
-				TRACK_1_2_DEADLINE_MS,
-				'Track 1-2 auditSite (크롤링+분석)',
-			);
-			console.log('[audit/scan][Track 1-2] 크롤링 + AI/스키마 분석 완료:', {
-				url: rawUrl,
-				elapsedMs: Date.now() - track12StartedAt,
-				score: report.score,
-			});
+			await assertPublicHttpUrl(rawUrl);
 		} catch (err) {
 			const mapped = clientErrorPayload(err);
-			console.error('[audit/scan][Track 1-2] auditSite 실패/타임아웃 — 200 degraded report로 대체:', {
-				url: rawUrl,
-				stage: mapped.stage,
-				message: errorMessage(err),
-				stack: errorStack(err),
-			});
-			if (mapped.stage === 'url') {
-				return noStoreJson(
-					{ error: mapped.error, stage: mapped.stage },
-					{ status: mapped.status },
+			console.error('[audit/scan] URL 사전 검증 실패:', { url: rawUrl, message: errorMessage(err) });
+			return noStoreJson({ error: mapped.error, stage: 'url' }, { status: mapped.status });
+		}
+
+		// Quota is consumed exactly once here, before the stream starts — the response
+		// cookie (`applyGuestAuditCookie`) must be finalized before headers commit, and a
+		// streaming body can no longer change status/headers once it starts flowing.
+		const nextQuota = await withDeadline(incrementAuditUsage(quota), 2_000, 'incrementAuditUsage').catch(
+			(err) => {
+				console.error(
+					'[audit/scan] incrementAuditUsage failed/timed out — using prior quota snapshot:',
+					errorMessage(err),
 				);
-			}
-			// Auxiliary fetch / TLS / timeout must not abort the result screen —
-			// return whatever on-page signals we can still score.
-			report = buildDegradedAuditReport(psiTargetUrl || rawUrl, lang, err);
-		}
-		report = (await enrichReportNapMatrix(report)) || report;
-		completedReport = report;
-		const quotaIncPromise = incrementAuditUsage(quota).catch((err) => {
-			console.error('[audit/scan] incrementAuditUsage failed — using prior quota snapshot:', errorMessage(err));
-			return quota;
-		});
+				return quota;
+			},
+		);
 
-		let session: Awaited<ReturnType<typeof getServerSession>> = null;
-		try {
-			session = await withDeadline(sessionPromise, 2_000, 'getServerSession');
-		} catch (err) {
-			console.error('[audit/scan] session lookup failed/timed out:', errorMessage(err), errorStack(err));
-		}
-		const sessionUser = (session as { user?: { id?: string; email?: string; role?: string } } | null)?.user;
-		const jwtActor = await jwtActorPromise;
-		const actor = resolveDiagnosisActor({
-			sessionUserId: sessionUser?.id || jwtActor.userId,
-			sessionEmail: sessionUser?.email || jwtActor.email,
-			sessionRole: sessionUser?.role || jwtActor.role,
-			quotaUserId: quota.userId,
-			quotaRole: quota.role,
-			hintedUserId,
-			hintedRole,
-		});
-		const sessionUserId = actor.userId;
-		const userType = actor.userType;
-		const diagnosedAt = new Date();
-		const userAgent = request.headers.get('user-agent') || null;
-		const ipAddress = clientIpFromHeaders(request);
-
-		let auditId: string | null = null;
-		let createInput;
-		try {
-			createInput = buildAuditProjectCreateInput(report, {
-				userType,
-				userId: sessionUserId,
-				userAgent,
+		// Everything below streams as NDJSON: one `{type:'progress', ...}` line per
+		// crawl phase/page (see `[NAP Channel Search]`/`[Audit Timer]` progress emitted
+		// from `auditSite()`/`full-audit-engine.ts`), then exactly one final
+		// `{type:'result', payload}` line. A menu-heavy site's full-audit crawl can
+		// legitimately take tens of seconds (see `FULL_AUDIT_TIME_BUDGET_MS`) — streaming
+		// progress keeps the connection visibly alive instead of looking hung, and lets
+		// `consumeAuditScanResponse` (client) surface live per-page status.
+		const response = createAuditScanNdjsonResponse(async (emit) => {
+			let report: AuditReport;
+			// Defaults so `scheduleTrack3Backfill` below always has real promises to await
+			// even if the try block throws before either PSI fetch is fired (e.g.
+			// `deletePsiCacheForUrl` throwing synchronously) — never left "used before assigned".
+			let desktopPsiPromise: Promise<PageSpeedSnapshot | null> = Promise.resolve(null);
+			let mobilePsiPromise: Promise<PageSpeedSnapshot | null> = Promise.resolve(null);
+			const sessionPromise = getServerSession(authOptions).catch((err) => {
+				console.error('[audit/scan] session lookup failed:', errorMessage(err), errorStack(err));
+				return null;
 			});
-		} catch (err) {
-			console.error('[audit/scan] audit payload build failed:', errorMessage(err), errorStack(err));
-			createInput = null;
-		}
-
-		// Primary: Firestore audit_projects (source of truth for /admin/solve & /admin/projects)
-		if (createInput && isFirebaseAdminConfigured()) {
+			const jwtActorPromise = readJwtActor(request).catch((err) => {
+				console.error('[audit/scan] JWT actor read failed:', errorMessage(err), errorStack(err));
+				return { userId: null, email: null, role: null };
+			});
 			try {
-				if (forceRefresh) {
-					let overwritten: { id: string } | null = null;
-					if (replaceId) {
-						overwritten = await withDeadline(
-							updateAuditProject(replaceId, createInput),
-							PERSIST_DEADLINE_MS,
-							'Firestore updateAuditProject(replaceId)',
-						);
+				try {
+					// Track 1/2 (HTML meta + schema) is the only thing this response waits on —
+					// Track 3 (PageSpeed/Lighthouse) is fired here but never awaited, so the
+					// result screen can enter the dashboard quickly for a typical site. Both PSI
+					// reads keep running in the background: `fetchPageSpeedDeduped` warms the
+					// shared cache/in-flight map so the client's own `/api/audit/pagespeed` call
+					// (fired by `useAuditReportEnrichment` once it notices `pageSpeedDesktop`/
+					// `pageSpeedMobile` are missing) reuses this same read instead of duplicating
+					// it, and `scheduleTrack3Backfill` (below) patches the already-persisted
+					// report once they land.
+					if (forceRefresh) {
+						deletePsiCacheForUrl(psiTargetUrl);
 					}
-					if (!overwritten) {
-						const existing = await withDeadline(
-							findLatestAuditProjectByUrl(report.url),
-							PERSIST_DEADLINE_MS,
-							'Firestore findLatestAuditProjectByUrl',
-						);
-						if (existing) {
-							overwritten = await withDeadline(
-								updateAuditProject(existing.id, createInput),
-								PERSIST_DEADLINE_MS,
-								'Firestore updateAuditProject(existing)',
-							);
-						}
-					}
-					if (overwritten) {
-						auditId = overwritten.id;
-					} else {
-						const created = await withDeadline(
-							addAuditProject(createInput),
-							PERSIST_DEADLINE_MS,
-							'Firestore addAuditProject',
-						);
-						auditId = created.id;
-					}
-				} else {
-					const created = await withDeadline(
-						addAuditProject(createInput),
-						PERSIST_DEADLINE_MS,
-						'Firestore addAuditProject',
+					const psiOpts = { forceRefresh };
+					console.log('[audit/scan][Track 3] PageSpeed(CWV) 조회 시작 (백그라운드, 응답을 막지 않음):', {
+						url: psiTargetUrl,
+					});
+					desktopPsiPromise = fetchPageSpeedDeduped(psiTargetUrl, 'desktop', psiOpts).catch((err) => {
+						console.error('[audit/scan][Track 3] background PageSpeed desktop fetch failed:', {
+							url: psiTargetUrl,
+							error: errorMessage(err),
+						});
+						return null;
+					});
+					mobilePsiPromise = fetchPageSpeedDeduped(psiTargetUrl, 'mobile', psiOpts).catch((err) => {
+						console.error('[audit/scan][Track 3] background PageSpeed mobile fetch failed:', {
+							url: psiTargetUrl,
+							error: errorMessage(err),
+						});
+						return null;
+					});
+
+					console.log('[audit/scan][Track 1-2] 크롤링 + AI/스키마 분석 시작:', {
+						url: rawUrl,
+						forceRefresh,
+						fullAudit,
+					});
+					const track12StartedAt = Date.now();
+					report = await withDeadline(
+						auditSite(rawUrl, lang, {
+							forceRefresh,
+							fullAudit,
+							useDeltaCache,
+							fullAuditDepth: 'quick',
+							// Full-audit page-by-page crawl progress (see `full-audit-engine.ts`'s
+							// `pushProgress`) streams straight through to the client as it happens.
+							onProgress: (progress) => emit({ type: 'progress', ...progress }),
+						}),
+						TRACK_1_2_DEADLINE_MS,
+						'Track 1-2 auditSite (크롤링+분석)',
 					);
-					auditId = created.id;
+					console.log('[audit/scan][Track 1-2] 크롤링 + AI/스키마 분석 완료:', {
+						url: rawUrl,
+						elapsedMs: Date.now() - track12StartedAt,
+						score: report.score,
+					});
+				} catch (err) {
+					console.error('[audit/scan][Track 1-2] auditSite 실패/타임아웃 — 200 degraded report로 대체:', {
+						url: rawUrl,
+						message: errorMessage(err),
+						stack: errorStack(err),
+					});
+					// Auxiliary fetch / TLS / timeout must not abort the result screen —
+					// return whatever on-page signals we can still score. (The URL itself was
+					// already validated above, before the stream started.)
+					report = buildDegradedAuditReport(psiTargetUrl || rawUrl, lang, err);
 				}
-			} catch (err) {
-				console.error('[audit/scan] Firestore audit_projects save failed/timed out:', {
+				// `auditSite()` already harvests + attaches `napMatrix` in its own internal
+				// parallel batch (Naver/Google/Kakao/YouTube alongside SoV/logo, see
+				// `[NAP Channel Search]` in `site-auditor.ts`). This is now only a same-thread,
+				// zero-I/O safety net for the `buildDegradedAuditReport` path above (auditSite
+				// threw/timed out), so it can never add latency to a healthy scan.
+				if (!report.napMatrix) {
+					report = { ...report, napMatrix: buildNapMatrixFromReport(report) };
+				}
+				completedReport = report;
+
+				let session: Awaited<ReturnType<typeof getServerSession>> = null;
+				try {
+					session = await withDeadline(sessionPromise, 2_000, 'getServerSession');
+				} catch (err) {
+					console.error('[audit/scan] session lookup failed/timed out:', errorMessage(err), errorStack(err));
+				}
+				const sessionUser = (session as { user?: { id?: string; email?: string; role?: string } } | null)
+					?.user;
+				const jwtActor = await jwtActorPromise;
+				const actor = resolveDiagnosisActor({
+					sessionUserId: sessionUser?.id || jwtActor.userId,
+					sessionEmail: sessionUser?.email || jwtActor.email,
+					sessionRole: sessionUser?.role || jwtActor.role,
+					quotaUserId: quota.userId,
+					quotaRole: quota.role,
+					hintedUserId,
+					hintedRole,
+				});
+				const sessionUserId = actor.userId;
+				const userType = actor.userType;
+				const diagnosedAt = new Date();
+				const userAgent = request.headers.get('user-agent') || null;
+				const ipAddress = clientIpFromHeaders(request);
+
+				let auditId: string | null = null;
+				let createInput;
+				try {
+					createInput = buildAuditProjectCreateInput(report, {
+						userType,
+						userId: sessionUserId,
+						userAgent,
+					});
+				} catch (err) {
+					console.error('[audit/scan] audit payload build failed:', errorMessage(err), errorStack(err));
+					createInput = null;
+				}
+
+				// Primary: Firestore audit_projects (source of truth for /admin/solve & /admin/projects)
+				if (createInput && isFirebaseAdminConfigured()) {
+					try {
+						if (forceRefresh) {
+							let overwritten: { id: string } | null = null;
+							if (replaceId) {
+								overwritten = await withDeadline(
+									updateAuditProject(replaceId, createInput),
+									PERSIST_DEADLINE_MS,
+									'Firestore updateAuditProject(replaceId)',
+								);
+							}
+							if (!overwritten) {
+								const existing = await withDeadline(
+									findLatestAuditProjectByUrl(report.url),
+									PERSIST_DEADLINE_MS,
+									'Firestore findLatestAuditProjectByUrl',
+								);
+								if (existing) {
+									overwritten = await withDeadline(
+										updateAuditProject(existing.id, createInput),
+										PERSIST_DEADLINE_MS,
+										'Firestore updateAuditProject(existing)',
+									);
+								}
+							}
+							if (overwritten) {
+								auditId = overwritten.id;
+							} else {
+								const created = await withDeadline(
+									addAuditProject(createInput),
+									PERSIST_DEADLINE_MS,
+									'Firestore addAuditProject',
+								);
+								auditId = created.id;
+							}
+						} else {
+							const created = await withDeadline(
+								addAuditProject(createInput),
+								PERSIST_DEADLINE_MS,
+								'Firestore addAuditProject',
+							);
+							auditId = created.id;
+						}
+					} catch (err) {
+						console.error('[audit/scan] Firestore audit_projects save failed/timed out:', {
+							url: report.url,
+							message: errorMessage(err),
+							stack: errorStack(err),
+						});
+					}
+				}
+
+				const secondaryCtx: SecondaryPersistCtx = {
+					forceRefresh,
+					replaceId,
+					sessionUserId,
+					userType,
+					actorEmail: actor.email,
+					userAgent,
+					ipAddress,
+					diagnosedAt,
+				};
+
+				if (auditId) {
+					// Firestore's primary save already produced a durable id — the Firestore
+					// diagnostics doc, legacy Prisma AuditLead row, and signed-in AuditReport
+					// row are all bookkeeping the response body doesn't need, so they run in
+					// the background instead of blocking the final `result` event on 3-4 more
+					// sequential Firestore/Prisma round-trips.
+					void persistSecondaryDiagnosisData(report, auditId, secondaryCtx).catch((err) => {
+						console.error('[audit/scan] background secondary persistence failed:', errorMessage(err));
+					});
+				} else {
+					// No id yet (Firestore not configured, or the primary save failed) — Prisma
+					// AuditLead is the only remaining source of one, so this leg must be
+					// awaited or the client would have nothing to route/deep-link to.
+					auditId = await persistSecondaryDiagnosisData(report, auditId, secondaryCtx);
+				}
+
+				// Track 3 lands later in the background (see above) — once both strategies settle,
+				// best-effort patch the persisted records so revisiting this audit doesn't need a
+				// fresh Lighthouse run. Never awaited: must not delay the final `result` event.
+				scheduleTrack3Backfill(report, desktopPsiPromise, mobilePsiPromise, {
+					auditId,
+					userType,
+					sessionUserId: sessionUserId || null,
+					sessionEmail: actor.email,
+					userAgent,
+				});
+
+				console.log('[audit/scan][결과 조합] 최종 result 이벤트 emit:', {
 					url: report.url,
-					message: errorMessage(err),
-					stack: errorStack(err),
+					auditId,
+					elapsedMsSoFar: Date.now() - requestStartedAt,
+				});
+				emit({
+					type: 'result',
+					payload: {
+						...report,
+						id: auditId,
+						forceRefresh,
+						quota: nextQuota,
+						userId: sessionUserId,
+						userType,
+						diagnosedAt: diagnosedAt.toISOString(),
+					},
+				});
+				recordDailyApiUsage({
+					service: 'audit',
+					userId: sessionUserId,
+					actorType: sessionUserId ? 'member' : 'guest',
+				});
+				if (userType === 'admin') {
+					void writeAdminAuditLog({
+						operator: actor.email || '관리자',
+						module: 'USER_MGMT',
+						actionDetail: `진단 실행 — ${report.url}`,
+					});
+				}
+				console.log('[audit/scan][결과 조합] 스트림 종료:', {
+					url: report.url,
+					auditId,
+					totalElapsedMs: Date.now() - requestStartedAt,
+				});
+			} catch (err) {
+				// Mirrors the old outer catch-all's non-'url' branch: never let an
+				// unexpected failure anywhere in the pipeline above hard-fail the stream —
+				// always emit *some* usable report so the result screen never hangs.
+				console.error(
+					'[audit/scan] unhandled stream error — emitting degraded report so the client never hangs:',
+					{
+						url: rawUrl,
+						message: errorMessage(err),
+						stack: errorStack(err),
+						totalElapsedMs: Date.now() - requestStartedAt,
+					},
+				);
+				const fallback = completedReport || buildDegradedAuditReport(rawUrl, lang, err);
+				emit({
+					type: 'result',
+					payload: { ...fallback, id: null, forceRefresh: true, partial: true },
 				});
 			}
-		}
-
-		const secondaryCtx: SecondaryPersistCtx = {
-			forceRefresh,
-			replaceId,
-			sessionUserId,
-			userType,
-			actorEmail: actor.email,
-			userAgent,
-			ipAddress,
-			diagnosedAt,
-		};
-
-		if (auditId) {
-			// Firestore's primary save already produced a durable id — the Firestore
-			// diagnostics doc, legacy Prisma AuditLead row, and signed-in AuditReport
-			// row are all bookkeeping the response body doesn't need, so they run in
-			// the background instead of blocking the "Dashboard Ready" step on 3-4
-			// more sequential Firestore/Prisma round-trips.
-			void persistSecondaryDiagnosisData(report, auditId, secondaryCtx).catch((err) => {
-				console.error('[audit/scan] background secondary persistence failed:', errorMessage(err));
-			});
-		} else {
-			// No id yet (Firestore not configured, or the primary save failed) — Prisma
-			// AuditLead is the only remaining source of one, so this leg must be
-			// awaited or the client would have nothing to route/deep-link to.
-			auditId = await persistSecondaryDiagnosisData(report, auditId, secondaryCtx);
-		}
-
-		// Track 3 lands later in the background (see above) — once both strategies settle,
-		// best-effort patch the persisted records so revisiting this audit doesn't need a
-		// fresh Lighthouse run. Never awaited: must not delay this response.
-		scheduleTrack3Backfill(report, desktopPsiPromise, mobilePsiPromise, {
-			auditId,
-			userType,
-			sessionUserId: sessionUserId || null,
-			sessionEmail: actor.email,
-			userAgent,
-		});
-
-		console.log('[audit/scan][결과 조합] 최종 응답 JSON 조합 시작:', {
-			url: report.url,
-			auditId,
-			elapsedMsSoFar: Date.now() - requestStartedAt,
-		});
-		const nextQuota = await withDeadline(quotaIncPromise, 2_000, 'incrementAuditUsage').catch((err) => {
-			console.error('[audit/scan] incrementAuditUsage failed/timed out — using prior quota snapshot:', errorMessage(err));
-			return quota;
-		});
-		const response = noStoreJson({
-			...report,
-			id: auditId,
-			forceRefresh,
-			quota: nextQuota,
-			userId: sessionUserId,
-			userType,
-			diagnosedAt: diagnosedAt.toISOString(),
 		});
 		if (!nextQuota.unlimited) applyGuestAuditCookie(response, nextQuota.used);
-		recordDailyApiUsage({
-			service: 'audit',
-			userId: sessionUserId,
-			actorType: sessionUserId ? 'member' : 'guest',
-		});
-		if (userType === 'admin') {
-			void writeAdminAuditLog({
-				operator: actor.email || '관리자',
-				module: 'USER_MGMT',
-				actionDetail: `진단 실행 — ${report.url}`,
-			});
-		}
-		console.log('[audit/scan][결과 조합] 최종 응답 반환 (200 OK):', {
-			url: report.url,
-			auditId,
-			totalElapsedMs: Date.now() - requestStartedAt,
-		});
 		return response;
 	} catch (err) {
 		const mapped = clientErrorPayload(err);

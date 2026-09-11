@@ -43,7 +43,10 @@ async function main() {
 		console.log(`FAIL  ${step}${detail ? ' — ' + detail : ''}`);
 	}
 
-	// 1) Live scan
+	// 1) Live scan — `/api/audit/scan` now streams NDJSON progress lines (one per
+	// crawl phase/page) followed by exactly one `{type:'result', payload}` line, so a
+	// menu-heavy site's longer full-audit crawl never looks like a dead connection.
+	// See `consumeAuditScanResponse` (client) / `createAuditScanNdjsonResponse` (server).
 	let scan;
 	try {
 		const res = await fetch(`${BASE}/api/audit/scan`, {
@@ -51,8 +54,31 @@ async function main() {
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ url: TARGET, lang: 'ko' }),
 		});
-		scan = await res.json();
-		if (!res.ok) throw new Error(scan.error || `HTTP ${res.status}`);
+		const contentType = res.headers.get('content-type') || '';
+		if (/ndjson/i.test(contentType) && res.body) {
+			let progressEvents = 0;
+			for await (const chunk of res.body) {
+				const text = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
+				for (const line of text.split('\n')) {
+					const trimmed = line.trim();
+					if (!trimmed) continue;
+					let event;
+					try {
+						event = JSON.parse(trimmed);
+					} catch {
+						continue;
+					}
+					if (event.type === 'progress') progressEvents += 1;
+					else if (event.type === 'result') scan = event.payload;
+					else if (event.type === 'error') throw new Error(event.message);
+				}
+			}
+			if (!scan) throw new Error('NDJSON stream ended without a result event');
+			console.log(`  (received ${progressEvents} progress event(s) before result)`);
+		} else {
+			scan = await res.json();
+			if (!res.ok) throw new Error(scan.error || `HTTP ${res.status}`);
+		}
 		if (!scan.id) throw new Error('response missing Firestore id');
 		if (!scan.url) throw new Error('response missing url');
 		pass(

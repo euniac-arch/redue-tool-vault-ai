@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { AUDIT_PARSER_STEPS } from '@/lib/audit/parser-steps';
+import type { AuditScanProgressPayload } from '@/lib/audit/scan-stream-client';
 
 const TOTAL_STEPS = AUDIT_PARSER_STEPS.length;
 /** Steps 1–5 (DOM/온페이지/GEO/SoV) animate through instantly — no real gate. */
@@ -47,6 +48,14 @@ interface AuditLoadingProps {
 	onComplete?: () => void;
 	/** Force-refresh re-audit copy ("🔄 실시간 재진단 중..."). */
 	forceRefresh?: boolean;
+	/**
+	 * Live per-phase/per-page status streamed from `/api/audit/scan` (NDJSON progress
+	 * events — see `consumeAuditScanResponse`). Once the cosmetic fast steps finish but
+	 * `isDataReady` hasn't landed yet, a menu-heavy site's real full-audit crawl can take
+	 * tens of seconds — surfacing this keeps the wait from looking frozen instead of
+	 * sitting on a fixed placeholder. `null`/absent falls back to the original shimmer.
+	 */
+	liveProgress?: AuditScanProgressPayload | null;
 }
 
 /**
@@ -65,6 +74,7 @@ export function AuditLoading({
 	isDataReady = false,
 	onComplete,
 	forceRefresh = false,
+	liveProgress = null,
 }: AuditLoadingProps) {
 	const t = useTranslations('audit');
 	const locale = useLocale();
@@ -141,16 +151,21 @@ export function AuditLoading({
 	/** Row currently pulsing — null once fully finished. */
 	const activeIndex = finished ? null : isWaitingOnData ? FAST_STEPS_COUNT : fastStepsDone;
 
-	// Gauge width: 0–60% while the fast steps animate, eases once to a fixed 90%
-	// while genuinely waiting on the real Track 1/2 response (no oscillation), 100% only
-	// once `finished`. The `Math.min(..., WAIT_PCT_CAP)` is a hard safety net — even if a
-	// future edit changes the branches above, the gauge still cannot cross 95% before
-	// `finished` is true.
+	// Gauge width: 0–60% while the fast steps animate, then either eases to a fixed 90%
+	// (no real progress data yet — the common, few-second case) or tracks the real
+	// full-audit crawl percent once `liveProgress` starts arriving (a menu-heavy site's
+	// crawl can run long enough to actually move this instead of sitting still) — never
+	// allowed to regress below where the fast steps left off. 100% only once `finished`.
+	// The `Math.min(..., WAIT_PCT_CAP)` is a hard safety net — even if a future edit
+	// changes the branches above, the gauge still cannot cross 95% before `finished`.
+	const liveWaitPct = liveProgress
+		? Math.max(FAST_STEP_TARGET_PCT[FAST_STEPS_COUNT] ?? WAIT_SETTLE_PCT, liveProgress.percent)
+		: WAIT_SETTLE_PCT;
 	const progressPct = finished
 		? 100
 		: fastStepsDone < FAST_STEPS_COUNT
 			? FAST_STEP_TARGET_PCT[fastStepsDone] ?? 0
-			: Math.min(WAIT_SETTLE_PCT, WAIT_PCT_CAP);
+			: Math.min(liveWaitPct, WAIT_PCT_CAP);
 
 	return (
 		<div className="overflow-hidden rounded-2xl border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#07090d] shadow-2xl shadow-slate-200/60 dark:shadow-black/40">
@@ -225,6 +240,21 @@ export function AuditLoading({
 						);
 					})}
 				</div>
+
+				{isWaitingOnData && liveProgress ? (
+					<p
+						role="status"
+						className="mt-3 flex items-center gap-1.5 truncate font-mono text-[11px] text-emerald-700 dark:text-emerald-400"
+					>
+						<span aria-hidden className="inline-block h-1.5 w-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500" />
+						<span className="truncate">{liveProgress.message}</span>
+						{liveProgress.pagesFound > 0 ? (
+							<span className="shrink-0 tabular-nums text-emerald-700/70 dark:text-emerald-400/70">
+								({liveProgress.pagesParsed}/{liveProgress.pagesFound})
+							</span>
+						) : null}
+					</p>
+				) : null}
 
 				<div className="mt-6">
 					<div className="mb-1.5 flex justify-between text-[10px] uppercase tracking-wider text-slate-500">
