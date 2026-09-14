@@ -21,6 +21,8 @@ const NEXTAUTH_ERROR_HINTS: Record<string, string> = {
 	OAuthCallback: '카카오 토큰/프로필 교환에 실패했습니다. Client Secret(KOE010), Redirect URI 일치(KOE303), 인가 코드 재사용(KOE320)을 확인하세요.',
 	OAuthCreateAccount: '카카오 계정으로 사용자를 만들지 못했습니다. DB Account/User 제약을 확인하세요.',
 	OAuthAccountNotLinked: '같은 이메일이 다른 로그인 방식으로 이미 연결되어 있습니다.',
+	KakaoEmailRequired: '카카오 이메일 제공에 동의해야 로그인할 수 있습니다. 카카오 동의 항목에서 이메일을 허용해 주세요.',
+	KakaoEmailUnverified: '카카오 이메일이 인증되지 않아 기존 계정과 안전하게 연결할 수 없습니다.',
 	AccessDenied: '카카오 동의가 취소되었거나 거부되었습니다.',
 	Configuration: '서버 인증 설정 오류입니다. NEXTAUTH_URL / NEXTAUTH_SECRET을 확인하세요.',
 	Callback: 'OAuth 콜백 처리에 실패했습니다. 서버 로그의 [auth][kakao] 항목을 확인하세요.',

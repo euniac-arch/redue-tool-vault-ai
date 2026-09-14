@@ -105,6 +105,7 @@ export const authOptions: AuthOptions = {
 					GoogleProvider({
 						clientId: process.env.GOOGLE_CLIENT_ID!,
 						clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+						allowDangerousEmailAccountLinking: true,
 					}),
 				]
 			: []),
@@ -113,11 +114,18 @@ export const authOptions: AuthOptions = {
 					KakaoProvider({
 						clientId: process.env.KAKAO_CLIENT_ID!,
 						clientSecret: process.env.KAKAO_CLIENT_SECRET!,
+						allowDangerousEmailAccountLinking: true,
+						authorization: {
+							params: {
+								scope: 'profile_nickname account_email',
+							},
+						},
 						profile(profile) {
 							const account = profile.kakao_account;
 							logKakaoAuthEvent('info', 'profile received', {
 								hasId: profile.id != null,
 								hasEmail: Boolean(account?.email),
+								emailVerified: account?.is_email_verified ?? null,
 								emailNeedsAgreement: account?.email_needs_agreement ?? null,
 							});
 							return {
@@ -195,6 +203,25 @@ export const authOptions: AuthOptions = {
 		}),
 	],
 	callbacks: {
+		async signIn({ user, account, profile }) {
+			if (account?.provider === 'kakao') {
+				const kakaoAccount = (profile as { kakao_account?: { email?: string; is_email_verified?: boolean } } | undefined)
+					?.kakao_account;
+				if (!user?.email && !kakaoAccount?.email) {
+					logKakaoAuthEvent('warn', 'sign-in blocked: email missing', {
+						emailNeedsAgreement: true,
+					});
+					return '/login?error=KakaoEmailRequired';
+				}
+				if (kakaoAccount && kakaoAccount.is_email_verified === false) {
+					logKakaoAuthEvent('warn', 'sign-in blocked: email not verified', {
+						hasEmail: Boolean(kakaoAccount.email),
+					});
+					return '/login?error=KakaoEmailUnverified';
+				}
+			}
+			return true;
+		},
 		async jwt({ token, user }) {
 			if (user?.id) {
 				token.uid = user.id;

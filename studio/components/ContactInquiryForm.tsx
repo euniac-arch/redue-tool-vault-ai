@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 
 const INQUIRY_TYPES = [
@@ -39,6 +39,8 @@ const EMPTY: FormState = {
 	pageUrl: '',
 };
 
+const PRIVACY_ERROR = '개인정보 수집 및 이용에 동의해 주세요.';
+
 const inputClass =
 	'w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 placeholder-slate-400 transition-all focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500 dark:border-slate-800 dark:bg-slate-950/90 dark:text-white dark:placeholder-slate-500';
 
@@ -47,13 +49,29 @@ export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: 
 	const [submitting, setSubmitting] = useState(false);
 	const [done, setDone] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [isPrivacyAgreed, setIsPrivacyAgreed] = useState(false);
+	const [isPrivacyTermsOpen, setIsPrivacyTermsOpen] = useState(true);
+	const privacyCheckboxRef = useRef<HTMLInputElement>(null);
 
 	function update<K extends keyof FormState>(key: K, value: FormState[K]) {
 		setForm((prev) => ({ ...prev, [key]: value }));
 	}
 
+	function handlePrivacyChange(checked: boolean) {
+		setIsPrivacyAgreed(checked);
+		if (checked) {
+			setError((prev) => (prev === PRIVACY_ERROR ? null : prev));
+		}
+	}
+
 	async function handleSubmit(event: React.FormEvent) {
 		event.preventDefault();
+		if (!isPrivacyAgreed) {
+			setError(PRIVACY_ERROR);
+			privacyCheckboxRef.current?.focus();
+			privacyCheckboxRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+			return;
+		}
 		setSubmitting(true);
 		setError(null);
 		try {
@@ -66,6 +84,8 @@ export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: 
 			if (!res.ok) throw new Error(data.error ?? '문의 접수에 실패했습니다.');
 			setDone(true);
 			setForm({ ...EMPTY, ...defaults });
+			setIsPrivacyAgreed(false);
+			setIsPrivacyTermsOpen(true);
 			onSubmitted?.();
 		} catch (err) {
 			setError((err as Error).message);
@@ -191,12 +211,88 @@ export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: 
 				/>
 			</Field>
 
-			{error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+			<div>
+				<div className="flex items-start gap-2.5 sm:gap-3">
+					<input
+						ref={privacyCheckboxRef}
+						id="contact-privacy-agree"
+						type="checkbox"
+						checked={isPrivacyAgreed}
+						onChange={(e) => handlePrivacyChange(e.target.checked)}
+						aria-required="true"
+						aria-invalid={error === PRIVACY_ERROR}
+						aria-describedby={
+							[
+								isPrivacyTermsOpen ? 'contact-privacy-terms' : null,
+								error === PRIVACY_ERROR ? 'contact-privacy-error' : null,
+							]
+								.filter(Boolean)
+								.join(' ') || undefined
+						}
+						className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-slate-400 accent-cyan-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/50 dark:border-slate-600"
+					/>
+					<div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+						<label
+							htmlFor="contact-privacy-agree"
+							className="cursor-pointer text-xs font-medium leading-5 text-slate-600 dark:text-slate-300"
+						>
+							<span className="text-cyan-600 dark:text-cyan-400">[필수]</span> 개인정보 수집 및 이용에
+							동의합니다.
+						</label>
+						<button
+							type="button"
+							onClick={() => setIsPrivacyTermsOpen((open) => !open)}
+							className="shrink-0 self-start text-[11px] font-medium text-slate-500 underline-offset-2 transition hover:text-cyan-600 hover:underline dark:text-slate-400 dark:hover:text-cyan-400"
+							aria-expanded={isPrivacyTermsOpen}
+							aria-controls="contact-privacy-terms"
+						>
+							{isPrivacyTermsOpen ? '약관 닫기' : '약관 보기'}
+						</button>
+					</div>
+				</div>
+
+				{isPrivacyTermsOpen ? (
+					<div
+						id="contact-privacy-terms"
+						className="mt-2 max-h-32 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs leading-relaxed text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400"
+					>
+						<dl className="space-y-1.5">
+							<div>
+								<dt className="font-medium text-slate-600 dark:text-slate-300">수집 항목</dt>
+								<dd>성함/담당자명, 연락처, 이메일, 웹사이트 URL, 문의 내용</dd>
+							</div>
+							<div>
+								<dt className="font-medium text-slate-600 dark:text-slate-300">수집 및 이용 목적</dt>
+								<dd>문의 사항 확인 및 상담 안내, 견적 산출 및 분석 결과 회신</dd>
+							</div>
+							<div>
+								<dt className="font-medium text-slate-600 dark:text-slate-300">보유 및 이용 기간</dt>
+								<dd>문의 접수일로부터 상담 완료 후 3개월 (또는 법령에 따른 보존 기간)</dd>
+							</div>
+						</dl>
+						<p className="mt-2 border-t border-slate-200 pt-2 dark:border-slate-800">
+							귀하는 개인정보 수집 동의를 거부할 권리가 있으며, 거부 시 온라인 문의 접수가 제한될 수 있습니다.
+						</p>
+					</div>
+				) : null}
+			</div>
+
+			{error && (
+				<p
+					id={error === PRIVACY_ERROR ? 'contact-privacy-error' : undefined}
+					className="text-sm text-rose-600 dark:text-rose-400"
+					role="alert"
+				>
+					{error}
+				</p>
+			)}
 
 			<button
 				type="submit"
 				disabled={submitting}
-				className="w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-4 text-sm font-bold text-white shadow-lg shadow-cyan-900/40 transition-all hover:scale-[1.01] hover:from-cyan-400 hover:to-blue-500 active:scale-[0.99] disabled:opacity-50 sm:text-base"
+				className={`w-full rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 py-4 text-sm font-bold text-white shadow-lg shadow-cyan-900/40 transition-all hover:scale-[1.01] hover:from-cyan-400 hover:to-blue-500 active:scale-[0.99] disabled:opacity-50 sm:text-base ${
+					!isPrivacyAgreed && !submitting ? 'opacity-70' : ''
+				}`}
 			>
 				{submitting ? '접수 중...' : '문의 접수하기'}
 			</button>
