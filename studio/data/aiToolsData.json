@@ -11,9 +11,13 @@
 				"url": "https://chatgpt.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=chatgpt.com&sz=128",
 				"desc": "글로벌 점유율 1위. GPT-4o 및 최신 추론 모델 탑재, 글쓰기·코딩·데이터 분석 표준.",
-				"tags": ["LLM", "대화형", "데이터분석"],
+				"tags": [
+					"LLM",
+					"대화형",
+					"데이터분석"
+				],
 				"is_public": true,
-				"market_share": 54.2,
+				"market_share": 57.9,
 				"monthly_visits": "5.2B",
 				"recommend_score": 98,
 				"rating": 4.9,
@@ -34,105 +38,21 @@
 				}
 			},
 			{
-				"id": "claude",
-				"name": "Claude",
-				"provider": "Anthropic",
-				"url": "https://claude.ai",
-				"logo_url": "https://www.google.com/s2/favicons?domain=claude.ai&sz=128",
-				"desc": "대규모 문서 분석(Artifacts), 정교한 코딩 및 자연스러운 한국어 문장 생성 특화.",
-				"tags": ["LLM", "코딩", "문서분석"],
-				"is_public": true,
-				"market_share": 8.4,
-				"monthly_visits": "810M",
-				"recommend_score": 96,
-				"rating": 4.9,
-				"growth": "+14.2%",
-				"pricing": {
-					"type": "Freemium",
-					"summary": "무료 / Pro $20/월 / Team $25/월",
-					"free_tier": "Claude 3.5 Sonnet 일일 메시지 제한 사용",
-					"paid_tier": "Pro 월 $20 (사용량 5배, 피크 타임 우선 접속, Projects 기능 지원)"
-				},
-				"guide": {
-					"steps": [
-						"우측 상단 Projects 생성 후 공통 참조 문서/규칙을 미리 등록",
-						"코드 작성 또는 UI 제작 요청 시 'Artifacts' 창에서 실시간 렌더링 확인",
-						"장문의 PDF 문서나 기획서를 업로드하고 핵심 논점 요약 요청"
-					],
-					"pro_tip": "React/HTML UI 코드를 짤 때 Claude Artifacts를 켜두면 브라우저 상에서 컴포넌트가 즉시 렌더링되어 프론트엔드 검증이 매우 빠릅니다."
-				}
-			},
-			{
-				"id": "gemini",
-				"name": "Gemini",
-				"provider": "Google",
-				"url": "https://gemini.google.com",
-				"logo_url": "https://www.google.com/s2/favicons?domain=gemini.google.com&sz=128",
-				"desc": "구글 검색·유튜브·워크스페이스 연동 및 강력한 멀티모달 처리 능력.",
-				"tags": ["멀티모달", "구글연동"],
-				"is_public": true,
-				"market_share": 25.8,
-				"monthly_visits": "2.5B",
-				"recommend_score": 93,
-				"rating": 4.7,
-				"growth": "+8.5%",
-				"pricing": {
-					"type": "Freemium",
-					"summary": "무료 / Advanced $19.99/월",
-					"free_tier": "Gemini 1.5 Flash 및 기본 멀티모달 기능 무료",
-					"paid_tier": "Advanced 월 $19.99 (Google One 2TB 포함, 1.5 Pro 200만 토큰 컨텍스트 지원)"
-				},
-				"guide": {
-					"steps": [
-						"@GoogleDrive, @Gmail, @YouTube 확장 프로그램을 호출하여 연동 데이터 검색",
-						"1시간 이상의 영상 파일이나 수백 페이지 PDF를 통째로 업로드하여 요약",
-						"구글 검색 팩트체크 버튼을 눌러 생성된 답변의 출처 웹페이지 교차 검증"
-					],
-					"pro_tip": "유튜브 영상 링크를 주고 핵심 타임스탬프와 요약을 요청하면 영상 시청 시간을 크게 줄일 수 있습니다."
-				}
-			},
-			{
-				"id": "deepseek",
-				"name": "DeepSeek (V3 / R1)",
-				"provider": "DeepSeek",
-				"url": "https://www.deepseek.com",
-				"logo_url": "https://www.google.com/s2/favicons?domain=deepseek.com&sz=128",
-				"desc": "오픈 웨이트 기반 추론(Reasoning)과 압도적 가성비로 글로벌 이슈가 된 V3 / R1 라인.",
-				"tags": ["LLM", "오픈웨이트", "추론", "라이징"],
-				"is_public": true,
-				"market_share": 4.1,
-				"monthly_visits": "390M",
-				"recommend_score": 92,
-				"rating": 4.7,
-				"growth": "+38.0%",
-				"trend_score": 91,
-				"launch_date": "2025-01-20",
-				"pricing": {
-					"type": "Freemium",
-					"summary": "웹 무료 / API 종량제",
-					"free_tier": "DeepSeek-V3 / R1 웹 채팅 무료 사용",
-					"paid_tier": "API 토큰 종량제 (V3·R1 각각 입력/출력 단가 상이)"
-				},
-				"guide": {
-					"steps": [
-						"deepseek.com에서 웹 채팅을 열거나 API 키를 발급",
-						"코딩·수학·장문 분석처럼 추론이 필요한 작업을 R1에 우선 할당",
-						"대량 호출은 API 토큰 사용량을 모니터링하며 V3로 비용 최적화"
-					],
-					"pro_tip": "복잡한 문제를 풀 때는 '단계별로 검증하며 풀어라'고 지시하면 R1의 추론 트레이스가 더 안정적입니다."
-				}
-			},
-			{
 				"id": "perplexity",
 				"name": "Perplexity Spaces",
 				"provider": "Perplexity",
 				"url": "https://www.perplexity.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=perplexity.ai&sz=128",
 				"desc": "협업형 AI 검색과 웹 인덱싱을 묶은 GEO 리서치 엔진. Spaces로 팀 조사 스레드를 공유.",
-				"tags": ["검색엔진", "실시간리서치", "GEO", "라이징"],
+				"tags": [
+					"검색엔진",
+					"실시간리서치",
+					"GEO",
+					"라이징"
+				],
 				"is_public": true,
-				"market_share": 2.6,
-				"monthly_visits": "250M",
+				"market_share": 15.6,
+				"monthly_visits": "1.4B",
 				"recommend_score": 95,
 				"rating": 4.8,
 				"growth": "+32.0%",
@@ -154,16 +74,117 @@
 				}
 			},
 			{
+				"id": "gemini",
+				"name": "Gemini",
+				"provider": "Google",
+				"url": "https://gemini.google.com",
+				"logo_url": "https://www.google.com/s2/favicons?domain=gemini.google.com&sz=128",
+				"desc": "구글 검색·유튜브·워크스페이스 연동 및 강력한 멀티모달 처리 능력. 구글 지식 그래프·Schema.org 구조화 데이터 반영도가 가장 높음.",
+				"tags": [
+					"멀티모달",
+					"구글연동"
+				],
+				"is_public": true,
+				"market_share": 12.2,
+				"monthly_visits": "1.1B",
+				"recommend_score": 93,
+				"rating": 4.7,
+				"growth": "+8.5%",
+				"pricing": {
+					"type": "Freemium",
+					"summary": "무료 / Advanced $19.99/월",
+					"free_tier": "Gemini 1.5 Flash 및 기본 멀티모달 기능 무료",
+					"paid_tier": "Advanced 월 $19.99 (Google One 2TB 포함, 1.5 Pro 200만 토큰 컨텍스트 지원)"
+				},
+				"guide": {
+					"steps": [
+						"@GoogleDrive, @Gmail, @YouTube 확장 프로그램을 호출하여 연동 데이터 검색",
+						"1시간 이상의 영상 파일이나 수백 페이지 PDF를 통째로 업로드하여 요약",
+						"구글 검색 팩트체크 버튼을 눌러 생성된 답변의 출처 웹페이지 교차 검증"
+					],
+					"pro_tip": "유튜브 영상 링크를 주고 핵심 타임스탬프와 요약을 요청하면 영상 시청 시간을 크게 줄일 수 있습니다."
+				}
+			},
+			{
+				"id": "claude",
+				"name": "Claude",
+				"provider": "Anthropic",
+				"url": "https://claude.ai",
+				"logo_url": "https://www.google.com/s2/favicons?domain=claude.ai&sz=128",
+				"desc": "대규모 문서 분석(Artifacts), 정교한 코딩 및 자연스러운 한국어 문장 생성 특화.",
+				"tags": [
+					"LLM",
+					"코딩",
+					"문서분석"
+				],
+				"is_public": true,
+				"market_share": 5,
+				"monthly_visits": "450M",
+				"recommend_score": 96,
+				"rating": 4.9,
+				"growth": "+14.2%",
+				"pricing": {
+					"type": "Freemium",
+					"summary": "무료 / Pro $20/월 / Team $25/월",
+					"free_tier": "Claude 3.5 Sonnet 일일 메시지 제한 사용",
+					"paid_tier": "Pro 월 $20 (사용량 5배, 피크 타임 우선 접속, Projects 기능 지원)"
+				},
+				"guide": {
+					"steps": [
+						"우측 상단 Projects 생성 후 공통 참조 문서/규칙을 미리 등록",
+						"코드 작성 또는 UI 제작 요청 시 'Artifacts' 창에서 실시간 렌더링 확인",
+						"장문의 PDF 문서나 기획서를 업로드하고 핵심 논점 요약 요청"
+					],
+					"pro_tip": "React/HTML UI 코드를 짤 때 Claude Artifacts를 켜두면 브라우저 상에서 컴포넌트가 즉시 렌더링되어 프론트엔드 검증이 매우 빠릅니다."
+				}
+			},
+			{
+				"id": "ms-copilot",
+				"name": "Microsoft Copilot",
+				"provider": "Microsoft",
+				"url": "https://copilot.microsoft.com",
+				"logo_url": "https://www.google.com/s2/favicons?domain=copilot.microsoft.com&sz=128",
+				"desc": "Bing 웹 인덱스와 Microsoft 365(Word·Excel·Outlook) 연동을 기반으로 실시간 검색형 답변을 제공하는 엔터프라이즈 표준 어시스턴트.",
+				"tags": [
+					"LLM",
+					"Bing인덱싱",
+					"오피스연동"
+				],
+				"is_public": true,
+				"market_share": 4,
+				"monthly_visits": "360M",
+				"recommend_score": 90,
+				"rating": 4.6,
+				"growth": "+9.5%",
+				"pricing": {
+					"type": "Freemium",
+					"summary": "무료 / Copilot Pro $20/월",
+					"free_tier": "웹·모바일 앱에서 기본 Copilot 채팅 무료 사용",
+					"paid_tier": "Copilot Pro 월 $20 (우선 모델 접속, Microsoft 365 앱 내 통합, 고속 이미지 생성)"
+				},
+				"guide": {
+					"steps": [
+						"Bing 또는 Windows 사이드바에서 Copilot 아이콘으로 진입",
+						"Word·Excel·Outlook 내 Copilot 버튼을 눌러 문서/메일 초안을 바로 생성",
+						"질문에 웹 인용 각주가 달린 답변에서 원본 출처 링크 확인"
+					],
+					"pro_tip": "Microsoft 365 구독자는 문서 작성 중 셀렉션을 잡고 Copilot을 호출하면 별도 창 전환 없이 바로 리라이트/요약을 받을 수 있습니다."
+				}
+			},
+			{
 				"id": "grok",
 				"name": "Grok",
 				"provider": "xAI",
 				"url": "https://x.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=x.ai&sz=128",
 				"desc": "X(트위터) 실시간 데이터 기반 정보 처리 및 Flux 기반 이미지 생성 지원.",
-				"tags": ["실시간트렌드", "이미지"],
+				"tags": [
+					"실시간트렌드",
+					"이미지"
+				],
 				"is_public": true,
-				"market_share": 1.4,
-				"monthly_visits": "135M",
+				"market_share": 2.5,
+				"monthly_visits": "225M",
 				"recommend_score": 88,
 				"rating": 4.5,
 				"growth": "+4.5%",
@@ -181,6 +202,75 @@
 					],
 					"pro_tip": "Flux 엔진 기반 이미지 생성이 매우 관대하여 독특한 콘셉트 비주얼을 빠르게 테스트할 수 있습니다."
 				}
+			},
+			{
+				"id": "deepseek",
+				"name": "DeepSeek (V3 / R1)",
+				"provider": "DeepSeek",
+				"url": "https://www.deepseek.com",
+				"logo_url": "https://www.google.com/s2/favicons?domain=deepseek.com&sz=128",
+				"desc": "오픈 웨이트 기반 추론(Reasoning)과 압도적 가성비로 글로벌 이슈가 된 V3 / R1 라인.",
+				"tags": [
+					"LLM",
+					"오픈웨이트",
+					"추론",
+					"라이징"
+				],
+				"is_public": true,
+				"market_share": 1.5,
+				"monthly_visits": "135M",
+				"recommend_score": 92,
+				"rating": 4.7,
+				"growth": "+38.0%",
+				"trend_score": 91,
+				"launch_date": "2025-01-20",
+				"pricing": {
+					"type": "Freemium",
+					"summary": "웹 무료 / API 종량제",
+					"free_tier": "DeepSeek-V3 / R1 웹 채팅 무료 사용",
+					"paid_tier": "API 토큰 종량제 (V3·R1 각각 입력/출력 단가 상이)"
+				},
+				"guide": {
+					"steps": [
+						"deepseek.com에서 웹 채팅을 열거나 API 키를 발급",
+						"코딩·수학·장문 분석처럼 추론이 필요한 작업을 R1에 우선 할당",
+						"대량 호출은 API 토큰 사용량을 모니터링하며 V3로 비용 최적화"
+					],
+					"pro_tip": "복잡한 문제를 풀 때는 '단계별로 검증하며 풀어라'고 지시하면 R1의 추론 트레이스가 더 안정적입니다."
+				}
+			},
+			{
+				"id": "meta-ai",
+				"name": "Meta AI",
+				"provider": "Meta",
+				"url": "https://www.meta.ai",
+				"logo_url": "https://www.google.com/s2/favicons?domain=meta.ai&sz=128",
+				"desc": "Instagram·WhatsApp·Facebook에 통합된 소셜 특화 어시스턴트. 소셜 데이터 기반 대화와 멀티모달 이미지 생성에 강점.",
+				"tags": [
+					"LLM",
+					"소셜통합",
+					"멀티모달"
+				],
+				"is_public": true,
+				"market_share": 1.3,
+				"monthly_visits": "115M",
+				"recommend_score": 87,
+				"rating": 4.5,
+				"growth": "+18.0%",
+				"pricing": {
+					"type": "Free",
+					"summary": "무료 (Instagram/WhatsApp/Facebook 내 기본 제공)",
+					"free_tier": "메타 앱 생태계 내에서 채팅·이미지 생성 100% 무료",
+					"paid_tier": "별도 유료 플랜 없음 (메타 앱 생태계 내 무료 제공)"
+				},
+				"guide": {
+					"steps": [
+						"Instagram DM, WhatsApp, Facebook Messenger 검색창에서 Meta AI 호출",
+						"단체 채팅방에서 @Meta AI로 멘션하여 실시간 질의응답 요청",
+						"이미지 생성 요청 시 스티커/DM 답장으로 바로 공유"
+					],
+					"pro_tip": "단체 채팅방에서 여행지 추천이나 약속 장소를 정할 때 @Meta AI로 멘션하면 대화 맥락을 참고한 답변을 바로 받을 수 있습니다."
+				}
 			}
 		]
 	},
@@ -196,7 +286,10 @@
 				"url": "https://www.midjourney.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=midjourney.com&sz=128",
 				"desc": "압도적인 예술적 화풍과 고품질 비주얼, 콘셉트 아트 제작.",
-				"tags": ["일러스트", "콘셉트아트"],
+				"tags": [
+					"일러스트",
+					"콘셉트아트"
+				],
 				"is_public": true,
 				"market_share": 41.2,
 				"monthly_visits": "87M",
@@ -225,7 +318,11 @@
 				"url": "https://www.canva.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=canva.com&sz=128",
 				"desc": "매직 스튜디오 기반 디자인·이미지 생성. 템플릿과 브랜드 키트를 유지한 채 AI로 시안을 빠르게 뽑는 실무 도구.",
-				"tags": ["디자인", "이미지생성", "템플릿"],
+				"tags": [
+					"디자인",
+					"이미지생성",
+					"템플릿"
+				],
 				"is_public": true,
 				"market_share": 10.8,
 				"monthly_visits": "68M",
@@ -254,9 +351,13 @@
 				"url": "https://blackforestlabs.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=blackforestlabs.ai&sz=128",
 				"desc": "사실적 텍스처와 타이포그래피(글자 렌더링)에서 1위로 꼽히는 오픈 가중치 이미지 모델.",
-				"tags": ["타이포그래피", "포토리얼", "라이징"],
+				"tags": [
+					"타이포그래피",
+					"포토리얼",
+					"라이징"
+				],
 				"is_public": true,
-				"market_share": 20.0,
+				"market_share": 20,
 				"monthly_visits": "28M",
 				"recommend_score": 98,
 				"rating": 4.9,
@@ -285,7 +386,10 @@
 				"url": "https://stability.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=stability.ai&sz=128",
 				"desc": "ControlNet, LoRA 등 커스텀 모델 생태계 및 정밀 제어 가능한 오픈소스 툴.",
-				"tags": ["오픈소스", "정밀제어"],
+				"tags": [
+					"오픈소스",
+					"정밀제어"
+				],
 				"is_public": true,
 				"market_share": 18.2,
 				"monthly_visits": "20M",
@@ -314,7 +418,12 @@
 				"url": "https://ideogram.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=ideogram.ai&sz=128",
 				"desc": "디자인 포스터와 감각적인 텍스트 레이아웃 생성에 특화된 2.0 타이포 엔진.",
-				"tags": ["로고", "포스터", "타이포", "라이징"],
+				"tags": [
+					"로고",
+					"포스터",
+					"타이포",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 8.4,
 				"monthly_visits": "12M",
@@ -345,7 +454,12 @@
 				"url": "https://www.recraft.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=recraft.ai&sz=128",
 				"desc": "UI/UX 디자이너 특화 벡터(SVG), 3D 아이콘 및 일러스트레이션 전문 생성기.",
-				"tags": ["SVG", "UI에셋", "아이콘", "라이징"],
+				"tags": [
+					"SVG",
+					"UI에셋",
+					"아이콘",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 4.8,
 				"monthly_visits": "6M",
@@ -376,9 +490,12 @@
 				"url": "https://magnific.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=magnific.ai&sz=128",
 				"desc": "저해상도 이미지를 8K급 초고해상도로 업스케일링 및 디테일 재창조.",
-				"tags": ["업스케일링", "리터칭"],
+				"tags": [
+					"업스케일링",
+					"리터칭"
+				],
 				"is_public": true,
-				"market_share": 2.0,
+				"market_share": 2,
 				"monthly_visits": "3M",
 				"recommend_score": 89,
 				"rating": 4.6,
@@ -412,9 +529,12 @@
 				"url": "https://runwayml.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=runwayml.com&sz=128",
 				"desc": "텍스트/이미지 기반 비디오 생성, 카메라 제어, 모션 브러시 지원.",
-				"tags": ["영상생성", "카메라제어"],
+				"tags": [
+					"영상생성",
+					"카메라제어"
+				],
 				"is_public": true,
-				"market_share": 32.0,
+				"market_share": 32,
 				"monthly_visits": "45M",
 				"recommend_score": 96,
 				"rating": 4.8,
@@ -441,7 +561,10 @@
 				"url": "https://klingai.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=klingai.com&sz=128",
 				"desc": "자연스러운 물리 움직임과 긴 러닝타임의 고품질 영상 생성.",
-				"tags": ["물리시뮬레이션", "고화질영상"],
+				"tags": [
+					"물리시뮬레이션",
+					"고화질영상"
+				],
 				"is_public": true,
 				"market_share": 28.2,
 				"monthly_visits": "18M",
@@ -470,7 +593,10 @@
 				"url": "https://lumalabs.ai/dream-machine",
 				"logo_url": "https://www.google.com/s2/favicons?domain=lumalabs.ai&sz=128",
 				"desc": "빠른 생성 속도와 역동적인 카메라 무빙, 3D 공간감 구현.",
-				"tags": ["3D무빙", "시네마틱"],
+				"tags": [
+					"3D무빙",
+					"시네마틱"
+				],
 				"is_public": true,
 				"market_share": 15.1,
 				"monthly_visits": "11M",
@@ -499,7 +625,10 @@
 				"url": "https://pika.art",
 				"logo_url": "https://www.google.com/s2/favicons?domain=pika.art&sz=128",
 				"desc": "만화적 연출 및 특정 물리 효과(부풀리기, 녹이기 등) 이펙트 조작.",
-				"tags": ["특수효과", "애니메이션"],
+				"tags": [
+					"특수효과",
+					"애니메이션"
+				],
 				"is_public": true,
 				"market_share": 7.4,
 				"monthly_visits": "7M",
@@ -528,7 +657,11 @@
 				"url": "https://www.heygen.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=heygen.com&sz=128",
 				"desc": "텍스트 입력 기반 AI 인물 아바타 발표 영상 및 쇼츠 제작.",
-				"tags": ["아바타", "발표영상", "쇼츠"],
+				"tags": [
+					"아바타",
+					"발표영상",
+					"쇼츠"
+				],
 				"is_public": true,
 				"market_share": 6.8,
 				"monthly_visits": "6.5M",
@@ -557,9 +690,13 @@
 				"url": "https://vrew.voyagerx.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=vrew.voyagerx.com&sz=128",
 				"desc": "음성 인식 자동 자막, 컷 편집, AI 보이스 통합 영상 편집기.",
-				"tags": ["자막생성", "컷편집", "한국어특화"],
+				"tags": [
+					"자막생성",
+					"컷편집",
+					"한국어특화"
+				],
 				"is_public": true,
-				"market_share": 4.0,
+				"market_share": 4,
 				"monthly_visits": "4.5M",
 				"recommend_score": 95,
 				"rating": 4.8,
@@ -586,7 +723,11 @@
 				"url": "https://openai.com/sora",
 				"logo_url": "https://www.google.com/s2/favicons?domain=openai.com&sz=128",
 				"desc": "텍스트·이미지 프롬프트로 영화급 물리 묘사와 긴 샷의 비디오를 생성하는 OpenAI 영상 모델.",
-				"tags": ["영상생성", "시네마틱", "OpenAI"],
+				"tags": [
+					"영상생성",
+					"시네마틱",
+					"OpenAI"
+				],
 				"is_public": true,
 				"market_share": 18.4,
 				"monthly_visits": "28M",
@@ -615,7 +756,12 @@
 				"url": "https://seed.bytedance.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=bytedance.com&sz=128",
 				"desc": "참조 영상 모션 복제와 댄스/액션 숏폼에 특화. 정교한 물리 관절 제어가 강점인 ByteDance 비디오 모델.",
-				"tags": ["영상생성", "모션복제", "숏폼", "라이징"],
+				"tags": [
+					"영상생성",
+					"모션복제",
+					"숏폼",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 14.6,
 				"monthly_visits": "22M",
@@ -646,7 +792,12 @@
 				"url": "https://hailuoai.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=hailuoai.com&sz=128",
 				"desc": "실사급 감정 표정 렌더링과 자연스러운 충돌 물리 엔진을 갖춘 MiniMax 비디오 생성기.",
-				"tags": ["영상생성", "실사", "물리엔진", "라이징"],
+				"tags": [
+					"영상생성",
+					"실사",
+					"물리엔진",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 3.1,
 				"monthly_visits": "4.2M",
@@ -677,7 +828,12 @@
 				"url": "https://hunyuan.tencent.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=tencent.com&sz=128",
 				"desc": "최상위 오픈소스 영상 파운데이션 모델. ComfyUI 워크플로에서 급상승 중인 Tencent 비디오 모델.",
-				"tags": ["오픈소스", "ComfyUI", "영상생성", "라이징"],
+				"tags": [
+					"오픈소스",
+					"ComfyUI",
+					"영상생성",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 2.8,
 				"monthly_visits": "3.8M",
@@ -715,7 +871,12 @@
 				"url": "https://elevenlabs.io",
 				"logo_url": "https://www.google.com/s2/favicons?domain=elevenlabs.io&sz=128",
 				"desc": "초저지연 대화형 음성 에이전트와 감정 표현 보이스 디자인. 복제·TTS·실시간 대화를 한 스택으로 제공.",
-				"tags": ["보이스클로닝", "TTS", "보이스에이전트", "라이징"],
+				"tags": [
+					"보이스클로닝",
+					"TTS",
+					"보이스에이전트",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 46.5,
 				"monthly_visits": "22M",
@@ -746,7 +907,11 @@
 				"url": "https://suno.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=suno.com&sz=128",
 				"desc": "스튜디오급 보컬 마스터링과 복합 장르 작곡 엔진. v4에서 보컬 분리·장르 믹스가 크게 향상.",
-				"tags": ["AI작곡", "보컬생성", "라이징"],
+				"tags": [
+					"AI작곡",
+					"보컬생성",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 36.5,
 				"monthly_visits": "19M",
@@ -777,7 +942,10 @@
 				"url": "https://www.udio.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=udio.com&sz=128",
 				"desc": "정교한 스타일 제어와 고음질 음악 트랙 작곡 툴.",
-				"tags": ["고음질작곡", "트랙제작"],
+				"tags": [
+					"고음질작곡",
+					"트랙제작"
+				],
 				"is_public": true,
 				"market_share": 15.5,
 				"monthly_visits": "8M",
@@ -813,7 +981,10 @@
 				"url": "https://www.cursor.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=cursor.com&sz=128",
 				"desc": "프로젝트 전체 코드베이스를 분석하고 멀티파일 수정 및 리팩토링을 수행하는 IDE.",
-				"tags": ["AI-IDE", "코드베이스분석"],
+				"tags": [
+					"AI-IDE",
+					"코드베이스분석"
+				],
 				"is_public": true,
 				"market_share": 38.5,
 				"monthly_visits": "18M",
@@ -842,9 +1013,12 @@
 				"url": "https://github.com/features/copilot",
 				"logo_url": "https://www.google.com/s2/favicons?domain=github.com&sz=128",
 				"desc": "인라인 코드 자동 완성 및 주석 기반 코드 생성의 표준 도구.",
-				"tags": ["자동완성", "VSCode"],
+				"tags": [
+					"자동완성",
+					"VSCode"
+				],
 				"is_public": true,
-				"market_share": 38.0,
+				"market_share": 38,
 				"monthly_visits": "25M",
 				"recommend_score": 94,
 				"rating": 4.7,
@@ -871,7 +1045,12 @@
 				"url": "https://v0.dev",
 				"logo_url": "https://www.google.com/s2/favicons?domain=v0.dev&sz=128",
 				"desc": "React/Tailwind 인터랙티브 UI 컴포넌트를 실시간으로 생성하는 Vercel 에이전트.",
-				"tags": ["React", "TailwindCSS", "UI빌더", "라이징"],
+				"tags": [
+					"React",
+					"TailwindCSS",
+					"UI빌더",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 11.5,
 				"monthly_visits": "9M",
@@ -902,7 +1081,12 @@
 				"url": "https://bolt.new",
 				"logo_url": "https://www.google.com/s2/favicons?domain=bolt.new&sz=128",
 				"desc": "브라우저 기반 풀스택 프롬프트 앱 빌더. 설치 없이 프론트·백엔드를 한 스레드에서 생성·실행.",
-				"tags": ["풀스택", "브라우저IDE", "에이전트", "라이징"],
+				"tags": [
+					"풀스택",
+					"브라우저IDE",
+					"에이전트",
+					"라이징"
+				],
 				"is_public": true,
 				"market_share": 4.2,
 				"monthly_visits": "5.5M",
@@ -933,7 +1117,10 @@
 				"url": "https://replit.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=replit.com&sz=128",
 				"desc": "프롬프트 하나로 풀스택 웹 앱을 기획부터 환경 구축, 배포까지 원클릭 수행.",
-				"tags": ["풀스택", "클라우드배포"],
+				"tags": [
+					"풀스택",
+					"클라우드배포"
+				],
 				"is_public": true,
 				"market_share": 6.5,
 				"monthly_visits": "8M",
@@ -969,7 +1156,10 @@
 				"url": "https://poe.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=poe.com&sz=128",
 				"desc": "GPT-4o, Claude 3.5, FLUX 등 최신 모델을 한곳에서 번갈아 사용하는 통합 구독 허브.",
-				"tags": ["통합구독", "멀티모델"],
+				"tags": [
+					"통합구독",
+					"멀티모델"
+				],
 				"is_public": true,
 				"market_share": 38.5,
 				"monthly_visits": "58M",
@@ -998,9 +1188,12 @@
 				"url": "https://huggingface.co",
 				"logo_url": "https://www.google.com/s2/favicons?domain=huggingface.co&sz=128",
 				"desc": "오픈소스 모델, 데이터셋, 웹 데모(Spaces)가 집결된 글로벌 AI 오픈소스 허브.",
-				"tags": ["오픈소스", "Spaces"],
+				"tags": [
+					"오픈소스",
+					"Spaces"
+				],
 				"is_public": true,
-				"market_share": 39.0,
+				"market_share": 39,
 				"monthly_visits": "26M",
 				"recommend_score": 97,
 				"rating": 4.9,
@@ -1027,9 +1220,12 @@
 				"url": "https://theresanaiforthat.com",
 				"logo_url": "https://www.google.com/s2/favicons?domain=theresanaiforthat.com&sz=128",
 				"desc": "카테고리별 매일 업데이트되는 세계 최대 규모의 AI 서비스 아카이브.",
-				"tags": ["디렉토리", "최신AI검색"],
+				"tags": [
+					"디렉토리",
+					"최신AI검색"
+				],
 				"is_public": true,
-				"market_share": 12.0,
+				"market_share": 12,
 				"monthly_visits": "8M",
 				"recommend_score": 92,
 				"rating": 4.7,
@@ -1056,9 +1252,12 @@
 				"url": "https://www.futurepedia.io",
 				"logo_url": "https://www.google.com/s2/favicons?domain=futurepedia.io&sz=128",
 				"desc": "분야별 랭킹과 실사용 리뷰를 모아둔 대표적인 AI 큐레이션 플랫폼.",
-				"tags": ["큐레이션", "랭킹"],
+				"tags": [
+					"큐레이션",
+					"랭킹"
+				],
 				"is_public": true,
-				"market_share": 8.0,
+				"market_share": 8,
 				"monthly_visits": "5M",
 				"recommend_score": 90,
 				"rating": 4.6,

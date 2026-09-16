@@ -36,7 +36,11 @@ export function LlmsTxtCopyBox({
 		<section
 			id={GEO_PILLAR_ANCHOR_IDS.bot_index}
 			data-geo-pillar="bot_index"
-			className="pdf-page-item audit-report-section scroll-mt-24 space-y-6 rounded-2xl border border-slate-200 bg-white shadow-sm p-5 dark:border-cyan-400/25 dark:bg-gradient-to-br dark:from-cyan-500/[0.10] dark:via-[#0B1028] dark:to-indigo-500/[0.08] dark:shadow-none sm:p-6"
+			// 다크 모드에서 `bg-white`의 background-color는 그대로 남아있고 `dark:bg-gradient-to-br`는
+			// background-image만 덧씌우므로, 그라데이션 끝단(from/to)의 저채도 색상 틈으로 흰 배경이
+			// 그대로 비쳐 "희백색/은색" 카드가 되는 게 원인이었다. `dark:bg-slate-950`으로 불투명한
+			// 다크 베이스를 먼저 깔아 비침을 원천 차단하고, 그 위에 옅은 시안↔인디고 그라데이션만 얹는다.
+			className="pdf-page-item audit-report-section scroll-mt-24 space-y-6 rounded-2xl border border-slate-200 bg-white shadow-sm p-5 dark:border-cyan-400/25 dark:bg-slate-950 dark:bg-gradient-to-br dark:from-cyan-500/10 dark:via-transparent dark:to-indigo-500/10 dark:shadow-none sm:p-6"
 		>
 			<GeoMeasuredCardHeader
 				pillarId="bot_index"

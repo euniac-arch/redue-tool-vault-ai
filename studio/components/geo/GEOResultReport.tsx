@@ -74,7 +74,7 @@ export function GEOResultReport({
 					headingId="geo-prescription-report-heading"
 				/>
 			) : (
-				<div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-emerald-400/25 dark:bg-gradient-to-br dark:from-emerald-500/[0.12] dark:via-[#0B1028] dark:to-cyan-500/[0.08] dark:shadow-none p-5 sm:p-6">
+				<div className="rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-emerald-400/25 dark:bg-slate-950 dark:bg-gradient-to-br dark:from-emerald-500/10 dark:via-transparent dark:to-cyan-500/10 dark:shadow-none p-5 sm:p-6">
 					<div className="flex items-start gap-3">
 						<span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
 							<Sparkles className="h-5 w-5" aria-hidden />
@@ -90,7 +90,7 @@ export function GEOResultReport({
 								</h3>
 								<PrescriptionAppliedBadge />
 							</div>
-							<p className="mt-0.5 text-xs leading-relaxed text-slate-400">{t('subtitle')}</p>
+							<p className="mt-0.5 text-xs leading-relaxed text-slate-500 dark:text-slate-400">{t('subtitle')}</p>
 						</div>
 					</div>
 				</div>
@@ -102,7 +102,7 @@ export function GEOResultReport({
 				</div>
 			) : null}
 
-			<div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-emerald-400/25 dark:bg-gradient-to-br dark:from-emerald-500/[0.12] dark:via-[#0B1028] dark:to-cyan-500/[0.08] dark:shadow-none p-5 sm:p-6">
+			<div className="mt-4 rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-emerald-400/25 dark:bg-slate-950 dark:bg-gradient-to-br dark:from-emerald-500/10 dark:via-transparent dark:to-cyan-500/10 dark:shadow-none p-5 sm:p-6">
 				<div>
 					<p className="text-[11px] font-extrabold uppercase tracking-wide text-emerald-800 dark:text-emerald-300">
 						{t('patchesTitle')}

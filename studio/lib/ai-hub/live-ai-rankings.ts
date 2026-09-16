@@ -5,6 +5,7 @@
  */
 
 import { parseMonthlyVisits, type AiTool, type AiToolCategoryId } from '@/lib/admin/ai-tools-management';
+import { geoScoreOf } from '@/lib/ai-hub/calculateGeoRankings';
 import { parseGrowthPercent } from '@/lib/ai-hub/getDailyAiRanking';
 import {
 	classifyRisingStatus,
@@ -91,7 +92,7 @@ export type DailyAiRankingsResponse = {
 	categories: Array<{ id: LiveAiRankingCategory; label: string; icon: string }>;
 };
 
-export type RankedAiToolSortKey = 'rank' | 'recommend_score' | 'market_share' | 'rating' | 'name' | 'trend';
+export type RankedAiToolSortKey = 'rank' | 'recommend_score' | 'market_share' | 'rating' | 'name' | 'trend' | 'geo_score';
 
 function pad2(value: number): string {
 	return String(value).padStart(2, '0');
@@ -392,6 +393,10 @@ export function sortRankedAiTools(tools: RankedLiveAiTool[], sortKey: RankedAiTo
 		sorted.sort((a, b) =>
 			scopedToCategory ? b.categorySharePct - a.categorySharePct : b.globalSharePct - a.globalSharePct,
 		);
+		return sorted;
+	}
+	if (sortKey === 'geo_score') {
+		sorted.sort((a, b) => geoScoreOf(b) - geoScoreOf(a));
 		return sorted;
 	}
 	sorted.sort((a, b) => b[sortKey] - a[sortKey]);

@@ -36,6 +36,8 @@ export function AiHubTodayRankModal({ tools, analysis, dateKey, onClose }: AiHub
 	const champions = analysis.categoryChampions;
 	const newEntries = analysis.newEntries.slice(0, 4);
 	const rising = analysis.rising.slice(0, 8);
+	const changedCount = tools.filter((tool) => !tool.isNew && tool.rankDelta !== 0).length;
+	const newEntryCount = analysis.newEntries.length;
 
 	function markLogoFailed(id: string) {
 		setLogoFailedIds((prev) => new Set(prev).add(id));
@@ -66,6 +68,22 @@ export function AiHubTodayRankModal({ tools, analysis, dateKey, onClose }: AiHub
 						<p className="mt-1 text-xs font-medium text-white/70">
 							라이브 카탈로그 {tools.length}개 도구 · 트래픽 지수 기준 동적 산출
 						</p>
+						<div className="mt-2 flex flex-wrap items-center gap-1.5">
+							<span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-200">
+								<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-300" aria-hidden />
+								분석 완료 (LIVE)
+							</span>
+							{changedCount > 0 ? (
+								<span className="inline-flex items-center rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] font-bold text-cyan-200">
+									전일 대비 변동 AI {changedCount}개
+								</span>
+							) : null}
+							{newEntryCount > 0 ? (
+								<span className="inline-flex items-center rounded-full bg-sky-500/20 px-2 py-0.5 text-[10px] font-bold text-sky-200">
+									신규 진입 {newEntryCount}개
+								</span>
+							) : null}
+						</div>
 					</div>
 					<button
 						type="button"

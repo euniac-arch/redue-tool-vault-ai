@@ -9,6 +9,7 @@
  */
 
 import aiToolsRaw from '@/data/aiToolsData.json';
+import { geoScoreOf } from '@/lib/ai-hub/calculateGeoRankings';
 
 export type AiToolCategoryId = 'llm' | 'image' | 'video' | 'audio' | 'code' | 'hub';
 
@@ -81,10 +82,11 @@ export type AiToolFilters = {
 };
 
 /** Sort keys for the curation grid. `rank` is the default live-ranking view. */
-export type AiToolSortKey = 'rank' | 'market_share' | 'recommend_score' | 'rating' | 'name' | 'trend';
+export type AiToolSortKey = 'rank' | 'market_share' | 'recommend_score' | 'rating' | 'name' | 'trend' | 'geo_score';
 
 export const AI_TOOL_SORT_OPTIONS: { key: AiToolSortKey; label: string }[] = [
 	{ key: 'rank', label: '순위순' },
+	{ key: 'geo_score', label: 'GEO점수순' },
 	{ key: 'recommend_score', label: '점수순' },
 	{ key: 'market_share', label: '점유율순' },
 	{ key: 'trend', label: '버즈순' },
@@ -198,6 +200,10 @@ export function sortAiTools(tools: AiTool[], sortKey: AiToolSortKey): AiTool[] {
 			const right = (b as AiTool & { trendScore?: number }).trendScore ?? b.trend_score ?? 0;
 			return right - left;
 		});
+		return sorted;
+	}
+	if (sortKey === 'geo_score') {
+		sorted.sort((a, b) => geoScoreOf(b) - geoScoreOf(a));
 		return sorted;
 	}
 	sorted.sort((a, b) => b[sortKey] - a[sortKey]);

@@ -7,7 +7,8 @@ import { MarketShareBar } from '@/components/admin/ai-tools/MarketShareBar';
 import { CURATED_TRENDING_TOOLS, groupCuratedTrendingTools } from '@/data/curatedTrendingTools';
 import { AI_TOOL_SORT_OPTIONS, type AiToolCategoryId, type AiToolSortKey } from '@/lib/admin/ai-tools-management';
 import { getPublicAiHubCategories } from '@/lib/ai-hub';
-import { sortRankedAiTools } from '@/lib/ai-hub/live-ai-rankings';
+import { calculateGeoRankings } from '@/lib/ai-hub/calculateGeoRankings';
+import { formatKstRankingAsOfLabel, sortRankedAiTools } from '@/lib/ai-hub/live-ai-rankings';
 import { useDailyAiRankings } from '@/lib/ai-hub/useDailyAiRankings';
 import { AiHubToolCard } from './AiHubToolCard';
 import { AiHubDetailModal } from './AiHubDetailModal';
@@ -24,7 +25,8 @@ export function AiHubDashboard() {
 	const { tools, analysis, date, loading, error, refetch } = useDailyAiRankings();
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<HubFilter>('all');
-	const [sortKey, setSortKey] = useState<AiToolSortKey>('rank');
+	// 기본 정렬 기준: GEO Score 순 — 사용자가 다른 기준(점유율순 등)을 직접 고르면 그 선택을 그대로 존중한다.
+	const [sortKey, setSortKey] = useState<AiToolSortKey>('geo_score');
 	const [activeToolId, setActiveToolId] = useState<string | null>(null);
 	const [rankModalOpen, setRankModalOpen] = useState(false);
 	const [rankModalPending, setRankModalPending] = useState(false);
@@ -50,6 +52,17 @@ export function AiHubDashboard() {
 	}, [refetch]);
 
 	const isTrending = category === 'trending';
+	// GEO Score / 인용률 — 각 도구 고유 신호(점유율·추천점수·평점·성장률)에서 계산, 절대 고정값 아님.
+	const geoMetricById = useMemo(() => {
+		const metrics = calculateGeoRankings(tools);
+		return new Map(metrics.map((metric) => [metric.id, metric]));
+	}, [tools]);
+	const todayLabel = useMemo(() => (date ? formatKstRankingAsOfLabel(date) : ''), [date]);
+	const changedCount = useMemo(
+		() => tools.filter((tool) => !tool.isNew && tool.rankDelta !== 0).length,
+		[tools],
+	);
+	const newEntryCount = analysis?.newEntries.length ?? 0;
 	const tabCategories = useMemo(() => getPublicAiHubCategories(tools), [tools]);
 	const processedCategories = useMemo(() => {
 		const q = query.trim().toLowerCase();
@@ -126,6 +139,27 @@ export function AiHubDashboard() {
 
 				{!isTrending && tools.length > 0 && (
 					<div className="flex flex-col items-stretch gap-2">
+						<div className="flex flex-wrap items-center gap-1.5">
+							{todayLabel ? (
+								<span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-900/60 dark:text-slate-400">
+									{todayLabel}
+								</span>
+							) : null}
+							<span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-950/40 dark:text-emerald-300">
+								<span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" aria-hidden />
+								분석 완료 (LIVE)
+							</span>
+							{changedCount > 0 ? (
+								<span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-[11px] font-bold text-cyan-700 dark:border-cyan-500/30 dark:bg-cyan-950/40 dark:text-cyan-300">
+									전일 대비 변동 AI {changedCount}개
+								</span>
+							) : null}
+							{newEntryCount > 0 ? (
+								<span className="inline-flex items-center gap-1 rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[11px] font-bold text-sky-700 dark:border-sky-500/30 dark:bg-sky-950/40 dark:text-sky-300">
+									신규 진입 {newEntryCount}개
+								</span>
+							) : null}
+						</div>
 						<div className="flex flex-col items-stretch gap-3 sm:flex-row">
 							<div className="flex-1">
 								<MarketShareBar tools={tools} category={category} dateKey={date} />
@@ -246,21 +280,31 @@ export function AiHubDashboard() {
 									</span>
 								</div>
 								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-									{cat.tools.map((tool) => (
-										<AiHubToolCard
-											key={tool.id}
-											tool={tool}
-											rank={tool.formalRank ?? tool.categoryRank}
-											rankDelta={
-												tool.previousCategoryRank > 0 ? tool.previousCategoryRank - tool.categoryRank : tool.rankDelta
-											}
-											isNew={tool.isNew}
-											isHot={tool.isHot}
-											isRising={tool.isRising}
-											status={tool.status}
-											onOpenDetail={(selected) => setActiveToolId(selected.id)}
-										/>
-									))}
+									{cat.tools.map((tool, index) => {
+										// "전체 순위" 탭: 기존 고정 전체/카테고리 순위 그대로 유지.
+										// 특정 카테고리 탭: 현재 필터링+정렬된 목록 기준 1위부터 순차 재계산.
+										const displayRank = category === 'all' ? tool.formalRank ?? tool.categoryRank : index + 1;
+										const globalRank = category === 'all' ? undefined : tool.formalRank;
+										return (
+											<AiHubToolCard
+												key={tool.id}
+												tool={tool}
+												rank={displayRank}
+												rankDelta={
+													tool.previousCategoryRank > 0 ? tool.previousCategoryRank - tool.categoryRank : tool.rankDelta
+												}
+												isNew={tool.isNew}
+												isHot={tool.isHot}
+												isRising={tool.isRising}
+												status={tool.status}
+												geoScore={geoMetricById.get(tool.id)?.geoScore}
+												citationRate={geoMetricById.get(tool.id)?.citationRate}
+												globalRank={globalRank}
+												categoryLabel={category === 'all' ? undefined : cat.label}
+												onOpenDetail={(selected) => setActiveToolId(selected.id)}
+											/>
+										);
+									})}
 								</div>
 							</div>
 						);

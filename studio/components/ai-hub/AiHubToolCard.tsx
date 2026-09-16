@@ -8,13 +8,30 @@ import type { AiToolRisingStatus } from '@/lib/ai-hub/rising-ai-tools';
 
 interface AiHubToolCardProps {
 	tool: AiTool;
+	/** Position to show on the badge — category-relative (1, 2, 3...) when a specific tab is selected, global otherwise. */
 	rank: number;
 	rankDelta?: number;
 	isNew?: boolean;
 	isHot?: boolean;
 	isRising?: boolean;
 	status?: AiToolRisingStatus;
+	/** GEO(Generative Engine Optimization) fitness score, 0~100. Defensively clamped by the caller via `calculateGeoRankings`. */
+	geoScore?: number;
+	/** Share of AI-answer citations attributed to this engine, 0~100. */
+	citationRate?: number;
+	/**
+	 * The tool's fixed global (all-category) rank, shown as small context text when it differs
+	 * from `rank` — i.e. only while a specific category tab is active. `undefined` in "전체 순위".
+	 */
+	globalRank?: number;
+	/** Category label used in the rank-badge tooltip, e.g. "이미지 카테고리 내 1위". */
+	categoryLabel?: string;
 	onOpenDetail: (tool: AiTool) => void;
+}
+
+/** Clamp + NaN-guard so a bad upstream number never renders as `NaN%` or a broken gauge width. */
+function safePct(value: number | undefined): number {
+	return typeof value === 'number' && Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
 }
 
 export function AiHubToolCard({
@@ -25,9 +42,17 @@ export function AiHubToolCard({
 	isHot = false,
 	isRising = false,
 	status,
+	geoScore,
+	citationRate,
+	globalRank,
+	categoryLabel,
 	onOpenDetail,
 }: AiHubToolCardProps) {
 	const [logoFailed, setLogoFailed] = useState(false);
+	const showGlobalRankNote = typeof globalRank === 'number' && globalRank !== rank;
+	const rankBadgeTitle = categoryLabel
+		? `${categoryLabel} 내 ${rank}위${showGlobalRankNote ? ` · 전체 #${globalRank}위` : ''}`
+		: undefined;
 
 	return (
 		<div
@@ -43,7 +68,9 @@ export function AiHubToolCard({
 			className="relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-slate-700/80 dark:bg-slate-900/60 dark:hover:border-cyan-500/40"
 		>
 			<div className="absolute -left-2 -top-2 z-10 flex items-center gap-1">
-				<RankBadge rank={rank} />
+				<span title={rankBadgeTitle}>
+					<RankBadge rank={rank} />
+				</span>
 				<RankChangeBadge isNew={isNew} delta={rankDelta} />
 				<RisingStatusBadge status={status} isRising={isRising || isHot} />
 			</div>
@@ -74,9 +101,24 @@ export function AiHubToolCard({
 					<Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
 					{tool.rating.toFixed(1)}
 				</span>
-				<span title="글로벌 점유율">📊 점유율 {tool.market_share.toFixed(1)}%</span>
+				<span title="글로벌 점유율">📊 점유율 {safePct(tool.market_share).toFixed(1)}%</span>
+				{showGlobalRankNote ? (
+					<span
+						className="font-medium text-slate-400 dark:text-slate-500"
+						title="전체(모든 카테고리 통합) 순위"
+					>
+						전체 #{globalRank}위
+					</span>
+				) : null}
 				<span className="ml-auto text-slate-500 dark:text-slate-400">추천점수 {tool.recommend_score}점</span>
 			</div>
+
+			{(geoScore !== undefined || citationRate !== undefined) && (
+				<div className="flex flex-col gap-1.5 rounded-lg bg-slate-50 px-2.5 py-2 dark:bg-slate-900/40">
+					<MetricGauge label="GEO 적합도" value={safePct(geoScore)} barClassName="bg-cyan-500" />
+					<MetricGauge label="인용률" value={safePct(citationRate)} barClassName="bg-violet-500" />
+				</div>
+			)}
 
 			<p className="line-clamp-2 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{tool.desc}</p>
 
@@ -97,6 +139,35 @@ export function AiHubToolCard({
 					</span>
 				))}
 			</div>
+		</div>
+	);
+}
+
+function MetricGauge({
+	label,
+	value,
+	barClassName,
+}: {
+	label: string;
+	value: number;
+	barClassName: string;
+}) {
+	return (
+		<div className="flex items-center gap-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400">
+			<span className="w-14 shrink-0 truncate">{label}</span>
+			<div
+				className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/60"
+				role="meter"
+				aria-valuemin={0}
+				aria-valuemax={100}
+				aria-valuenow={value}
+				aria-label={label}
+			>
+				<div className={`h-full rounded-full ${barClassName}`} style={{ width: `${value}%` }} />
+			</div>
+			<span className="w-9 shrink-0 text-right font-bold tabular-nums text-slate-700 dark:text-slate-200">
+				{value.toFixed(0)}%
+			</span>
 		</div>
 	);
 }
