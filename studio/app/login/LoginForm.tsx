@@ -56,13 +56,16 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 	const [phone, setPhone] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(oauthError);
+	const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
 
 	async function handleEmailSubmit(event: React.FormEvent) {
 		event.preventDefault();
 		setError(null);
+		setWelcomeMessage(null);
 		setLoading(true);
 		try {
-			if (mode === 'signup') {
+			const isSignup = mode === 'signup';
+			if (isSignup) {
 				const strengthError = validatePasswordStrength(password);
 				if (strengthError) throw new Error(strengthError);
 				const res = await fetch('/api/auth/signup', {
@@ -79,6 +82,12 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 			const result = await signIn('credentials', { email, password, redirect: false });
 			if (result?.error) {
 				throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
+			}
+
+			// 회원가입 직후에는 리다이렉트 전 짧게 환영 피드백을 노출해 가입 성공을 명확히 알린다.
+			if (isSignup) {
+				setWelcomeMessage('🎉 환영합니다! 무료 진단 5회가 지급되었습니다. 대시보드로 이동할게요...');
+				await new Promise((resolve) => setTimeout(resolve, 700));
 			}
 			startTopProgress();
 			router.push(callbackUrl);
@@ -146,6 +155,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 						<input
 							type="text"
 							required
+							autoComplete="name"
 							placeholder="이름"
 							value={name}
 							onChange={(event) => setName(event.target.value)}
@@ -154,6 +164,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 						<input
 							type="tel"
 							required
+							autoComplete="tel"
 							placeholder="연락처 (아이디 찾기용)"
 							value={phone}
 							onChange={(event) => setPhone(event.target.value)}
@@ -162,10 +173,12 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					</>
 				)}
 				<input
-					type="text"
+					// 회원가입은 이메일 계정만 허용하므로 "이메일 주소"로 명확히 안내한다.
+					// 로그인은 마스터 관리자 전용 아이디도 허용해 기존 문구를 유지한다.
+					type={mode === 'signup' ? 'email' : 'text'}
 					required
-					autoComplete="username"
-					placeholder="아이디 또는 이메일"
+					autoComplete={mode === 'signup' ? 'email' : 'username'}
+					placeholder={mode === 'signup' ? '이메일 주소' : '아이디 또는 이메일'}
 					value={email}
 					onChange={(event) => setEmail(event.target.value)}
 					className={fieldClass}
@@ -174,12 +187,18 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					type="password"
 					required
 					minLength={8}
+					autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
 					placeholder={mode === 'signup' ? '비밀번호 (8자 이상, 영문/숫자/특수문자)' : '비밀번호'}
 					value={password}
 					onChange={(event) => setPassword(event.target.value)}
 					className={fieldClass}
 				/>
 				{error && <p className="text-sm text-rose-600 dark:text-rose-400">{error}</p>}
+				{welcomeMessage && (
+					<p className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-700 dark:text-emerald-300">
+						{welcomeMessage}
+					</p>
+				)}
 
 				<div>
 					<button
