@@ -647,6 +647,7 @@ function AuditResultContent() {
 					<Link href="/" className="text-sm font-medium text-slate-600 hover:text-slate-800 dark:text-slate-500 dark:hover:text-slate-300">
 						{t('backToHome')}
 					</Link>
+					{/* 2026-09-20: 요청에 따라 "결과보고서 미리보기" 버튼 임시 주석 처리 (추후 필요 시 재활성화).
 					<button
 						type="button"
 						onClick={handlePreviewResultSummary}
@@ -655,6 +656,7 @@ function AuditResultContent() {
 					>
 						{t('resultSummary.preview')}
 					</button>
+					*/}
 					{targetIdRef.current || targetPersisted ? (
 						<Link
 							href="/admin/crawling/list"
