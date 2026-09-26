@@ -146,7 +146,7 @@ export async function POST(request: Request) {
 			}
 		}
 
-		console.info('[signup] user created', { email, userId, role });
+		console.info('[signup] user created', { email, userId, role, phoneDigits: phone.length });
 		return NextResponse.json({ ok: true, email }, { headers: NO_STORE });
 	} catch (error) {
 		console.error('[signup] unexpected failure', error);

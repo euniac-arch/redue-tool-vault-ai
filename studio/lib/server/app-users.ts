@@ -141,6 +141,16 @@ export async function updateDurableUser(
 	return fromDoc(next.id, (next.data() || {}) as Record<string, unknown>);
 }
 
+export async function updateDurablePasswordByEmail(email: string, passwordHash: string): Promise<boolean> {
+	const user = await findDurableUserByEmail(email);
+	if (!user || !isFirebaseAdminConfigured()) return false;
+	await getAdminFirestore().collection(APP_USERS_COLLECTION).doc(user.id).set(
+		{ passwordHash, updatedAt: new Date().toISOString() },
+		{ merge: true },
+	);
+	return true;
+}
+
 export async function deleteDurableUser(id: string): Promise<void> {
 	if (!isFirebaseAdminConfigured() || !id) return;
 	await getAdminFirestore().collection(APP_USERS_COLLECTION).doc(id).delete();

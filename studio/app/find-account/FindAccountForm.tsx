@@ -18,7 +18,7 @@ export function FindAccountForm() {
 	const [email, setEmail] = useState('');
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
-	const [maskedEmail, setMaskedEmail] = useState<string | null>(null);
+	const [maskedEmails, setMaskedEmails] = useState<string[]>([]);
 	const [toast, setToast] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -34,7 +34,7 @@ export function FindAccountForm() {
 	async function handleFindId(event: React.FormEvent) {
 		event.preventDefault();
 		setError(null);
-		setMaskedEmail(null);
+		setMaskedEmails([]);
 		setLoading(true);
 		try {
 			const res = await fetch('/api/auth/find-account', {
@@ -42,9 +42,10 @@ export function FindAccountForm() {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ name, phone }),
 			});
-			const data = (await res.json()) as { email?: string; error?: string };
+			const data = (await res.json()) as { email?: string; emails?: string[]; error?: string };
 			if (!res.ok) throw new Error(data.error ?? '계정을 찾지 못했습니다.');
-			setMaskedEmail(data.email || null);
+			const emails = Array.isArray(data.emails) && data.emails.length > 0 ? data.emails : data.email ? [data.email] : [];
+			setMaskedEmails(emails);
 		} catch (err) {
 			setError((err as Error).message);
 		} finally {
@@ -63,8 +64,8 @@ export function FindAccountForm() {
 				body: JSON.stringify({ email }),
 			});
 			const data = (await res.json()) as { error?: string; message?: string };
-			if (!res.ok) throw new Error(data.error ?? '재설정 메일 발송에 실패했습니다.');
-			setToast(data.message || '비밀번호 재설정 링크가 이메일로 발송되었습니다.');
+			if (!res.ok) throw new Error(data.error ?? '이메일 발송 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+			setToast(data.message || '등록된 이메일이면 재설정 안내를 보냈습니다. 받은편지함과 스팸함을 확인해 주세요.');
 		} catch (err) {
 			setError((err as Error).message);
 		} finally {
@@ -124,10 +125,17 @@ export function FindAccountForm() {
 						onChange={(event) => setPhone(event.target.value)}
 						className={fieldClass}
 					/>
-					{maskedEmail ? (
-						<p className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-200">
-							가입된 이메일: <span className="font-bold">{maskedEmail}</span>
-						</p>
+					{maskedEmails.length > 0 ? (
+						<div className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm text-cyan-200">
+							<p>가입된 이메일</p>
+							<ul className="mt-1 space-y-1">
+								{maskedEmails.map((value) => (
+									<li key={value} className="font-bold">
+										{value}
+									</li>
+								))}
+							</ul>
+						</div>
 					) : null}
 					{error ? <p className="text-sm text-rose-400">{error}</p> : null}
 					<button
