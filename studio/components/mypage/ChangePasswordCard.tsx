@@ -51,7 +51,7 @@ export function ChangePasswordCard() {
 			});
 			const data = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
 			if (res.status === 401) {
-				window.location.assign('/login?callbackUrl=/mypage?tab=password');
+				window.location.assign(`/login?callbackUrl=${encodeURIComponent('/mypage?tab=password')}`);
 				return;
 			}
 			if (!res.ok) {

@@ -13,6 +13,18 @@ import {
 	type UserKpiSummary,
 } from '@/lib/admin/user-management';
 import { prisma } from '@/lib/prisma';
+import { isFirebaseAdminConfigured } from '@/lib/firebase/admin';
+import {
+	durableUserMatchesFilters,
+	memberFromDurableUser,
+	mergeAdminMembers,
+	sortAdminMembers,
+} from '@/lib/admin/member-merge';
+import {
+	findDurableUserById,
+	listDurableUsers,
+	type DurableAppUser,
+} from '@/lib/server/app-users';
 
 const PLAN_BY_ID: Record<string, MembershipPlan> = {
 	starter: 'Free',
@@ -138,7 +150,10 @@ const USER_INCLUDE = {
 
 export async function findAdminMember(id: string): Promise<AdminMember | null> {
 	const user = await prisma.user.findUnique({ where: { id }, include: USER_INCLUDE });
-	return user ? toAdminMember(user) : null;
+	if (user) return toAdminMember(user);
+	if (!isFirebaseAdminConfigured()) return null;
+	const durable = await findDurableUserById(id);
+	return durable ? memberFromDurableUser(durable) : null;
 }
 
 function seoulDayRange(daysAgo = 0): { start: Date; end: Date } {
@@ -187,16 +202,31 @@ export async function buildUserKpi(): Promise<UserKpiSummary> {
 	}
 
 	const lastMonthTotal = lastMonthMembers;
+	const durableExtras = await durableUsersMissingFromPrisma();
+	const extraActive = durableExtras.filter((user) => user.status !== 'withdrawn');
+	const extraToday = extraActive.filter((user) => {
+		const created = new Date(user.createdAt);
+		return created >= todayStart && created < todayEnd;
+	});
+	const total = totalMembers + extraActive.length;
 	const totalMembersDeltaPct =
-		lastMonthTotal > 0 ? Math.round(((totalMembers - lastMonthTotal) / lastMonthTotal) * 100) : totalMembers > 0 ? 100 : 0;
+		lastMonthTotal > 0 ? Math.round(((total - lastMonthTotal) / lastMonthTotal) * 100) : total > 0 ? 100 : 0;
+
+	for (const user of extraToday) {
+		if (user.provider === 'kakao') todaySignupsByProvider.kakao += 1;
+		else if (user.provider === 'google') todaySignupsByProvider.google += 1;
+		else todaySignupsByProvider.email += 1;
+	}
 
 	return {
-		totalMembers,
+		totalMembers: total,
 		totalMembersDeltaPct,
-		todaySignups: todayUsers.length,
+		todaySignups: todayUsers.length + extraToday.length,
 		todaySignupsByProvider,
 		todayAudits,
-		paidActiveUsers,
+		paidActiveUsers:
+			paidActiveUsers +
+			extraActive.filter((user) => ['pro', 'agency', 'enterprise', 'speed'].includes(user.planId)).length,
 	};
 }
 
@@ -242,28 +272,54 @@ export async function queryAdminMembers(input: {
 			? { creditsRemaining: input.sortDir }
 			: { createdAt: input.sortDir };
 
-	const total = await prisma.user.count({ where });
-	const totalPages = Math.max(1, Math.ceil(total / input.pageSize));
-	const page = Math.min(Math.max(1, input.page), totalPages);
-
-	const users = await prisma.user.findMany({
+	const prismaUsers = await prisma.user.findMany({
 		where,
 		include: USER_INCLUDE,
 		orderBy,
-		skip: (page - 1) * input.pageSize,
-		take: input.pageSize,
 	});
+	let items = prismaUsers.map(toAdminMember);
 
-	let items = users.map(toAdminMember);
-	if (input.sortKey === 'last_audit_score') {
-		const sign = input.sortDir === 'asc' ? 1 : -1;
-		items = [...items].sort((a, b) => {
-			const aScore = a.last_audit_score ?? Number.NEGATIVE_INFINITY;
-			const bScore = b.last_audit_score ?? Number.NEGATIVE_INFINITY;
-			if (aScore === bScore) return a.id.localeCompare(b.id);
-			return (aScore - bScore) * sign;
-		});
+	if (isFirebaseAdminConfigured()) {
+		try {
+			const known = await prisma.user.findMany({ select: { id: true, email: true } });
+			const knownIds = new Set(known.map((user) => user.id));
+			const knownEmails = new Set(known.map((user) => (user.email || '').trim().toLowerCase()).filter(Boolean));
+			const extras = (await listDurableUsers())
+				.filter((user) => !knownIds.has(user.id) && !knownEmails.has(user.email.toLowerCase()))
+				.filter((user) => durableUserMatchesFilters(user, input.filters))
+				.map(memberFromDurableUser);
+			items = mergeAdminMembers(items, extras);
+		} catch (error) {
+			console.error('[admin/users] shared member list failed', error);
+		}
 	}
 
-	return { items, total, page, pageSize: input.pageSize, totalPages };
+	items = sortAdminMembers(items, input.sortKey, input.sortDir);
+
+	const total = items.length;
+	const totalPages = Math.max(1, Math.ceil(total / input.pageSize));
+	const page = Math.min(Math.max(1, input.page), totalPages);
+	const start = (page - 1) * input.pageSize;
+	return {
+		items: items.slice(start, start + input.pageSize),
+		total,
+		page,
+		pageSize: input.pageSize,
+		totalPages,
+	};
+}
+
+async function durableUsersMissingFromPrisma(): Promise<DurableAppUser[]> {
+	if (!isFirebaseAdminConfigured()) return [];
+	try {
+		const known = await prisma.user.findMany({ select: { id: true, email: true } });
+		const knownIds = new Set(known.map((user) => user.id));
+		const knownEmails = new Set(known.map((user) => (user.email || '').trim().toLowerCase()).filter(Boolean));
+		return (await listDurableUsers()).filter(
+			(user) => !knownIds.has(user.id) && !knownEmails.has(user.email.toLowerCase()),
+		);
+	} catch (error) {
+		console.error('[admin/users] shared member kpi failed', error);
+		return [];
+	}
 }

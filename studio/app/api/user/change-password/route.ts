@@ -1,18 +1,17 @@
 import bcrypt from 'bcryptjs';
-import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { validatePasswordStrength } from '@/lib/auth-account';
-import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { resolveSignedInUser } from '@/lib/resolve-session';
 
 export const runtime = 'nodejs';
 
 /** PATCH /api/user/change-password — signed-in member updates their password. */
 export async function PATCH(request: Request) {
-	const session = await getServerSession(authOptions).catch(() => null);
-	const userId = session?.user?.id?.trim() || '';
-	const email = session?.user?.email?.trim() || '';
-	if (!userId && !email) {
+	const signedIn = await resolveSignedInUser();
+	const userId = signedIn?.id?.trim() || '';
+	const email = signedIn?.email?.trim() || '';
+	if (!signedIn || (!userId && !email)) {
 		return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 	}
 
@@ -37,11 +36,26 @@ export async function PATCH(request: Request) {
 		return NextResponse.json({ error: passwordError }, { status: 400 });
 	}
 
-	const user = userId
-		? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, passwordHash: true } })
-		: await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true } });
+	let user = userId
+		? await prisma.user.findUnique({ where: { id: userId }, select: { id: true, passwordHash: true } }).catch((err) => {
+				console.error('[user/change-password] lookup by id failed', err);
+				return null;
+			})
+		: null;
+	if (!user && email) {
+		user = await prisma.user.findUnique({ where: { email }, select: { id: true, passwordHash: true } }).catch((err) => {
+			console.error('[user/change-password] lookup by email failed', err);
+			return null;
+		});
+	}
 
 	if (!user) {
+		if (signedIn.isAdmin) {
+			return NextResponse.json(
+				{ error: '기본 관리자 계정은 서버 환경 변수에서 비밀번호를 관리합니다. 이 화면에서는 변경할 수 없습니다.' },
+				{ status: 400 },
+			);
+		}
 		return NextResponse.json({ error: '계정 정보를 찾을 수 없습니다.' }, { status: 404 });
 	}
 	if (!user.passwordHash) {

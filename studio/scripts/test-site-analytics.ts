@@ -14,6 +14,8 @@
  */
 import {
 	classifyReferrer,
+	isInternalAnalyticsHost,
+	isInternalReferrerLabel,
 	detectBrowser,
 	detectDevice,
 	detectOs,
@@ -93,6 +95,12 @@ assert('unrecognized referrer host is kept as-is', classifyReferrer('https://www
 assert('a known domain\'s subdomains still bucket to the friendly label', classifyReferrer('https://blog.naver.com/somepost', undefined) === 'Naver');
 assert('UTM source wins over referrer', classifyReferrer('https://www.google.com/', 'newsletter') === 'Newsletter');
 assert('malformed referrer URL falls back to Direct', classifyReferrer('not-a-url', undefined) === 'Direct');
+assert('localhost referrer is Direct, not a source', classifyReferrer('http://localhost:3000/', undefined) === 'Direct');
+assert('own-site referrer is Direct', classifyReferrer('https://reduegeo.com/admin', undefined) === 'Direct');
+assert('localhost host is internal', isInternalAnalyticsHost('localhost:3000'));
+assert('reduegeo.com host is internal', isInternalAnalyticsHost('www.reduegeo.com'));
+assert('sanitized own-site label is internal', isInternalReferrerLabel('reduegeo_com'));
+assert('a real external host is not internal', !isInternalAnalyticsHost('search.naver.com'));
 
 // ---------------------------------------------------------------------------
 // Date helpers

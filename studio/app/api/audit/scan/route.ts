@@ -1,9 +1,9 @@
 import { cookies } from 'next/headers';
 import { getServerSession } from 'next-auth';
-import { getToken } from 'next-auth/jwt';
 import { NextRequest, NextResponse } from 'next/server';
 import { LOCALE_COOKIE, SUPPORTED_LOCALES } from '@/i18n/request';
 import { resolveDiagnosisActor, type DiagnosisUserType } from '@/lib/audit/diagnosis-actor';
+import { readAuthToken } from '@/lib/auth-cookies';
 import { authOptions } from '@/lib/auth';
 import {
 	addAuditProject,
@@ -20,7 +20,7 @@ import {
 	limitReachedPayload,
 	resolveAuditQuota,
 } from '@/lib/audit/free-audit-quota-server';
-import { MASTER_ADMIN_ID, resolveNextAuthSecret } from '@/lib/master-admin';
+import { MASTER_ADMIN_ID } from '@/lib/master-admin';
 import { prisma } from '@/lib/prisma';
 import { recordDailyApiUsage } from '@/lib/server/daily-usage';
 import { writeAdminAuditLog } from '@/lib/admin/admin-audit-log';
@@ -469,10 +469,7 @@ async function readJwtActor(request: Request): Promise<{
 	role: string | null;
 }> {
 	try {
-		const token = await getToken({
-			req: request as unknown as NextRequest,
-			secret: resolveNextAuthSecret(),
-		});
+		const token = await readAuthToken(request as unknown as NextRequest);
 		if (!token) return { userId: null, email: null, role: null };
 		const userId =
 			(typeof token.uid === 'string' && token.uid.trim()) ||

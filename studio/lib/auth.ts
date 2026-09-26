@@ -25,6 +25,8 @@ import {
 	logKakaoAuthEvent,
 	sanitizeAuthMeta,
 } from './auth-kakao-errors';
+import { sanitizeCallbackUrl } from './auth-callback';
+import { authCookiesUseSecure, authSessionCookieOptions, SESSION_TOKEN_COOKIE_NAME } from './auth-cookies';
 import { ensureMasterAdminUser } from './ensure-master-admin';
 import { recordSecurityLog } from './logger';
 import { prisma } from './prisma';
@@ -95,7 +97,13 @@ export const authOptions: AuthOptions = {
 	adapter: buildAdapter(),
 	session: { strategy: 'jwt' },
 	secret: resolveNextAuthSecret() || undefined,
-	useSecureCookies: process.env.NODE_ENV === 'production',
+	useSecureCookies: authCookiesUseSecure(),
+	cookies: {
+		sessionToken: {
+			name: SESSION_TOKEN_COOKIE_NAME,
+			options: authSessionCookieOptions(),
+		},
+	},
 	pages: {
 		signIn: '/login',
 	},
@@ -178,7 +186,32 @@ export const authOptions: AuthOptions = {
 				}
 
 				const email = normalizeLoginIdentifier(loginId);
-				const user = await prisma.user.findUnique({ where: { email } });
+				type CredentialUser = {
+					id: string;
+					email: string | null;
+					name: string | null;
+					image: string | null;
+					passwordHash: string | null;
+					role: string | null;
+				};
+				let user: CredentialUser | null = await prisma.user.findUnique({ where: { email } }).catch((err) => {
+					console.error('[auth] prisma user lookup failed', err);
+					return null;
+				});
+				if (!user?.passwordHash) {
+					const { findDurableUserByEmail } = await import('./server/app-users');
+					const durable = await findDurableUserByEmail(email);
+					if (durable?.passwordHash) {
+						user = {
+							id: durable.id,
+							email: durable.email,
+							name: durable.name,
+							image: durable.image,
+							passwordHash: durable.passwordHash,
+							role: durable.role,
+						};
+					}
+				}
 				if (!user?.passwordHash) {
 					return fail(email, '계정을 찾을 수 없거나 비밀번호가 설정되지 않음');
 				}
@@ -189,7 +222,9 @@ export const authOptions: AuthOptions = {
 
 				const role = sessionRoleForUser(user.email, user.role);
 				if (role === MASTER_ADMIN_ROLE && user.role !== 'admin') {
-					await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } });
+					await prisma.user.update({ where: { id: user.id }, data: { role: 'admin' } }).catch((err) => {
+						console.error('[auth] admin role persist failed', err);
+					});
 				}
 
 				return {
@@ -203,6 +238,11 @@ export const authOptions: AuthOptions = {
 		}),
 	],
 	callbacks: {
+		async redirect({ url, baseUrl }) {
+			const safe = sanitizeCallbackUrl(url, { isAdmin: true, fallback: '/' });
+			if (safe.startsWith('http://') || safe.startsWith('https://')) return safe;
+			return `${baseUrl}${safe.startsWith('/') ? safe : `/${safe}`}`;
+		},
 		async signIn({ user, account, profile }) {
 			if (account?.provider === 'kakao') {
 				const kakaoAccount = (profile as { kakao_account?: { email?: string; is_email_verified?: boolean } } | undefined)
@@ -329,6 +369,12 @@ export const authOptions: AuthOptions = {
 				}
 			} catch (err) {
 				console.error('[auth] signIn admin role bootstrap failed:', err);
+			}
+			try {
+				const { mirrorPrismaUserByEmail } = await import('./server/app-users');
+				await mirrorPrismaUserByEmail(user?.email);
+			} catch (err) {
+				console.error('[auth] durable user mirror failed:', err);
 			}
 		},
 		async signOut(message) {

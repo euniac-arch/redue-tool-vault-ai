@@ -32,6 +32,7 @@ export type AnalyticsCollectPayload = {
 /** Fully validated + classified event, ready to persist. */
 export type NormalizedAnalyticsEvent = {
 	date: string;
+	/** Server dedupe key: hash of client IP + Seoul date. Not the browser's session id. */
 	visitorId: string;
 	path: string;
 	referrerLabel: string;

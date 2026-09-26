@@ -78,6 +78,8 @@ export function applyRuntimeAuthEnv(): void {
 		const host = (hostRaw || '').replace(/^https?:\/\//, '').replace(/\/$/, '');
 		if (host) {
 			process.env.NEXTAUTH_URL = `https://${host}`;
+		} else if (process.env.NODE_ENV === 'production') {
+			process.env.NEXTAUTH_URL = 'https://reduegeo.com';
 		}
 	}
 	if (!process.env.NEXTAUTH_SECRET?.trim()) {

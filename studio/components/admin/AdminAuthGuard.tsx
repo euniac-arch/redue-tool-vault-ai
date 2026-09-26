@@ -29,7 +29,7 @@ export function AdminAuthGuard({ children }: { children: ReactNode }) {
 			return;
 		}
 		if (!isAdmin) {
-			router.replace('/');
+			router.replace('/mypage');
 		}
 	}, [isReady, isAuthenticated, isAdmin, pathname, router]);
 

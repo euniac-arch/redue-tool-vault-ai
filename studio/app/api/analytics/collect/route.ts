@@ -1,6 +1,17 @@
+import { createHash } from 'node:crypto';
+import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
+import { authOptions } from '@/lib/auth';
 import { extractRequestMeta } from '@/lib/security-log-meta';
-import { classifyReferrer, detectBrowser, detectDevice, detectOs, isLikelyBot, seoulDateKey } from '@/lib/analytics/detect';
+import {
+	classifyReferrer,
+	detectBrowser,
+	detectDevice,
+	detectOs,
+	isInternalAnalyticsHost,
+	isLikelyBot,
+	seoulDateKey,
+} from '@/lib/analytics/detect';
 import { takeAnalyticsRateLimit } from '@/lib/analytics/rate-limit';
 import { recordAnalyticsEvent } from '@/lib/analytics/store';
 import type { AnalyticsCollectPayload } from '@/lib/analytics/types';
@@ -19,6 +30,22 @@ function truncate(value: unknown, max: number): string {
 	return value.slice(0, max);
 }
 
+function publicHost(request: Request): string {
+	const forwarded = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+	return forwarded.split(',')[0]?.trim() || '';
+}
+
+function hasIgnoreAnalyticsCookie(request: Request): boolean {
+	const cookie = request.headers.get('cookie') || '';
+	return cookie.split(';').some((part) => part.trim() === 'ignore_analytics=true');
+}
+
+/** Same IP on the same Seoul day shares one UV key. The raw address is not stored. */
+function visitorKeyFromIp(ip: string, date: string): string {
+	const hash = createHash('sha256').update(`redue-analytics:${date}:${ip || 'unknown'}`).digest('hex').slice(0, 32);
+	return `ip_${hash}`;
+}
+
 async function readPayload(request: Request): Promise<AnalyticsCollectPayload | null> {
 	try {
 		const text = await request.text();
@@ -33,6 +60,17 @@ async function readPayload(request: Request): Promise<AnalyticsCollectPayload | 
 
 export async function POST(request: Request) {
 	const meta = extractRequestMeta(request);
+
+	if (process.env.NODE_ENV === 'development' || isInternalAnalyticsHost(publicHost(request))) {
+		return NextResponse.json({ ok: true, skipped: 'development' }, { status: 202 });
+	}
+	if (hasIgnoreAnalyticsCookie(request)) {
+		return NextResponse.json({ ok: true, skipped: 'ignored_device' }, { status: 202 });
+	}
+	const session = await getServerSession(authOptions).catch(() => null);
+	if (session?.user?.isAdmin === true) {
+		return NextResponse.json({ ok: true, skipped: 'admin' }, { status: 202 });
+	}
 
 	// 1) Rate-limit first — cheapest check, protects everything below it.
 	if (!takeAnalyticsRateLimit(`analytics-collect:${meta.ipAddress}`, RATE_LIMIT_PER_MINUTE, RATE_LIMIT_WINDOW_MS)) {
@@ -63,12 +101,12 @@ export async function POST(request: Request) {
 
 	const referrer = truncate(payload.referrer, MAX_STR_LEN);
 	const utmSource = truncate(payload.utmSource, 80);
-	const visitorId = truncate(payload.visitorId, 120) || `anon:${meta.ipAddress}`;
+	const date = seoulDateKey();
 
 	try {
 		await recordAnalyticsEvent({
-			date: seoulDateKey(),
-			visitorId,
+			date,
+			visitorId: visitorKeyFromIp(meta.ipAddress, date),
 			path,
 			referrerLabel: classifyReferrer(referrer, utmSource),
 			device: detectDevice(userAgent),

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Eye, Globe2, Loader2, Monitor, RefreshCw, Smartphone, TrendingUp, Users } from 'lucide-react';
 import { fetchAnalyticsRange } from '@/lib/admin/analyticsService';
-import { shiftDateKey } from '@/lib/analytics/detect';
+import { isInternalReferrerLabel, shiftDateKey } from '@/lib/analytics/detect';
 import type { DailyAnalyticsAggregate } from '@/lib/analytics/types';
 
 const CARD =
@@ -37,7 +37,10 @@ function sumAggregates(days: DailyAnalyticsAggregate[]) {
 	for (const day of days) {
 		totals.totalViews += day.totalViews;
 		totals.uniqueVisitors += day.uniqueVisitors;
-		mergeCounts(totals.referrers, day.referrers);
+		for (const [key, value] of Object.entries(day.referrers ?? {})) {
+			if (isInternalReferrerLabel(key)) continue;
+			totals.referrers[key] = (totals.referrers[key] ?? 0) + value;
+		}
 		mergeCounts(totals.devices, day.devices);
 		mergeCounts(totals.browsers, day.browsers);
 	}
@@ -104,8 +107,8 @@ export function AnalyticsDashboard() {
 	return (
 		<div className="flex flex-col gap-5">
 			<div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-				<KpiCard label="오늘 순 방문자" value={(todayData?.uniqueVisitors ?? 0).toLocaleString('ko-KR')} icon={Users} tone="blue" />
-				<KpiCard label="오늘 페이지뷰" value={(todayData?.totalViews ?? 0).toLocaleString('ko-KR')} icon={Eye} tone="emerald" />
+				<KpiCard label="오늘 순 방문자 (UV)" value={(todayData?.uniqueVisitors ?? 0).toLocaleString('ko-KR')} icon={Users} tone="blue" />
+				<KpiCard label="오늘 페이지뷰 (PV)" value={(todayData?.totalViews ?? 0).toLocaleString('ko-KR')} icon={Eye} tone="emerald" />
 				<KpiCard label="Top 유입 경로" value={topReferrer} icon={Globe2} tone="violet" />
 				<KpiCard label="모바일 / 데스크톱" value={`${mobileRatio}% / ${desktopRatio}%`} icon={Smartphone} tone="amber" />
 			</div>
@@ -162,6 +165,10 @@ export function AnalyticsDashboard() {
 							/>
 						</div>
 					)}
+
+					<p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+						기간 UV {totals.uniqueVisitors.toLocaleString('ko-KR')} · 기간 PV {totals.totalViews.toLocaleString('ko-KR')}
+					</p>
 
 					<button
 						type="button"

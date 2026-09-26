@@ -5,6 +5,9 @@ import type { MemberFilters, MemberSortKey, SortDirection } from '@/lib/admin/us
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
 
 function parsePlan(value: string | null): MemberFilters['plan'] {
 	if (value === 'Free' || value === 'Pro' || value === 'Enterprise') return value;
@@ -53,5 +56,5 @@ export async function GET(request: Request) {
 		buildUserKpi(),
 	]);
 
-	return NextResponse.json({ ...list, kpi });
+	return NextResponse.json({ ...list, kpi }, { headers: NO_STORE });
 }

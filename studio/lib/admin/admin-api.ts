@@ -59,7 +59,7 @@ export async function fetchAdminApi<T>(url: string, init?: AdminApiInit): Promis
 		}
 	}
 
-	const res = await fetch(url, { cache: 'no-store', credentials: 'same-origin', ...requestInit });
+	const res = await fetch(url, { credentials: 'same-origin', ...requestInit, cache: 'no-store' });
 	const body = (await res.json().catch(() => ({}))) as { error?: string } & T;
 
 	if (isAdminForbiddenStatus(res.status)) {

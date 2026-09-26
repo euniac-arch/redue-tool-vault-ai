@@ -5,11 +5,10 @@
  *   - disk JSON under the writable data root (best-effort dev/offline mirror)
  *   - Firestore (source of truth when Firebase Admin is configured)
  *
- * Unique-visitor de-duplication happens via a `visitors` sub-collection
- * (Firestore) / per-date `Set` (memory) keyed by the client's per-session
- * visitor id, so repeat page loads in the same browser session only count
- * once toward `uniqueVisitors` while every load still counts toward
- * `totalViews`.
+ * Unique visitors (UV) are de-duplicated per Seoul calendar day by a hash of
+ * the client IP (`visitors` sub-collection / in-memory set). A repeat hit from
+ * the same IP on the same day still increments page views (PV, `totalViews`)
+ * but does not increment `uniqueVisitors`.
  */
 
 import 'server-only';

@@ -1,9 +1,8 @@
-import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { inquiryTypeLabel } from '@/lib/admin/inquiry-management';
-import { authOptions } from '@/lib/auth';
 import { contactLeadNoStoreHeaders, listContactLeadsForUser } from '@/lib/server/contact-leads';
 import { toUserInquiryStatus } from '@/lib/mypage/work-inquiries';
+import { resolveSignedInUser } from '@/lib/resolve-session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -11,10 +10,10 @@ export const revalidate = 0;
 
 /** GET /api/user/inquiries — signed-in member's own work inquiries. */
 export async function GET() {
-	const session = await getServerSession(authOptions).catch(() => null);
-	const userId = session?.user?.id?.trim() || '';
-	const email = session?.user?.email?.trim() || '';
-	if (!userId && !email) {
+	const signedIn = await resolveSignedInUser();
+	const userId = signedIn?.id?.trim() || '';
+	const email = signedIn?.email?.trim() || '';
+	if (!signedIn || (!userId && !email)) {
 		return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 	}
 
@@ -23,6 +22,9 @@ export async function GET() {
 		leads = await listContactLeadsForUser(userId, email);
 	} catch (error) {
 		console.error('[user/inquiries] list failed', { userId, email, error });
+		if (signedIn.isAdmin) {
+			return NextResponse.json({ inquiries: [] }, { headers: contactLeadNoStoreHeaders() });
+		}
 		return NextResponse.json(
 			{ error: '문의 내역을 불러오지 못했습니다.' },
 			{ status: 500, headers: contactLeadNoStoreHeaders() },

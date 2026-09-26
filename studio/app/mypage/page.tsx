@@ -1,13 +1,12 @@
 import { Suspense } from 'react';
-import { getServerSession } from 'next-auth';
 import { redirect } from 'next/navigation';
 import { getTranslations } from 'next-intl/server';
-import { authOptions } from '@/lib/auth';
 import { MypageAsiUsageCard } from '@/components/mypage/MypageAsiUsageCard';
 import { MypageSections } from '@/components/MypageSections';
 import { MypageHistoryTable, type HistoryRow } from '@/components/MypageHistoryTable';
 import { PLANS } from '@/lib/plans';
 import { prisma } from '@/lib/prisma';
+import { resolveSignedInUser } from '@/lib/resolve-session';
 
 const PAYMENT_STATUS_LABEL: Record<string, string> = {
 	DONE: '결제 완료',
@@ -15,22 +14,22 @@ const PAYMENT_STATUS_LABEL: Record<string, string> = {
 };
 
 export default async function MypagePage() {
-	const session = await getServerSession(authOptions);
-	if (!session?.user?.id) {
+	const signedIn = await resolveSignedInUser();
+	if (!signedIn) {
 		redirect('/login?callbackUrl=/mypage');
 	}
 
 	const t = await getTranslations('mypage');
 
-	const [user, historyRecords, payments] = await Promise.all([
-		prisma.user.findUnique({ where: { id: session.user.id } }),
-		prisma.injectionHistory.findMany({ where: { userId: session.user.id }, orderBy: { patchedAt: 'desc' } }),
-		prisma.payment.findMany({ where: { userId: session.user.id }, orderBy: { createdAt: 'desc' } }),
-	]);
-
-	if (!user) {
-		redirect('/login?callbackUrl=/mypage');
-	}
+	const loaded = await loadMypageRecords(signedIn.id, signedIn.email);
+	const user = loaded.user ?? {
+		id: signedIn.id || 'session',
+		name: signedIn.name || (signedIn.isAdmin ? '관리자' : '회원'),
+		email: signedIn.email,
+		planId: 'starter',
+	};
+	const historyRecords = loaded.historyRecords;
+	const payments = loaded.payments;
 
 	const plan = PLANS[user.planId as keyof typeof PLANS] ?? PLANS.starter;
 	const historyRows: HistoryRow[] = historyRecords.map((record) => ({
@@ -157,12 +156,35 @@ export default async function MypagePage() {
 					overview={overview}
 					initialDomain={latestDomain}
 					userId={user.id}
-					userName={user.name || session.user.name || '회원'}
-					userEmail={user.email || session.user.email || ''}
+					userName={user.name || signedIn.name || (signedIn.isAdmin ? '관리자' : '회원')}
+					userEmail={user.email || signedIn.email || ''}
 				/>
 			</Suspense>
 		</main>
 	);
+}
+
+async function loadMypageRecords(userId: string, email: string) {
+	try {
+		let user = userId
+			? await prisma.user.findUnique({ where: { id: userId } })
+			: null;
+		if (!user && email) {
+			user = await prisma.user.findUnique({ where: { email } });
+		}
+		const ownerId = user?.id || userId;
+		if (!ownerId) {
+			return { user, historyRecords: [], payments: [] };
+		}
+		const [historyRecords, payments] = await Promise.all([
+			prisma.injectionHistory.findMany({ where: { userId: ownerId }, orderBy: { patchedAt: 'desc' } }),
+			prisma.payment.findMany({ where: { userId: ownerId }, orderBy: { createdAt: 'desc' } }),
+		]);
+		return { user, historyRecords, payments };
+	} catch (err) {
+		console.error('[mypage] profile lookup failed', err);
+		return { user: null, historyRecords: [], payments: [] };
+	}
 }
 
 function SummaryCard({ label, value, accent }: { label: string; value: string; accent: string }) {

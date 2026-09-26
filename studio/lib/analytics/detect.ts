@@ -146,6 +146,24 @@ function capitalizeLabel(value: string): string {
  * engines get a friendly label, everything else keeps the bare hostname, and
  * an empty referrer means a direct visit / typed URL / bookmark.
  */
+const INTERNAL_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]', 'reduegeo.com', 'www.reduegeo.com']);
+
+/** Dev machines and this site's own host. Self-referrals must not show up as traffic sources. */
+export function isInternalAnalyticsHost(host: string | null | undefined): boolean {
+	const normalized = (host || '').trim().toLowerCase().replace(/^www\./, '').replace(/:\d+$/, '');
+	if (!normalized) return false;
+	if (INTERNAL_HOSTS.has(normalized) || INTERNAL_HOSTS.has((host || '').trim().toLowerCase())) return true;
+	return normalized === 'reduegeo.com' || normalized.endsWith('.localhost');
+}
+
+/** Labels already stored after Firestore sanitized `reduegeo.com` → `reduegeo_com`. */
+export function isInternalReferrerLabel(label: string | null | undefined): boolean {
+	const value = (label || '').trim().toLowerCase();
+	if (!value || value === 'direct') return false;
+	if (isInternalAnalyticsHost(value)) return true;
+	return value === 'reduegeo_com' || value === 'www_reduegeo_com' || value === 'localhost';
+}
+
 export function classifyReferrer(referrer: string | null | undefined, utmSource?: string | null): string {
 	const source = (utmSource || '').trim();
 	if (source) return capitalizeLabel(source).slice(0, 60);
@@ -156,6 +174,7 @@ export function classifyReferrer(referrer: string | null | undefined, utmSource?
 	try {
 		const url = new URL(ref);
 		const host = url.hostname.replace(/^www\./i, '');
+		if (isInternalAnalyticsHost(url.hostname) || isInternalAnalyticsHost(host)) return 'Direct';
 		const engine = SEARCH_ENGINE_HOSTS.find((entry) => entry.pattern.test(host));
 		if (engine) return engine.label;
 		return host || 'Direct';

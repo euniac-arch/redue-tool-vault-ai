@@ -1,40 +1,57 @@
 'use client';
 
-import { Suspense, useEffect, useRef } from 'react';
+import { Suspense, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { isInternalAnalyticsHost } from '@/lib/analytics/detect';
 
 /**
- * Lightweight, self-hosted page-view tracker. No cookies, no consent popup:
- * the visitor id lives in `sessionStorage` only (cleared when the browser
- * tab/session ends), which is enough to de-duplicate "unique visitors" for a
- * given day without persistent cross-session tracking.
+ * One visit beacon per browser session, or again after 30 minutes.
+ * `sessionStorage` is cleared when the tab/browser session ends, so a later
+ * visit counts again. Refreshing the same session does not.
  *
- * Fires once per route change via `navigator.sendBeacon` (falls back to
- * `fetch(..., { keepalive: true })`) so it never blocks navigation and still
- * delivers even when the page is unloading.
+ * Localhost, `next dev`, `/admin`, and admin devices never send the beacon.
  */
 
-const VISITOR_STORAGE_KEY = 'redue_analytics_visitor_id';
+const VISIT_SESSION_KEY = 'redue_visited_session';
+const IGNORE_STORAGE_KEY = 'ignore_analytics';
+const IGNORE_COOKIE = 'ignore_analytics=true';
+const VISIT_WINDOW_MS = 30 * 60 * 1000;
 const EXCLUDED_PREFIXES = ['/admin', '/api'];
 
-function getOrCreateVisitorId(): string {
-	try {
-		const existing = window.sessionStorage.getItem(VISITOR_STORAGE_KEY);
-		if (existing) return existing;
-		const id =
-			typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-				? crypto.randomUUID()
-				: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-		window.sessionStorage.setItem(VISITOR_STORAGE_KEY, id);
-		return id;
-	} catch {
-		// sessionStorage unavailable (privacy mode, etc.) — fall back to a per-load id.
-		return `anon-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-	}
+function shouldTrackPath(pathname: string): boolean {
+	return !EXCLUDED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-function shouldTrack(pathname: string): boolean {
-	return !EXCLUDED_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+function isIgnoredAdminDevice(): boolean {
+	try {
+		if (window.localStorage.getItem(IGNORE_STORAGE_KEY) === 'true') return true;
+	} catch {
+		// private mode
+	}
+	return document.cookie.split(';').some((part) => part.trim() === IGNORE_COOKIE);
+}
+
+function markAdminDeviceIgnored(): void {
+	try {
+		window.localStorage.setItem(IGNORE_STORAGE_KEY, 'true');
+	} catch {
+		// ignore
+	}
+	document.cookie = `${IGNORE_COOKIE}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+/** True when this session has not recorded a visit in the last 30 minutes. */
+function claimVisitSlot(): boolean {
+	try {
+		const raw = window.sessionStorage.getItem(VISIT_SESSION_KEY);
+		const at = raw ? Number(raw) : Number.NaN;
+		if (Number.isFinite(at) && Date.now() - at < VISIT_WINDOW_MS) return false;
+		window.sessionStorage.setItem(VISIT_SESSION_KEY, String(Date.now()));
+		return true;
+	} catch {
+		return false;
+	}
 }
 
 function sendAnalyticsBeacon(payload: Record<string, unknown>) {
@@ -61,15 +78,19 @@ function sendAnalyticsBeacon(payload: Record<string, unknown>) {
 function AnalyticsTrackerInner() {
 	const pathname = usePathname() ?? '/';
 	const searchParams = useSearchParams();
-	const lastTrackedKeyRef = useRef<string | null>(null);
+	const { data: session, status } = useSession();
 
 	useEffect(() => {
-		if (!shouldTrack(pathname)) return;
-
-		const search = searchParams.toString();
-		const key = search ? `${pathname}?${search}` : pathname;
-		if (lastTrackedKeyRef.current === key) return;
-		lastTrackedKeyRef.current = key;
+		if (process.env.NODE_ENV === 'development') return;
+		if (isInternalAnalyticsHost(window.location.hostname)) return;
+		if (!shouldTrackPath(pathname)) return;
+		if (isIgnoredAdminDevice()) return;
+		if (status === 'loading') return;
+		if (status === 'authenticated' && session?.user?.isAdmin === true) {
+			markAdminDeviceIgnored();
+			return;
+		}
+		if (!claimVisitSlot()) return;
 
 		sendAnalyticsBeacon({
 			path: pathname,
@@ -77,11 +98,10 @@ function AnalyticsTrackerInner() {
 			utmSource: searchParams.get('utm_source') || undefined,
 			utmMedium: searchParams.get('utm_medium') || undefined,
 			utmCampaign: searchParams.get('utm_campaign') || undefined,
-			visitorId: getOrCreateVisitorId(),
 			userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : '',
 			screenWidth: typeof window !== 'undefined' ? window.screen?.width : undefined,
 		});
-	}, [pathname, searchParams]);
+	}, [pathname, searchParams, session?.user?.isAdmin, status]);
 
 	return null;
 }

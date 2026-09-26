@@ -4,7 +4,7 @@ export async function fetchUserInquiries(): Promise<WorkInquiry[]> {
 	const res = await fetch('/api/user/inquiries', { cache: 'no-store', credentials: 'same-origin' });
 	if (res.status === 401) {
 		if (typeof window !== 'undefined') {
-			window.location.assign('/login?callbackUrl=/mypage?tab=inquiries');
+			window.location.assign(`/login?callbackUrl=${encodeURIComponent('/mypage?tab=inquiries')}`);
 		}
 		throw new Error('로그인이 필요합니다.');
 	}

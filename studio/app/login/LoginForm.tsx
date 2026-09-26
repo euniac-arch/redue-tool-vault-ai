@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { signIn } from 'next-auth/react';
+import { getSession, signIn } from 'next-auth/react';
 import { startTopProgress } from '@/components/common/top-progress';
+import { sanitizeCallbackUrl } from '@/lib/auth-callback';
 import { describeNextAuthOAuthError } from '@/lib/auth-kakao-errors';
 import { validatePasswordStrength } from '@/lib/auth-account';
 
@@ -42,6 +43,15 @@ type LoginFormProps = {
 	showOAuthEnvGuide: boolean;
 };
 
+async function waitForClientSession() {
+	for (let attempt = 0; attempt < 8; attempt += 1) {
+		const session = await getSession();
+		if (session?.user?.id || session?.user?.email) return session;
+		await new Promise((resolve) => setTimeout(resolve, 150));
+	}
+	return getSession();
+}
+
 export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: LoginFormProps) {
 	const router = useRouter();
 	const searchParams = useSearchParams();
@@ -57,6 +67,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(oauthError);
 	const [welcomeMessage, setWelcomeMessage] = useState<string | null>(null);
+	const oauthCallback = sanitizeCallbackUrl(callbackUrl, { isAdmin: true, fallback: '/' });
 
 	async function handleEmailSubmit(event: React.FormEvent) {
 		event.preventDefault();
@@ -84,13 +95,23 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 				throw new Error('이메일 또는 비밀번호가 올바르지 않습니다.');
 			}
 
+			const session = await waitForClientSession();
+			if (!session?.user) {
+				throw new Error('로그인은 되었으나 세션 쿠키를 확인하지 못했습니다. 잠시 후 다시 시도해 주세요.');
+			}
+
+			const destination = sanitizeCallbackUrl(callbackUrl, {
+				isAdmin: session.user.isAdmin === true,
+				fallback: session.user.isAdmin ? '/admin' : '/mypage',
+			});
+
 			// 회원가입 직후에는 리다이렉트 전 짧게 환영 피드백을 노출해 가입 성공을 명확히 알린다.
 			if (isSignup) {
 				setWelcomeMessage('🎉 환영합니다! 무료 진단 5회가 지급되었습니다. 대시보드로 이동할게요...');
 				await new Promise((resolve) => setTimeout(resolve, 700));
 			}
 			startTopProgress();
-			router.push(callbackUrl);
+			router.push(destination);
 			router.refresh();
 		} catch (err) {
 			setError((err as Error).message);
@@ -117,7 +138,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					type="button"
 					disabled={!googleEnabled}
 					title={googleEnabled ? undefined : 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET 미설정 — .env.local에 등록해야 활성화됩니다.'}
-					onClick={() => signIn('google', { callbackUrl })}
+					onClick={() => signIn('google', { callbackUrl: oauthCallback })}
 					className="flex items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-white dark:border-white/[0.08] dark:bg-white/5 dark:text-slate-100 dark:shadow-none dark:hover:bg-white/10"
 				>
 					<GoogleIcon />
@@ -127,7 +148,7 @@ export function LoginForm({ kakaoEnabled, googleEnabled, showOAuthEnvGuide }: Lo
 					type="button"
 					disabled={!kakaoEnabled}
 					title={kakaoEnabled ? undefined : 'KAKAO_CLIENT_ID / KAKAO_CLIENT_SECRET 미설정 — .env.local에 등록해야 활성화됩니다.'}
-					onClick={() => signIn('kakao', { callbackUrl })}
+					onClick={() => signIn('kakao', { callbackUrl: oauthCallback })}
 					className="flex items-center justify-center gap-2 rounded-lg bg-[#FEE500] px-4 py-2.5 text-sm font-semibold text-black/85 hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
 				>
 					카카오로 계속하기

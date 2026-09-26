@@ -1,7 +1,7 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { readAuthToken } from '@/lib/auth-cookies';
 import { resolveAsiRoute } from '@/lib/ai-search-intelligence/routes';
-import { isAdminEmail, isDbAdminRole, resolveNextAuthSecret } from '@/lib/master-admin';
+import { isStudioAdminIdentity, resolveNextAuthSecret } from '@/lib/master-admin';
 import { extractRequestMeta } from '@/lib/security-log-meta';
 
 function redirectLegacyIntelligence(req: NextRequest): NextResponse | null {
@@ -23,12 +23,17 @@ function isAdminToken(token: {
 	role?: string | null;
 	email?: string | null;
 	uid?: string | null;
+	sub?: string | null;
 	isAdmin?: boolean;
 } | null): boolean {
 	if (!token) return false;
-	if (token.isAdmin === true) return true;
-	if (token.email && isAdminEmail(token.email)) return true;
-	return isDbAdminRole(token.role) || (token.role || '').toUpperCase() === 'ADMIN';
+	const id = (typeof token.uid === 'string' && token.uid) || (typeof token.sub === 'string' && token.sub) || null;
+	return isStudioAdminIdentity({
+		id,
+		email: typeof token.email === 'string' ? token.email : null,
+		role: typeof token.role === 'string' ? token.role : null,
+		isAdmin: token.isAdmin === true,
+	});
 }
 
 export async function middleware(req: NextRequest, event: NextFetchEvent) {
@@ -41,10 +46,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
 		return NextResponse.next();
 	}
 
-	const token = await getToken({
-		req,
-		secret: resolveNextAuthSecret(),
-	});
+	const token = await readAuthToken(req);
 
 	if (!token) {
 		enqueueSecurityLog(req, event, {
@@ -66,7 +68,7 @@ export async function middleware(req: NextRequest, event: NextFetchEvent) {
 			status: 'FAIL',
 			details: `관리자 권한 없음: ${pathname}`,
 		});
-		return NextResponse.redirect(new URL('/', req.url));
+		return NextResponse.redirect(new URL('/mypage', req.url));
 	}
 
 	enqueueSecurityLog(req, event, {
