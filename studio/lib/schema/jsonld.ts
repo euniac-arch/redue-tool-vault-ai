@@ -22,6 +22,8 @@ import {
 	buildStrictSchemaGraph,
 	graphHasPerson,
 	graphOrgNode,
+	isInventedDefaultName,
+	isTitleOnlyRepName,
 	isValidGroundTruthRepName,
 	type GroundTruthFacts,
 	type StrictJsonLdNode,
@@ -106,6 +108,12 @@ export type SchemaJsonLdConfig = {
 	faqs?: SchemaFaqItem[];
 	about?: SchemaAboutConfig;
 	breadcrumbs?: SchemaBreadcrumbItem[];
+	/**
+	 * Person `@id`. Default `${origin}/#person`.
+	 * Use a full URL such as `https://example.com/#author` when the public graph
+	 * should expose the author node under a stable fragment.
+	 */
+	personId?: string;
 	/** SoftwareApplication extras — set only when `orgTypes` includes `SoftwareApplication`. */
 	applicationCategory?: string;
 	operatingSystem?: string;
@@ -253,7 +261,61 @@ function ensureBreadcrumb(graph: StrictSchemaGraph, facts: GroundTruthFacts): vo
 	});
 }
 
+function rewriteIdRefs(node: unknown, from: string, to: string): void {
+	if (!node || typeof node !== 'object') return;
+	if (Array.isArray(node)) {
+		for (const item of node) rewriteIdRefs(item, from, to);
+		return;
+	}
+	const record = node as Record<string, unknown>;
+	for (const key of Object.keys(record)) {
+		const value = record[key];
+		if (key === '@id' && value === from) record[key] = to;
+		else rewriteIdRefs(value, from, to);
+	}
+}
+
+/**
+ * Configured founder profile. Extracted customer graphs still refuse title-only
+ * names inside `buildStrictSchemaGraph`. An explicit config name such as
+ * "박성준 (Sung Joon Park)" is intentional and is emitted here.
+ */
+function applyConfiguredFounder(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {
+	const founder = config.founder;
+	const name = compact(founder?.name);
+	if (!name || isInventedDefaultName(name) || isTitleOnlyRepName(name)) return;
+
+	const origin = originOfConfig(config);
+	const requestedId = compact(config.personId);
+	const personId = isValidSchemaUrl(requestedId) ? requestedId : `${origin}/#person`;
+	const org = graphOrgNode(graph);
+	const orgId = nodeId(org);
+
+	let person = graph['@graph'].find((node) => node['@type'] === 'Person');
+	if (!person) {
+		person = { '@type': 'Person', '@id': personId, name };
+		graph['@graph'].push(person);
+	} else {
+		const oldId = nodeId(person);
+		person.name = name;
+		if (oldId && oldId !== personId) rewriteIdRefs(graph, oldId, personId);
+		else person['@id'] = personId;
+	}
+
+	const jobTitle = compact(founder?.jobTitle);
+	if (jobTitle) person.jobTitle = jobTitle;
+	const description = compact(founder?.description);
+	if (description) person.description = description;
+	const knowsAbout = (founder?.knowsAbout || []).map(compact).filter(Boolean);
+	if (knowsAbout.length) person.knowsAbout = knowsAbout;
+	if (orgId) person.worksFor = { '@id': orgId };
+	const sameAs = filterOfficialSameAs(filterValidSchemaUrls(founder?.sameAs), origin);
+	if (sameAs.length) person.sameAs = sameAs;
+	if (org) org.founder = { '@id': personId };
+}
+
 function enrichPublicGraph(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): StrictSchemaGraph {
+	applyConfiguredFounder(graph, config);
 	const language = compact(config.inLanguage) || 'ko-KR';
 	const website = graph['@graph'].find((node) => node['@type'] === 'WebSite');
 	if (website && !website.inLanguage) website.inLanguage = language;
@@ -276,8 +338,10 @@ function enrichPublicGraph(graph: StrictSchemaGraph, config: SchemaJsonLdConfig)
 	applySearchAction(graph, config);
 	applyContactPoint(graph, config);
 	applyAuthorPublisher(graph);
+	applyWebsiteBreadcrumb(graph);
 	applyAboutPage(graph, config);
 	applyFaqPage(graph, config);
+	applyCanonicalHomeUrl(graph, config);
 	return graph;
 }
 
@@ -349,6 +413,7 @@ function applyAuthorPublisher(graph: StrictSchemaGraph): void {
 		const type = node['@type'];
 		const types = Array.isArray(type) ? type : [type];
 		const isContent =
+			types.includes('WebSite') ||
 			types.includes('WebPage') ||
 			types.includes('AboutPage') ||
 			types.includes('FAQPage') ||
@@ -357,6 +422,24 @@ function applyAuthorPublisher(graph: StrictSchemaGraph): void {
 		if (!node.publisher) node.publisher = { '@id': orgId };
 		if (!node.author) node.author = { '@id': authorId };
 	}
+}
+
+function applyWebsiteBreadcrumb(graph: StrictSchemaGraph): void {
+	const website = graph['@graph'].find((node) => node['@type'] === 'WebSite');
+	const crumb = graph['@graph'].find((node) => node['@type'] === 'BreadcrumbList');
+	const crumbId = nodeId(crumb);
+	if (website && crumbId && !website.breadcrumb) website.breadcrumb = { '@id': crumbId };
+}
+
+/** Homepage `pageUrl` keeps a trailing slash on WebSite and Organization `url`. */
+function applyCanonicalHomeUrl(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {
+	const origin = originOfConfig(config);
+	const home = `${origin}/`;
+	if (compact(config.pageUrl) !== home) return;
+	const website = graph['@graph'].find((node) => node['@type'] === 'WebSite');
+	const org = graphOrgNode(graph);
+	if (website) website.url = home;
+	if (org) org.url = home;
 }
 
 function applyAboutPage(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {

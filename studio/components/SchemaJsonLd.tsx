@@ -1,4 +1,3 @@
-import Script from 'next/script';
 import { buildSchemaJsonLd, type SchemaJsonLdConfig } from '@/lib/schema/jsonld';
 
 type SchemaJsonLdProps = {
@@ -19,10 +18,6 @@ type SchemaJsonLdProps = {
 export function SchemaJsonLd({ config, id = 'schema-jsonld' }: SchemaJsonLdProps) {
 	const jsonLd = buildSchemaJsonLd(config);
 	return (
-		<Script
-			id={id}
-			type="application/ld+json"
-			dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-		/>
+		<script id={id} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 	);
 }

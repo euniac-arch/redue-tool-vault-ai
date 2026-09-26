@@ -12,7 +12,8 @@ import {
 	schemaHasFounderKnowledgeGraph,
 	schemaHasNaverSameAs,
 } from '../lib/schema/jsonld';
-import { REDUE_META_DESCRIPTION_EN, REDUE_META_DESCRIPTION_KO, REDUE_SITE_SCHEMA } from '../lib/schema/site-schema-config';
+import { REDUE_HOME_FAQS, REDUE_META_DESCRIPTION_EN, REDUE_META_DESCRIPTION_KO, REDUE_SITE_SCHEMA } from '../lib/schema/site-schema-config';
+import koMessages from '../messages/ko.json';
 import { graphOrgNode } from '../lib/solve/core/strict-schema-graph';
 
 function assert(cond: unknown, msg: string): asserts cond {
@@ -143,7 +144,12 @@ assert(formatSchemaScriptTag({ '@context': 'https://schema.org' }).includes('app
 
 const koLen = [...REDUE_META_DESCRIPTION_KO].length;
 const enLen = [...REDUE_META_DESCRIPTION_EN].length;
-assert(koLen >= 80 && koLen <= 140, `ko meta description length ${koLen}`);
+assert(
+	REDUE_META_DESCRIPTION_KO ===
+		'ChatGPT·Perplexity 등 AI 검색 인용을 위한 GEO 진단 및 SEO·스키마 최적화 솔루션, RedueGEO.',
+	'ko meta description copy',
+);
+assert(koLen > 0 && koLen <= 80, `ko meta description length ${koLen} exceeds Naver 80`);
 assert(enLen >= 80 && enLen <= 140, `en meta description length ${enLen}`);
 
 const site = buildSchemaJsonLd(REDUE_SITE_SCHEMA);
@@ -152,17 +158,70 @@ assert(types.includes('WebSite'), 'site WebSite');
 assert(types.includes('BreadcrumbList'), 'site BreadcrumbList');
 assert(types.includes('AboutPage'), 'site AboutPage');
 assert(types.includes('FAQPage'), 'site FAQPage');
+assert(types.includes('Person'), 'site Person');
 const siteOrg = graphOrgNode(site)!;
 const orgTypes = siteOrg['@type'] as string[];
 assert(orgTypes.includes('Organization') && orgTypes.includes('LocalBusiness'), 'site org types');
+assert(siteOrg.name === 'REDUE AI SEO & GEO Studio', 'site org name');
+assert(siteOrg.url === 'https://reduegeo.com/', 'site org url');
+assert(siteOrg.telephone === '010-3210-9801', 'site telephone matches footer');
+assert((siteOrg.address as { addressRegion?: string; addressCountry?: string }).addressRegion === 'Busan', 'site address region');
+assert((siteOrg.address as { addressCountry?: string }).addressCountry === 'KR', 'site address country');
+assert((siteOrg.founder as { '@id': string })['@id'] === 'https://reduegeo.com/#author', 'founder @id');
 assert(siteOrg.contactPoint !== undefined, 'site contactPoint');
+assert(schemaHasFounderKnowledgeGraph(site) === true, 'public site founder graph');
+const sitePerson = site['@graph'].find((node) => node['@type'] === 'Person') as Record<string, unknown>;
+assert(sitePerson['@id'] === 'https://reduegeo.com/#author', 'person @id');
+assert(sitePerson.name === '박성준 (Sung Joon Park)', 'person name');
+assert(sitePerson.jobTitle === 'CEO & Principal GEO/SEO Engineer', 'person jobTitle');
+assert(
+	sitePerson.description === '15년 이상의 웹 퍼블리싱 및 AI 검색 최적화(GEO), 프론트엔드 아키텍처 전문가',
+	'person description',
+);
+assert(
+	JSON.stringify(sitePerson.knowsAbout) ===
+		JSON.stringify([
+			'Generative Engine Optimization (GEO)',
+			'Search Engine Optimization (SEO)',
+			'Schema.org Markup',
+			'Web Publishing',
+			'Perplexity & ChatGPT Search Citation',
+		]),
+	'person knowsAbout',
+);
+assert((sitePerson.worksFor as { '@id': string })['@id'] === 'https://reduegeo.com/#organization', 'person worksFor');
 const siteWeb = site['@graph'].find((node) => node['@type'] === 'WebSite') as Record<string, unknown>;
+assert(siteWeb['@id'] === 'https://reduegeo.com/#website', 'website @id');
+assert(siteWeb.url === 'https://reduegeo.com/', 'website url');
 assert((siteWeb.potentialAction as { '@type'?: string })['@type'] === 'SearchAction', 'site SearchAction');
-const faq = site['@graph'].find((node) => node['@type'] === 'FAQPage') as { mainEntity?: unknown[] };
-assert((faq.mainEntity || []).length >= 3 && (faq.mainEntity || []).length <= 4, 'site FAQ count');
+assert((siteWeb.breadcrumb as { '@id': string })['@id'] === 'https://reduegeo.com/#breadcrumb', 'website breadcrumb');
+assert((siteWeb.publisher as { '@id': string })['@id'] === 'https://reduegeo.com/#organization', 'website publisher');
+assert((siteWeb.author as { '@id': string })['@id'] === 'https://reduegeo.com/#author', 'website author');
+const about = site['@graph'].find((node) => node['@type'] === 'AboutPage') as Record<string, unknown>;
+assert(about['@id'] === 'https://reduegeo.com/#about', 'about @id');
+assert(about.url === 'https://reduegeo.com/', 'about url');
+assert((about.publisher as { '@id': string })['@id'] === 'https://reduegeo.com/#organization', 'about publisher');
+assert((about.author as { '@id': string })['@id'] === 'https://reduegeo.com/#author', 'about author');
+assert((about.about as { '@id': string })['@id'] === 'https://reduegeo.com/#organization', 'about entity');
+const faq = site['@graph'].find((node) => node['@type'] === 'FAQPage') as {
+	'@id'?: string;
+	mainEntity?: Array<{ name?: string; acceptedAnswer?: { text?: string } }>;
+};
+assert(faq['@id'] === 'https://reduegeo.com/#faq', 'faq @id');
+assert((faq.mainEntity || []).length === 5, 'site FAQ count');
+REDUE_HOME_FAQS.forEach((item, index) => {
+	const entity = faq.mainEntity?.[index];
+	assert(entity?.name === item.question, `faq question ${index}`);
+	assert(entity?.acceptedAnswer?.text === item.answer, `faq answer ${index}`);
+});
+const visibleFaq = koMessages.landing.story.faq.items;
+const visibleKeys = ['renewal', 'timing', 'builder', 'rank', 'diff'] as const;
+visibleKeys.forEach((key, index) => {
+	assert(visibleFaq[key].q === REDUE_HOME_FAQS[index].question, `visible faq q ${key}`);
+	assert(visibleFaq[key].a === REDUE_HOME_FAQS[index].answer, `visible faq a ${key}`);
+});
 const webpage = site['@graph'].find((node) => node['@type'] === 'WebPage') as Record<string, unknown>;
 assert((webpage.publisher as { '@id': string })['@id'].endsWith('/#organization'), 'publisher linked');
-assert((webpage.author as { '@id': string })['@id'].endsWith('/#organization'), 'author falls back to org without founder name');
-assert(schemaHasFounderKnowledgeGraph(site) === false, 'no invented founder on the public site');
+assert((webpage.author as { '@id': string })['@id'] === 'https://reduegeo.com/#author', 'webpage author is person');
 
 console.log('test-schema-jsonld: ok');

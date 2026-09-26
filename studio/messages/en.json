@@ -2285,20 +2285,20 @@
 				"subtitle": "The questions teams ask most before adopting REDUE GEO.",
 				"items": {
 					"renewal": {
-						"q": "Do we have to rebuild the website?",
-						"a": "No. We keep the existing site 100% as-is. One lightweight REDUE schema engine goes in the header and /llms.txt is published at the site root, so design and current features stay untouched."
+						"q": "Do we have to rebuild the existing website?",
+						"a": "No. The work is applied safely by injecting AI-search collection standards into the site code (metadata, schema markup, robots/llms.txt), without rebuilding the site or changing the design."
 					},
 					"timing": {
-						"q": "Will ChatGPT or Perplexity reflect the work immediately?",
-						"a": "Reflection typically follows within 3–7 business days depending on each AI crawler's collection cycle, and publishing /llms.txt maximizes AI indexing speed."
+						"q": "Will ChatGPT or Perplexity reflect the work right away?",
+						"a": "As soon as the work is done, collection is requested from Google, Naver, and AI search robots (OAI-SearchBot, PerplexityBot). Reflection is gradual, usually within about 1–2 weeks, depending on crawler cycles and knowledge-graph updates."
 					},
 					"builder": {
-						"q": "Does it work on Gnuboard, WordPress, and other sites?",
-						"a": "Yes. It is 100% compatible with Gnuboard, WordPress, Imweb, Cafe24, Shopify, and any custom React/Vue/HTML environment."
+						"q": "Does this work on Gnuboard, WordPress, and any other website?",
+						"a": "Yes. It applies fully to Gnuboard, WordPress, Imweb, and Cafe24, as well as React, Next.js, and plain HTML/PHP — any site that follows web standards."
 					},
 					"rank": {
-						"q": "Is #1 AI recommendation 100% guaranteed?",
-						"a": "We build top-tier schema standards aligned with each AI engine's latest guidelines, but we never permanently guarantee a specific rank, to avoid exaggerated or false claims."
+						"q": "Is a #1 AI-search recommendation 100% guaranteed?",
+						"a": "Because of how AI search algorithms work, a specific rank cannot be artificially guaranteed. We do provide the official data AI trusts most when it looks for a source (knowledge graph, schema, E-E-A-T), which maximizes the chance the brand is cited."
 					},
 					"diff": {
 						"q": "What is the difference between ₩190K (Speed Setup) and ₩490K (GEO Pro)?",
