@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { createPortal } from 'react-dom';
 import {
 	ArrowDownAZ,
 	Ban,
@@ -105,6 +106,7 @@ export function UserManagementDashboard() {
 	const [pageSize, setPageSize] = useState<PageSize>(10);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const [menuId, setMenuId] = useState<string | null>(null);
+	const actionButtonRef = useRef<HTMLButtonElement | null>(null);
 	const [pendingId, setPendingId] = useState<string | null>(null);
 	const [toasts, setToasts] = useState<Toast[]>([]);
 	const menuRef = useRef<HTMLDivElement | null>(null);
@@ -156,8 +158,10 @@ export function UserManagementDashboard() {
 
 	useEffect(() => {
 		function onDocClick(event: MouseEvent) {
+			const target = event.target as Node | null;
+			if (target instanceof Element && target.closest('[data-member-action-menu]')) return;
 			if (!menuRef.current) return;
-			if (!menuRef.current.contains(event.target as Node)) setMenuId(null);
+			if (!menuRef.current.contains(target)) setMenuId(null);
 		}
 		document.addEventListener('mousedown', onDocClick);
 		return () => document.removeEventListener('mousedown', onDocClick);
@@ -264,7 +268,7 @@ export function UserManagementDashboard() {
 			<UserKpiCards kpi={kpi} />
 
 			<section className="rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-slate-800 dark:border-slate-700">
-				<div className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 lg:flex-row lg:items-center lg:justify-between dark:border-slate-700">
+				<div className="relative z-10 flex flex-col gap-3 border-b border-slate-200 px-4 py-4 lg:flex-row lg:items-center lg:justify-between dark:border-slate-700">
 					<div className="relative min-w-0 flex-1">
 						<Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
 						<input
@@ -366,9 +370,9 @@ export function UserManagementDashboard() {
 									<tr
 										key={member.id}
 										onClick={() => setSelectedId(member.id)}
-										className={`cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50/80  dark:border-slate-700 dark:hover:bg-slate-700 dark:hover:bg-slate-700/50${
-											pendingId === member.id ? 'opacity-60' : ''
-										}`}
+										className={`cursor-pointer border-b border-slate-100 last:border-0 hover:bg-slate-50/80 dark:border-slate-700 dark:hover:bg-slate-700/50${
+											menuId === member.id ? ' relative z-30' : ''
+										}${pendingId === member.id ? ' opacity-60' : ''}`}
 									>
 										<td className="px-4 py-3">
 											<div className="flex items-center gap-2.5">
@@ -403,8 +407,11 @@ export function UserManagementDashboard() {
 										<td className="px-4 py-3">
 											<UserStatusBadge status={member.status} />
 										</td>
-										<td className="px-4 py-3" onClick={(event) => event.stopPropagation()}>
-											<div className="relative flex items-center gap-1" ref={menuId === member.id ? menuRef : undefined}>
+										<td
+											className={`px-4 py-3${menuId === member.id ? ' relative z-30' : ''}`}
+											onClick={(event) => event.stopPropagation()}
+										>
+											<div className="relative z-30 flex items-center gap-1" ref={menuId === member.id ? menuRef : undefined}>
 												<button
 													type="button"
 													onClick={() => setSelectedId(member.id)}
@@ -426,6 +433,7 @@ export function UserManagementDashboard() {
 												</button>
 												<button
 													type="button"
+													ref={menuId === member.id ? actionButtonRef : undefined}
 													onClick={() => setMenuId((prev) => (prev === member.id ? null : member.id))}
 													className="inline-flex h-8 items-center gap-0.5 rounded-lg border border-slate-200 px-2 text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:border-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-100"
 													aria-expanded={menuId === member.id}
@@ -435,49 +443,13 @@ export function UserManagementDashboard() {
 													<ChevronDown className="h-3.5 w-3.5" />
 												</button>
 												{menuId === member.id && (
-													<div
-														role="menu"
-														className="absolute bottom-9 right-0 z-20 min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:bg-slate-800 dark:border-slate-700"
-													>
-														<button
-															type="button"
-															role="menuitem"
-															onClick={() => handleRoleChange(member.id, member.role === 'admin' ? 'user' : 'admin')}
-															className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
-														>
-															<Shield className="h-3.5 w-3.5 text-indigo-500" />
-															{member.role === 'admin' ? '일반회원으로 변경' : '관리자로 승격'}
-														</button>
-														{member.status !== 'withdrawn' && (
-															<button
-																type="button"
-																role="menuitem"
-																onClick={() => handleToggleStatus(member.id)}
-																className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
-															>
-																{member.status === 'active' ? (
-																	<>
-																		<Ban className="h-3.5 w-3.5 text-rose-500" />
-																		계정 정지
-																	</>
-																) : (
-																	<>
-																		<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
-																		정지 해제
-																	</>
-																)}
-															</button>
-														)}
-														<button
-															type="button"
-															role="menuitem"
-															onClick={() => handleDelete(member.id)}
-															className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50"
-														>
-															<Trash2 className="h-3.5 w-3.5" />
-															회원 삭제
-														</button>
-													</div>
+													<MemberActionMenu
+														member={member}
+														anchorRef={actionButtonRef}
+														onRole={handleRoleChange}
+														onStatus={handleToggleStatus}
+														onDelete={handleDelete}
+													/>
 												)}
 											</div>
 										</td>
@@ -548,6 +520,105 @@ export function UserManagementDashboard() {
 				</div>
 			)}
 		</div>
+	);
+}
+
+function MemberActionMenu({
+	member,
+	anchorRef,
+	onRole,
+	onStatus,
+	onDelete,
+}: {
+	member: AdminMember;
+	anchorRef: RefObject<HTMLButtonElement | null>;
+	onRole: (id: string, role: MemberRole) => void;
+	onStatus: (id: string) => void;
+	onDelete: (id: string) => void;
+}) {
+	const panelRef = useRef<HTMLDivElement>(null);
+	const [box, setBox] = useState<{ top: number; left: number } | null>(null);
+
+	const place = useCallback(() => {
+		const anchor = anchorRef.current;
+		const panel = panelRef.current;
+		if (!anchor || !panel) return;
+		const rect = anchor.getBoundingClientRect();
+		const menuHeight = panel.offsetHeight;
+		const menuWidth = panel.offsetWidth;
+		const gap = 6;
+		const spaceBelow = window.innerHeight - rect.bottom;
+		const openUp = spaceBelow < menuHeight + gap && rect.top > menuHeight + gap;
+		const top = openUp ? Math.max(8, rect.top - menuHeight - gap) : rect.bottom + gap;
+		const left = Math.min(Math.max(8, rect.right - menuWidth), window.innerWidth - menuWidth - 8);
+		setBox({ top, left });
+	}, [anchorRef]);
+
+	useLayoutEffect(() => {
+		place();
+	}, [place, member.id]);
+
+	useEffect(() => {
+		const onReflow = () => place();
+		window.addEventListener('resize', onReflow);
+		window.addEventListener('scroll', onReflow, true);
+		return () => {
+			window.removeEventListener('resize', onReflow);
+			window.removeEventListener('scroll', onReflow, true);
+		};
+	}, [place]);
+
+	if (typeof document === 'undefined') return null;
+
+	return createPortal(
+		<div
+			ref={panelRef}
+			role="menu"
+			data-member-action-menu
+			onMouseDown={(event) => event.stopPropagation()}
+			style={{ top: box?.top ?? 0, left: box?.left ?? 0, visibility: box ? 'visible' : 'hidden' }}
+			className="fixed z-[100] min-w-[160px] rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800"
+		>
+			<button
+				type="button"
+				role="menuitem"
+				onClick={() => onRole(member.id, member.role === 'admin' ? 'user' : 'admin')}
+				className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+			>
+				<Shield className="h-3.5 w-3.5 text-indigo-500" />
+				{member.role === 'admin' ? '일반회원으로 변경' : '관리자로 승격'}
+			</button>
+			{member.status !== 'withdrawn' && (
+				<button
+					type="button"
+					role="menuitem"
+					onClick={() => onStatus(member.id)}
+					className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+				>
+					{member.status === 'active' ? (
+						<>
+							<Ban className="h-3.5 w-3.5 text-rose-500" />
+							계정 정지
+						</>
+					) : (
+						<>
+							<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+							정지 해제
+						</>
+					)}
+				</button>
+			)}
+			<button
+				type="button"
+				role="menuitem"
+				onClick={() => onDelete(member.id)}
+				className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50"
+			>
+				<Trash2 className="h-3.5 w-3.5" />
+				회원 삭제
+			</button>
+		</div>,
+		document.body,
 	);
 }
 
