@@ -223,15 +223,17 @@ export function AdminAiTools() {
 						</div>
 					) : (
 						<div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-							{sortedTools.map((tool, index) => {
+							{sortedTools.map((tool) => {
 								const ranked = tool as RankedLiveAiTool;
 								const scoped = category !== 'all';
-								const liveRank = scoped ? ranked.categoryRank : ranked.currentRank;
+								const catRank = ranked.categoryRank;
+								const globalRank = ranked.currentRank;
+								const liveRank = scoped ? catRank : globalRank;
 								return (
 									<AiToolCard
 										key={tool.id}
 										tool={tool}
-										rank={liveRank || index + 1}
+										rank={typeof liveRank === 'number' && liveRank > 0 ? liveRank : 0}
 										rankDelta={scoped ? (ranked.previousCategoryRank > 0 ? ranked.previousCategoryRank - ranked.categoryRank : 0) : ranked.rankDelta}
 										isNew={Boolean(ranked.isNew)}
 										pending={pendingId === tool.id}

@@ -8,7 +8,7 @@ import type { AiToolRisingStatus } from '@/lib/ai-hub/rising-ai-tools';
 
 interface AiHubToolCardProps {
 	tool: AiTool;
-	/** Position to show on the badge — category-relative (1, 2, 3...) when a specific tab is selected, global otherwise. */
+	/** Fixed rank from the tool record (`categoryRank` or `currentRank`), never the list index. */
 	rank: number;
 	rankDelta?: number;
 	isNew?: boolean;
@@ -20,12 +20,14 @@ interface AiHubToolCardProps {
 	/** Share of AI-answer citations attributed to this engine, 0~100. */
 	citationRate?: number;
 	/**
-	 * The tool's fixed global (all-category) rank, shown as small context text when it differs
-	 * from `rank` — i.e. only while a specific category tab is active. `undefined` in "전체 순위".
+	 * Fixed global rank (`currentRank`). Shown beside the badge when the badge is the
+	 * category rank and the two numbers differ.
 	 */
 	globalRank?: number;
 	/** Category label used in the rank-badge tooltip, e.g. "이미지 카테고리 내 1위". */
 	categoryLabel?: string;
+	/** Shown beside the badge when list order is not the rank itself (GEO 점수순). */
+	rankCaption?: string;
 	onOpenDetail: (tool: AiTool) => void;
 }
 
@@ -46,13 +48,14 @@ export function AiHubToolCard({
 	citationRate,
 	globalRank,
 	categoryLabel,
+	rankCaption,
 	onOpenDetail,
 }: AiHubToolCardProps) {
 	const [logoFailed, setLogoFailed] = useState(false);
 	const showGlobalRankNote = typeof globalRank === 'number' && globalRank !== rank;
 	const rankBadgeTitle = categoryLabel
-		? `${categoryLabel} 내 ${rank}위${showGlobalRankNote ? ` · 전체 #${globalRank}위` : ''}`
-		: undefined;
+		? `${rankCaption ? `${rankCaption} · ` : ''}${categoryLabel} 내 ${rank}위${showGlobalRankNote ? ` · 전체 #${globalRank}위` : ''}`
+		: rankCaption;
 
 	return (
 		<div
@@ -68,8 +71,13 @@ export function AiHubToolCard({
 			className="relative flex cursor-pointer flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-cyan-300 hover:shadow-lg dark:border-slate-700/80 dark:bg-slate-900/60 dark:hover:border-cyan-500/40"
 		>
 			<div className="absolute -left-2 -top-2 z-10 flex items-center gap-1">
-				<span title={rankBadgeTitle}>
+				<span title={rankBadgeTitle} className="inline-flex items-center gap-1">
 					<RankBadge rank={rank} />
+					{rankCaption ? (
+						<span className="whitespace-nowrap rounded-full border border-cyan-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-cyan-700 shadow-sm dark:border-cyan-800 dark:bg-slate-900 dark:text-cyan-300">
+							{rankCaption}
+						</span>
+					) : null}
 				</span>
 				<RankChangeBadge isNew={isNew} delta={rankDelta} />
 				<RisingStatusBadge status={status} isRising={isRising || isHot} />

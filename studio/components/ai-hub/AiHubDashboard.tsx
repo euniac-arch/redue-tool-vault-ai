@@ -8,7 +8,7 @@ import { CURATED_TRENDING_TOOLS, groupCuratedTrendingTools } from '@/data/curate
 import { AI_TOOL_SORT_OPTIONS, type AiToolCategoryId, type AiToolSortKey } from '@/lib/admin/ai-tools-management';
 import { getPublicAiHubCategories } from '@/lib/ai-hub';
 import { calculateGeoRankings } from '@/lib/ai-hub/calculateGeoRankings';
-import { formatKstRankingAsOfLabel, sortRankedAiTools } from '@/lib/ai-hub/live-ai-rankings';
+import { displayRankDelta, formatKstRankingAsOfLabel, sortRankedAiTools } from '@/lib/ai-hub/live-ai-rankings';
 import { useDailyAiRankings } from '@/lib/ai-hub/useDailyAiRankings';
 import { AiHubToolCard } from './AiHubToolCard';
 import { AiHubDetailModal } from './AiHubDetailModal';
@@ -64,6 +64,11 @@ export function AiHubDashboard() {
 	);
 	const newEntryCount = analysis?.newEntries.length ?? 0;
 	const tabCategories = useMemo(() => getPublicAiHubCategories(tools), [tools]);
+	const isGlobalRankView = category === 'all';
+	// 순위 보기: 카테고리 탭은 catRank(categoryRank), 전체 순위는 globalRank(currentRank).
+	// GEO점수순은 geoScore 내림차순이되 배지는 catRank를 유지한다. 배지는 목록 index를 쓰지 않는다.
+	const rankSortMode = sortKey === 'geo_score' ? 'geoScore' : sortKey === 'rank' ? (isGlobalRankView ? 'globalRank' : 'catRank') : 'custom';
+	const badgeUsesCategoryRank = rankSortMode !== 'globalRank';
 	const processedCategories = useMemo(() => {
 		const q = query.trim().toLowerCase();
 		return getPublicAiHubCategories(tools)
@@ -78,10 +83,24 @@ export function AiHubDashboard() {
 						tool.tags.some((tag) => tag.toLowerCase().includes(q))
 					);
 				});
-				return { ...cat, tools: sortRankedAiTools(categoryTools, sortKey, true) };
+				const sorted = [...categoryTools];
+				if (rankSortMode === 'catRank') {
+					sorted.sort((a, b) => a.categoryRank - b.categoryRank);
+				} else if (rankSortMode === 'globalRank') {
+					sorted.sort((a, b) => a.currentRank - b.currentRank);
+				} else if (rankSortMode === 'geoScore') {
+					sorted.sort(
+						(a, b) =>
+							(geoMetricById.get(b.id)?.geoScore ?? 0) - (geoMetricById.get(a.id)?.geoScore ?? 0) ||
+							a.categoryRank - b.categoryRank,
+					);
+				} else {
+					return { ...cat, tools: sortRankedAiTools(categoryTools, sortKey, !isGlobalRankView) };
+				}
+				return { ...cat, tools: sorted };
 			})
 			.filter((cat) => cat.tools.length > 0);
-	}, [tools, query, sortKey]);
+	}, [tools, query, sortKey, isGlobalRankView, rankSortMode, geoMetricById]);
 	const visibleCategories = useMemo(
 		() => processedCategories.filter((cat) => category === 'all' || cat.id === category),
 		[processedCategories, category],
@@ -280,19 +299,17 @@ export function AiHubDashboard() {
 									</span>
 								</div>
 								<div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-									{cat.tools.map((tool, index) => {
-										// "전체 순위" 탭: 기존 고정 전체/카테고리 순위 그대로 유지.
-										// 특정 카테고리 탭: 현재 필터링+정렬된 목록 기준 1위부터 순차 재계산.
-										const displayRank = category === 'all' ? tool.formalRank ?? tool.categoryRank : index + 1;
-										const globalRank = category === 'all' ? undefined : tool.formalRank;
+									{cat.tools.map((tool) => {
+										const catRank = tool.categoryRank;
+										const globalRankValue = tool.currentRank;
+										const rank = badgeUsesCategoryRank ? catRank : globalRankValue;
+										const globalRank = badgeUsesCategoryRank ? globalRankValue : undefined;
 										return (
 											<AiHubToolCard
 												key={tool.id}
 												tool={tool}
-												rank={displayRank}
-												rankDelta={
-													tool.previousCategoryRank > 0 ? tool.previousCategoryRank - tool.categoryRank : tool.rankDelta
-												}
+												rank={rank}
+												rankDelta={displayRankDelta(tool, badgeUsesCategoryRank)}
 												isNew={tool.isNew}
 												isHot={tool.isHot}
 												isRising={tool.isRising}
@@ -300,7 +317,8 @@ export function AiHubDashboard() {
 												geoScore={geoMetricById.get(tool.id)?.geoScore}
 												citationRate={geoMetricById.get(tool.id)?.citationRate}
 												globalRank={globalRank}
-												categoryLabel={category === 'all' ? undefined : cat.label}
+												categoryLabel={badgeUsesCategoryRank ? cat.label : undefined}
+												rankCaption={sortKey === 'geo_score' ? '카테고리 순위' : undefined}
 												onOpenDetail={(selected) => setActiveToolId(selected.id)}
 											/>
 										);
