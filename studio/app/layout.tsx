@@ -61,6 +61,11 @@ export async function generateMetadata(): Promise<Metadata> {
 			description,
 			images: [REDUE_OG_IMAGE_PATH],
 		},
+		verification: {
+			other: {
+				'naver-site-verification': 'e6dd5565624e877488bda4ad081771f1e08bd639',
+			},
+		},
 	};
 }
 
