@@ -195,8 +195,7 @@ function ToolLogo({ tool, failed, onError }: { tool: AiTool; failed: boolean; on
 		// eslint-disable-next-line @next/next/no-img-element -- external favicon URLs, no next/image domain config needed
 		<img
 			src={tool.logo_url}
-			alt=""
-			aria-hidden
+			alt={`${tool.name} 로고`}
 			loading="lazy"
 			onError={onError}
 			className="h-9 w-9 shrink-0 rounded-lg border border-slate-200 bg-white object-contain p-1 dark:border-slate-700"

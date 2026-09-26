@@ -198,7 +198,7 @@ export function ResellerDashboard() {
 						<div className="flex items-center gap-3">
 							{profile.logoDataUrl ? (
 								// eslint-disable-next-line @next/next/no-img-element
-								<img src={profile.logoDataUrl} alt="Partner logo" className="h-10 w-10 rounded-lg border border-white/10 object-contain" />
+								<img src={profile.logoDataUrl} alt={`${profile.partnerName || '파트너'} 로고`} className="h-10 w-10 rounded-lg border border-white/10 object-contain" />
 							) : (
 								<div className="flex h-10 w-10 items-center justify-center rounded-lg border border-dashed border-white/20 text-[10px] text-slate-600">
 									LOGO
@@ -223,7 +223,7 @@ export function ResellerDashboard() {
 				>
 					{profile.logoDataUrl ? (
 						// eslint-disable-next-line @next/next/no-img-element
-						<img src={profile.logoDataUrl} alt="" className="h-8 w-8 rounded object-contain" />
+						<img src={profile.logoDataUrl} alt={`${profile.partnerName || '파트너'} 로고 미리보기`} className="h-8 w-8 rounded object-contain" />
 					) : (
 						<span
 							className="rounded px-2 py-1 text-xs font-bold text-[#0C0D0E]"

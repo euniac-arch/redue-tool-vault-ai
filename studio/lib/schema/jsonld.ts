@@ -58,10 +58,28 @@ export type SchemaChannelConfig = {
 export type SchemaPersonConfig = {
 	name?: string;
 	jobTitle?: string;
+	/** E-E-A-T biography. Emitted only when a real person name is present. */
+	description?: string;
 	sameAs?: Array<string | null | undefined>;
 	alumniOf?: string | { name?: string; url?: string };
 	knowsAbout?: Array<string | null | undefined>;
 	url?: string;
+};
+
+export type SchemaFaqItem = {
+	question: string;
+	answer: string;
+};
+
+export type SchemaBreadcrumbItem = {
+	name: string;
+	url: string;
+};
+
+export type SchemaAboutConfig = {
+	name?: string;
+	url?: string;
+	description?: string;
 };
 
 export type SchemaJsonLdConfig = {
@@ -80,6 +98,14 @@ export type SchemaJsonLdConfig = {
 	pageName?: string;
 	pageType?: string;
 	inLanguage?: string;
+	email?: string;
+	/** Public contact URL used for Organization.contactPoint. */
+	contactUrl?: string;
+	/** Sitelinks SearchAction template. Must contain `{search_term_string}`. */
+	searchUrlTemplate?: string;
+	faqs?: SchemaFaqItem[];
+	about?: SchemaAboutConfig;
+	breadcrumbs?: SchemaBreadcrumbItem[];
 	/** SoftwareApplication extras — set only when `orgTypes` includes `SoftwareApplication`. */
 	applicationCategory?: string;
 	operatingSystem?: string;
@@ -236,14 +262,164 @@ function enrichPublicGraph(graph: StrictSchemaGraph, config: SchemaJsonLdConfig)
 	if (person) {
 		const profileUrl = isValidSchemaUrl(config.founder?.url) ? compact(config.founder?.url) : '';
 		if (profileUrl && !person.url) person.url = profileUrl;
+		const biography = compact(config.founder?.description);
+		if (biography && !person.description) person.description = biography;
 		const eduUrl = alumniUrl(config.founder?.alumniOf);
 		if (eduUrl && person.alumniOf && typeof person.alumniOf === 'object' && !Array.isArray(person.alumniOf)) {
 			(person.alumniOf as StrictJsonLdNode).url = eduUrl;
 		}
 	}
 
-	ensureBreadcrumb(graph, schemaConfigToGroundTruth(config));
+	const facts = schemaConfigToGroundTruth(config);
+	ensureBreadcrumb(graph, facts);
+	applyConfiguredBreadcrumbs(graph, config);
+	applySearchAction(graph, config);
+	applyContactPoint(graph, config);
+	applyAuthorPublisher(graph);
+	applyAboutPage(graph, config);
+	applyFaqPage(graph, config);
 	return graph;
+}
+
+function originOfConfig(config: SchemaJsonLdConfig): string {
+	return compact(config.url).replace(/\/+$/, '');
+}
+
+function nodeId(node: StrictJsonLdNode | undefined): string {
+	return typeof node?.['@id'] === 'string' ? node['@id'] : '';
+}
+
+function applyConfiguredBreadcrumbs(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {
+	const items = (config.breadcrumbs || [])
+		.map((item, index) => ({
+			'@type': 'ListItem',
+			position: index + 1,
+			name: compact(item.name),
+			item: isValidSchemaUrl(item.url) ? compact(item.url) : '',
+		}))
+		.filter((item) => item.name && item.item);
+	if (!items.length) return;
+	const crumb = graph['@graph'].find((node) => node['@type'] === 'BreadcrumbList');
+	if (!crumb) return;
+	crumb.itemListElement = items;
+}
+
+function applySearchAction(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {
+	const template = compact(config.searchUrlTemplate);
+	if (!template.includes('{search_term_string}')) return;
+	const probe = template.replace('{search_term_string}', 'query');
+	if (!isValidSchemaUrl(probe)) return;
+	const website = graph['@graph'].find((node) => node['@type'] === 'WebSite');
+	if (!website || website.potentialAction) return;
+	website.potentialAction = {
+		'@type': 'SearchAction',
+		target: {
+			'@type': 'EntryPoint',
+			urlTemplate: template,
+		},
+		'query-input': 'required name=search_term_string',
+	};
+}
+
+function applyContactPoint(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {
+	const org = graphOrgNode(graph);
+	if (!org || org.contactPoint) return;
+	const telephone = typeof org.telephone === 'string' ? org.telephone : '';
+	const email = compact(config.email);
+	const contactUrl = isValidSchemaUrl(config.contactUrl) ? compact(config.contactUrl) : '';
+	if (!telephone && !email && !contactUrl) return;
+	const contact: StrictJsonLdNode = {
+		'@type': 'ContactPoint',
+		contactType: 'customer support',
+		availableLanguage: ['Korean', 'English'],
+	};
+	if (telephone) contact.telephone = telephone;
+	if (email) contact.email = email;
+	if (contactUrl) contact.url = contactUrl;
+	org.contactPoint = contact;
+}
+
+function applyAuthorPublisher(graph: StrictSchemaGraph): void {
+	const org = graphOrgNode(graph);
+	const orgId = nodeId(org);
+	if (!orgId) return;
+	const person = graph['@graph'].find((node) => node['@type'] === 'Person');
+	const authorId = nodeId(person) || orgId;
+	for (const node of graph['@graph']) {
+		const type = node['@type'];
+		const types = Array.isArray(type) ? type : [type];
+		const isContent =
+			types.includes('WebPage') ||
+			types.includes('AboutPage') ||
+			types.includes('FAQPage') ||
+			types.includes('CollectionPage');
+		if (!isContent) continue;
+		if (!node.publisher) node.publisher = { '@id': orgId };
+		if (!node.author) node.author = { '@id': authorId };
+	}
+}
+
+function applyAboutPage(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {
+	const about = config.about;
+	if (!about) return;
+	const origin = originOfConfig(config);
+	const url = isValidSchemaUrl(about.url) ? compact(about.url) : `${origin}/about`;
+	const description = compact(about.description) || compact(config.description);
+	if (!description) return;
+	const hasAbout = graph['@graph'].some((node) => node['@type'] === 'AboutPage');
+	if (hasAbout) return;
+	const orgId = nodeId(graphOrgNode(graph));
+	const website = graph['@graph'].find((node) => node['@type'] === 'WebSite');
+	const websiteId = nodeId(website);
+	const aboutNode: StrictJsonLdNode = {
+		'@type': 'AboutPage',
+		'@id': `${url}#about`,
+		url,
+		name: compact(about.name) || `${compact(config.name)} 소개`,
+		description,
+	};
+	if (websiteId) aboutNode.isPartOf = { '@id': websiteId };
+	if (orgId) {
+		aboutNode.about = { '@id': orgId };
+		aboutNode.mainEntity = { '@id': orgId };
+		aboutNode.publisher = { '@id': orgId };
+	}
+	const person = graph['@graph'].find((node) => node['@type'] === 'Person');
+	aboutNode.author = { '@id': nodeId(person) || orgId };
+	graph['@graph'].push(aboutNode);
+}
+
+function applyFaqPage(graph: StrictSchemaGraph, config: SchemaJsonLdConfig): void {
+	const faqs = (config.faqs || [])
+		.map((item) => ({ question: compact(item.question), answer: compact(item.answer) }))
+		.filter((item) => item.question && item.answer);
+	if (!faqs.length) return;
+	const hasFaq = graph['@graph'].some((node) => node['@type'] === 'FAQPage');
+	if (hasFaq) return;
+	const origin = originOfConfig(config);
+	const pageUrl = compact(config.pageUrl) || `${origin}/`;
+	const orgId = nodeId(graphOrgNode(graph));
+	const website = graph['@graph'].find((node) => node['@type'] === 'WebSite');
+	const websiteId = nodeId(website);
+	const person = graph['@graph'].find((node) => node['@type'] === 'Person');
+	const faqNode: StrictJsonLdNode = {
+		'@type': 'FAQPage',
+		'@id': `${pageUrl}#faq`,
+		url: `${pageUrl}#faq`,
+		name: `${compact(config.name)} 자주 묻는 질문`,
+		mainEntity: faqs.map((item) => ({
+			'@type': 'Question',
+			name: item.question,
+			acceptedAnswer: {
+				'@type': 'Answer',
+				text: item.answer,
+			},
+		})),
+	};
+	if (websiteId) faqNode.isPartOf = { '@id': websiteId };
+	if (orgId) faqNode.publisher = { '@id': orgId };
+	faqNode.author = { '@id': nodeId(person) || orgId };
+	graph['@graph'].push(faqNode);
 }
 
 /**

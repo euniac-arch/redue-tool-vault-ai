@@ -41,6 +41,7 @@ export function FreeAuditHero({
 				<img
 					src="/images/hero-bg.png"
 					alt=""
+					aria-hidden="true"
 					className="hidden dark:block absolute inset-0 h-full w-full object-cover object-center opacity-85"
 				/>
 				<div className="absolute inset-x-0 top-0 hidden h-28 bg-gradient-to-b from-[#050714] via-[#050714]/40 to-transparent dark:block" />

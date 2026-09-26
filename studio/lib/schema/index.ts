@@ -12,12 +12,29 @@ export {
 	schemaHasNaverSameAs,
 } from '@/lib/schema/jsonld';
 export type {
+	SchemaAboutConfig,
+	SchemaBreadcrumbItem,
 	SchemaChannelConfig,
+	SchemaFaqItem,
 	SchemaJsonLdConfig,
 	SchemaPersonConfig,
 	SchemaPostalAddress,
 } from '@/lib/schema/jsonld';
-export { REDUE_SITE_ORIGIN, REDUE_SITE_SCHEMA } from '@/lib/schema/site-schema-config';
+export {
+	REDUE_BUSINESS_NAP,
+	REDUE_FOUNDER,
+	REDUE_META_DESCRIPTION_EN,
+	REDUE_META_DESCRIPTION_KO,
+	REDUE_META_TITLE,
+	REDUE_OFFICIAL_CHANNELS,
+	REDUE_OG_IMAGE_ALT,
+	REDUE_OG_IMAGE_HEIGHT,
+	REDUE_OG_IMAGE_PATH,
+	REDUE_OG_IMAGE_WIDTH,
+	REDUE_SITE_CANONICAL,
+	REDUE_SITE_ORIGIN,
+	REDUE_SITE_SCHEMA,
+} from '@/lib/schema/site-schema-config';
 export {
 	EMPTY_SCHEMA_TEMPLATE_PARAMS,
 	GOOGLE_RICH_RESULTS_TEST_URL,

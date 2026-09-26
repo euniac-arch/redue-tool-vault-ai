@@ -2,41 +2,64 @@ import type { Metadata } from 'next';
 import Script from 'next/script';
 import { getServerSession } from 'next-auth';
 import { NextIntlClientProvider } from 'next-intl';
-import { getLocale, getMessages, getTranslations } from 'next-intl/server';
+import { getLocale, getMessages } from 'next-intl/server';
 import { authOptions } from '@/lib/auth';
 import { ConditionalAppShell } from '@/components/ConditionalAppShell';
 import { TopProgressBar } from '@/components/common/TopProgressBar';
 import { AnalyticsTracker } from '@/components/analytics/AnalyticsTracker';
 import { IntlErrorHandlingProvider } from '@/components/IntlErrorHandlingProvider';
 import { SchemaJsonLd } from '@/components/SchemaJsonLd';
-import { REDUE_SITE_ORIGIN, REDUE_SITE_SCHEMA } from '@/lib/schema';
+import {
+	REDUE_META_DESCRIPTION_EN,
+	REDUE_META_DESCRIPTION_KO,
+	REDUE_META_TITLE,
+	REDUE_OG_IMAGE_ALT,
+	REDUE_OG_IMAGE_HEIGHT,
+	REDUE_OG_IMAGE_PATH,
+	REDUE_OG_IMAGE_WIDTH,
+	REDUE_SITE_CANONICAL,
+	REDUE_SITE_ORIGIN,
+	REDUE_SITE_SCHEMA,
+} from '@/lib/schema';
 import { THEME_INIT_SCRIPT } from '@/lib/theme';
 import { Providers } from './providers';
 import './globals.css';
 
 export async function generateMetadata(): Promise<Metadata> {
-	const t = await getTranslations('nav');
+	const locale = await getLocale();
+	const description = locale.toLowerCase().startsWith('en') ? REDUE_META_DESCRIPTION_EN : REDUE_META_DESCRIPTION_KO;
+	const ogImage = {
+		url: REDUE_OG_IMAGE_PATH,
+		width: REDUE_OG_IMAGE_WIDTH,
+		height: REDUE_OG_IMAGE_HEIGHT,
+		alt: REDUE_OG_IMAGE_ALT,
+	};
+
 	return {
 		metadataBase: new URL(REDUE_SITE_ORIGIN),
-		title: 'REDUE AI SEO & GEO Studio',
-		description: t('tagline'),
+		title: REDUE_META_TITLE,
+		description,
 		alternates: {
-			canonical: REDUE_SITE_ORIGIN,
+			canonical: REDUE_SITE_CANONICAL,
 			types: {
+				'application/rss+xml': [{ url: '/rss.xml', title: 'REDUE AI SEO & GEO Studio RSS Feed' }],
 				'text/plain': [{ url: `${REDUE_SITE_ORIGIN}/llms.txt`, title: 'LLMs Text' }],
 			},
 		},
 		openGraph: {
 			type: 'website',
-			title: 'REDUE AI SEO & GEO Studio',
-			description: 'AI 기반 SEO & GEO 자동 주입',
-			url: REDUE_SITE_ORIGIN,
-			siteName: 'REDUE AI SEO & GEO Studio',
+			title: REDUE_META_TITLE,
+			description,
+			url: REDUE_SITE_CANONICAL,
+			siteName: 'RedueGEO',
+			locale: locale.toLowerCase().startsWith('en') ? 'en_US' : 'ko_KR',
+			images: [ogImage],
 		},
 		twitter: {
 			card: 'summary_large_image',
-			title: 'REDUE AI SEO & GEO Studio',
-			description: 'AI 기반 SEO & GEO 자동 주입',
+			title: REDUE_META_TITLE,
+			description,
+			images: [REDUE_OG_IMAGE_PATH],
 		},
 	};
 }

@@ -12,6 +12,7 @@ import {
 	schemaHasFounderKnowledgeGraph,
 	schemaHasNaverSameAs,
 } from '../lib/schema/jsonld';
+import { REDUE_META_DESCRIPTION_EN, REDUE_META_DESCRIPTION_KO, REDUE_SITE_SCHEMA } from '../lib/schema/site-schema-config';
 import { graphOrgNode } from '../lib/solve/core/strict-schema-graph';
 
 function assert(cond: unknown, msg: string): asserts cond {
@@ -139,5 +140,29 @@ assert(html.startsWith('<script type="application/ld+json">'), 'script tag open'
 assert(html.includes('"@type": "Person"'), 'script contains Person');
 assert(html.includes('blog.naver.com/seocho'), 'script contains naver blog');
 assert(formatSchemaScriptTag({ '@context': 'https://schema.org' }).includes('application/ld+json'), 'formatter');
+
+const koLen = [...REDUE_META_DESCRIPTION_KO].length;
+const enLen = [...REDUE_META_DESCRIPTION_EN].length;
+assert(koLen >= 80 && koLen <= 140, `ko meta description length ${koLen}`);
+assert(enLen >= 80 && enLen <= 140, `en meta description length ${enLen}`);
+
+const site = buildSchemaJsonLd(REDUE_SITE_SCHEMA);
+const types = site['@graph'].map((node) => node['@type']);
+assert(types.includes('WebSite'), 'site WebSite');
+assert(types.includes('BreadcrumbList'), 'site BreadcrumbList');
+assert(types.includes('AboutPage'), 'site AboutPage');
+assert(types.includes('FAQPage'), 'site FAQPage');
+const siteOrg = graphOrgNode(site)!;
+const orgTypes = siteOrg['@type'] as string[];
+assert(orgTypes.includes('Organization') && orgTypes.includes('LocalBusiness'), 'site org types');
+assert(siteOrg.contactPoint !== undefined, 'site contactPoint');
+const siteWeb = site['@graph'].find((node) => node['@type'] === 'WebSite') as Record<string, unknown>;
+assert((siteWeb.potentialAction as { '@type'?: string })['@type'] === 'SearchAction', 'site SearchAction');
+const faq = site['@graph'].find((node) => node['@type'] === 'FAQPage') as { mainEntity?: unknown[] };
+assert((faq.mainEntity || []).length >= 3 && (faq.mainEntity || []).length <= 4, 'site FAQ count');
+const webpage = site['@graph'].find((node) => node['@type'] === 'WebPage') as Record<string, unknown>;
+assert((webpage.publisher as { '@id': string })['@id'].endsWith('/#organization'), 'publisher linked');
+assert((webpage.author as { '@id': string })['@id'].endsWith('/#organization'), 'author falls back to org without founder name');
+assert(schemaHasFounderKnowledgeGraph(site) === false, 'no invented founder on the public site');
 
 console.log('test-schema-jsonld: ok');

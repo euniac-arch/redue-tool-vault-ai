@@ -204,7 +204,7 @@ export function YouTubeModal({ video, onClose }: YouTubeModalProps) {
 												// eslint-disable-next-line @next/next/no-img-element
 												<img
 													src={comment.authorImageUrl}
-													alt=""
+													alt={`${comment.authorName} 프로필 사진`}
 													className="h-8 w-8 shrink-0 rounded-full object-cover"
 												/>
 											) : (

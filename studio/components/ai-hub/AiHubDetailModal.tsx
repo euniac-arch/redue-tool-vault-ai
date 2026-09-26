@@ -59,8 +59,7 @@ export function AiHubDetailModal({ tool, onClose }: AiHubDetailModalProps) {
 							// eslint-disable-next-line @next/next/no-img-element -- external favicon URL
 							<img
 								src={tool.logo_url}
-								alt=""
-								aria-hidden
+								alt={`${tool.name} 로고`}
 								onError={() => setLogoFailed(true)}
 								className="h-11 w-11 shrink-0 rounded-xl border border-slate-200 bg-white object-contain p-1.5 dark:border-slate-700"
 							/>

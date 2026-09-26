@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /audit/result
+
+Sitemap: https://reduegeo.com/sitemap.xml

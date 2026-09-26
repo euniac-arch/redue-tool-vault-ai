@@ -414,7 +414,7 @@ export function MyPageDashboard({
 										<a href={video.videoUrl} target="_blank" rel="noopener noreferrer" className="block aspect-video bg-slate-950">
 											{video.thumbnailUrl ? (
 												// eslint-disable-next-line @next/next/no-img-element
-												<img src={video.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+												<img src={video.thumbnailUrl} alt={`${video.title} 유튜브 썸네일`} className="h-full w-full object-cover" />
 											) : null}
 										</a>
 										<div className="space-y-2 p-4">

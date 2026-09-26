@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Bookmark, LayoutGrid, Search, Sparkles, type LucideIcon } from 'lucide-react';
 import { resolveLucideIcon } from '@/components/admin/ai-tools/ai-tools-badges';
 import { PromptCard } from '@/components/prompt-hub/PromptCard';
@@ -24,8 +25,9 @@ const GRADIENT_TEXT = 'bg-gradient-to-r from-[#5565C7] to-[#0C9AA7] bg-clip-text
 type FilterId = 'all' | 'saved' | PromptCategoryId;
 
 export function PromptHubDashboard() {
+	const searchParams = useSearchParams();
 	const [prompts] = useState(() => loadPrompts());
-	const [query, setQuery] = useState('');
+	const [query, setQuery] = useState(() => searchParams.get('q')?.trim() || '');
 	const [filter, setFilter] = useState<FilterId>('all');
 	const [sortKey, setSortKey] = useState<PromptSortKey>('recommended');
 	const [favorites, setFavorites] = useState<string[]>(() => readPromptCollection().favorites);
@@ -58,7 +60,7 @@ export function PromptHubDashboard() {
 				</p>
 
 				<div className="relative mt-1 max-w-xl">
-					<Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+					<Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
 					<input
 						type="search"
 						value={query}

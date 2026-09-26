@@ -112,7 +112,7 @@ export function YouTubeInsightCard({
 			>
 				{item.thumbnailUrl ? (
 					// eslint-disable-next-line @next/next/no-img-element
-					<img src={item.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+					<img src={item.thumbnailUrl} alt={`${item.title} 유튜브 썸네일`} className="h-full w-full object-cover" />
 				) : (
 					<div className="flex h-full items-center justify-center text-slate-500">YouTube</div>
 				)}

@@ -31,7 +31,7 @@ export function isValidDateKey(value: string): boolean {
  * Known crawler / bot / automation User-Agent signatures. Deliberately broad
  * — analytics should undercount rather than let bot traffic skew human KPIs.
  * Includes AI assistant crawlers (GPTBot, PerplexityBot, ClaudeBot, ...) per
- * the same allow-list used in `app/robots.ts`, since those should NOT be
+ * the same crawlers welcomed in `public/robots.txt`, since those should NOT be
  * counted as "visitors" even though they're welcome to crawl for indexing.
  */
 const BOT_PATTERNS: RegExp[] = [

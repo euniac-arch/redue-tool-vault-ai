@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>REDUE AI SEO &amp; GEO Studio</title>
+    <link>https://reduegeo.com/</link>
+    <description>RedueGEO는 ChatGPT·Perplexity·Gemini가 기업 사이트를 출처로 인용하도록 GEO, SEO, 스키마, E-E-A-T를 진단하고 정비하는 AI 검색 최적화 스튜디오입니다.</description>
+    <language>ko-KR</language>
+    <lastBuildDate>Sun, 27 Sep 2026 00:00:00 GMT</lastBuildDate>
+    <item>
+      <title>AI 검색 최적화(GEO) 정밀 진단</title>
+      <link>https://reduegeo.com/audit</link>
+      <description>실시간 SEO · GEO · AEO 진단으로 검색엔진과 생성형 AI가 사이트를 어떻게 이해하는지 확인하고, 스키마·색인·E-E-A-T 개선 우선순위를 정리합니다.</description>
+      <pubDate>Sun, 27 Sep 2026 00:00:00 GMT</pubDate>
+      <guid isPermaLink="true">https://reduegeo.com/audit</guid>
+    </item>
+    <item>
+      <title>Schema.org 구조화 데이터 생성</title>
+      <link>https://reduegeo.com/aeo-geo</link>
+      <description>ChatGPT · Perplexity · Gemini · Claude가 사이트를 공식 정답 출처로 채택하도록 SEO · AEO · GEO · Schema.org 구조를 정비합니다.</description>
+      <pubDate>Sun, 27 Sep 2026 00:00:00 GMT</pubDate>
+      <guid isPermaLink="true">https://reduegeo.com/aeo-geo</guid>
+    </item>
+    <item>
+      <title>검색엔진 색인 분석</title>
+      <link>https://reduegeo.com/industry</link>
+      <description>업종별 검색 의도와 AI 인용 신호를 기준으로, 구글·네이버와 생성형 검색에 사이트가 어떻게 색인·추천되는지 분석합니다.</description>
+      <pubDate>Sun, 27 Sep 2026 00:00:00 GMT</pubDate>
+      <guid isPermaLink="true">https://reduegeo.com/industry</guid>
+    </item>
+  </channel>
+</rss>
