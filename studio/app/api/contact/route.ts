@@ -2,9 +2,11 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { authOptions } from '@/lib/auth';
 import { sendContactInquiryMail } from '@/lib/contact-mail';
-import { appendContactLead, listContactLeadsForUser } from '@/lib/server/contact-leads';
+import { appendContactLead, contactLeadNoStoreHeaders, listContactLeadsForUser } from '@/lib/server/contact-leads';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 const INQUIRY_TYPES = new Set(['all', 'geo', 'seo', 'schema', 'audit', 'general']);
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -17,8 +19,16 @@ export async function GET() {
 		return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 	}
 
-	const inquiries = listContactLeadsForUser(userId, email);
-	return NextResponse.json({ inquiries });
+	try {
+		const inquiries = await listContactLeadsForUser(userId, email);
+		return NextResponse.json({ inquiries }, { headers: contactLeadNoStoreHeaders() });
+	} catch (error) {
+		console.error('[contact] member inquiry list failed', { userId, email, error });
+		return NextResponse.json(
+			{ error: '문의 내역을 불러오지 못했습니다.' },
+			{ status: 500, headers: contactLeadNoStoreHeaders() },
+		);
+	}
 }
 
 export async function POST(request: Request) {
@@ -71,7 +81,23 @@ export async function POST(request: Request) {
 		updatedAt: null,
 	};
 
-	appendContactLead(lead);
+	let store: 'firestore' | 'file';
+	try {
+		store = await appendContactLead(lead);
+	} catch (error) {
+		console.error('[contact] inquiry persist failed', {
+			id: lead.id,
+			email: lead.email,
+			userId: lead.userId,
+			inquiryType: lead.inquiryType,
+			error,
+		});
+		return NextResponse.json(
+			{ error: '문의 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.' },
+			{ status: 500, headers: contactLeadNoStoreHeaders() },
+		);
+	}
+	console.info('[contact] inquiry stored', { id: lead.id, store, userId: lead.userId, guest: !lead.userId });
 
 	// 저장 성공과 메일 발송을 분리합니다. SMTP 지연/오류가 있어도 접수 완료(201)를 유지합니다.
 	try {
@@ -91,5 +117,5 @@ export async function POST(request: Request) {
 		console.error('[contact-mail] 관리자 메일 발송 실패:', error);
 	}
 
-	return NextResponse.json({ ok: true, lead }, { status: 201 });
+	return NextResponse.json({ ok: true, lead }, { status: 201, headers: contactLeadNoStoreHeaders() });
 }

@@ -2,11 +2,12 @@ import { getServerSession } from 'next-auth';
 import { NextResponse } from 'next/server';
 import { inquiryTypeLabel } from '@/lib/admin/inquiry-management';
 import { authOptions } from '@/lib/auth';
-import { listContactLeadsForUser } from '@/lib/server/contact-leads';
+import { contactLeadNoStoreHeaders, listContactLeadsForUser } from '@/lib/server/contact-leads';
 import { toUserInquiryStatus } from '@/lib/mypage/work-inquiries';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 /** GET /api/user/inquiries — signed-in member's own work inquiries. */
 export async function GET() {
@@ -17,7 +18,18 @@ export async function GET() {
 		return NextResponse.json({ error: '로그인이 필요합니다.' }, { status: 401 });
 	}
 
-	const inquiries = listContactLeadsForUser(userId, email).map((lead) => {
+	let leads;
+	try {
+		leads = await listContactLeadsForUser(userId, email);
+	} catch (error) {
+		console.error('[user/inquiries] list failed', { userId, email, error });
+		return NextResponse.json(
+			{ error: '문의 내역을 불러오지 못했습니다.' },
+			{ status: 500, headers: contactLeadNoStoreHeaders() },
+		);
+	}
+
+	const inquiries = leads.map((lead) => {
 		const status = toUserInquiryStatus(lead.status);
 		return {
 			id: lead.id,
@@ -39,5 +51,5 @@ export async function GET() {
 		};
 	});
 
-	return NextResponse.json({ inquiries });
+	return NextResponse.json({ inquiries }, { headers: contactLeadNoStoreHeaders() });
 }

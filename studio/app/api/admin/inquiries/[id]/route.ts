@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { isContactInquiryStatus } from '@/lib/admin/inquiry-management';
-import { deleteContactLead, findContactLead, updateContactLeadStatus } from '@/lib/server/contact-leads';
+import {
+	contactLeadNoStoreHeaders,
+	deleteContactLead,
+	findContactLead,
+	updateContactLeadStatus,
+} from '@/lib/server/contact-leads';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 type RouteContext = { params: { id: string } };
 
@@ -20,11 +26,19 @@ export async function GET(_request: Request, context: RouteContext) {
 		return NextResponse.json({ error: '문의 ID가 필요합니다.' }, { status: 400 });
 	}
 
-	const inquiry = findContactLead(id);
-	if (!inquiry) {
-		return NextResponse.json({ error: '문의 내역을 찾을 수 없습니다.' }, { status: 404 });
+	try {
+		const inquiry = await findContactLead(id);
+		if (!inquiry) {
+			return NextResponse.json({ error: '문의 내역을 찾을 수 없습니다.' }, { status: 404, headers: contactLeadNoStoreHeaders() });
+		}
+		return NextResponse.json({ inquiry }, { headers: contactLeadNoStoreHeaders() });
+	} catch (error) {
+		console.error('[admin/inquiries] read failed', { id, error });
+		return NextResponse.json(
+			{ error: '문의 내역을 불러오지 못했습니다.' },
+			{ status: 500, headers: contactLeadNoStoreHeaders() },
+		);
 	}
-	return NextResponse.json({ inquiry });
 }
 
 /** PATCH /api/admin/inquiries/:id — update processing status. */
@@ -51,11 +65,19 @@ export async function PATCH(request: Request, context: RouteContext) {
 		return NextResponse.json({ error: '유효하지 않은 처리 상태입니다.' }, { status: 400 });
 	}
 
-	const inquiry = updateContactLeadStatus(id, status);
-	if (!inquiry) {
-		return NextResponse.json({ error: '문의 내역을 찾을 수 없습니다.' }, { status: 404 });
+	try {
+		const inquiry = await updateContactLeadStatus(id, status);
+		if (!inquiry) {
+			return NextResponse.json({ error: '문의 내역을 찾을 수 없습니다.' }, { status: 404, headers: contactLeadNoStoreHeaders() });
+		}
+		return NextResponse.json({ inquiry }, { headers: contactLeadNoStoreHeaders() });
+	} catch (error) {
+		console.error('[admin/inquiries] status update failed', { id, status, error });
+		return NextResponse.json(
+			{ error: '처리 상태를 저장하지 못했습니다.' },
+			{ status: 500, headers: contactLeadNoStoreHeaders() },
+		);
 	}
-	return NextResponse.json({ inquiry });
 }
 
 /** DELETE /api/admin/inquiries/:id */
@@ -70,9 +92,17 @@ export async function DELETE(_request: Request, context: RouteContext) {
 		return NextResponse.json({ error: '문의 ID가 필요합니다.' }, { status: 400 });
 	}
 
-	const inquiry = deleteContactLead(id);
-	if (!inquiry) {
-		return NextResponse.json({ error: '문의 내역을 찾을 수 없습니다.' }, { status: 404 });
+	try {
+		const inquiry = await deleteContactLead(id);
+		if (!inquiry) {
+			return NextResponse.json({ error: '문의 내역을 찾을 수 없습니다.' }, { status: 404, headers: contactLeadNoStoreHeaders() });
+		}
+		return NextResponse.json({ ok: true, id: inquiry.id }, { headers: contactLeadNoStoreHeaders() });
+	} catch (error) {
+		console.error('[admin/inquiries] delete failed', { id, error });
+		return NextResponse.json(
+			{ error: '문의를 삭제하지 못했습니다.' },
+			{ status: 500, headers: contactLeadNoStoreHeaders() },
+		);
 	}
-	return NextResponse.json({ ok: true, id: inquiry.id });
 }

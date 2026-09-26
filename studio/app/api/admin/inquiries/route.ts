@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import type { InquiryFilterStatus } from '@/lib/admin/inquiry-management';
-import { queryContactLeads } from '@/lib/server/contact-leads';
+import { contactLeadNoStoreHeaders, queryContactLeads } from '@/lib/server/contact-leads';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function parseFilterStatus(value: string | null): InquiryFilterStatus {
 	if (value === 'pending' || value === 'completed') return value;
@@ -22,12 +23,19 @@ export async function GET(request: Request) {
 	const page = Number(url.searchParams.get('page') || '1');
 	const pageSize = Number(url.searchParams.get('pageSize') || '10');
 
-	return NextResponse.json(
-		queryContactLeads({
+	try {
+		const result = await queryContactLeads({
 			q: url.searchParams.get('q') || '',
 			status: parseFilterStatus(url.searchParams.get('status')),
 			page: Number.isFinite(page) ? page : 1,
 			pageSize: Number.isFinite(pageSize) ? pageSize : 10,
-		}),
-	);
+		});
+		return NextResponse.json(result, { headers: contactLeadNoStoreHeaders() });
+	} catch (error) {
+		console.error('[admin/inquiries] list failed', { adminId: admin.id, error });
+		return NextResponse.json(
+			{ error: '문의 목록을 불러오지 못했습니다.' },
+			{ status: 500, headers: contactLeadNoStoreHeaders() },
+		);
+	}
 }

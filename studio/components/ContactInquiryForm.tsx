@@ -78,10 +78,15 @@ export function ContactInquiryForm({ defaults, variant = 'page', onSubmitted }: 
 			const res = await fetch('/api/contact', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				credentials: 'same-origin',
+				cache: 'no-store',
 				body: JSON.stringify(form),
 			});
-			const data = await res.json();
-			if (!res.ok) throw new Error(data.error ?? '문의 접수에 실패했습니다.');
+			const data = (await res.json().catch(() => ({}))) as { error?: string };
+			if (!res.ok) {
+				console.error('[contact-form] submit failed', { status: res.status, error: data.error ?? null });
+				throw new Error(data.error ?? '문의 접수에 실패했습니다.');
+			}
 			setDone(true);
 			setForm({ ...EMPTY, ...defaults });
 			setIsPrivacyAgreed(false);
