@@ -91,6 +91,8 @@ export type SchemaJsonLdConfig = {
 	description?: string;
 	address?: SchemaPostalAddress | string;
 	telephone?: string;
+	/** 사업자등록번호 → `Organization.taxID`. Dropped unless it is a real 10-digit number. */
+	taxId?: string;
 	orgTypes?: string[];
 	/** Flat sameAs list (merged with `channels`). */
 	sameAs?: Array<string | null | undefined>;
@@ -224,6 +226,7 @@ export function schemaConfigToGroundTruth(config: SchemaJsonLdConfig): GroundTru
 		logo: isValidSchemaUrl(config.logo) ? compact(config.logo) : '',
 		orgTypes: (config.orgTypes || []).map(compact).filter(Boolean),
 		telephone: compact(config.telephone),
+		taxId: compact(config.taxId),
 		streetAddress: street,
 		addressLocality: address.addressLocality,
 		addressRegion: address.addressRegion,

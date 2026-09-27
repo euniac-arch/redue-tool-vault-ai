@@ -10,12 +10,26 @@ export const REDUE_OG_IMAGE_WIDTH = 1200;
 export const REDUE_OG_IMAGE_HEIGHT = 630;
 export const REDUE_OG_IMAGE_ALT = 'RedueGEO — AI가 인용하는 검색 최적화 스튜디오';
 
-/** 네이버 서치어드바이저 설명 권장 80자 이내. meta description · og:description · twitter:description */
+/**
+ * `meta name="description"`. 구글 스니펫 권장 70~160자에 맞춘 상세 카피입니다.
+ * 네이버 서치어드바이저 권장(80자)보다 길기 때문에, 앞 80자 안에서 브랜드와
+ * 핵심 가치(검색 최적화 · Schema 마크업 · 생성형 AI)가 끝나도록 배치했습니다.
+ */
 export const REDUE_META_DESCRIPTION_KO =
-	'ChatGPT·Perplexity 등 AI 검색 인용을 위한 GEO 진단 및 SEO·스키마 최적화 솔루션, RedueGEO.';
+	'REDUE AI SEO & GEO Studio는 웹사이트 검색 최적화와 Schema 마크업, ChatGPT·Perplexity·Gemini 등 생성형 AI 검색엔진의 인용 준비성과 브랜드 지식패널을 정밀 진단·최적화합니다.';
 
 export const REDUE_META_DESCRIPTION_EN =
-	'RedueGEO diagnoses and repairs GEO, SEO, schema, and E-E-A-T so ChatGPT, Perplexity, and Gemini cite your website as a source.';
+	'REDUE AI SEO & GEO Studio audits and optimizes search visibility, Schema markup, citation readiness, and knowledge panels for ChatGPT, Perplexity, and Gemini.';
+
+/**
+ * `og:description` · `twitter:description`. 공유 카드는 2~3줄에서 잘리므로
+ * meta description보다 짧은 훅 카피를 씁니다.
+ */
+export const REDUE_OG_DESCRIPTION_KO =
+	'ChatGPT·Perplexity·Gemini 등 주요 생성형 AI 엔진의 사이트 식별력과 지식그래프 인용을 최적화하는 전문 SEO & GEO 플랫폼.';
+
+export const REDUE_OG_DESCRIPTION_EN =
+	'The specialist SEO & GEO platform that optimizes how ChatGPT, Perplexity, and Gemini identify and cite your brand.';
 
 export const REDUE_META_TITLE = 'RedueGEO | AI 검색 최적화(GEO) & SEO 스튜디오';
 
@@ -28,12 +42,17 @@ export const REDUE_BUSINESS_NAP = {
 	telephone: '010-3210-9801',
 	/** 푸터 고객센터 이메일과 동일 */
 	email: 'contact@redue.kr',
-	/** 푸터 사업장 소재지와 동일 */
+	/** 푸터 사업자등록번호(`landing.footer.legal.bizNo`)와 동일 */
+	taxId: '693-03-00235',
+	/**
+	 * 푸터 사업장 소재지와 동일. region + locality + street를 이어 붙이면
+	 * 푸터 문구와 글자 단위로 같아야 합니다(NAP 일관성).
+	 */
 	streetAddress: '구평동 서포로 30번길 이편한세상사하1차 102동 2803호',
 	addressLocality: '사하구',
-	addressRegion: 'Busan',
-	/** TODO: 실제 정보 입력 필요 — 우편번호 (푸터에 없음) */
-	postalCode: '',
+	addressRegion: '부산광역시',
+	/** 푸터 주소 문구의 `(우편번호 49459)`와 동일 */
+	postalCode: '49459',
 };
 
 /**
@@ -151,7 +170,11 @@ export const REDUE_SITE_SCHEMA: SchemaJsonLdConfig = {
 	 */
 	logo: `${REDUE_SITE_ORIGIN}${REDUE_OG_IMAGE_PATH}`,
 	description: REDUE_META_DESCRIPTION_KO,
-	orgTypes: ['Organization', 'LocalBusiness'],
+	/**
+	 * Organization(지식패널 발행자) + LocalBusiness(NAP) + ProfessionalService(업종).
+	 * 세 타입을 한 노드에 결합해 하나의 `#organization` 엔티티로 인식되게 합니다.
+	 */
+	orgTypes: ['Organization', 'LocalBusiness', 'ProfessionalService'],
 	inLanguage: 'ko-KR',
 	pageUrl: REDUE_SITE_CANONICAL,
 	pageName: 'REDUE AI SEO & GEO Studio',
@@ -159,6 +182,7 @@ export const REDUE_SITE_SCHEMA: SchemaJsonLdConfig = {
 	pageType: 'WebPage',
 	telephone: REDUE_BUSINESS_NAP.telephone,
 	email: REDUE_BUSINESS_NAP.email,
+	taxId: REDUE_BUSINESS_NAP.taxId,
 	contactUrl: `${REDUE_SITE_ORIGIN}/contact`,
 	address: {
 		streetAddress: REDUE_BUSINESS_NAP.streetAddress,

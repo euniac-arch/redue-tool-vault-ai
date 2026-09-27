@@ -13,6 +13,8 @@ import {
 	REDUE_META_DESCRIPTION_EN,
 	REDUE_META_DESCRIPTION_KO,
 	REDUE_META_TITLE,
+	REDUE_OG_DESCRIPTION_EN,
+	REDUE_OG_DESCRIPTION_KO,
 	REDUE_OG_IMAGE_ALT,
 	REDUE_OG_IMAGE_HEIGHT,
 	REDUE_OG_IMAGE_PATH,
@@ -27,7 +29,9 @@ import './globals.css';
 
 export async function generateMetadata(): Promise<Metadata> {
 	const locale = await getLocale();
-	const description = locale.toLowerCase().startsWith('en') ? REDUE_META_DESCRIPTION_EN : REDUE_META_DESCRIPTION_KO;
+	const isEnglish = locale.toLowerCase().startsWith('en');
+	const description = isEnglish ? REDUE_META_DESCRIPTION_EN : REDUE_META_DESCRIPTION_KO;
+	const cardDescription = isEnglish ? REDUE_OG_DESCRIPTION_EN : REDUE_OG_DESCRIPTION_KO;
 	const ogImage = {
 		url: REDUE_OG_IMAGE_PATH,
 		width: REDUE_OG_IMAGE_WIDTH,
@@ -49,16 +53,16 @@ export async function generateMetadata(): Promise<Metadata> {
 		openGraph: {
 			type: 'website',
 			title: REDUE_META_TITLE,
-			description,
+			description: cardDescription,
 			url: REDUE_SITE_CANONICAL,
 			siteName: 'RedueGEO',
-			locale: locale.toLowerCase().startsWith('en') ? 'en_US' : 'ko_KR',
+			locale: isEnglish ? 'en_US' : 'ko_KR',
 			images: [ogImage],
 		},
 		twitter: {
 			card: 'summary_large_image',
 			title: REDUE_META_TITLE,
-			description,
+			description: cardDescription,
 			images: [REDUE_OG_IMAGE_PATH],
 		},
 		verification: {

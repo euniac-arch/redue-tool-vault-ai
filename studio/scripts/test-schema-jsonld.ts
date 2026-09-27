@@ -12,7 +12,14 @@ import {
 	schemaHasFounderKnowledgeGraph,
 	schemaHasNaverSameAs,
 } from '../lib/schema/jsonld';
-import { REDUE_HOME_FAQS, REDUE_META_DESCRIPTION_EN, REDUE_META_DESCRIPTION_KO, REDUE_SITE_SCHEMA } from '../lib/schema/site-schema-config';
+import {
+	REDUE_HOME_FAQS,
+	REDUE_META_DESCRIPTION_EN,
+	REDUE_META_DESCRIPTION_KO,
+	REDUE_OG_DESCRIPTION_EN,
+	REDUE_OG_DESCRIPTION_KO,
+	REDUE_SITE_SCHEMA,
+} from '../lib/schema/site-schema-config';
 import koMessages from '../messages/ko.json';
 import { graphOrgNode } from '../lib/solve/core/strict-schema-graph';
 
@@ -142,15 +149,25 @@ assert(html.includes('"@type": "Person"'), 'script contains Person');
 assert(html.includes('blog.naver.com/seocho'), 'script contains naver blog');
 assert(formatSchemaScriptTag({ '@context': 'https://schema.org' }).includes('application/ld+json'), 'formatter');
 
+/** 구글 스니펫 권장 70~160자. 감사에서 69자가 "너무 짧음"으로 잡혔으므로 하한을 85로 올립니다. */
+const META_MIN = 85;
+const META_MAX = 160;
 const koLen = [...REDUE_META_DESCRIPTION_KO].length;
 const enLen = [...REDUE_META_DESCRIPTION_EN].length;
+assert(koLen >= META_MIN && koLen <= META_MAX, `ko meta description length ${koLen} outside ${META_MIN}~${META_MAX}`);
+assert(enLen >= META_MIN && enLen <= META_MAX, `en meta description length ${enLen} outside ${META_MIN}~${META_MAX}`);
+assert(REDUE_META_DESCRIPTION_KO.includes('Schema'), 'ko meta description names Schema 마크업');
 assert(
-	REDUE_META_DESCRIPTION_KO ===
-		'ChatGPT·Perplexity 등 AI 검색 인용을 위한 GEO 진단 및 SEO·스키마 최적화 솔루션, RedueGEO.',
-	'ko meta description copy',
+	['ChatGPT', 'Perplexity', 'Gemini'].every((engine) => REDUE_META_DESCRIPTION_KO.includes(engine)),
+	'ko meta description names the generative engines',
 );
-assert(koLen > 0 && koLen <= 80, `ko meta description length ${koLen} exceeds Naver 80`);
-assert(enLen >= 80 && enLen <= 140, `en meta description length ${enLen}`);
+assert(REDUE_META_DESCRIPTION_KO.includes('지식패널'), 'ko meta description names 지식패널');
+
+/** 공유 카드는 2~3줄에서 잘리므로 meta description보다 짧게 유지합니다. */
+const ogKoLen = [...REDUE_OG_DESCRIPTION_KO].length;
+const ogEnLen = [...REDUE_OG_DESCRIPTION_EN].length;
+assert(ogKoLen >= 60 && ogKoLen < koLen, `og ko description length ${ogKoLen} must be shorter than meta`);
+assert(ogEnLen >= 60 && ogEnLen < enLen, `og en description length ${ogEnLen} must be shorter than meta`);
 
 const site = buildSchemaJsonLd(REDUE_SITE_SCHEMA);
 const types = site['@graph'].map((node) => node['@type']);
@@ -161,12 +178,34 @@ assert(types.includes('FAQPage'), 'site FAQPage');
 assert(types.includes('Person'), 'site Person');
 const siteOrg = graphOrgNode(site)!;
 const orgTypes = siteOrg['@type'] as string[];
-assert(orgTypes.includes('Organization') && orgTypes.includes('LocalBusiness'), 'site org types');
+assert(
+	['Organization', 'LocalBusiness', 'ProfessionalService'].every((type) => orgTypes.includes(type)),
+	'site org types combine Organization + LocalBusiness + ProfessionalService',
+);
 assert(siteOrg.name === 'REDUE AI SEO & GEO Studio', 'site org name');
 assert(siteOrg.url === 'https://reduegeo.com/', 'site org url');
 assert(siteOrg.telephone === '010-3210-9801', 'site telephone matches footer');
-assert((siteOrg.address as { addressRegion?: string; addressCountry?: string }).addressRegion === 'Busan', 'site address region');
-assert((siteOrg.address as { addressCountry?: string }).addressCountry === 'KR', 'site address country');
+assert(siteOrg.taxID === koMessages.landing.footer.legal.bizNo, 'site taxID matches footer 사업자등록번호');
+assert((siteOrg.logo as { url?: string })?.url === 'https://reduegeo.com/images/og-image.png', 'site org logo');
+assert(siteOrg.description === REDUE_META_DESCRIPTION_KO, 'site org description');
+const siteAddress = siteOrg.address as {
+	streetAddress?: string;
+	addressLocality?: string;
+	addressRegion?: string;
+	postalCode?: string;
+	addressCountry?: string;
+};
+assert(siteAddress.addressRegion === '부산광역시', 'site address region matches footer');
+assert(siteAddress.addressLocality === '사하구', 'site address locality matches footer');
+assert(siteAddress.postalCode === '49459', 'site postalCode');
+assert(siteAddress.addressCountry === 'KR', 'site address country');
+assert(
+	`${siteAddress.addressRegion} ${siteAddress.addressLocality} ${siteAddress.streetAddress} (우편번호 ${siteAddress.postalCode})` ===
+		koMessages.landing.footer.legal.address,
+	'site address concatenates to the visible footer address (NAP consistency)',
+);
+assert(siteOrg.telephone === koMessages.landing.footer.legal.phone, 'site telephone matches visible footer');
+assert((siteOrg.sameAs as string[]).length > 0, 'site org sameAs present');
 assert((siteOrg.founder as { '@id': string })['@id'] === 'https://reduegeo.com/#author', 'founder @id');
 assert(siteOrg.contactPoint !== undefined, 'site contactPoint');
 assert(schemaHasFounderKnowledgeGraph(site) === true, 'public site founder graph');

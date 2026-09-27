@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useTranslations } from 'next-intl';
+import { REDUE_BUSINESS_NAP, REDUE_SITE_CANONICAL, REDUE_SITE_ORIGIN } from '@/lib/schema/site-schema-config';
 
 const COLUMNS = [
 	{
@@ -99,9 +100,10 @@ export function Footer({ clearFloatingBar = false }: { clearFloatingBar?: boolea
 				<div
 					itemScope
 					itemType="https://schema.org/Organization"
+					itemID={`${REDUE_SITE_ORIGIN}/#organization`}
 					className="mt-4 border-t border-slate-200 pt-8 text-xs leading-relaxed text-slate-500 dark:border-slate-800/60 dark:text-slate-500"
 				>
-					<meta itemProp="url" content="https://redue.kr" />
+					<meta itemProp="url" content={REDUE_SITE_CANONICAL} />
 					<p className="flex flex-wrap items-baseline gap-x-0 gap-y-1">
 						<span>
 							<span className="text-slate-500 dark:text-slate-400">{t('legal.nameLabel')}</span>{' '}
@@ -121,7 +123,9 @@ export function Footer({ clearFloatingBar = false }: { clearFloatingBar?: boolea
 						</span>
 						<span>
 							<span className="text-slate-500 dark:text-slate-400">{t('legal.bizNoLabel')}</span>{' '}
-							<span className="text-slate-800 dark:text-slate-300">{t('legal.bizNo')}</span>
+							<span itemProp="taxID" className="text-slate-800 dark:text-slate-300">
+								{t('legal.bizNo')}
+							</span>
 						</span>
 					</p>
 					<p className="mt-1.5 flex flex-wrap items-baseline gap-x-0 gap-y-1">
@@ -137,10 +141,14 @@ export function Footer({ clearFloatingBar = false }: { clearFloatingBar?: boolea
 						<span className="text-slate-800 dark:text-slate-300">{t('legal.hours')}</span>
 					</p>
 					<p className="mt-1.5" itemProp="address" itemScope itemType="https://schema.org/PostalAddress">
+						{/* 눈에 보이는 한 줄 주소는 그대로 두고, 세부 속성은 JSON-LD와 같은 값으로 따로 내보냅니다. */}
+						<meta itemProp="addressCountry" content="KR" />
+						<meta itemProp="addressRegion" content={REDUE_BUSINESS_NAP.addressRegion} />
+						<meta itemProp="addressLocality" content={REDUE_BUSINESS_NAP.addressLocality} />
+						<meta itemProp="streetAddress" content={REDUE_BUSINESS_NAP.streetAddress} />
+						<meta itemProp="postalCode" content={REDUE_BUSINESS_NAP.postalCode} />
 						<span className="text-slate-500 dark:text-slate-400">{t('legal.addressLabel')}</span>{' '}
-						<span itemProp="addressLocality" className="text-slate-800 dark:text-slate-300">
-							{t('legal.address')}
-						</span>
+						<span className="text-slate-800 dark:text-slate-300">{t('legal.address')}</span>
 					</p>
 					<p className="mt-1.5 text-slate-500 dark:text-slate-600">{t('legal.stack')}</p>
 				</div>
