@@ -1,3 +1,8 @@
+User-agent: Yeti
+Allow: /
+Disallow: /api/
+Disallow: /audit/result
+
 User-agent: *
 Allow: /
 Disallow: /api/
