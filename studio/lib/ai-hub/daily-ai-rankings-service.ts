@@ -26,6 +26,8 @@ import {
 	type DailyRankSnapshotRow,
 } from '@/lib/ai-hub/live-ai-rankings';
 import { readDailyRankingSnapshot, writeDailyRankingSnapshot } from '@/lib/ai-hub/daily-ai-rankings-store';
+import { readPublishedMarketBundle, runAuthorizedMarketCheck, type MarketCheckRun } from '@/lib/ai-hub/market-observation-refresh';
+import { applyPublicMarketView, listWebTrafficRows, marketCacheToken, type MarketBundle } from '@/lib/ai-hub/market-observations';
 
 const DATA_FILE = path.join(process.cwd(), 'data', 'aiToolsData.json');
 
@@ -33,8 +35,8 @@ type MemorySlot = { date: string; includeHidden: boolean; payload: DailyAiRankin
 
 const memory = new Map<string, MemorySlot>();
 
-function memoryKey(date: string, includeHidden: boolean): string {
-	return `${date}:${includeHidden ? 'all' : 'public'}`;
+function memoryKey(date: string, includeHidden: boolean, marketToken: string): string {
+	return `${date}:${includeHidden ? 'all' : 'public'}:${marketToken}`;
 }
 
 export async function readAiToolsCatalog(): Promise<AiToolCategoryRaw[]> {
@@ -62,10 +64,24 @@ export async function getDailyAiRankingsPayload(options?: {
 	date?: string | null;
 	forceRefresh?: boolean;
 	includeHidden?: boolean;
+	runMarketCheck?: boolean;
 }): Promise<DailyAiRankingsResponse> {
 	const date = parseDateKey(options?.date) ?? getKstDateKey();
 	const includeHidden = options?.includeHidden === true;
-	const key = memoryKey(date, includeHidden);
+	let market: MarketBundle;
+	let marketCheck: MarketCheckRun | null = null;
+	if (options?.runMarketCheck) {
+		try {
+			marketCheck = await runAuthorizedMarketCheck();
+			market = marketCheck.bundle;
+		} catch (error) {
+			console.error('[ai-market] daily check failed:', error instanceof Error ? error.message : error);
+			market = await readPublishedMarketBundle();
+		}
+	} else {
+		market = await readPublishedMarketBundle();
+	}
+	const key = memoryKey(date, includeHidden, marketCacheToken(market));
 
 	if (!options?.forceRefresh) {
 		const hit = memory.get(key);
@@ -86,9 +102,10 @@ export async function getDailyAiRankingsPayload(options?: {
 		catalogIds.size !== snapshotIds.size || [...catalogIds].some((id) => !snapshotIds.has(id));
 	const reuseToday = Boolean(!options?.forceRefresh && todaySnap && todaySnap.tools.length > 0 && !catalogChanged);
 	const stamp = reuseToday && todaySnap ? todaySnap.updatedAt : updatedAt;
-	const tools = computeDailyRankings(catalog, previousById, stamp, {
+	const computed = computeDailyRankings(catalog, previousById, stamp, {
 		hasYesterdaySnapshot: Boolean(yesterdaySnap && yesterdaySnap.tools.length > 0),
 	});
+	const tools = applyPublicMarketView(computed, market);
 
 	if (!reuseToday) {
 		try {
@@ -103,12 +120,25 @@ export async function getDailyAiRankingsPayload(options?: {
 	}
 
 	const categoryLabels = Object.fromEntries(AI_TOOL_CATEGORIES.map((category) => [category.id, category.label]));
+	const trafficIds = listWebTrafficRows(market).map((row) => row.serviceId);
+	const globalTop = trafficIds
+		.map((id) => tools.find((tool) => tool.id === id))
+		.filter((tool): tool is (typeof tools)[number] => Boolean(tool));
 	const payload: DailyAiRankingsResponse = {
 		date,
 		updatedAt: stamp,
-		source: 'live-catalog+daily-snapshot',
+		source: 'verified-web-traffic+catalog',
 		tools,
-		analysis: analyzeDailyRankings(tools, categoryLabels),
+		market,
+		marketPersistence: marketCheck?.persistence ?? null,
+		analysis: {
+			...analyzeDailyRankings(tools, categoryLabels),
+			globalTop,
+			topMover: null,
+			newEntries: [],
+			rising: [],
+			topRising: null,
+		},
 		categories: AI_TOOL_CATEGORIES.filter((category) => tools.some((tool) => tool.category === category.id)),
 	};
 

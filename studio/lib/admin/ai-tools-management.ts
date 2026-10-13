@@ -38,9 +38,9 @@ export type AiToolRaw = {
 	desc: string;
 	tags: string[];
 	is_public: boolean;
-	/** Global market share, in percent (e.g. 58.4 for 58.4%). */
+	/** Legacy editorial input used only by the internal GEO score. Not the published web-traffic share. */
 	market_share: number;
-	/** Estimated monthly visits, pre-formatted (e.g. "3.1B", "180M"). */
+	/** Legacy catalog string. Not a measured visit count for the public ranking. */
 	monthly_visits: string;
 	/** Curated recommendation score, 1~100. */
 	recommend_score: number;
@@ -88,7 +88,7 @@ export const AI_TOOL_SORT_OPTIONS: { key: AiToolSortKey; label: string }[] = [
 	{ key: 'rank', label: '순위순' },
 	{ key: 'geo_score', label: 'GEO점수순' },
 	{ key: 'recommend_score', label: '점수순' },
-	{ key: 'market_share', label: '점유율순' },
+	{ key: 'market_share', label: '웹 트래픽순' },
 	{ key: 'trend', label: '버즈순' },
 	{ key: 'rating', label: '평점순' },
 	{ key: 'name', label: '이름순' },
@@ -179,7 +179,10 @@ export function getAiToolCategoryLabel(id: AiToolCategoryId): string {
 }
 
 function liveRank(tool: AiTool): number {
-	const ranked = tool as AiTool & { currentRank?: number };
+	const ranked = tool as AiTool & { webTrafficRank?: number | null; currentRank?: number };
+	if ('webTrafficRank' in ranked) {
+		return typeof ranked.webTrafficRank === 'number' ? ranked.webTrafficRank : Number.POSITIVE_INFINITY;
+	}
 	return typeof ranked.currentRank === 'number' ? ranked.currentRank : Number.POSITIVE_INFINITY;
 }
 
@@ -204,6 +207,21 @@ export function sortAiTools(tools: AiTool[], sortKey: AiToolSortKey): AiTool[] {
 	}
 	if (sortKey === 'geo_score') {
 		sorted.sort((a, b) => geoScoreOf(b) - geoScoreOf(a));
+		return sorted;
+	}
+	if (sortKey === 'market_share') {
+		const shareOf = (tool: AiTool) => {
+			const value = (tool as AiTool & { webTrafficSharePct?: number | null }).webTrafficSharePct;
+			return typeof value === 'number' ? value : null;
+		};
+		sorted.sort((a, b) => {
+			const left = shareOf(a);
+			const right = shareOf(b);
+			if (left == null && right == null) return b.recommend_score - a.recommend_score || a.name.localeCompare(b.name, 'ko');
+			if (left == null) return 1;
+			if (right == null) return -1;
+			return right - left;
+		});
 		return sorted;
 	}
 	sorted.sort((a, b) => b[sortKey] - a[sortKey]);

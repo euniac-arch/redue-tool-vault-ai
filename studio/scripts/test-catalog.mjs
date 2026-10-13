@@ -80,6 +80,7 @@ export const TEST_GROUPS = {
 	],
 	integration: ['scripts/test-intelligence-envelope.ts', 'scripts/test-intelligence-api.ts'],
 	'audit-engine': ['scripts/test-full-audit-engine.ts'],
+	'ai-hub': ['scripts/test-daily-ai-rankings.ts', 'scripts/test-market-observations.ts', 'scripts/test-market-operations.ts'],
 };
 
 export const DEFAULT_GROUPS = ['score', 'asi', 'provider', 'integration', 'audit-engine'];

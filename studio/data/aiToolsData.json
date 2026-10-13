@@ -39,11 +39,11 @@
 			},
 			{
 				"id": "perplexity",
-				"name": "Perplexity Spaces",
+				"name": "Perplexity",
 				"provider": "Perplexity",
 				"url": "https://www.perplexity.ai",
 				"logo_url": "https://www.google.com/s2/favicons?domain=perplexity.ai&sz=128",
-				"desc": "협업형 AI 검색과 웹 인덱싱을 묶은 GEO 리서치 엔진. Spaces로 팀 조사 스레드를 공유.",
+				"desc": "웹 검색 인용에 강한 AI 검색 서비스. Spaces는 별도 트래픽 상품이 아니라 팀 조사 기능입니다.",
 				"tags": [
 					"검색엔진",
 					"실시간리서치",

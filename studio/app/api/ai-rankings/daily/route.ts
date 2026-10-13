@@ -9,7 +9,8 @@
  *
  * Query:
  *   date=YYYY-MM-DD   optional historical day (KST)
- *   refresh=1|sync=1  force recompute + persist
+ *   refresh=1         recompute the published ranking. Does not collect sources.
+ *   sync=1            Vercel Cron only. Requires `Authorization: Bearer ${CRON_SECRET}`.
  *   includeHidden=1   admin-only: include non-public catalog rows
  */
 
@@ -17,6 +18,7 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/admin';
 import { getDailyAiRankingsPayload } from '@/lib/ai-hub/daily-ai-rankings-service';
 import { getKstDateKey, msUntilNextKstMidnight, parseDateKey } from '@/lib/ai-hub/live-ai-rankings';
+import { authorizeCronSync, cronHttpStatus, rankingReadMode } from '@/lib/ai-hub/ranking-refresh-auth';
 
 export const runtime = 'nodejs';
 // This handler is invoked with a `date`/`refresh` query string, but Next.js
@@ -60,14 +62,29 @@ export async function GET(request: Request) {
 		}
 	}
 
+	const mode = rankingReadMode({
+		sync: searchParams.get('sync'),
+		refresh: searchParams.get('refresh'),
+		force: searchParams.get('force'),
+	});
+	if (mode === 'cron') {
+		const cron = authorizeCronSync(request.headers.get('authorization'), process.env.CRON_SECRET);
+		if (!cron.ok) {
+			return NextResponse.json({ error: cron.error }, { status: cron.status, headers: { 'Cache-Control': 'no-store' } });
+		}
+	}
+
 	try {
 		const payload = await getDailyAiRankingsPayload({
 			date: parseDateKey(searchParams.get('date')) ?? getKstDateKey(),
-			forceRefresh: wantsRefresh(searchParams),
+			forceRefresh: wantsRefresh(searchParams) || mode === 'cron',
 			includeHidden,
+			runMarketCheck: mode === 'cron',
 		});
+		const status = mode === 'cron' ? cronHttpStatus(payload.marketPersistence) : 200;
 		return NextResponse.json(payload, {
-			headers: cacheHeaders(wantsRefresh(searchParams)),
+			status,
+			headers: cacheHeaders(wantsRefresh(searchParams) || mode === 'cron'),
 		});
 	} catch (error) {
 		console.error('[ai-rankings/daily] failed:', error);

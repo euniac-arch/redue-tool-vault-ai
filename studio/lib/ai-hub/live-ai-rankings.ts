@@ -7,6 +7,7 @@
 import { parseMonthlyVisits, type AiTool, type AiToolCategoryId } from '@/lib/admin/ai-tools-management';
 import { geoScoreOf } from '@/lib/ai-hub/calculateGeoRankings';
 import { parseGrowthPercent } from '@/lib/ai-hub/getDailyAiRanking';
+import type { MarketBundle } from '@/lib/ai-hub/market-observations';
 import {
 	classifyRisingStatus,
 	deriveTrendScore,
@@ -19,7 +20,7 @@ export type { AIToolItem, AiToolRisingStatus } from '@/lib/ai-hub/rising-ai-tool
 export { sortRisingTools } from '@/lib/ai-hub/rising-ai-tools';
 
 export const AI_RANKING_SOURCE_CAPTION =
-	'* 기준: Similarweb & a16z GenAI 글로벌 웹 트래픽 분석 추정치 · 매일 00:00 KST 재검증';
+	'글로벌 순위는 검증된 웹 트래픽 관측만 표시합니다. 관측이 없는 서비스는 점유율 데이터 미확보입니다.';
 
 export const HOT_RANK_JUMP = 3;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -60,6 +61,11 @@ export type RankedLiveAiTool = AiTool &
 		previousCategoryRank: number;
 		globalSharePct: number;
 		categorySharePct: number;
+		/** Published web-traffic share for the verified comparison set. Null means the figure is not available. */
+		webTrafficSharePct?: number | null;
+		webTrafficRank?: number | null;
+		webTrafficMomPp?: number | null;
+		rankBasis?: 'web_traffic' | 'editorial';
 	};
 
 export type DailyRankSnapshotRow = {
@@ -90,6 +96,12 @@ export type DailyAiRankingsResponse = {
 	tools: RankedLiveAiTool[];
 	analysis: DailyAiRankingAnalysis;
 	categories: Array<{ id: LiveAiRankingCategory; label: string; icon: string }>;
+	market: MarketBundle | null;
+	marketPersistence?: {
+		ok: boolean;
+		durable: boolean;
+		reason: string;
+	} | null;
 };
 
 export type RankedAiToolSortKey = 'rank' | 'recommend_score' | 'market_share' | 'rating' | 'name' | 'trend' | 'geo_score';
@@ -390,9 +402,18 @@ export function sortRankedAiTools(tools: RankedLiveAiTool[], sortKey: RankedAiTo
 		return sorted;
 	}
 	if (sortKey === 'market_share') {
-		sorted.sort((a, b) =>
-			scopedToCategory ? b.categorySharePct - a.categorySharePct : b.globalSharePct - a.globalSharePct,
-		);
+		const shareOf = (tool: RankedLiveAiTool) => {
+			if ('webTrafficSharePct' in tool) return typeof tool.webTrafficSharePct === 'number' ? tool.webTrafficSharePct : null;
+			return scopedToCategory ? tool.categorySharePct : tool.globalSharePct;
+		};
+		sorted.sort((a, b) => {
+			const left = shareOf(a);
+			const right = shareOf(b);
+			if (left == null && right == null) return b.recommend_score - a.recommend_score || a.name.localeCompare(b.name, 'ko');
+			if (left == null) return 1;
+			if (right == null) return -1;
+			return right - left;
+		});
 		return sorted;
 	}
 	if (sortKey === 'geo_score') {

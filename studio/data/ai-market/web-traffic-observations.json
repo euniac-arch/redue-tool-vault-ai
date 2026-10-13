@@ -1,0 +1,96 @@
+{
+	"revision": 1,
+	"granularity": "monthly",
+	"checkedAt": "2026-10-13T07:55:00.000Z",
+	"checkStatus": "secondary_corroborated",
+	"checkNote": "2026-10-13에 Plate Lunch Collective 원문과 OfficeChai 2026-10-12 기사를 확인했습니다. 두 2차 출처가 2026년 9월 웹 방문 점유율을 인용합니다. Similarweb 원문은 수집하지 않았으므로 1차 검증이 아닙니다. 2026년 10월 점유율은 없습니다.",
+	"domainPolicy": [
+		"한 서비스당 하나의 service_id만 둡니다. Perplexity Spaces는 perplexity.ai의 기능이므로 perplexity와 합치거나 따로 세지 않습니다.",
+		"웹 트래픽 점유율은 출처가 발표한 비교 집합의 값입니다. 이 저장소가 도메인 방문량을 더해 다시 계산하지 않습니다.",
+		"웹 방문 점유율, AI 추천 유입 점유율, 회사 발표 이용자 수를 한 순위로 합치지 않습니다.",
+		"비교 집합에 없는 서비스는 0%나 추정 방문량으로 채우지 않습니다.",
+		"Similarweb이 2026년 4월에 Copilot 도메인을 추가했다는 출처 주석을 따릅니다. 그 이전 달과 Copilot 점유율을 이어서 비교하지 않습니다."
+	],
+	"webTraffic": {
+		"metricType": "web_traffic_share",
+		"metricLabel": "생성형 AI 웹사이트 방문 점유율",
+		"provider": "similarweb",
+		"sourceType": "secondary_publication",
+		"sourceName": "2차 공개 자료 (Plate Lunch Collective, OfficeChai). Similarweb 원문은 미수집",
+		"sourceUrl": "https://www.platelunchcollective.com/research/retrieval-layer-intelligence",
+		"sources": [
+			{
+				"label": "Plate Lunch Collective — AI Search Market Share and Referral Traffic Report",
+				"url": "https://www.platelunchcollective.com/research/retrieval-layer-intelligence",
+				"role": "secondary"
+			},
+			{
+				"label": "OfficeChai — Gemini traffic share, September 2026",
+				"url": "https://officechai.com/ai/geminis-traffic-share-falls-for-fourth-straight-month-as-chatgpt-regains-ground-similarweb-data/",
+				"role": "corroboration"
+			},
+			{
+				"label": "OfficeChai가 인용한 Similarweb 게시물 (이 저장소는 원문을 수집하지 않음)",
+				"url": "https://x.com/Similarweb/status/2109561054883717264?s=20",
+				"role": "cited_unfetched"
+			}
+		],
+		"periodStart": "2026-09-01",
+		"periodEnd": "2026-09-30",
+		"periodLabel": "2026년 9월 관측 데이터",
+		"publishedAt": "2026-10-12T11:27:49.000Z",
+		"isEstimated": true,
+		"confidenceLevel": "medium",
+		"validationStatus": "passed",
+		"notes": [
+			"Similarweb 패널이 추정한 전 세계 웹사이트 방문 비중을 두 2차 출처가 인용한 값입니다. Similarweb 원문은 확인하지 않았습니다. 앱 사용, API, Android·검색 내장 Gemini는 포함되지 않습니다.",
+			"표의 합은 99.1%입니다. 출처가 반올림한 값이라 100%로 다시 맞추지 않습니다.",
+			"2026년 9월 방문 횟수는 공개되지 않았습니다. 2026년 8월 방문량(ChatGPT 56.4억, Gemini 26.2억, Claude 9.5억, Perplexity 9,500만)은 다른 달이므로 9월 점유율 분모로 쓰지 않습니다. Grok·DeepSeek·Copilot·Meta AI의 방문량은 비공개입니다."
+		],
+		"rows": [
+			{ "serviceId": "chatgpt", "serviceName": "ChatGPT", "sharePct": 56.4, "momChangePp": 0.8, "rank": 1 },
+			{ "serviceId": "gemini", "serviceName": "Gemini", "sharePct": 25, "momChangePp": -0.6, "rank": 2 },
+			{ "serviceId": "claude", "serviceName": "Claude", "sharePct": 9.6, "momChangePp": 0.3, "rank": 3 },
+			{ "serviceId": "deepseek", "serviceName": "DeepSeek", "sharePct": 3.4, "momChangePp": null, "rank": 4 },
+			{ "serviceId": "grok", "serviceName": "Grok", "sharePct": 2.3, "momChangePp": null, "rank": 5 },
+			{ "serviceId": "ms-copilot", "serviceName": "Copilot", "sharePct": 1.5, "momChangePp": null, "rank": 6 },
+			{ "serviceId": "perplexity", "serviceName": "Perplexity", "sharePct": 0.9, "momChangePp": null, "rank": 7 }
+		]
+	},
+	"referral": {
+		"metricType": "ai_referral_share",
+		"metricLabel": "외부 사이트로 보낸 AI 추천 유입 점유율",
+		"provider": "statcounter",
+		"sourceType": "secondary_publication",
+		"sourceName": "StatCounter, Plate Lunch Collective 인용",
+		"sourceUrl": "https://www.platelunchcollective.com/research/retrieval-layer-intelligence",
+		"sources": [
+			{
+				"label": "Plate Lunch Collective — StatCounter referral table",
+				"url": "https://www.platelunchcollective.com/research/retrieval-layer-intelligence",
+				"role": "secondary"
+			}
+		],
+		"periodStart": "2026-09-01",
+		"periodEnd": "2026-09-30",
+		"periodLabel": "2026년 9월 관측 데이터",
+		"publishedAt": "2026-10-13T07:55:00.000Z",
+		"isEstimated": false,
+		"confidenceLevel": "medium",
+		"validationStatus": "passed",
+		"notes": [
+			"웹 방문 점유율과 다른 지표입니다. StatCounter 표본 사이트로 들어온 AI 추천 유입의 비중이며, StatCounter 원 화면은 이 저장소가 직접 수집하지 않았습니다.",
+			"DeepSeek와 Grok는 미측정입니다. 0%로 넣지 않습니다.",
+			"표의 합은 100.1%입니다. 반올림 차이이며 다시 맞추지 않습니다."
+		],
+		"rows": [
+			{ "serviceId": "chatgpt", "serviceName": "ChatGPT", "sharePct": 80.5, "momChangePp": null, "rank": 1 },
+			{ "serviceId": "gemini", "serviceName": "Gemini", "sharePct": 10.9, "momChangePp": null, "rank": 2 },
+			{ "serviceId": "perplexity", "serviceName": "Perplexity", "sharePct": 5.9, "momChangePp": null, "rank": 3 },
+			{ "serviceId": "ms-copilot", "serviceName": "Copilot", "sharePct": 1.8, "momChangePp": null, "rank": 4 },
+			{ "serviceId": "claude", "serviceName": "Claude", "sharePct": 1, "momChangePp": null, "rank": 5 }
+		]
+	},
+	"visitFootnote": "2026년 8월 Similarweb 방문량(Plate Lunch Collective 인용, 9월 점유율과 다른 달): ChatGPT 56.4억, Gemini 26.2억, Claude 9.5억, Perplexity 9,500만. 2026년 9월 방문량과 그 외 서비스의 방문량은 공개되지 않았습니다.",
+	"usageFootnote": "회사 발표 이용 현황(웹 점유율과 별도, 2026년 7월): Gemini 앱 월 9.5억 사용자(Google), OpenAI 제품 전체 활성 사용자 10억 이상(제품 합산), Microsoft 365 Copilot 유료 시트 3,000만 이상. 방문 횟수나 MAU로 환산하지 않습니다."
+}

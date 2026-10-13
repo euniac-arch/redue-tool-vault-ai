@@ -252,9 +252,7 @@ export async function POST() {
 
 	const warning =
 		provider === 'mock'
-			? lastProviderError
-				? `실제 API 호출에 실패해 모의(mock) 데이터로 대체했습니다: ${lastProviderError}`
-				: 'GEMINI_API_KEY / OPENAI_API_KEY / PERPLEXITY_API_KEY가 설정되지 않아 모의(mock) 데이터로 최신화했습니다.'
+			? `출처가 확인된 웹 트래픽 관측만 순위에 씁니다. 점유율·방문량·성장률은 바꾸지 않았습니다.${lastProviderError ? ` (${lastProviderError})` : ''}`
 			: undefined;
 
 	return NextResponse.json({

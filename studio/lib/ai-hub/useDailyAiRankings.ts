@@ -108,6 +108,7 @@ export function useDailyAiRankings(options?: { includeHidden?: boolean }) {
 		tools: (payload?.tools ?? []) as RankedLiveAiTool[],
 		analysis: payload?.analysis ?? null,
 		categories: payload?.categories ?? [],
+		market: payload?.market ?? null,
 		loading,
 		error,
 		refetch: () => load(true),

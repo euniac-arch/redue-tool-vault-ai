@@ -2,31 +2,21 @@
 
 import { useState } from 'react';
 import { ExternalLink, Star } from 'lucide-react';
-import { CATEGORY_SOLID_ACCENT, PricingTypeBadge, RankBadge, RankChangeBadge, RisingStatusBadge } from '@/components/admin/ai-tools/ai-tools-badges';
+import { CATEGORY_SOLID_ACCENT, PricingTypeBadge, RankBadge } from '@/components/admin/ai-tools/ai-tools-badges';
 import type { AiTool } from '@/lib/ai-hub';
-import type { AiToolRisingStatus } from '@/lib/ai-hub/rising-ai-tools';
+import { SHARE_UNAVAILABLE_LABEL } from '@/lib/ai-hub/market-observations';
 
 interface AiHubToolCardProps {
 	tool: AiTool;
-	/** Fixed rank from the tool record (`categoryRank` or `currentRank`), never the list index. */
+	/** Fixed rank from the tool record, never the list index. */
 	rank: number;
-	rankDelta?: number;
-	isNew?: boolean;
-	isHot?: boolean;
-	isRising?: boolean;
-	status?: AiToolRisingStatus;
-	/** GEO(Generative Engine Optimization) fitness score, 0~100. Defensively clamped by the caller via `calculateGeoRankings`. */
+	/** GEO(Generative Engine Optimization) fitness score, 0~100. */
 	geoScore?: number;
-	/** Share of AI-answer citations attributed to this engine, 0~100. */
+	/** Internal citation estimate, 0~100. Not a market-share figure. */
 	citationRate?: number;
-	/**
-	 * Fixed global rank (`currentRank`). Shown beside the badge when the badge is the
-	 * category rank and the two numbers differ.
-	 */
-	globalRank?: number;
-	/** Category label used in the rank-badge tooltip, e.g. "이미지 카테고리 내 1위". */
+	/** Category label used in the rank-badge tooltip. */
 	categoryLabel?: string;
-	/** Shown beside the badge when list order is not the rank itself (GEO 점수순). */
+	/** Shown beside the badge, e.g. "웹 트래픽" or "추천 순위". */
 	rankCaption?: string;
 	onOpenDetail: (tool: AiTool) => void;
 }
@@ -39,22 +29,16 @@ function safePct(value: number | undefined): number {
 export function AiHubToolCard({
 	tool,
 	rank,
-	rankDelta = 0,
-	isNew = false,
-	isHot = false,
-	isRising = false,
-	status,
 	geoScore,
 	citationRate,
-	globalRank,
 	categoryLabel,
 	rankCaption,
 	onOpenDetail,
 }: AiHubToolCardProps) {
 	const [logoFailed, setLogoFailed] = useState(false);
-	const showGlobalRankNote = typeof globalRank === 'number' && globalRank !== rank;
+	const webShare = (tool as AiTool & { webTrafficSharePct?: number | null }).webTrafficSharePct;
 	const rankBadgeTitle = categoryLabel
-		? `${rankCaption ? `${rankCaption} · ` : ''}${categoryLabel} 내 ${rank}위${showGlobalRankNote ? ` · 전체 #${globalRank}위` : ''}`
+		? `${rankCaption ? `${rankCaption} · ` : ''}${categoryLabel} 내 ${rank}위`
 		: rankCaption;
 
 	return (
@@ -79,8 +63,6 @@ export function AiHubToolCard({
 						</span>
 					) : null}
 				</span>
-				<RankChangeBadge isNew={isNew} delta={rankDelta} />
-				<RisingStatusBadge status={status} isRising={isRising || isHot} />
 			</div>
 
 			<div className="flex items-start justify-between gap-2">
@@ -109,15 +91,11 @@ export function AiHubToolCard({
 					<Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" aria-hidden />
 					{tool.rating.toFixed(1)}
 				</span>
-				<span title="글로벌 점유율">📊 점유율 {safePct(tool.market_share).toFixed(1)}%</span>
-				{showGlobalRankNote ? (
-					<span
-						className="font-medium text-slate-400 dark:text-slate-500"
-						title="전체(모든 카테고리 통합) 순위"
-					>
-						전체 #{globalRank}위
-					</span>
-				) : null}
+				{typeof webShare === 'number' ? (
+					<span title="생성형 AI 웹사이트 방문 점유율. 앱 사용자 수와 다른 지표입니다.">웹 트래픽 {webShare.toFixed(1)}%</span>
+				) : (
+					<span title="같은 비교 집합의 웹 트래픽 점유율이 없습니다.">{SHARE_UNAVAILABLE_LABEL}</span>
+				)}
 				<span className="ml-auto text-slate-500 dark:text-slate-400">추천점수 {tool.recommend_score}점</span>
 			</div>
 

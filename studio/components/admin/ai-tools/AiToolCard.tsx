@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { getAiToolCategoryLabel, type AiTool } from '@/lib/admin/ai-tools-management';
-import { AiToolCategoryBadge, CATEGORY_SOLID_ACCENT, GrowthBadge, PricingTypeBadge, RankBadge, RankChangeBadge } from './ai-tools-badges';
+import { AiToolCategoryBadge, CATEGORY_SOLID_ACCENT, PricingTypeBadge, RankBadge, RankChangeBadge } from './ai-tools-badges';
 
 interface AiToolCardProps {
 	tool: AiTool;
@@ -63,10 +63,15 @@ export function AiToolCard({ tool, rank, rankDelta = 0, isNew = false, pending, 
 			</div>
 
 			<div className="flex flex-wrap items-center gap-2.5 rounded-lg bg-slate-50 px-2.5 py-2 text-[11px] font-bold text-slate-600 dark:bg-slate-900/40 dark:text-slate-300">
-				<span title="글로벌 점유율">📊 {tool.market_share.toFixed(1)}%</span>
+				{typeof (tool as AiTool & { webTrafficSharePct?: number | null }).webTrafficSharePct === 'number' ? (
+					<span title="생성형 AI 웹사이트 방문 점유율">
+						웹 트래픽 {((tool as AiTool & { webTrafficSharePct: number }).webTrafficSharePct).toFixed(1)}%
+					</span>
+				) : (
+					<span title="같은 비교 집합의 웹 트래픽 점유율이 없습니다">점유율 데이터 미확보</span>
+				)}
 				<span title="사용자 평점">⭐ {tool.rating.toFixed(1)}</span>
-				<span title="월간 방문자">👁 {tool.monthly_visits}</span>
-				<GrowthBadge growth={tool.growth} className="ml-auto" />
+				<span title="추천 점수">추천 {tool.recommend_score}</span>
 			</div>
 
 			<p className="line-clamp-3 flex-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">{tool.desc}</p>

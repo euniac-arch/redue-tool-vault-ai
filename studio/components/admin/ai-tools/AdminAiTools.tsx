@@ -21,12 +21,13 @@ import { AiToolCard } from './AiToolCard';
 import { AiToolDetailModal } from './AiToolDetailModal';
 import { AiToolsCategoryNav } from './AiToolsCategoryNav';
 import { MarketShareBar } from './MarketShareBar';
+import { MarketReviewPanel } from './MarketReviewPanel';
 import { TodayRankModal } from './TodayRankModal';
 
 type Toast = { id: number; message: string; tone?: 'default' | 'error' };
 
 export function AdminAiTools() {
-	const { tools: rankedTools, analysis, date, error: rankingError, refetch } = useDailyAiRankings({ includeHidden: true });
+	const { tools: rankedTools, analysis, date, market, error: rankingError, refetch } = useDailyAiRankings({ includeHidden: true });
 	const [tools, setTools] = useState<AiTool[]>([]);
 	const [query, setQuery] = useState('');
 	const [category, setCategory] = useState<AiToolFilters['category']>('all');
@@ -167,12 +168,13 @@ export function AdminAiTools() {
 						className="inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-slate-700 dark:bg-white dark:text-slate-950 dark:hover:bg-slate-200"
 					>
 						<BarChart3 className="h-3.5 w-3.5" aria-hidden />
-						오늘자 점유율 순위 분석
+						글로벌 웹 트래픽 순위 분석
 					</button>
 				</div>
 			</div>
 
-			{dailyTools.length > 0 && <MarketShareBar tools={dailyTools} category={category} dateKey={date} />}
+			{dailyTools.length > 0 && <MarketShareBar bundle={market} category={category} />}
+			<MarketReviewPanel />
 
 			<div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[15rem_1fr]">
 				<AiToolsCategoryNav
@@ -256,6 +258,7 @@ export function AdminAiTools() {
 					tools={dailyTools}
 					dateKey={date}
 					analysis={analysis}
+					market={market}
 					onClose={() => setRankModalOpen(false)}
 				/>
 			)}

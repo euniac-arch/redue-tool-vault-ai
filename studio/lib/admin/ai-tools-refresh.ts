@@ -5,9 +5,8 @@
  * route handler (`app/api/admin/ai-tools/refresh/route.ts`), mirroring the existing
  * `lib/audit/fact-check.ts` + `app/api/seo/fact-check/route.ts` split in this codebase.
  *
- * Only market-facing signals are ever touched by a refresh — `market_share`, `monthly_visits`,
- * `rating`, `growth`, and `pricing`. Editorial fields (name, desc, tags, guide, recommend_score,
- * is_public, logo_url, url) are curated by admins and are never overwritten here.
+ * Pricing can still be refreshed from a sourced reply. Market share, visits, and growth are ignored:
+ * unsourced model output must not overwrite the published web-traffic observation.
  */
 
 import type { AiToolPricing, AiToolRaw } from './ai-tools-management';
@@ -27,18 +26,15 @@ export interface AiToolRefreshTarget {
 export function buildAiToolsRefreshUserPrompt(targets: AiToolRefreshTarget[]): string {
 	const list = targets.map((t) => `- id: "${t.id}" | 서비스명: ${t.name} (${t.provider})`).join('\n');
 	return [
-		'아래 AI 서비스 목록 각각에 대해, 오늘 기준 최신 정보를 웹에서 검색해 다음 필드를 조사해 주세요:',
-		'- market_share: 해당 서비스가 속한 카테고리 내 글로벌 시장 점유율 추정치 (0~100 사이 숫자, % 기호 제외)',
-		'- monthly_visits: 최근 월간 방문자 수 (예: "3.1B", "180M" 같은 축약 문자열)',
-		'- rating: 사용자 평점 (0~5 사이 숫자)',
-		'- growth: 전월 대비 성장률 (예: "+8.4%" 또는 "-1.5%" 형식의 문자열)',
-		'- pricing: { type, summary, free_tier, paid_tier } — 최신 요금제 변경 사항이나 신규 기능이 있다면 summary/paid_tier에 짧게 반영',
+		'아래 AI 서비스 목록 각각에 대해, 오늘 확인되는 요금제만 조사해 주세요.',
+		'market_share, monthly_visits, growth는 보내지 마세요. 출처 URL이 없는 점유율은 추정하지 않습니다.',
+		'- pricing: { type, summary, free_tier, paid_tier } — 확인된 요금제만 짧게 반영',
 		'',
 		'조사 대상 목록:',
 		list,
 		'',
 		'응답은 아래와 동일한 구조의 JSON 배열 하나만 반환하세요 (설명 문장 없이 JSON만 출력):',
-		'[{"id":"chatgpt","market_share":59.2,"monthly_visits":"3.2B","rating":4.9,"growth":"+9.1%","pricing":{"type":"Freemium","summary":"...","free_tier":"...","paid_tier":"..."}}]',
+		'[{"id":"chatgpt","pricing":{"type":"Freemium","summary":"...","free_tier":"...","paid_tier":"..."}}]',
 		'',
 		'반드시 위에 나열된 id 값을 그대로 사용하고, 목록에 없는 항목은 추가하지 마세요. 확실하지 않은 필드는 아예 생략하세요.',
 	].join('\n');
@@ -72,26 +68,9 @@ function isFiniteNumber(value: unknown): value is number {
 	return typeof value === 'number' && Number.isFinite(value);
 }
 
-function sanitizeMarketShare(value: unknown): number | undefined {
-	if (!isFiniteNumber(value) || value < 0 || value > 100) return undefined;
-	return Math.round(value * 10) / 10;
-}
-
 function sanitizeRating(value: unknown): number | undefined {
 	if (!isFiniteNumber(value) || value < 0 || value > 5) return undefined;
 	return Math.round(value * 100) / 100;
-}
-
-function sanitizeGrowth(value: unknown): string | undefined {
-	if (typeof value !== 'string') return undefined;
-	const trimmed = value.trim();
-	return /^[+-]\d{1,3}(\.\d{1,2})?%$/.test(trimmed) ? trimmed : undefined;
-}
-
-function sanitizeMonthlyVisits(value: unknown): string | undefined {
-	if (typeof value !== 'string') return undefined;
-	const trimmed = value.trim();
-	return /^\d{1,4}(\.\d{1,2})?\s?[KMB]?\+?$/i.test(trimmed) ? trimmed : undefined;
 }
 
 function sanitizeShortText(value: unknown, maxLen: number): string | undefined {
@@ -110,10 +89,7 @@ export function applyAiToolUpdatePatch(tool: AiToolRaw, patch: unknown): { tool:
 	if (!patch || typeof patch !== 'object') return { tool, changed: false };
 	const record = patch as Record<string, unknown>;
 
-	const marketShare = sanitizeMarketShare(record.market_share);
-	const monthlyVisits = sanitizeMonthlyVisits(record.monthly_visits);
 	const rating = sanitizeRating(record.rating);
-	const growth = sanitizeGrowth(record.growth);
 
 	let pricingChanged = false;
 	const nextPricing: AiToolPricing = { ...tool.pricing };
@@ -141,35 +117,20 @@ export function applyAiToolUpdatePatch(tool: AiToolRaw, patch: unknown): { tool:
 		}
 	}
 
-	const changed =
-		marketShare !== undefined || monthlyVisits !== undefined || rating !== undefined || growth !== undefined || pricingChanged;
+	const changed = rating !== undefined || pricingChanged;
 	if (!changed) return { tool, changed: false };
 
 	return {
 		tool: {
 			...tool,
-			market_share: marketShare ?? tool.market_share,
-			monthly_visits: monthlyVisits ?? tool.monthly_visits,
 			rating: rating ?? tool.rating,
-			growth: growth ?? tool.growth,
 			pricing: pricingChanged ? nextPricing : tool.pricing,
 		},
 		changed: true,
 	};
 }
 
-/**
- * Deterministic, cost-free jitter used when no real web-search API key is configured
- * (`MOCK_*=true` / missing keys) — lets the "AI 데이터 최신화" button be demoed end-to-end
- * without spending API credits, matching this app's existing `MOCK_OPENAI` / `MOCK_GEMINI`
- * / `MOCK_PERPLEXITY` convention ("0원 가상 데이터").
- */
-export function buildMockAiToolPatch(tool: AiToolRaw): Record<string, unknown> {
-	const seed = [...tool.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-	const wobble = ((seed % 21) - 10) / 10; // deterministic, -1.0 ~ 1.0 per tool id
-	const marketShare = Math.max(0.1, Math.round((tool.market_share + wobble) * 10) / 10);
-	const rating = Math.min(5, Math.max(3.5, Math.round((tool.rating + wobble * 0.05) * 100) / 100));
-	const growthValue = Math.round((wobble * 6 + 4) * 10) / 10;
-	const growth = `${growthValue >= 0 ? '+' : ''}${growthValue.toFixed(1)}%`;
-	return { market_share: marketShare, rating, growth };
+/** Mock mode does not invent market share, visits, or growth. */
+export function buildMockAiToolPatch(_tool: AiToolRaw): Record<string, unknown> {
+	return {};
 }
