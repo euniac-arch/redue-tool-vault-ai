@@ -13,10 +13,12 @@ import {
 	extractJsonFromText,
 	extractJsonObject,
 	LiveCheckParseError,
+	LIVE_CHECK_TIMEOUT_MS,
 	looksLikeRawJson,
 	mentionsBrandOrSite,
 	parseLLMResponse,
 	parseLiveCheckPayload,
+	groundingObservationFromSearch,
 	resolveLiveCheckQuery,
 	sanitizeEvidenceSnippet,
 	urlMatchesSite,
@@ -221,8 +223,23 @@ const normalCitation = parseLiveCheckPayload(
 const normalCitationResult = buildLiveEngineResult('perplexity', normalCitation, 40);
 assert(
 	'Perplexity/Claude normal citation keeps 98점 + citation URL',
-	normalCitationResult.isCited && normalCitationResult.liveScore === 98 && normalCitationResult.citationUrl === 'https://sky-clinic.com/about',
+	normalCitationResult.isCited && normalCitationResult.isLive === true && normalCitationResult.isGrounding === true && normalCitationResult.liveScore === 98 && normalCitationResult.citationUrl === 'https://sky-clinic.com/about',
 );
+
+assert('each live engine has at least 15 seconds', LIVE_CHECK_TIMEOUT_MS >= 15_000);
+const searchProse = groundingObservationFromSearch(
+	'스카이피부과의원은 강남에서 자주 언급되는 피부과입니다.',
+	'스카이피부과의원',
+	'https://sky-clinic.com',
+	['https://sky-clinic.com/about'],
+);
+assert('search prose with a matching citation stays live instead of failing the parse', searchProse.isCited === true && searchProse.citationUrl === 'https://sky-clinic.com/about');
+const unrelated = groundingObservationFromSearch('다른 병원의 안내만 있습니다.', '스카이피부과의원', 'https://sky-clinic.com', ['https://example.com/other']);
+assert('search prose without the brand is a completed non-citation', unrelated.isCited === false && unrelated.mentionType === 'none');
+const negated = groundingObservationFromSearch('스카이피부과의원은 언급되지 않았습니다.', '스카이피부과의원', 'https://sky-clinic.com', []);
+assert('a negated search sentence is not treated as grounding', negated.isCited === false);
+const failedLive = buildFailedLiveResult('gemini', 61, 'timeout');
+assert('a failed engine is not live', failedLive.isLive === false && failedLive.isGrounding === false && failedLive.fallbackToRuleScore === true);
 
 if (failed) {
 	console.error(`\n${failed} assertion(s) failed`);

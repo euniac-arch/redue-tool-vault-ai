@@ -390,6 +390,8 @@ export interface AuditReport {
 	geoCitationScore?: number;
 	/** Brand / category / location signals for dynamic GEO simulators. */
 	siteMeta?: SiteMetadata;
+	/** Latest live engine re-verification, written back by `/api/audit/live-check`. */
+	liveEngineChecks?: import('@/types/live-engine-check').LiveEngineChecksSnapshot;
 	/** Channel NAP matrix synthesized from crawl + optional LLM channel rows. */
 	napMatrix?: import('@/types/guide').NapMatrix;
 	/** Raw per-channel NAP harvested live from Naver/Google/Kakao/YouTube search APIs

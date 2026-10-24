@@ -420,7 +420,8 @@ export function evaluateAiBottlenecks(
 
 export function liveResultsToRecognition(results: LiveEngineCheckResult[] | undefined): AiRecognitionResult[] {
 	if (!results?.length) return [];
-	return results.map((row) => ({
+	// Failed calls and answers without search evidence are not observations of exposure.
+	return results.filter((row) => row.isLiveGrounded && !row.fallbackToRuleScore).map((row) => ({
 		engine: row.engine === 'clova' ? 'navercue' : row.engine,
 		isCited: row.isCited,
 		mentionType: row.mentionType,

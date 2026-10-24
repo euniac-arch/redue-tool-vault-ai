@@ -3169,11 +3169,11 @@
 			"liveTierStrongConfirm": "✓ Top live recommendation / citation ({score})",
 			"liveTierNeutralConfirm": "✓ Official entity citation confirmed ({score})",
 			"liveTierWeakConfirm": "△ Mention only (weak recommendation — GEO reinforcement needed) ({score})",
-			"liveTierNotFoundConfirm": "✕ Not cited in the live AI answer ({score})",
+			"liveTierNotFoundConfirm": "Mention or citation not observed for this query",
 			"liveTierStrongBadge": "✓ Top recommendation",
 			"liveTierNeutralBadge": "✓ Official entity citation",
 			"liveTierWeakBadge": "△ Weak recommendation signal",
-			"liveTierNotFoundBadge": "✕ Not cited",
+			"liveTierNotFoundBadge": "Not observed for this query",
 			"visibilityTitle": "Live AI search results",
 			"visibilityQueryTests": "Query tests",
 			"visibilityAnswerHits": "AI answer mentions",
@@ -3181,16 +3181,85 @@
 			"visibilityOfficialCitations": "Official URL citations",
 			"visibilityCitationRate": "Citation Rate",
 			"visibilityEntityAccuracy": "Entity accuracy",
-			"mainCauses": "Key factors",
+			"mainCauses": "Technical readiness checks",
 			"liveCheckCta": "Verify live citations on 4 AIs",
-			"liveCheckLoading": "Querying 4 AIs live... (3–5s)",
+			"liveCheckLoading": "Querying 4 AIs live... (up to 15s)",
 			"liveCheckRetry": "Re-run live measurement",
-			"liveCheckCompletedHint": "Just measured (live comparison mode)",
+			"liveCheckCompletedHint": "Re-check response received · see each card for its status",
 			"liveCheckError": "The live check request failed. Please try again shortly.",
 			"ruleDiagnosisBadge": "Technical-rule diagnosis (readiness)",
 			"liveGroundedBadge": "Live Grounding measurement",
 			"liveFailBadge": "Live lookup failed (estimate kept)",
-			"liveFailTooltip": "Temporary API delay or timeout. Click the button above to retry.",
+			"liveFailTooltip": "The live lookup did not complete. This says nothing about the site's exposure, and the estimated score is kept.",
+			"failKind": {
+				"billing": {
+					"badge": "Check API credits / billing (estimate kept)",
+					"tooltip": "The AI provider API returned a credit or usage-limit error. Check billing and credits in the provider console, then retry. This says nothing about the site's exposure."
+				},
+				"rate_limit": {
+					"badge": "Temporary rate limit (estimate kept)",
+					"tooltip": "The provider throttled requests for a moment. Retry shortly with the button above."
+				},
+				"timeout": {
+					"badge": "Response timed out (estimate kept)",
+					"tooltip": "The AI response did not arrive within the time limit. Retry shortly."
+				},
+				"auth": {
+					"badge": "Check API key / permissions (estimate kept)",
+					"tooltip": "The AI provider rejected the API key or the key lacks permission. Check the key and its permissions in the server environment."
+				},
+				"model_unavailable": {
+					"badge": "Check model availability (estimate kept)",
+					"tooltip": "The requested AI model is not available. Check the provider's current model list and the model name in the server settings."
+				},
+				"missing_key": {
+					"badge": "API key not set (estimate kept)",
+					"tooltip": "This engine's API key is not configured on the server."
+				},
+				"bad_request": {
+					"badge": "API request rejected (estimate kept)",
+					"tooltip": "The AI provider rejected the request format. The operations team needs to check."
+				},
+				"empty_body": {
+					"badge": "AI answer body not received (estimate kept)",
+					"tooltip": "The API call succeeded but the answer body was empty, so exposure cannot be judged. This does not mean the site was not exposed."
+				},
+				"parse_error": {
+					"badge": "AI answer could not be read (estimate kept)",
+					"tooltip": "The AI answer could not be parsed, so exposure cannot be judged. This does not mean the site was not exposed."
+				},
+				"network": {
+					"badge": "Network error (estimate kept)",
+					"tooltip": "The server could not reach the AI provider API. Retry shortly."
+				},
+				"provider_error": {
+					"badge": "AI provider server error (estimate kept)",
+					"tooltip": "The AI provider server returned an error. Retry shortly."
+				},
+				"unknown": {
+					"badge": "Live lookup failed (estimate kept)",
+					"tooltip": "The live lookup did not complete. This says nothing about the site's exposure."
+				}
+			},
+			"noSearchEvidenceBadge": "Answer received · no search evidence (estimate kept)",
+			"noSearchEvidenceTooltip": "An AI answer came back, but nothing shows a web search ran (no search sources or citations), so exposure was not judged. This does not mean the site was not exposed.",
+			"mockBadge": "Test data (not a measurement)",
+			"estimatedScoreLabel": "Estimated readiness · not measured",
+			"checkedAtLabel": "Checked {time}",
+			"lastGroundedNote": "Earlier measurement: {score} ({time}) · not the current result",
+			"observation": {
+				"official_cited": "Official domain cited",
+				"brand_mentioned": "Brand mentioned · official domain not cited",
+				"official_in_results": "Official domain among retrieved results · not cited in the answer",
+				"not_observed": "Mention or citation not observed for this query"
+			},
+			"liveCheckApiNotice": "API-based measurement is one observation for this query. It is not the search result or exposure probability of the consumer ChatGPT or Gemini apps.",
+			"persist": {
+				"saved": "The re-check was saved to the audit record.",
+				"local": "This audit record is not on the server, so the re-check was saved in this browser only.",
+				"stale": "A more recent re-check is already saved, so this result was not stored.",
+				"error": "Saving the re-check failed. This result may disappear on refresh."
+			},
 			"approxBadge": "Portal-index simulation estimate",
 			"liveGroupTitle": "Live web-search engines (Direct Live Grounding)",
 			"liveGroupHint": "Verified from actual AI browsing queries",
@@ -3201,11 +3270,11 @@
 			"citedNo": "✗ Not cited in the answer",
 			"weaknessTitle": "Why the signal is weak",
 			"insightCitedMechanism": "💡 Citation success mechanism",
-			"insightUncitedCause": "🚨 Why it was not cited",
+			"insightUncitedCause": "🔎 Technical readiness checks (not a cause observed in this AI answer)",
 			"insightCitedPath": "Detected citation path:",
-			"insightActionRequired": "Required action:",
+			"insightActionRequired": "Suggested action (advisory):",
 			"insightNextStep": "Recommended next step:",
-			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Only Gemini, ChatGPT, Perplexity, and Claude verify live web-search citations.",
+			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Only answers with web-search evidence (search sources or citations) are shown as measured. Today Gemini and Perplexity use web search. ChatGPT and Claude are called without a web-search tool, so no search evidence is confirmed and their estimated scores are kept.",
 			"fixGuideTitle": "💡 Fix & recommended actions",
 			"fixGuideToggleExpand": "View fix guide",
 			"fixGuideToggleCollapse": "Hide fix guide",

@@ -59,6 +59,8 @@ export const TEST_GROUPS = {
 		'scripts/test-audit-score-calculator.ts',
 		'scripts/test-geo-score-calculator.ts',
 		'scripts/test-live-check-score.ts',
+		'scripts/test-live-check-engines.ts',
+		'scripts/test-live-check-persist.ts',
 		'scripts/test-score-integrity.ts',
 		'scripts/test-score-pipeline-sync.ts',
 		'scripts/test-diagnostic-score-sync.ts',

@@ -2,16 +2,28 @@ import { loadEnvConfig } from '@next/env';
 import path from 'path';
 import { NextRequest, NextResponse } from 'next/server';
 import { runLiveEngineChecks } from '@/lib/audit/live-check-engines';
+import { persistLiveEngineChecks } from '@/lib/audit/persist-live-checks';
 import { resolveLiveCheckQuery } from '@/lib/audit/live-check-score';
 import { buildUniversalQuerySov, extractBrandAliasesFromMeta } from '@/lib/audit/universal-sov-engine';
-import type { LiveCheckEngineId, LiveCheckRequestBody, LiveCheckResponse } from '@/types/live-engine-check';
+import type {
+	LiveCheckEngineId,
+	LiveCheckPersistStatus,
+	LiveCheckRequestBody,
+	LiveCheckResponse,
+	LiveEngineCheckResult,
+	LiveEngineChecksSnapshot,
+} from '@/types/live-engine-check';
 
 /** Bind monorepo-root + studio `.env` so MOCK_* switches are visible in live-check. */
 loadEnvConfig(path.join(process.cwd(), '..'));
 loadEnvConfig(process.cwd());
 
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+export const maxDuration = 60;
+
+const MAX_QUERY_LENGTH = 200;
+const MAX_NAME_LENGTH = 120;
+const AUDIT_ID_PATTERN = /^[A-Za-z0-9_-]{8,80}$/;
 
 function noStoreJson(body: LiveCheckResponse, init?: { status?: number }) {
 	return NextResponse.json(body, {
@@ -27,6 +39,15 @@ function asString(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : '';
 }
 
+function isHttpUrl(value: string): boolean {
+	try {
+		const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
+		return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname.includes('.');
+	} catch {
+		return false;
+	}
+}
+
 function parseRuleScores(raw: unknown): LiveCheckRequestBody['ruleScores'] {
 	if (!raw || typeof raw !== 'object') return undefined;
 	const source = raw as Record<string, unknown>;
@@ -38,13 +59,61 @@ function parseRuleScores(raw: unknown): LiveCheckRequestBody['ruleScores'] {
 	return scores;
 }
 
+interface LiveCheckOutcome {
+	results: LiveEngineCheckResult[];
+	startedAt: string;
+	checkedAt: string;
+	persisted: boolean;
+	persistStatus: LiveCheckPersistStatus;
+	snapshot: LiveEngineChecksSnapshot;
+}
+
+/**
+ * Identical overlapping requests (a double click, two tabs on one instance) share one
+ * run, so they do not double the paid calls or race each other's write.
+ */
+const inflight = new Map<string, Promise<LiveCheckOutcome>>();
+
+async function runAndPersist(
+	input: Parameters<typeof runLiveEngineChecks>[0],
+	auditId: string,
+): Promise<LiveCheckOutcome> {
+	const startedAt = new Date().toISOString();
+	const results = await runLiveEngineChecks(input);
+	const checkedAt = new Date().toISOString();
+	const snapshot: LiveEngineChecksSnapshot = { checkedAt, startedAt, targetQuery: input.targetQuery, results };
+
+	let persisted = false;
+	let persistStatus: LiveCheckPersistStatus = 'skipped';
+	let stored: LiveEngineChecksSnapshot | undefined;
+	if (auditId && !results.some((row) => row.isMock)) {
+		try {
+			const saved = await persistLiveEngineChecks(auditId, input.siteUrl, snapshot);
+			persisted = saved.ok;
+			persistStatus = saved.status;
+			stored = saved.snapshot;
+			console.info('[live-check persist]', { auditId, status: saved.status, stores: saved.stores });
+		} catch (error) {
+			persistStatus = 'error';
+			console.error('[live-check persist] failed:', error instanceof Error ? error.message : error);
+		}
+	}
+	return { results, startedAt, checkedAt, persisted, persistStatus, snapshot: stored ?? snapshot };
+}
+
 /**
  * POST /api/audit/live-check
- * Body: { siteUrl, siteName, targetQuery, location?, category?, ruleScores? }
+ * Body: { auditId?, siteUrl, siteName, targetQuery, location?, category?, ruleScores? }
  *
- * Calls Gemini / ChatGPT / Perplexity / Claude in parallel with standard
- * JSON-only prompts (no experimental tools). A single engine timeout or
- * failure never blocks the rest.
+ * Calls ChatGPT / Perplexity / Gemini / Claude in parallel. Each engine has its own 15s
+ * abort timer, and Promise.allSettled keeps one failure from cancelling the others.
+ * Gemini uses Google Search grounding. Perplexity uses sonar. A result is a measurement
+ * only when the response shows a web search ran, so failures and bodies without search
+ * evidence keep the rule score and make no exposure claim.
+ *
+ * With a valid `auditId`, the attempt is also written to that saved report's
+ * `liveEngineChecks` field (see `persist-live-checks.ts`). `persisted` is true only when a
+ * store confirmed the write, and `persistStatus` says why it was not.
  */
 export async function POST(req: NextRequest) {
 	try {
@@ -63,9 +132,17 @@ export async function POST(req: NextRequest) {
 		if (!siteUrl || !siteName) {
 			return noStoreJson({ success: false, targetQuery, results: [], error: 'siteUrl과 siteName이 필요합니다.' }, { status: 400 });
 		}
+		if (!isHttpUrl(siteUrl)) {
+			return noStoreJson({ success: false, targetQuery, results: [], error: 'siteUrl 형식이 올바르지 않습니다.' }, { status: 400 });
+		}
 		if (!targetQuery) {
 			return noStoreJson({ success: false, targetQuery, results: [], error: 'targetQuery가 필요합니다.' }, { status: 400 });
 		}
+		if (targetQuery.length > MAX_QUERY_LENGTH || siteName.length > MAX_NAME_LENGTH) {
+			return noStoreJson({ success: false, targetQuery: '', results: [], error: '질의 또는 상호가 너무 깁니다.' }, { status: 400 });
+		}
+		const rawAuditId = asString(body.auditId);
+		const auditId = AUDIT_ID_PATTERN.test(rawAuditId) ? rawAuditId : '';
 
 		const location = asString(body.location);
 		const category = asString(body.category);
@@ -82,7 +159,7 @@ export async function POST(req: NextRequest) {
 		const productTokens = Array.isArray(body.productTokens)
 			? body.productTokens.map((item) => String(item).trim()).filter((item) => item.length >= 2)
 			: undefined;
-		const results = await runLiveEngineChecks({
+		const input = {
 			siteUrl,
 			siteName,
 			targetQuery,
@@ -91,13 +168,24 @@ export async function POST(req: NextRequest) {
 			brandAliases,
 			productTokens,
 			ruleScores: parseRuleScores(body.ruleScores),
-		});
+		};
+
+		const key = `${auditId}|${siteUrl}|${targetQuery}`;
+		let pending = inflight.get(key);
+		if (!pending) {
+			pending = runAndPersist(input, auditId).finally(() => inflight.delete(key));
+			inflight.set(key, pending);
+		}
+		const { results, startedAt, checkedAt, persisted, persistStatus, snapshot } = await pending;
 
 		const bestRank = results
+			.filter((row) => row.isLiveGrounded)
 			.map((row) => row.citedRank)
 			.filter((rank): rank is 1 | 2 | 3 => rank === 1 || rank === 2 || rank === 3)
 			.sort((a, b) => a - b)[0];
-		const citations = results.flatMap((row) => row.citations ?? row.citedSources?.map((url) => ({ title: '', url })) ?? []);
+		const citations = results
+			.filter((row) => row.isLiveGrounded)
+			.flatMap((row) => row.citations ?? row.citedSources?.map((url) => ({ title: '', url })) ?? []);
 		const querySov = buildUniversalQuerySov({
 			query: targetQuery,
 			context: { targetUrl: siteUrl, brandAliases, canonicalBrand: siteName },
@@ -105,7 +193,7 @@ export async function POST(req: NextRequest) {
 			citations,
 		});
 
-		return noStoreJson({ success: true, targetQuery, results, querySov });
+		return noStoreJson({ success: true, targetQuery, results, querySov, persisted, persistStatus, checkedAt, startedAt, snapshot });
 	} catch (error) {
 		const message = error instanceof Error ? error.message : 'Live check failed';
 		return noStoreJson({ success: false, targetQuery: '', results: [], error: message }, { status: 500 });

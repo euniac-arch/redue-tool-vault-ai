@@ -121,18 +121,30 @@ export function mentionsBrandOrSite(
 	return brandAliases(siteName, siteUrl, extraAliases).some((alias) => hasPositiveMention(hay, alias.toLowerCase()));
 }
 
-export function urlMatchesSite(url: string, siteUrl: string): boolean {
-	const raw = url.trim();
-	if (!raw) return false;
+function normalizedHost(value: string): string {
+	const raw = value.trim();
+	if (!raw) return '';
 	try {
-		const cited = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
-		const site = new URL(/^https?:\/\//i.test(siteUrl) ? siteUrl : `https://${siteUrl}`);
-		const citedHost = cited.hostname.replace(/^www\./i, '').toLowerCase();
-		const siteHost = site.hostname.replace(/^www\./i, '').toLowerCase();
-		return citedHost === siteHost || citedHost.endsWith(`.${siteHost}`) || siteHost.endsWith(`.${citedHost}`);
+		const parsed = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+		if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+		return parsed.hostname.replace(/\.$/, '').replace(/^www\./i, '').toLowerCase();
 	} catch {
-		return raw.toLowerCase().includes(siteUrl.replace(/^https?:\/\//i, '').replace(/^www\./i, '').toLowerCase());
+		return '';
 	}
+}
+
+/**
+ * Official-domain policy: the cited host must be the site host or one of its subdomains.
+ * `www.` is ignored on both sides. A parent domain, a sibling, or a host that merely
+ * contains the site name (`notsite.com`, `site.com.evil.net`) does not match. The site
+ * URL passed in is the post-redirect `finalUrl`, so a redirected domain is judged by
+ * where the site actually lives.
+ */
+export function urlMatchesSite(url: string, siteUrl: string): boolean {
+	const citedHost = normalizedHost(url);
+	const siteHost = normalizedHost(siteUrl);
+	if (!citedHost || !siteHost || !siteHost.includes('.')) return false;
+	return citedHost === siteHost || citedHost.endsWith(`.${siteHost}`);
 }
 
 export function detectCitedRank(

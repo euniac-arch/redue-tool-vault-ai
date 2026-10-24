@@ -11,7 +11,9 @@ import { getAiFixGuide } from '@/lib/audit/ai-fix-guide';
 import { detectEnginePlatformSignals } from '@/lib/audit/engine-analysis';
 import { getEngineInsight, type EngineInsightSignals } from '@/lib/audit/engine-insight';
 import { resolveGeoWorkGuideModel, type GeoWorkGuideModel } from '@/lib/audit/geo-work-guide';
-import { resolveLiveCheckQuery, sanitizeEvidenceSnippet } from '@/lib/audit/live-check-score';
+import { mergeLiveSnapshots, readSavedSnapshot } from '@/lib/audit/live-check-merge';
+import { asHttpUrl, resolveLiveCheckQuery, sanitizeEvidenceSnippet } from '@/lib/audit/live-check-score';
+import { getGuestAuditById, saveGuestAudit } from '@/lib/audit-history-storage';
 import {
 	getRatingMeta,
 	hasMeasuredVisibility,
@@ -24,7 +26,13 @@ import type { IndustryConfig } from '@/lib/registry/universalIndustryRegistry';
 import type { AuditLang, AuditReport } from '@/lib/site-auditor';
 import { isProxyIndexEngine, liveGroundingOrderIndex, type AIEngineId } from '@/types/geo-diagnostic';
 import type { GroundingStatusColor, GroundingTier } from '@/types/live-engine-check';
-import type { LiveCheckEngineId, LiveCheckResponse, LiveEngineCheckResult } from '@/types/live-engine-check';
+import type {
+	LiveCheckEngineId,
+	LiveCheckResponse,
+	LiveEngineCheckResult,
+	LiveEngineChecksSnapshot,
+	LiveFailureKind,
+} from '@/types/live-engine-check';
 
 type ExposurePanelTab = 'exposure' | 'domestic';
 type LiveCheckState = 'idle' | 'loading' | 'completed' | 'error';
@@ -333,13 +341,19 @@ function MeasurementBadge({
 	isProxy,
 	grounded,
 	failed,
+	live,
 }: {
 	liveAttempted: boolean;
 	isProxy: boolean;
 	grounded: boolean;
 	failed: boolean;
+	live?: LiveEngineCheckResult;
 }) {
 	const t = useTranslations('audit.aiEngines');
+	const failKind: LiveFailureKind = live?.failureKind ?? 'unknown';
+	/** A real answer arrived but nothing shows a web search ran. Not a failure, not a measurement. */
+	const noSearchEvidence = live?.observation === 'no_search_evidence';
+	const badgeTone = 'bg-amber-500/15 text-amber-700 ring-amber-400/30 dark:text-amber-300';
 
 	if (!liveAttempted) {
 		return (
@@ -374,21 +388,34 @@ function MeasurementBadge({
 		);
 	}
 
+	if (live?.isMock) {
+		return (
+			<div className="mt-2">
+				<span className="inline-flex items-center gap-1 rounded-full bg-zinc-500/15 px-2 py-0.5 text-[10px] font-extrabold text-zinc-500 ring-1 ring-zinc-400/30 dark:text-zinc-400">
+					<span aria-hidden>🧪</span>
+					{t('mockBadge')}
+				</span>
+			</div>
+		);
+	}
+
 	if (failed) {
+		const badgeText = noSearchEvidence ? t('noSearchEvidenceBadge') : t(`failKind.${failKind}.badge`);
+		const tooltipText = noSearchEvidence ? t('noSearchEvidenceTooltip') : t(`failKind.${failKind}.tooltip`);
 		return (
 			<div className="group relative mt-2 inline-flex">
 				<span
-					className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-extrabold text-amber-300 ring-1 ring-amber-400/30"
-					title={t('liveFailTooltip')}
+					className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-extrabold ring-1 ${badgeTone}`}
+					title={tooltipText}
 				>
 					<span aria-hidden>⚠️</span>
-					{t('liveFailBadge')}
+					{badgeText}
 				</span>
 				<span
 					role="tooltip"
 					className="pointer-events-none invisible absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-slate-200 bg-white p-2 text-left text-[11px] leading-relaxed text-slate-600 opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
 				>
-					{t('liveFailTooltip')}
+					{tooltipText}
 				</span>
 			</div>
 		);
@@ -442,32 +469,64 @@ function liveBadgeKey(tier: GroundingTier): 'liveTierStrongBadge' | 'liveTierNeu
 	return 'liveTierNotFoundBadge';
 }
 
+function formatCheckedAt(iso: string | undefined, lang: 'ko' | 'en'): string {
+	if (!iso) return '';
+	const date = new Date(iso);
+	if (Number.isNaN(date.getTime())) return '';
+	return date.toLocaleString(lang === 'en' ? 'en-US' : 'ko-KR', {
+		month: 'numeric',
+		day: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit',
+	});
+}
+
 function EngineScoreBlock({
 	readinessScore,
 	live,
 	showDual,
+	estimateOnly,
+	lastGrounded,
 	lang,
 }: {
 	readinessScore: number;
 	live?: LiveEngineCheckResult;
 	showDual: boolean;
+	/** A live attempt exists for this engine but it did not produce a measurement. */
+	estimateOnly: boolean;
+	lastGrounded?: LiveEngineCheckResult;
 	lang: 'ko' | 'en';
 }) {
 	const t = useTranslations('audit.aiEngines');
 	const meta = getRatingMeta(readinessScore, lang);
 	const { tier, color } = live ? resolveLiveTier(live) : { tier: 'NOT_FOUND' as const, color: 'red' as const };
+	const attemptedAt = formatCheckedAt(live?.checkedAt, lang);
+	const earlierAt = formatCheckedAt(lastGrounded?.checkedAt, lang);
 
 	return (
 		<div className="my-3 rounded-lg border border-slate-200 bg-slate-100/80 p-3 dark:border-zinc-800 dark:bg-zinc-900/60">
 			{!showDual || !live ? (
-				<div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
-					<div className="flex items-baseline gap-1">
-						<span className="text-2xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">
-							<AnimatedScore value={readinessScore} />
-						</span>
-						<span className="text-xs text-slate-400 dark:text-zinc-500">{t('scoreMax')}</span>
+				<div>
+					<div className="flex flex-wrap items-end justify-between gap-x-3 gap-y-2">
+						<div className="flex items-baseline gap-1">
+							<span className="text-2xl font-black tabular-nums text-indigo-600 dark:text-indigo-400">
+								<AnimatedScore value={readinessScore} />
+							</span>
+							<span className="text-xs text-slate-400 dark:text-zinc-500">{t('scoreMax')}</span>
+						</div>
+						<StarRow filled={meta.filledStars} rating={meta.ratingOutOf5} />
 					</div>
-					<StarRow filled={meta.filledStars} rating={meta.ratingOutOf5} />
+					{estimateOnly ? (
+						<p className="mt-1.5 text-[10px] font-semibold text-slate-500 dark:text-zinc-400">
+							{t('estimatedScoreLabel')}
+							{attemptedAt ? ` · ${t('checkedAtLabel', { time: attemptedAt })}` : ''}
+						</p>
+					) : null}
+					{estimateOnly && lastGrounded ? (
+						<p className="mt-1 text-[10px] leading-relaxed text-slate-500 dark:text-zinc-400">
+							{t('lastGroundedNote', { score: lastGrounded.liveScore, time: earlierAt || '-' })}
+						</p>
+					) : null}
 				</div>
 			) : (
 				<div className="space-y-2">
@@ -521,6 +580,13 @@ function EvidenceSnippetBox({ live }: { live: LiveEngineCheckResult }) {
 	const t = useTranslations('audit.aiEngines');
 	const { tier, color } = resolveLiveTier(live);
 	const cited = tier !== 'NOT_FOUND';
+	const observationKey =
+		live.observation === 'official_cited' ||
+		live.observation === 'brand_mentioned' ||
+		live.observation === 'official_in_results' ||
+		live.observation === 'not_observed'
+			? live.observation
+			: null;
 	return (
 		<div className="mt-2 rounded-lg border border-indigo-500/30 bg-white/80 p-3 text-xs dark:bg-zinc-950/80">
 			<div className="mb-1 flex items-center justify-between gap-2">
@@ -535,8 +601,13 @@ function EvidenceSnippetBox({ live }: { live: LiveEngineCheckResult }) {
 			<p className="mt-1 text-[11px] leading-relaxed text-slate-600 dark:text-zinc-300">
 				&ldquo;{sanitizeEvidenceSnippet(live.evidenceSnippet, cited)}&rdquo;
 			</p>
-			{live.citationUrl ? (
-				<p className="mt-1.5 truncate text-[10px] text-indigo-600/80 dark:text-indigo-300/80">{live.citationUrl}</p>
+			{observationKey ? (
+				<p className="mt-1 text-[10px] font-semibold text-slate-600 dark:text-zinc-300">
+					{t(`observation.${observationKey}`)}
+				</p>
+			) : null}
+			{asHttpUrl(live.citationUrl) ? (
+				<p className="mt-1.5 truncate text-[10px] text-indigo-600/80 dark:text-indigo-300/80">{asHttpUrl(live.citationUrl)}</p>
 			) : null}
 			{tier === 'WEAK' && live.weaknessReasons && live.weaknessReasons.length > 0 ? (
 				<div className="mt-2 rounded-md bg-amber-50/80 px-2 py-1.5 dark:bg-amber-500/10">
@@ -556,6 +627,7 @@ function EngineCard({
 	engine,
 	lang,
 	live,
+	lastGrounded,
 	liveAttempted,
 	insightSignals,
 	guideModel,
@@ -563,6 +635,7 @@ function EngineCard({
 	engine: EngineAnalysisResult & { engineLabel?: string };
 	lang: 'ko' | 'en';
 	live?: LiveEngineCheckResult;
+	lastGrounded?: LiveEngineCheckResult;
 	liveAttempted: boolean;
 	insightSignals: EngineInsightSignals;
 	guideModel: GeoWorkGuideModel;
@@ -609,12 +682,15 @@ function EngineCard({
 				isProxy={isProxy}
 				grounded={grounded}
 				failed={failed}
+				live={live}
 			/>
 
 			<EngineScoreBlock
 				readinessScore={readinessScore}
 				live={live}
 				showDual={showDual}
+				estimateOnly={Boolean(live) && !isProxy && !grounded}
+				lastGrounded={!isProxy && !grounded ? lastGrounded : undefined}
 				lang={lang}
 			/>
 
@@ -656,6 +732,7 @@ function EngineGroup({
 	dotClass,
 	engines,
 	liveByEngine,
+	lastGroundedByEngine,
 	liveAttempted,
 	lang,
 	insightSignals,
@@ -666,6 +743,7 @@ function EngineGroup({
 	dotClass: string;
 	engines: EngineAnalysisResult[];
 	liveByEngine: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>>;
+	lastGroundedByEngine: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>>;
 	liveAttempted: boolean;
 	lang: 'ko' | 'en';
 	insightSignals: EngineInsightSignals;
@@ -688,6 +766,7 @@ function EngineGroup({
 						engine={engine}
 						lang={lang}
 						live={liveByEngine[engine.engine]}
+						lastGrounded={lastGroundedByEngine[engine.engine]}
 						liveAttempted={liveAttempted}
 						insightSignals={insightSignals}
 						guideModel={guideModel}
@@ -701,12 +780,14 @@ function EngineGroup({
 function EngineDiagnosticGrid({
 	engineResults,
 	liveByEngine,
+	lastGroundedByEngine,
 	liveAttempted,
 	insightSignals,
 	guideModel,
 }: {
 	engineResults: EngineAnalysisResult[];
 	liveByEngine: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>>;
+	lastGroundedByEngine: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>>;
 	liveAttempted: boolean;
 	insightSignals: EngineInsightSignals;
 	guideModel: GeoWorkGuideModel;
@@ -727,6 +808,7 @@ function EngineDiagnosticGrid({
 				dotClass="bg-emerald-400"
 				engines={liveEngines}
 				liveByEngine={liveByEngine}
+				lastGroundedByEngine={lastGroundedByEngine}
 				liveAttempted={liveAttempted}
 				lang={lang}
 				insightSignals={insightSignals}
@@ -738,6 +820,7 @@ function EngineDiagnosticGrid({
 				dotClass="bg-blue-400"
 				engines={proxyEngines}
 				liveByEngine={liveByEngine}
+				lastGroundedByEngine={lastGroundedByEngine}
 				liveAttempted={liveAttempted}
 				lang={lang}
 				insightSignals={insightSignals}
@@ -758,10 +841,19 @@ export function AiEngineExposurePanel({
 	const [selectedTab, setSelectedTab] = useState<ExposurePanelTab>('exposure');
 	const [liveCheckState, setLiveCheckState] = useState<LiveCheckState>('idle');
 	const [liveError, setLiveError] = useState<string | null>(null);
-	const [liveByEngine, setLiveByEngine] = useState<Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>>>({});
+	const [liveSnapshot, setLiveSnapshot] = useState<LiveEngineChecksSnapshot | null>(null);
+	const [persistNote, setPersistNote] = useState<'saved' | 'local' | 'stale' | 'error' | null>(null);
 	const checkingRef = useRef(false);
+	/** Only the newest request may write state, so a slow older response cannot overwrite a newer one. */
+	const requestSeqRef = useRef(0);
 	const { snapshot } = useAuditData();
 	const engineResults: EngineAnalysisResult[] = snapshot.engines;
+	const liveByEngine = useMemo(() => {
+		const byEngine: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>> = {};
+		for (const result of liveSnapshot?.results ?? []) byEngine[result.engine] = result;
+		return byEngine;
+	}, [liveSnapshot]);
+	const lastGroundedByEngine = liveSnapshot?.lastGrounded ?? {};
 	const liveAttempted = Object.keys(liveByEngine).length > 0;
 	const isChecking = liveCheckState === 'loading';
 	const isLiveCompleted = liveCheckState === 'completed';
@@ -813,18 +905,32 @@ export function AiEngineExposurePanel({
 		setSelectedTab((prev) => (prev === tab ? prev : tab));
 	}, []);
 
+	/** A saved re-verification comes back with the stored report, so a reload keeps it. */
+	const savedLive = report.liveEngineChecks;
+	useEffect(() => {
+		const saved = readSavedSnapshot({ liveEngineChecks: savedLive });
+		if (!saved) return;
+		// Never replace a result from a check made in this session.
+		setLiveSnapshot((prev) => prev ?? saved);
+		setLiveCheckState((prev) => (prev === 'idle' ? 'completed' : prev));
+	}, [savedLive]);
+
 	const handleLiveCheck = useCallback(async () => {
 		if (checkingRef.current || !siteUrl || !siteName) return;
 		checkingRef.current = true;
+		const seq = ++requestSeqRef.current;
 		setLiveCheckState('loading');
 		setLiveError(null);
+		setPersistNote(null);
 		try {
 			const ruleScores = Object.fromEntries(engineResults.map((engine) => [engine.engine, engine.score]));
+			const auditId = new URLSearchParams(window.location.search).get('id')?.trim() || undefined;
 			const res = await fetch('/api/audit/live-check', {
 				method: 'POST',
 				cache: 'no-store',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
+					auditId,
 					siteUrl,
 					siteName,
 					targetQuery,
@@ -835,24 +941,48 @@ export function AiEngineExposurePanel({
 				}),
 			});
 			const data = (await res.json()) as LiveCheckResponse;
+			if (seq !== requestSeqRef.current) return;
 			if (!res.ok || !data.success) {
 				setLiveError(data.error || t('liveCheckError'));
 				setLiveCheckState('error');
 				return;
 			}
-			const next: Partial<Record<LiveCheckEngineId, LiveEngineCheckResult>> = {};
-			for (const result of data.results || []) {
-				next[result.engine] = result;
-			}
-			setLiveByEngine(next);
+			// A confirmed write returns the stored, already merged snapshot (earlier successes kept in
+			// `lastGrounded`). Otherwise merge this run into what the page already shows.
+			const incoming: LiveEngineChecksSnapshot = data.snapshot ?? {
+				checkedAt: data.checkedAt || new Date().toISOString(),
+				startedAt: data.startedAt,
+				targetQuery: data.targetQuery || targetQuery,
+				results: data.results || [],
+			};
+			const merged = data.persisted && data.snapshot ? data.snapshot : mergeLiveSnapshots(liveSnapshot, incoming);
+			setLiveSnapshot(merged);
 			setLiveCheckState('completed');
-		} catch {
-			setLiveError(t('liveCheckError'));
-			setLiveCheckState('error');
+
+			if (data.persisted) {
+				setPersistNote('saved');
+			} else if (data.persistStatus === 'stale') {
+				setPersistNote('stale');
+			} else if (data.persistStatus === 'error') {
+				setPersistNote('error');
+			} else if (auditId) {
+				// The record is not on the server, so keep the result with the guest copy for reloads.
+				const guest = getGuestAuditById(auditId);
+				if (guest?.report) {
+					saveGuestAudit(auditId, { ...guest.report, liveEngineChecks: merged });
+					setPersistNote('local');
+				}
+			}
+		} catch (error) {
+			console.error('[live-check client]:', error instanceof Error ? error.message : error);
+			if (seq === requestSeqRef.current) {
+				setLiveError(t('liveCheckError'));
+				setLiveCheckState('error');
+			}
 		} finally {
 			checkingRef.current = false;
 		}
-	}, [category, engineResults, location, siteName, siteUrl, t, targetQuery, report.siteMeta?.brandAliases]);
+	}, [category, engineResults, liveSnapshot, location, siteName, siteUrl, t, targetQuery, report.siteMeta?.brandAliases]);
 
 	const tabClass = (tab: ExposurePanelTab) =>
 		`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-[11px] font-extrabold transition ${
@@ -958,20 +1088,28 @@ export function AiEngineExposurePanel({
 				<EngineDiagnosticGrid
 					engineResults={engineResults}
 					liveByEngine={liveByEngine}
+					lastGroundedByEngine={lastGroundedByEngine}
 					liveAttempted={liveAttempted}
 					insightSignals={insightSignals}
 					guideModel={guideModel}
 				/>
 			</div>
 
+			{persistNote ? (
+				<p className="print:hidden text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+					{t(`persist.${persistNote}`)}
+				</p>
+			) : null}
+
 			{liveAttempted ? (
-				<p
-					className={`text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 ${
+				<div
+					className={`space-y-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400 ${
 						selectedTab === 'exposure' ? '' : 'hidden print:block'
 					}`}
 				>
-					{t('liveCheckFooterNotice')}
-				</p>
+					<p>{t('liveCheckFooterNotice')}</p>
+					<p>{t('liveCheckApiNotice')}</p>
+				</div>
 			) : null}
 		</section>
 	);

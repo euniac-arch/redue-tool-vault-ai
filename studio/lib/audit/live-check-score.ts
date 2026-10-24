@@ -15,12 +15,14 @@ import {
 	urlMatchesSite,
 } from '@/lib/audit/live-check-mentions';
 import { classifyCitations } from '@/lib/audit/universal-sov-engine';
+import type { LiveFailureDetail } from '@/lib/audit/live-check-errors';
 import type {
 	GroundingTier,
 	LiveCheckEngineId,
 	LiveCitationMention,
 	LiveEngineCheckResult,
 	LiveGroundedEngineId,
+	LiveObservationStatus,
 	LiveReachLevel,
 	MentionType,
 } from '@/types/live-engine-check';
@@ -30,7 +32,7 @@ export { evaluateAiGroundingResponse } from '@/lib/audit/ai-grounding-evaluator'
 export type { AiEvaluationDetail };
 export type { GroundingStatusColor, GroundingTier } from '@/types/live-engine-check';
 
-export const LIVE_CHECK_TIMEOUT_MS = 12_000;
+export const LIVE_CHECK_TIMEOUT_MS = 15_000;
 
 export const DEFAULT_CITED_SNIPPET = '실시간 추천 답변에서 해당 브랜드/공식 웹사이트 인용이 확인되었습니다.';
 export const DEFAULT_UNCITED_SNIPPET =
@@ -67,6 +69,15 @@ function clamp(value: number, min: number, max: number): number {
 function asTrim(value: unknown): string {
 	return typeof value === 'string' ? value.trim() : '';
 }
+
+/** Only a real http(s) URL counts. Placeholders such as "empty" or "none" are dropped. */
+export function asHttpUrl(value: unknown): string {
+	const raw = asTrim(value);
+	return /^https?:\/\/\S+$/i.test(raw) ? raw : '';
+}
+
+/** Words a model writes when it has no value, never real evidence text. */
+const PLACEHOLDER_TEXT = /^(empty|none|null|undefined|n\/a|na|nil|-+|\.+)$/i;
 
 export function resolveLiveCheckQuery(input: {
 	targetKeyword?: string | null;
@@ -268,7 +279,7 @@ export function sanitizeEvidenceSnippet(
 ): string {
 	const defaultSnippet = fallback || (isCited ? DEFAULT_CITED_SNIPPET : DEFAULT_UNCITED_SNIPPET);
 	const trimmed = raw.replace(/\s+/g, ' ').trim();
-	if (!trimmed || looksLikeRawJson(trimmed)) return defaultSnippet;
+	if (!trimmed || PLACEHOLDER_TEXT.test(trimmed) || looksLikeRawJson(trimmed)) return defaultSnippet;
 	if (/[{}\[\]]/.test(trimmed)) {
 		const cleaned = trimmed.replace(/[{}\[\]"]/g, ' ').replace(/\s+/g, ' ').trim();
 		if (!cleaned || looksLikeRawJson(cleaned) || /isCited|mentionType|evidenceSnippet|reachLevel/i.test(cleaned)) {
@@ -283,9 +294,10 @@ export function sanitizeEvidenceSnippet(
  * Pull a compact citation JSON object out of markdown fences / mixed prose.
  * Never returns raw JSON text as evidenceSnippet.
  *
- * Throws `LiveCheckParseError` when no JSON object can be recovered at all —
- * callers must treat that as a verification FAILURE (fallback to rule score),
- * not as a false "not cited" verdict.
+ * Throws `LiveCheckParseError` when no JSON object can be recovered at all.
+ * Structured engines still treat that as a failed judge. Search engines use
+ * `groundingObservationFromSearch`, which keeps the HTTP response live and
+ * reads the brand from the answer text and citation URLs.
  */
 export function parseLLMResponse(
 	rawText: string,
@@ -317,7 +329,7 @@ export function parseLLMResponse(
 		rank: mentionType === 'recommended' ? rank : null,
 		evidenceSnippet: snippet,
 		reachLevel: parseReachLevel(json.reachLevel, isCited),
-		citationUrl: asTrim(json.citationUrl ?? json.url ?? json.sourceUrl) || undefined,
+		citationUrl: asHttpUrl(json.citationUrl ?? json.url ?? json.sourceUrl) || undefined,
 		citations,
 	};
 }
@@ -328,7 +340,7 @@ function parseCitationMentions(raw: unknown): LiveCitationMention[] | undefined 
 	for (const item of raw) {
 		if (!item || typeof item !== 'object') continue;
 		const row = item as Record<string, unknown>;
-		const url = asTrim(row.url);
+		const url = asHttpUrl(row.url);
 		const title = asTrim(row.title);
 		if (!url && !title) continue;
 		out.push({ title, url, isTargetMention: row.isTargetMention === true });
@@ -376,6 +388,35 @@ export function parseLiveCheckPayload(
 	};
 }
 
+/**
+ * Search-engine observation. A real Perplexity or Gemini body stays live even
+ * when it is prose plus citations instead of the judge JSON.
+ */
+export function groundingObservationFromSearch(
+	rawText: string,
+	siteName: string,
+	siteUrl: string,
+	citationCandidates: readonly string[] = [],
+	extraAliases: readonly string[] = [],
+): LiveCheckParse {
+	try {
+		return parseLiveCheckPayload(rawText, siteName, siteUrl, citationCandidates, extraAliases);
+	} catch (error) {
+		if (!(error instanceof LiveCheckParseError)) throw error;
+	}
+	const textCited = mentionsBrandOrSite(rawText, siteName, siteUrl, extraAliases);
+	const matched = citationCandidates.find((url) => urlMatchesSite(url, siteUrl));
+	const cited = textCited || Boolean(matched);
+	const rank = textCited ? detectCitedRank(rawText, siteName, siteUrl, extraAliases) : null;
+	return {
+		isCited: cited,
+		mentionType: !cited ? 'none' : rank && rank <= 2 ? 'recommended' : 'simple_mention',
+		rank: rank && rank <= 2 ? rank : null,
+		evidenceSnippet: sanitizeEvidenceSnippet(rawText, cited),
+		citationUrl: matched || undefined,
+	};
+}
+
 function classifyCitationList(
 	parsed: LiveCitationMention[] | undefined,
 	candidates: readonly string[],
@@ -395,8 +436,73 @@ export interface LiveResultContext {
 	rawResponseText?: string;
 	targetBrand?: string;
 	targetDomain?: string;
+	/** URLs the answer itself cites (Perplexity `citations`, Gemini chunks backing a support). */
 	citationCandidates?: readonly string[];
+	/** Every retrieved search result, including ones the answer did not cite. */
+	resultUrls?: readonly string[];
+	/** When set, the response is judged on search evidence. Unset keeps the legacy judge-only path. */
+	search?: SearchEvidence;
 	brandAliases?: readonly string[];
+}
+
+/** Adds the call-level observation fields to a finished verdict. */
+function withObservation(result: LiveEngineCheckResult, context: LiveResultContext | undefined): LiveEngineCheckResult {
+	const siteUrl = context?.targetDomain || '';
+	const answerText = (context?.rawResponseText || '').trim();
+	const urlsInText = answerText.match(/https?:\/\/[^\s"'<>)\]]+/gi) ?? [];
+	const answerUrls = [...(context?.citationCandidates ?? []), ...urlsInText];
+	const resultUrls = [...new Set([...(context?.resultUrls ?? []), ...answerUrls])];
+	const officialCited = Boolean(siteUrl) && answerUrls.some((url) => urlMatchesSite(url, siteUrl));
+	const officialInResults = !officialCited && Boolean(siteUrl) && resultUrls.some((url) => urlMatchesSite(url, siteUrl));
+	const brandMentioned =
+		Boolean(answerText && context?.targetBrand) &&
+		mentionsBrandOrSite(answerText, context?.targetBrand || '', siteUrl, context?.brandAliases ?? []);
+
+	const observation: LiveObservationStatus = officialCited
+		? 'official_cited'
+		: result.isCited
+			? 'brand_mentioned'
+			: officialInResults
+				? 'official_in_results'
+				: 'not_observed';
+
+	return {
+		...result,
+		observation,
+		searchEvidence: context?.search ? context.search.performed : true,
+		searchSourceCount: context?.search?.sourceCount,
+		brandMentioned,
+		officialCited,
+		officialInResults,
+	};
+}
+
+/** An answer arrived but the response shows no web search. No exposure verdict is made. */
+function buildNoSearchEvidenceResult(
+	engine: LiveGroundedEngineId,
+	ruleScore: number,
+	context: LiveResultContext | undefined,
+): LiveEngineCheckResult {
+	return {
+		engine,
+		isLive: true,
+		isGrounding: false,
+		isLiveGrounded: false,
+		isCited: false,
+		reachLevel: 'Level 1',
+		liveScore: clamp(ruleScore, 0, 100),
+		evidenceSnippet: '응답은 완료되었지만 웹 검색을 수행한 근거(검색 출처·인용)를 확인하지 못해 노출 여부를 판정하지 않았습니다.',
+		fallbackToRuleScore: true,
+		citedRank: null,
+		statusLabel: '응답 완료 · 검색 근거 미확인',
+		statusColor: 'yellow',
+		observation: 'no_search_evidence',
+		searchEvidence: false,
+		searchSourceCount: context?.search?.sourceCount ?? 0,
+		brandMentioned: false,
+		officialCited: false,
+		officialInResults: false,
+	};
 }
 
 function composeGroundingText(parsed: LiveCheckParse, context?: LiveResultContext): string {
@@ -486,10 +592,16 @@ export function computeReachLevel(isCited: boolean, citationUrl?: string): LiveR
 	return 'Level 1';
 }
 
+/**
+ * No measurement: the call failed or returned an empty body. The rule score stays,
+ * and nothing here says the brand was or was not exposed. `mentionType` and `tier`
+ * are left unset on purpose so no consumer reads a failure as "not exposed".
+ */
 export function buildFailedLiveResult(
 	engine: LiveGroundedEngineId,
 	ruleScore: number,
 	error: string,
+	detail?: LiveFailureDetail,
 ): LiveEngineCheckResult {
 	const { liveScore, fallbackToRuleScore } = computeLiveScore({
 		isCited: false,
@@ -498,21 +610,59 @@ export function buildFailedLiveResult(
 		ruleScore,
 		failed: true,
 	});
+	const emptyBody = detail?.kind === 'empty_body';
 	return {
 		engine,
+		isLive: false,
+		isGrounding: false,
 		isLiveGrounded: false,
 		isCited: false,
-		mentionType: 'none',
 		reachLevel: 'Level 1',
 		liveScore,
 		evidenceSnippet: error,
 		fallbackToRuleScore,
 		citedRank: null,
-		tier: 'NOT_FOUND',
-		statusLabel: '✕ 실시간 조회 실패 (기술 준비도 유지)',
-		statusColor: 'red',
+		statusLabel: emptyBody ? '응답 본문 확인 불가 (기술 준비도 유지)' : '실시간 조회 실패 (기술 준비도 유지)',
+		statusColor: 'yellow',
 		error,
+		observation: emptyBody ? 'empty_body' : 'request_failed',
+		failureKind: detail?.kind ?? 'unknown',
+		httpStatus: detail?.httpStatus,
+		providerErrorCode: detail?.providerCode,
+		providerRequestId: detail?.requestId,
+		searchEvidence: false,
 	};
+}
+
+/** Test data from a MOCK_* flag. It is labeled and never counted as a measurement. */
+export function buildMockLiveResult(engine: LiveGroundedEngineId, ruleScore: number): LiveEngineCheckResult {
+	return {
+		engine,
+		isLive: false,
+		isGrounding: false,
+		isLiveGrounded: false,
+		isCited: false,
+		reachLevel: 'Level 1',
+		liveScore: clamp(ruleScore, 0, 100),
+		evidenceSnippet: '테스트용 Mock 데이터입니다. 실제 AI 응답이 아닙니다.',
+		fallbackToRuleScore: true,
+		citedRank: null,
+		statusLabel: '테스트 데이터 (실측 아님)',
+		statusColor: 'yellow',
+		observation: 'mock',
+		searchEvidence: false,
+		isMock: true,
+	};
+}
+
+/**
+ * What the response showed about a web search. `performed` is true only with evidence in
+ * the response itself (Gemini grounding chunks or queries, Perplexity citations or
+ * search results, an OpenAI or Claude search-tool call).
+ */
+export interface SearchEvidence {
+	performed: boolean;
+	sourceCount: number;
 }
 
 export function buildLiveEngineResult(
@@ -521,6 +671,11 @@ export function buildLiveEngineResult(
 	ruleScore: number,
 	context?: LiveResultContext,
 ): LiveEngineCheckResult {
+	// A body without search evidence is never an exposure verdict, however it reads.
+	if (context?.search && !context.search.performed) {
+		return buildNoSearchEvidenceResult(engine, ruleScore, context);
+	}
+
 	const composedText = composeGroundingText(parsed, context);
 	const targetBrand = context?.targetBrand || '';
 	const targetDomain = context?.targetDomain || parsed.citationUrl || '';
@@ -547,28 +702,33 @@ export function buildLiveEngineResult(
 		const isCited = evaluation.tier !== 'NOT_FOUND' || earnedMention;
 		const mentionType = isCited && evaluation.tier === 'NOT_FOUND' ? 'simple_mention' : mentionTypeForTier(evaluation.tier);
 		const citationUrl = evaluation.citedUrl || parsed.citationUrl?.trim() || undefined;
-		return {
-			engine,
-			isLiveGrounded: true,
-			isCited,
-			mentionType,
-			reachLevel: reachLevelForTier(evaluation.tier === 'NOT_FOUND' && earnedMention ? 'NEUTRAL' : evaluation.tier, citationUrl),
-			liveScore: evaluation.liveScore,
-			evidenceSnippet: sanitizeEvidenceSnippet(
-				evaluation.citationExcerpt || parsed.evidenceSnippet,
+		return withObservation(
+			{
+				engine,
+				isLive: true,
+				isGrounding: isCited,
+				isLiveGrounded: true,
 				isCited,
-				isCited ? DEFAULT_CITED_SNIPPET : DEFAULT_UNCITED_SNIPPET,
-			),
-			citationUrl,
-			citedSources: collectCitedSources(citationUrl, context),
-			citations: parsed.citations,
-			fallbackToRuleScore: false,
-			citedRank: evaluation.tier === 'STRONG' ? parsed.rank || detectCitedRank(composedText, targetBrand, targetDomain, context?.brandAliases) : null,
-			tier: evaluation.tier === 'NOT_FOUND' && earnedMention ? 'NEUTRAL' : evaluation.tier,
-			statusLabel: evaluation.statusLabel,
-			statusColor: evaluation.statusColor,
-			weaknessReasons: evaluation.weaknessReasons,
-		};
+				mentionType,
+				reachLevel: reachLevelForTier(evaluation.tier === 'NOT_FOUND' && earnedMention ? 'NEUTRAL' : evaluation.tier, citationUrl),
+				liveScore: evaluation.liveScore,
+				evidenceSnippet: sanitizeEvidenceSnippet(
+					evaluation.citationExcerpt || parsed.evidenceSnippet,
+					isCited,
+					isCited ? DEFAULT_CITED_SNIPPET : DEFAULT_UNCITED_SNIPPET,
+				),
+				citationUrl,
+				citedSources: collectCitedSources(citationUrl, context),
+				citations: parsed.citations,
+				fallbackToRuleScore: false,
+				citedRank: evaluation.tier === 'STRONG' ? parsed.rank || detectCitedRank(composedText, targetBrand, targetDomain, context?.brandAliases) : null,
+				tier: evaluation.tier === 'NOT_FOUND' && earnedMention ? 'NEUTRAL' : evaluation.tier,
+				statusLabel: evaluation.statusLabel,
+				statusColor: evaluation.statusColor,
+				weaknessReasons: evaluation.weaknessReasons,
+			},
+			context,
+		);
 	}
 
 	const citationUrl = parsed.citationUrl?.trim() || undefined;
@@ -592,28 +752,33 @@ export function buildLiveEngineResult(
 						? 'STRONG'
 						: 'NEUTRAL';
 	const isCited = inferredTier !== 'NOT_FOUND';
-	return {
-		engine,
-		isLiveGrounded: true,
-		isCited,
-		mentionType: mentionTypeForTier(inferredTier),
-		reachLevel: reachLevelForTier(inferredTier, citationUrl),
-		liveScore,
-		evidenceSnippet: sanitizeEvidenceSnippet(
-			parsed.evidenceSnippet,
+	return withObservation(
+		{
+			engine,
+			isLive: true,
+			isGrounding: isCited,
+			isLiveGrounded: true,
 			isCited,
-			isCited ? DEFAULT_CITED_SNIPPET : DEFAULT_UNCITED_SNIPPET,
-		),
-		citationUrl,
-		citedSources: collectCitedSources(citationUrl, context),
-		citations: parsed.citations,
-		fallbackToRuleScore,
-		citedRank: inferredTier === 'STRONG' ? parsed.rank : null,
-		tier: inferredTier,
-		statusLabel: GROUNDING_STATUS_LABEL[inferredTier],
-		statusColor: GROUNDING_STATUS_COLOR[inferredTier],
-		weaknessReasons: inferredTier === 'WEAK' ? ['추천 신호가 약함 — GEO 보강 필요'] : undefined,
-	};
+			mentionType: mentionTypeForTier(inferredTier),
+			reachLevel: reachLevelForTier(inferredTier, citationUrl),
+			liveScore,
+			evidenceSnippet: sanitizeEvidenceSnippet(
+				parsed.evidenceSnippet,
+				isCited,
+				isCited ? DEFAULT_CITED_SNIPPET : DEFAULT_UNCITED_SNIPPET,
+			),
+			citationUrl,
+			citedSources: collectCitedSources(citationUrl, context),
+			citations: parsed.citations,
+			fallbackToRuleScore,
+			citedRank: inferredTier === 'STRONG' ? parsed.rank : null,
+			tier: inferredTier,
+			statusLabel: GROUNDING_STATUS_LABEL[inferredTier],
+			statusColor: GROUNDING_STATUS_COLOR[inferredTier],
+			weaknessReasons: inferredTier === 'WEAK' ? ['추천 신호가 약함 — GEO 보강 필요'] : undefined,
+		},
+		context,
+	);
 }
 
 export function ruleScoreFor(engine: LiveCheckEngineId, ruleScores?: Partial<Record<LiveCheckEngineId, number>>): number {

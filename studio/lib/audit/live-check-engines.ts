@@ -1,10 +1,21 @@
+﻿import {
+	classifyProviderError,
+	describeFailure,
+	extractProviderError,
+	scrubSecrets,
+	stopsModelFallback,
+	type LiveFailureDetail,
+} from '@/lib/audit/live-check-errors';
 import {
 	LIVE_CHECK_TIMEOUT_MS,
 	buildFailedLiveResult,
 	buildLiveEngineResult,
-	extractJsonFromText,
+	buildMockLiveResult,
+	groundingObservationFromSearch,
+	LiveCheckParseError,
 	parseLiveCheckPayload,
 	ruleScoreFor,
+	type SearchEvidence,
 } from '@/lib/audit/live-check-score';
 import { buildSovIndustryPromptGuide } from '@/lib/audit/sov-industry-guard';
 import { buildSovNichePromptGuide } from '@/lib/audit/sov-niche-entity';
@@ -12,8 +23,8 @@ import {
 	LIVE_GROUNDED_ENGINE_IDS,
 	type LiveCheckEngineId,
 	type LiveEngineCheckResult,
+	type LiveFailureKind,
 	type LiveGroundedEngineId,
-	type MentionType,
 } from '@/types/live-engine-check';
 
 const OPENAI_CHAT_URL = 'https://api.openai.com/v1/chat/completions';
@@ -21,7 +32,13 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const PERPLEXITY_URL = 'https://api.perplexity.ai/chat/completions';
 
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-2.5-flash-lite'] as const;
+/**
+ * Fallbacks are used only when the primary model is reported unavailable. Both names were
+ * returned by `GET /v1beta/models` for this project's key with generateContent support on
+ * 2026-10-24, and the Gemini models page lists `gemini-3.5-flash-lite` as Stable.
+ * `gemini-1.5-*` is not served and `gemini-2.0-flash` is shut down, so neither is listed.
+ */
+const GEMINI_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.5-flash-lite'] as const;
 const DEFAULT_ANTHROPIC_MODEL = 'claude-haiku-4-5-20251001';
 const ANTHROPIC_FALLBACK_MODELS = ['claude-3-5-haiku-20241022', 'claude-3-haiku-20240307'] as const;
 
@@ -33,43 +50,40 @@ function isEnvTrue(name: string): boolean {
 	return envString(name).toLowerCase() === 'true';
 }
 
+function isProductionRuntime(): boolean {
+	return process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production';
+}
+
+let mockIgnoredWarned = false;
+
+/**
+ * MOCK_* flags only apply outside production. In production they are ignored with a warning,
+ * so a stray flag can never replace a real measurement with test data.
+ */
+function isMockEnabled(name: string): boolean {
+	if (!isEnvTrue(name)) return false;
+	if (isProductionRuntime()) {
+		if (!mockIgnoredWarned) {
+			mockIgnoredWarned = true;
+			console.warn(`[Live Check] ${name}=true is ignored in production. Real API calls are used.`);
+		}
+		return false;
+	}
+	return true;
+}
+
 function liveCheckMockFlags(): Record<LiveGroundedEngineId, boolean> {
 	return {
-		chatgpt: isEnvTrue('MOCK_OPENAI'),
-		gemini: isEnvTrue('MOCK_GEMINI'),
-		perplexity: isEnvTrue('MOCK_PERPLEXITY'),
-		claude: isEnvTrue('MOCK_CLAUDE'),
+		chatgpt: isMockEnabled('MOCK_OPENAI'),
+		gemini: isMockEnabled('MOCK_GEMINI'),
+		perplexity: isMockEnabled('MOCK_PERPLEXITY'),
+		claude: isMockEnabled('MOCK_CLAUDE'),
 	};
 }
 
-function buildMockLiveResult(
-	engine: LiveGroundedEngineId,
-	input: LiveCheckEngineInput,
-	preset: {
-		isCited: boolean;
-		mentionType: MentionType;
-		citedRank: 1 | 2 | 3 | null;
-		evidenceSnippet: string;
-		citationUrl?: string;
-	},
-): LiveEngineCheckResult {
-	console.info(`[${engine} Live Check] mock (0원 가상 데이터)`, { engine });
-	return buildLiveEngineResult(
-		engine,
-		{
-			isCited: preset.isCited,
-			mentionType: preset.mentionType,
-			rank: preset.citedRank,
-			evidenceSnippet: preset.evidenceSnippet,
-			citationUrl: preset.citationUrl,
-		},
-		ruleScoreFor(engine, input.ruleScores),
-		{
-			rawResponseText: preset.evidenceSnippet,
-			targetBrand: input.siteName,
-			targetDomain: input.siteUrl,
-		},
-	);
+function mockResult(engine: LiveGroundedEngineId, input: LiveCheckEngineInput): LiveEngineCheckResult {
+	console.info(`[${engine} Live Check] mock data (not a measurement)`, { engine });
+	return buildMockLiveResult(engine, ruleScoreFor(engine, input.ruleScores));
 }
 
 function uniqueModels(models: readonly string[]): string[] {
@@ -92,17 +106,13 @@ function resolveAnthropicModels(): string[] {
 	return uniqueModels([envString('ANTHROPIC_MODEL') || DEFAULT_ANTHROPIC_MODEL, ...ANTHROPIC_FALLBACK_MODELS]);
 }
 
-function isModelUnavailable(status: number, message: string): boolean {
-	if (status === 404) return true;
-	const hay = message.toLowerCase();
-	return (
-		hay.includes('not_found_error') ||
-		hay.includes('not found') ||
-		hay.includes('does not exist') ||
-		hay.includes('invalid model') ||
-		hay.includes('unsupported') ||
-		hay.includes('no longer available')
-	);
+function resolvePerplexityModels(): string[] {
+	const requested = envString('PERPLEXITY_MODEL');
+	const deprecated = /llama|pplx|sonar-small|sonar-medium|sonar-large/i.test(requested);
+	if (deprecated) {
+		console.error('[Perplexity Error Detail]:', `${requested} 모델은 지원이 종료되었습니다. sonar로 호출합니다.`);
+	}
+	return uniqueModels([!requested || deprecated ? 'sonar' : requested, 'sonar', 'sonar-pro']);
 }
 
 function geminiGenerateUrl(model: string): string {
@@ -111,7 +121,7 @@ function geminiGenerateUrl(model: string): string {
 
 /** Human-readable schema shown inline in prompts (Perplexity + fallback text instructions). */
 const LIVE_JSON_SCHEMA =
-	'{"isCited":boolean,"mentionType":"none"|"simple_mention"|"recommended","rank":1|2|3|null,"evidenceSnippet":"한 줄 판정 요약(한국어)","reachLevel":"Level 1"|"Level 2"|"Level 3","citationUrl":"url or empty","citations":[{"title":string,"url":string,"isTargetMention":boolean}]}';
+	'{"isCited":boolean,"mentionType":"none"|"simple_mention"|"recommended","rank":1|2|3|null,"evidenceSnippet":"한 줄 판정 요약(한국어)","reachLevel":"Level 1"|"Level 2"|"Level 3","citationUrl":"http로 시작하는 출처 URL, 없으면 빈 문자열","citations":[{"title":string,"url":string,"isTargetMention":boolean}]}';
 
 function liveJsonSystemPrompt(brandAliases: readonly string[] = [], targetUrl = ''): string {
 	const aliasLine = brandAliases.length
@@ -168,20 +178,6 @@ const OPENAI_CITATION_SCHEMA = {
 	},
 };
 
-/** Gemini `generationConfig.responseSchema` (classic generateContent OpenAPI-subset dialect). */
-const GEMINI_CITATION_SCHEMA = {
-	type: 'OBJECT',
-	properties: {
-		isCited: { type: 'BOOLEAN' },
-		mentionType: { type: 'STRING', enum: [...MENTION_TYPE_VALUES] },
-		rank: { type: 'INTEGER', nullable: true },
-		evidenceSnippet: { type: 'STRING' },
-		reachLevel: { type: 'STRING', enum: [...REACH_LEVEL_VALUES] },
-		citationUrl: { type: 'STRING' },
-	},
-	required: ['isCited', 'mentionType', 'evidenceSnippet'],
-};
-
 /** Anthropic tool `input_schema` used to force structured output via `tool_choice`. */
 const CLAUDE_CITATION_TOOL = {
 	name: 'report_citation_check',
@@ -200,27 +196,6 @@ const CLAUDE_CITATION_TOOL = {
 			citationUrl: { type: 'string' },
 		},
 		required: ['isCited', 'mentionType', 'rank', 'evidenceSnippet', 'reachLevel', 'citationUrl'],
-	},
-};
-
-/** Perplexity Structured Outputs (`response_format: json_schema`, all fields required per Perplexity constraints). */
-const PERPLEXITY_CITATION_SCHEMA = {
-	type: 'json_schema' as const,
-	json_schema: {
-		name: 'citation_check',
-		schema: {
-			type: 'object',
-			properties: {
-				isCited: { type: 'boolean' },
-				mentionType: { type: 'string', enum: [...MENTION_TYPE_VALUES] },
-				rank: { anyOf: [{ type: 'integer' }, { type: 'null' }] },
-				evidenceSnippet: { type: 'string' },
-				reachLevel: { type: 'string', enum: [...REACH_LEVEL_VALUES] },
-				citationUrl: { type: 'string' },
-			},
-			required: ['isCited', 'mentionType', 'rank', 'evidenceSnippet', 'reachLevel', 'citationUrl'],
-			additionalProperties: false,
-		},
 	},
 };
 
@@ -285,164 +260,306 @@ function userPrompt(input: LiveCheckEngineInput): string {
 	].join('\n');
 }
 
-function perplexityUserPrompt(input: LiveCheckEngineInput): string {
+/**
+ * Plain search question. The target brand is not named, so the answer shows what the
+ * engine recommends on its own. The brand is matched afterward in the text and citations.
+ */
+function searchQuestion(input: LiveCheckEngineInput): string {
 	const localeHint = [input.location, input.category].filter(Boolean).join(' ');
-	return [
-		...contextLines(input),
-		`${input.targetQuery}${localeHint ? ` (${localeHint})` : ''} 관련하여 국내 로컬 검색 기준으로 추천해 주세요.`,
-		`반드시 ${input.siteName}(${input.siteUrl})와 brandAliases를 공식 웹사이트·네이버/구글 로컬 결과에서 우선 확인하고,`,
-		'Reddit 등 해외 커뮤니티나 무관한 해외 사이트를 인용하지 마세요.',
-		`대상 사이트가 답변에 추천/인용되었는지 다음 JSON으로만 답하세요: ${LIVE_JSON_SCHEMA}`,
-	].join('\n');
+	return `${input.targetQuery}${localeHint ? ` (${localeHint})` : ''}`;
 }
 
-function timeoutError(error: unknown): string {
-	if ((error as { name?: string })?.name === 'AbortError') {
-		return '실시간 조회가 12초를 초과했습니다.';
+const SEARCH_SYSTEM_PROMPT = 'You are a real-time web search assistant. Search the live web and return findings with citations.';
+
+const ENGINE_LABEL: Record<LiveGroundedEngineId, string> = {
+	chatgpt: 'ChatGPT',
+	perplexity: 'Perplexity',
+	gemini: 'Gemini',
+	claude: 'Claude',
+};
+
+/** A classified live-call failure. The kind comes from the provider's own error fields. */
+class LiveEngineFailure extends Error {
+	constructor(
+		message: string,
+		readonly detail: LiveFailureDetail,
+	) {
+		super(message);
+		this.name = 'LiveEngineFailure';
 	}
-	return error instanceof Error ? error.message : '실시간 조회에 실패했습니다.';
 }
 
-async function fetchJson(
-	url: string,
-	init: RequestInit,
-	signal: AbortSignal,
-): Promise<{ ok: boolean; status: number; data: Record<string, unknown> }> {
+function failureOfKind(engine: LiveGroundedEngineId, kind: LiveFailureKind, providerMessage?: string): LiveEngineFailure {
+	return new LiveEngineFailure(describeFailure(ENGINE_LABEL[engine], kind, providerMessage), { kind });
+}
+
+function timeoutMessage(): string {
+	return `실시간 조회가 ${Math.round(LIVE_CHECK_TIMEOUT_MS / 1000)}초를 초과했습니다.`;
+}
+
+/** Turns any thrown value into a classified failure result. Nothing here reads as "not exposed". */
+function failedResult(engine: LiveGroundedEngineId, ruleScore: number, error: unknown): LiveEngineCheckResult {
+	if (error instanceof LiveEngineFailure) return buildFailedLiveResult(engine, ruleScore, error.message, error.detail);
+	const name = (error as { name?: string } | null)?.name;
+	if (name === 'AbortError' || name === 'TimeoutError') {
+		return buildFailedLiveResult(engine, ruleScore, `${ENGINE_LABEL[engine]}: ${timeoutMessage()}`, { kind: 'timeout' });
+	}
+	if (error instanceof LiveCheckParseError) {
+		return buildFailedLiveResult(engine, ruleScore, describeFailure(ENGINE_LABEL[engine], 'parse_error', error.message), { kind: 'parse_error' });
+	}
+	const message = scrubSecrets(error instanceof Error ? error.message : '실시간 조회에 실패했습니다.');
+	const network = error instanceof TypeError && /fetch failed|network|ECONN|ENOTFOUND|EAI_AGAIN/i.test(`${message} ${(error as { cause?: { code?: string } }).cause?.code ?? ''}`);
+	return buildFailedLiveResult(engine, ruleScore, describeFailure(ENGINE_LABEL[engine], network ? 'network' : 'unknown', message), {
+		kind: network ? 'network' : 'unknown',
+	});
+}
+
+interface JsonResponse {
+	ok: boolean;
+	status: number;
+	data: Record<string, unknown>;
+	requestId?: string;
+	latencyMs: number;
+}
+
+function requestIdFrom(headers: Headers): string | undefined {
+	const id = headers.get('x-request-id') || headers.get('request-id') || headers.get('x-goog-request-id');
+	if (id) return id;
+	const ray = headers.get('cf-ray');
+	return ray ? `cf-ray:${ray}` : undefined;
+}
+
+async function fetchJson(url: string, init: RequestInit, signal: AbortSignal): Promise<JsonResponse> {
+	const startedAt = Date.now();
 	const res = await fetch(url, { ...init, signal });
 	const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-	return { ok: res.ok, status: res.status, data };
+	return { ok: res.ok, status: res.status, data, requestId: requestIdFrom(res.headers), latencyMs: Date.now() - startedAt };
+}
+
+/** Classifies a non-2xx provider response and logs it with the trace fields. Never logs keys. */
+function providerFailure(
+	engine: LiveGroundedEngineId,
+	logPrefix: string,
+	response: JsonResponse,
+	model: string,
+): LiveEngineFailure {
+	const info = extractProviderError(response.status, response.data, `${ENGINE_LABEL[engine]} HTTP ${response.status}`);
+	const kind = classifyProviderError(info);
+	console.error(logPrefix, {
+		model,
+		httpStatus: response.status,
+		kind,
+		providerType: info.type,
+		providerCode: info.code,
+		providerStatus: info.providerStatus,
+		message: info.message.slice(0, 300),
+		requestId: response.requestId,
+		latencyMs: response.latencyMs,
+	});
+	return new LiveEngineFailure(describeFailure(ENGINE_LABEL[engine], kind, info.message), {
+		kind,
+		httpStatus: response.status,
+		providerCode: info.code ?? info.type ?? info.providerStatus,
+		requestId: response.requestId,
+	});
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-	return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+	return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
-function collectUrls(value: unknown, into: string[] = []): string[] {
-	if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
-		into.push(value);
-		return into;
-	}
-	if (Array.isArray(value)) {
-		for (const item of value) collectUrls(item, into);
-		return into;
-	}
-	const rec = asRecord(value);
-	if (!rec) return into;
-	for (const [key, nested] of Object.entries(rec)) {
-		if (key === 'url' || key === 'uri' || key === 'href' || key === 'citationUrl') {
-			if (typeof nested === 'string' && /^https?:\/\//i.test(nested)) into.push(nested);
-		} else {
-			collectUrls(nested, into);
-		}
-	}
-	return into;
+function isHttpUrl(value: unknown): value is string {
+	return typeof value === 'string' && /^https?:\/\//i.test(value);
 }
 
-function extractOpenAIText(data: Record<string, unknown>): { text: string; urls: string[] } {
+function uniqueUrls(values: readonly unknown[]): string[] {
+	return [...new Set(values.filter(isHttpUrl))];
+}
+
+function urlFromItem(item: unknown): string | undefined {
+	if (isHttpUrl(item)) return item;
+	const row = asRecord(item);
+	const url = row?.url ?? row?.uri;
+	return isHttpUrl(url) ? url : undefined;
+}
+
+/** A normalized provider answer: the text, the URLs it cites, every retrieved URL, and search proof. */
+interface Extracted {
+	text: string;
+	answerUrls: string[];
+	resultUrls: string[];
+	search: SearchEvidence;
+	/** Why the text is empty, when the provider says so (safety block, token limit). */
+	emptyReason?: string;
+}
+
+function extractOpenAI(data: Record<string, unknown>): Extracted {
 	const chunks: string[] = [];
+	const citedUrls: unknown[] = [];
+	let searchCalls = 0;
 	if (typeof data.output_text === 'string') chunks.push(data.output_text);
-	const output = Array.isArray(data.output) ? data.output : [];
-	for (const item of output) {
+	for (const item of Array.isArray(data.output) ? data.output : []) {
 		const rec = asRecord(item);
-		const content = Array.isArray(rec?.content) ? rec.content : [];
-		for (const part of content) {
+		if (rec?.type === 'web_search_call') searchCalls += 1;
+		for (const part of Array.isArray(rec?.content) ? (rec?.content as unknown[]) : []) {
 			const block = asRecord(part);
 			if (typeof block?.text === 'string') chunks.push(block.text);
+			for (const note of Array.isArray(block?.annotations) ? (block?.annotations as unknown[]) : []) {
+				const ann = asRecord(note);
+				if (ann?.type === 'url_citation') citedUrls.push(ann.url ?? asRecord(ann.url_citation)?.url);
+			}
 		}
 	}
-	const choices = Array.isArray(data.choices) ? data.choices : [];
-	const message = asRecord(asRecord(choices[0])?.message);
+	const message = asRecord(asRecord((Array.isArray(data.choices) ? data.choices : [])[0])?.message);
 	if (typeof message?.content === 'string') chunks.push(message.content);
-	return { text: chunks.join('\n').trim(), urls: collectUrls(data) };
+	for (const note of Array.isArray(message?.annotations) ? (message?.annotations as unknown[]) : []) {
+		const ann = asRecord(note);
+		if (ann?.type === 'url_citation') citedUrls.push(asRecord(ann.url_citation)?.url ?? ann.url);
+	}
+	const answerUrls = uniqueUrls(citedUrls);
+	return {
+		text: chunks.join('\n').trim(),
+		answerUrls,
+		resultUrls: answerUrls,
+		search: { performed: searchCalls > 0 || answerUrls.length > 0, sourceCount: answerUrls.length },
+	};
 }
 
 /**
- * Claude text extractor. When the model was forced to call the
- * `report_citation_check` tool, its `input` is already a parsed JSON object
- * (no markdown fences, no preamble possible) — serialize it back to text so
- * it flows through the same `parseLiveCheckPayload` pipeline as other engines.
- * Falls back to plain text blocks for models/responses that didn't use the tool.
+ * Claude text extractor. When the model was forced to call the `report_citation_check`
+ * tool, its `input` is already a parsed JSON object, so it is serialized back to text for
+ * the same `parseLiveCheckPayload` pipeline. Search proof is a `server_tool_use` or
+ * `web_search_tool_result` block, which this request does not enable.
  */
-function extractClaudeText(data: Record<string, unknown>): { text: string; urls: string[] } {
+function extractClaude(data: Record<string, unknown>): Extracted {
 	const chunks: string[] = [];
-	const content = Array.isArray(data.content) ? data.content : [];
-	for (const part of content) {
+	const answerUrls: unknown[] = [];
+	const resultUrls: unknown[] = [];
+	let searchBlocks = 0;
+	for (const part of Array.isArray(data.content) ? data.content : []) {
 		const block = asRecord(part);
 		if (block?.type === 'tool_use' && block.name === CLAUDE_CITATION_TOOL.name && block.input) {
 			chunks.push(JSON.stringify(block.input));
 		} else if (block?.type === 'text' && typeof block.text === 'string') {
 			chunks.push(block.text);
+			for (const cite of Array.isArray(block.citations) ? (block.citations as unknown[]) : []) answerUrls.push(urlFromItem(cite));
+		} else if (block?.type === 'server_tool_use') {
+			searchBlocks += 1;
+		} else if (block?.type === 'web_search_tool_result') {
+			searchBlocks += 1;
+			for (const hit of Array.isArray(block.content) ? (block.content as unknown[]) : []) resultUrls.push(urlFromItem(hit));
 		}
 	}
-	return { text: chunks.join('\n').trim(), urls: collectUrls(data) };
+	const answer = uniqueUrls(answerUrls);
+	const results = uniqueUrls([...resultUrls, ...answerUrls]);
+	return {
+		text: chunks.join('\n').trim(),
+		answerUrls: answer,
+		resultUrls: results,
+		search: { performed: searchBlocks > 0, sourceCount: results.length },
+	};
 }
 
-function extractGeminiText(data: Record<string, unknown>): { text: string; urls: string[] } {
-	const chunks: string[] = [];
-	const candidates = Array.isArray(data.candidates) ? data.candidates : [];
-	for (const candidate of candidates) {
-		const rec = asRecord(candidate);
-		const parts = Array.isArray(asRecord(rec?.content)?.parts) ? (asRecord(rec?.content)?.parts as unknown[]) : [];
-		for (const part of parts) {
-			const block = asRecord(part);
-			if (typeof block?.text === 'string') chunks.push(block.text);
-		}
-	}
-	return { text: chunks.join('\n').trim(), urls: collectUrls(data) };
-}
-
-function extractPerplexityText(data: Record<string, unknown>): { text: string; urls: string[] } {
-	const choices = Array.isArray(data.choices) ? data.choices : [];
-	const first = asRecord(choices[0]);
-	const message = asRecord(first?.message);
-	const text = typeof message?.content === 'string' ? message.content : '';
-	const citations = Array.isArray(data.citations) ? data.citations.filter((item): item is string => typeof item === 'string') : [];
-	return { text: text.trim(), urls: [...citations, ...collectUrls(data)] };
-}
-
-function apiErrorMessage(data: Record<string, unknown>, fallback: string): string {
-	const error = asRecord(data.error);
-	if (typeof error?.message === 'string' && error.message.trim()) return error.message.trim();
-	if (typeof data.message === 'string' && data.message.trim()) return data.message.trim();
-	return fallback;
+function looksLikeHostname(value: unknown): value is string {
+	return typeof value === 'string' && /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/i.test(value.trim());
 }
 
 /**
- * Parses the engine's raw text into a live-check result. Any parse failure
- * (including `LiveCheckParseError` when no JSON at all could be recovered)
- * propagates to the caller's try/catch, which correctly reports a FAILED
- * result (fallback to rule score) instead of a false "not cited" verdict.
+ * Gemini grounding. `groundingChunks[].web.uri` is often a redirect link, and `web.title`
+ * is the source's domain, so a hostname title is used for domain matching. A chunk counts
+ * as used by the answer only when a `groundingSupports` entry points at it.
+ */
+function extractGemini(data: Record<string, unknown>): Extracted {
+	const candidate = asRecord((Array.isArray(data.candidates) ? data.candidates : [])[0]);
+	const parts = asRecord(candidate?.content)?.parts;
+	const text = (Array.isArray(parts) ? parts : [])
+		.map((part) => (typeof asRecord(part)?.text === 'string' ? (asRecord(part)?.text as string) : ''))
+		.join('\n')
+		.trim();
+	const grounding = asRecord(candidate?.groundingMetadata);
+	const chunks = Array.isArray(grounding?.groundingChunks) ? (grounding?.groundingChunks as unknown[]) : [];
+	const chunkUrls = chunks.map((chunk) => {
+		const web = asRecord(asRecord(chunk)?.web);
+		if (looksLikeHostname(web?.title)) return `https://${(web?.title as string).trim()}`;
+		return isHttpUrl(web?.uri) ? web.uri : undefined;
+	});
+	const supports = Array.isArray(grounding?.groundingSupports) ? (grounding?.groundingSupports as unknown[]) : [];
+	const usedIndexes = new Set<number>();
+	for (const support of supports) {
+		const indexes = asRecord(support)?.groundingChunkIndices;
+		for (const index of Array.isArray(indexes) ? indexes : []) if (typeof index === 'number') usedIndexes.add(index);
+	}
+	const queries = Array.isArray(grounding?.webSearchQueries) ? (grounding?.webSearchQueries as unknown[]) : [];
+	const resultUrls = uniqueUrls(chunkUrls);
+	const answerUrls = uniqueUrls([...usedIndexes].map((index) => chunkUrls[index]));
+	const finish = typeof candidate?.finishReason === 'string' ? candidate.finishReason : '';
+	const block = typeof asRecord(data.promptFeedback)?.blockReason === 'string' ? (asRecord(data.promptFeedback)?.blockReason as string) : '';
+	return {
+		text,
+		answerUrls,
+		resultUrls,
+		search: { performed: queries.length > 0 || resultUrls.length > 0, sourceCount: resultUrls.length },
+		emptyReason: block ? `blockReason=${block}` : finish && finish !== 'STOP' ? `finishReason=${finish}` : undefined,
+	};
+}
+
+/** Sonar answer. `citations` are the sources the answer cites, `search_results` are all retrieved results. */
+function extractPerplexity(data: Record<string, unknown>): Extracted {
+	const choices = data.choices as Array<{ message?: { content?: unknown } }> | undefined;
+	const content = choices?.[0]?.message?.content;
+	const text = typeof content === 'string' ? content.trim() : '';
+	const citations = uniqueUrls((Array.isArray(data.citations) ? data.citations : []).map(urlFromItem));
+	const searchResults = uniqueUrls((Array.isArray(data.search_results) ? data.search_results : []).map(urlFromItem));
+	const resultUrls = uniqueUrls([...searchResults, ...citations]);
+	return {
+		text,
+		answerUrls: citations,
+		resultUrls,
+		search: { performed: resultUrls.length > 0, sourceCount: resultUrls.length },
+	};
+}
+
+/**
+ * Search engines stay live when the body is prose plus citations. ChatGPT and Claude still
+ * require the structured judge payload, and without search evidence they are never graded.
  */
 function toLiveResult(
 	engine: LiveGroundedEngineId,
-	text: string,
-	urls: string[],
+	extracted: Extracted,
 	input: LiveCheckEngineInput,
 	ruleScore: number,
 ): LiveEngineCheckResult {
-	return buildLiveEngineResult(engine, parseLiveCheckPayload(text, input.siteName, input.siteUrl, urls, input.brandAliases), ruleScore, {
-		rawResponseText: text,
+	const searchEngine = engine === 'gemini' || engine === 'perplexity';
+	const aliases = input.brandAliases ?? [];
+	const parsed = searchEngine
+		? groundingObservationFromSearch(extracted.text, input.siteName, input.siteUrl, extracted.answerUrls, aliases)
+		: extracted.search.performed
+			? parseLiveCheckPayload(extracted.text, input.siteName, input.siteUrl, extracted.answerUrls, aliases)
+			: { isCited: false, mentionType: 'none' as const, rank: null, evidenceSnippet: '' };
+	return buildLiveEngineResult(engine, parsed, ruleScore, {
+		rawResponseText: extracted.text,
 		targetBrand: input.siteName,
 		targetDomain: input.siteUrl,
-		citationCandidates: urls,
+		citationCandidates: extracted.answerUrls,
+		resultUrls: extracted.resultUrls,
+		search: extracted.search,
 		brandAliases: input.brandAliases,
 	});
 }
 
+function emptyBodyFailure(engine: LiveGroundedEngineId, logPrefix: string, model: string, data: Record<string, unknown>, reason?: string): LiveEngineFailure {
+	console.error(logPrefix, { model, emptyBody: true, reason, responseKeys: Object.keys(data).slice(0, 12) });
+	return failureOfKind(engine, 'empty_body', reason);
+}
+
 async function runOpenAI(input: LiveCheckEngineInput, signal: AbortSignal): Promise<LiveEngineCheckResult> {
 	const engine: LiveGroundedEngineId = 'chatgpt';
-	if (isEnvTrue('MOCK_OPENAI')) {
-		return buildMockLiveResult(engine, input, {
-			isCited: false,
-			mentionType: 'none',
-			citedRank: null,
-			evidenceSnippet: `[테스트 Mock] ${input.siteName}이 언급되지 않았습니다.`,
-		});
-	}
+	if (isMockEnabled('MOCK_OPENAI')) return mockResult(engine, input);
 	const ruleScore = ruleScoreFor(engine, input.ruleScores);
 	const apiKey = process.env.OPENAI_API_KEY?.trim();
-	if (!apiKey) return buildFailedLiveResult(engine, ruleScore, 'OPENAI_API_KEY가 .env에 설정되지 않았습니다.');
+	if (!apiKey) return failedResult(engine, ruleScore, failureOfKind(engine, 'missing_key', 'OPENAI_API_KEY'));
 
+	const prefix = '[OpenAI Live Check Error]:';
 	console.info('[OpenAI Live Check] request', {
 		model: 'gpt-4o-mini',
 		query: input.targetQuery,
@@ -483,34 +600,31 @@ async function runOpenAI(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 			signal,
 		);
 
-		console.info('[OpenAI Live Check] response', { status: response.status, ok: response.ok });
-		if (!response.ok) {
-			throw new Error(apiErrorMessage(response.data, `OpenAI HTTP ${response.status}`));
-		}
+		console.info('[OpenAI Live Check] response', {
+			status: response.status,
+			ok: response.ok,
+			latencyMs: response.latencyMs,
+			requestId: response.requestId,
+		});
+		if (!response.ok) throw providerFailure(engine, prefix, response, 'gpt-4o-mini');
 
-		const extracted = extractOpenAIText(response.data);
-		if (!extracted.text) throw new Error('OpenAI가 빈 응답을 반환했습니다.');
-		return toLiveResult(engine, extracted.text, extracted.urls, input, ruleScore);
+		const extracted = extractOpenAI(response.data);
+		if (!extracted.text) throw emptyBodyFailure(engine, prefix, 'gpt-4o-mini', response.data);
+		return toLiveResult(engine, extracted, input, ruleScore);
 	} catch (err) {
-		console.error('[OpenAI Live Check Error]:', err);
-		return buildFailedLiveResult(engine, ruleScore, timeoutError(err));
+		if (!(err instanceof LiveEngineFailure)) console.error(prefix, err);
+		return failedResult(engine, ruleScore, err);
 	}
 }
 
 async function runClaude(input: LiveCheckEngineInput, signal: AbortSignal): Promise<LiveEngineCheckResult> {
 	const engine: LiveGroundedEngineId = 'claude';
-	if (isEnvTrue('MOCK_CLAUDE')) {
-		return buildMockLiveResult(engine, input, {
-			isCited: false,
-			mentionType: 'none',
-			citedRank: null,
-			evidenceSnippet: `[테스트 Mock] ${input.siteName}이 언급되지 않았습니다.`,
-		});
-	}
+	if (isMockEnabled('MOCK_CLAUDE')) return mockResult(engine, input);
 	const ruleScore = ruleScoreFor(engine, input.ruleScores);
 	const apiKey = envString('ANTHROPIC_API_KEY');
-	if (!apiKey) return buildFailedLiveResult(engine, ruleScore, 'ANTHROPIC_API_KEY가 .env에 설정되지 않았습니다.');
+	if (!apiKey) return failedResult(engine, ruleScore, failureOfKind(engine, 'missing_key', 'ANTHROPIC_API_KEY'));
 
+	const prefix = '[Claude Live Check Error]:';
 	const models = resolveAnthropicModels();
 	console.info('[Claude Live Check] request', {
 		models,
@@ -519,7 +633,7 @@ async function runClaude(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 	});
 
 	try {
-		let lastError = 'Anthropic HTTP error';
+		let lastFailure: LiveEngineFailure = failureOfKind(engine, 'unknown');
 		for (const model of models) {
 			const response = await fetchJson(
 				ANTHROPIC_URL,
@@ -558,145 +672,138 @@ async function runClaude(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 				signal,
 			);
 
-			console.info('[Claude Live Check] response', { model, status: response.status, ok: response.ok });
+			console.info('[Claude Live Check] response', {
+				model,
+				status: response.status,
+				ok: response.ok,
+				latencyMs: response.latencyMs,
+				requestId: response.requestId,
+			});
 			if (!response.ok) {
-				lastError = apiErrorMessage(response.data, `Anthropic HTTP ${response.status} (${model})`);
-				if (isModelUnavailable(response.status, lastError)) continue;
-				throw new Error(lastError);
+				lastFailure = providerFailure(engine, prefix, response, model);
+				if (lastFailure.detail.kind === 'model_unavailable') continue;
+				throw lastFailure;
 			}
 
-			const extracted = extractClaudeText(response.data);
+			const extracted = extractClaude(response.data);
 			if (!extracted.text) {
-				lastError = `Claude가 빈 응답을 반환했습니다. (${model})`;
+				lastFailure = emptyBodyFailure(engine, prefix, model, response.data);
 				continue;
 			}
-			return toLiveResult(engine, extracted.text, extracted.urls, input, ruleScore);
+			return toLiveResult(engine, extracted, input, ruleScore);
 		}
 
-		throw new Error(lastError);
+		throw lastFailure;
 	} catch (err) {
-		console.error('[Claude Live Check Error]:', err);
-		return buildFailedLiveResult(engine, ruleScore, timeoutError(err));
+		if (!(err instanceof LiveEngineFailure)) console.error(prefix, err);
+		return failedResult(engine, ruleScore, err);
 	}
 }
 
 async function runGemini(input: LiveCheckEngineInput, signal: AbortSignal): Promise<LiveEngineCheckResult> {
 	const engine: LiveGroundedEngineId = 'gemini';
-	if (isEnvTrue('MOCK_GEMINI')) {
-		return buildMockLiveResult(engine, input, {
-			isCited: false,
-			mentionType: 'none',
-			citedRank: null,
-			evidenceSnippet: `[테스트 Mock] ${input.siteName}이 언급되지 않았습니다.`,
-		});
-	}
+	if (isMockEnabled('MOCK_GEMINI')) return mockResult(engine, input);
 	const ruleScore = ruleScoreFor(engine, input.ruleScores);
-	const apiKey = envString('GEMINI_API_KEY') || envString('GOOGLE_GENERATIVE_AI_API_KEY') || envString('GOOGLE_API_KEY') || envString('GOOGLE_AI_API_KEY');
-	if (!apiKey) return buildFailedLiveResult(engine, ruleScore, 'GEMINI_API_KEY가 .env에 설정되지 않았습니다.');
+	const geminiKeyName = envString('GEMINI_API_KEY')
+		? 'GEMINI_API_KEY'
+		: envString('GOOGLE_GENERATIVE_AI_API_KEY')
+			? 'GOOGLE_GENERATIVE_AI_API_KEY'
+			: envString('GOOGLE_API_KEY')
+				? 'GOOGLE_API_KEY'
+				: envString('GOOGLE_AI_API_KEY')
+					? 'GOOGLE_AI_API_KEY'
+					: '';
+	const prefix = '[Gemini Error Detail]:';
+	const apiKey = geminiKeyName ? envString(geminiKeyName) : '';
+	if (!apiKey) {
+		const failure = failureOfKind(engine, 'missing_key', 'GEMINI_API_KEY');
+		console.error(prefix, failure.message);
+		return failedResult(engine, ruleScore, failure);
+	}
 
 	const models = resolveGeminiModels();
-	const prompt = [
-		systemPromptFor(input),
-		`질의: "${input.targetQuery}", 대상 업체: "${input.siteName}" (${input.siteUrl}).`,
-		'이 질의에 대해 대상 업체가 최신 웹 검색 추천에 인용되는지 판별하여 반드시 아래 JSON 형식으로만 답하세요. 설명 문구나 마크다운 없이 JSON 객체 하나만 출력하세요:',
-		LIVE_JSON_SCHEMA,
-	].join('\n');
-
 	console.info('[Gemini Live Check] request', {
+		key: geminiKeyName,
 		models,
+		grounding: true,
 		query: input.targetQuery,
 		siteName: input.siteName,
 	});
 
-	// Try the strictest config first (schema-enforced JSON with a generous token
-	// budget to avoid truncating mid-object), then relax on failure so a
-	// schema/param rejection never blocks the whole engine.
-	const generationConfigs: Array<Record<string, unknown>> = [
-		{ temperature: 0.1, maxOutputTokens: 512, responseMimeType: 'application/json', responseSchema: GEMINI_CITATION_SCHEMA },
-		{ temperature: 0.1, maxOutputTokens: 512, responseMimeType: 'application/json' },
-		{ temperature: 0.1, maxOutputTokens: 512 },
-	];
-
 	try {
-		let lastError = 'Gemini HTTP error';
+		let lastFailure: LiveEngineFailure = failureOfKind(engine, 'unknown');
 		for (const model of models) {
-			for (const generationConfig of generationConfigs) {
-				const response = await fetchJson(
-					`${geminiGenerateUrl(model)}?key=${encodeURIComponent(apiKey)}`,
-					{
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({
-							contents: [{ role: 'user', parts: [{ text: prompt }] }],
-							generationConfig,
-						}),
-					},
-					signal,
-				);
+			const response = await fetchJson(
+				geminiGenerateUrl(model),
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+					body: JSON.stringify({
+						systemInstruction: { parts: [{ text: SEARCH_SYSTEM_PROMPT }] },
+						contents: [{ role: 'user', parts: [{ text: searchQuestion(input) }] }],
+						tools: [{ google_search: {} }],
+						generationConfig: { temperature: 0.1, maxOutputTokens: 4096 },
+					}),
+				},
+				signal,
+			);
 
-				console.info('[Gemini Live Check] response', {
-					model,
-					jsonMime: generationConfig.responseMimeType === 'application/json',
-					hasSchema: Boolean(generationConfig.responseSchema),
-					status: response.status,
-					ok: response.ok,
-				});
-				if (!response.ok) {
-					lastError = apiErrorMessage(response.data, `Gemini HTTP ${response.status} (${model})`);
-					continue;
-				}
-
-				const extracted = extractGeminiText(response.data);
-				if (!extracted.text) {
-					lastError = `Gemini가 빈 응답을 반환했습니다. (${model})`;
-					continue;
-				}
-				if (!extractJsonFromText(extracted.text)) {
-					// This config produced prose/markdown we can't recover JSON from
-					// (e.g. "Here is the JSON requested: ```") — try the next config
-					// instead of silently reporting a false "uncited" verdict.
-					lastError = `Gemini가 JSON을 반환하지 않았습니다: ${extracted.text.slice(0, 120)} (${model})`;
-					continue;
-				}
-				return toLiveResult(engine, extracted.text, extracted.urls, input, ruleScore);
+			console.info('[Gemini Live Check] response', {
+				model,
+				grounding: true,
+				status: response.status,
+				ok: response.ok,
+				latencyMs: response.latencyMs,
+				requestId: response.requestId,
+			});
+			if (!response.ok) {
+				lastFailure = providerFailure(engine, prefix, response, model);
+				// Credit, quota, rate-limit, and key errors apply to every model, so stop instead of burning the 15s budget.
+				if (stopsModelFallback(lastFailure.detail.kind)) break;
+				continue;
 			}
+
+			const extracted = extractGemini(response.data);
+			if (!extracted.text) {
+				lastFailure = emptyBodyFailure(engine, prefix, model, response.data, extracted.emptyReason);
+				continue;
+			}
+			return toLiveResult(engine, extracted, input, ruleScore);
 		}
 
-		throw new Error(lastError);
+		throw lastFailure;
 	} catch (err) {
-		console.error('[Gemini Live Check Error]:', err);
-		return buildFailedLiveResult(engine, ruleScore, timeoutError(err));
+		if (!(err instanceof LiveEngineFailure)) console.error(prefix, err);
+		return failedResult(engine, ruleScore, err);
 	}
 }
 
 async function runPerplexity(input: LiveCheckEngineInput, signal: AbortSignal): Promise<LiveEngineCheckResult> {
 	const engine: LiveGroundedEngineId = 'perplexity';
-	if (isEnvTrue('MOCK_PERPLEXITY')) {
-		return buildMockLiveResult(engine, input, {
-			isCited: true,
-			mentionType: 'recommended',
-			citedRank: 1,
-			evidenceSnippet: `[테스트 Mock] ${input.siteName}(${input.siteUrl})은 1위 전문 기관으로 추천합니다.`,
-			citationUrl: input.siteUrl,
-		});
-	}
+	if (isMockEnabled('MOCK_PERPLEXITY')) return mockResult(engine, input);
 	const ruleScore = ruleScoreFor(engine, input.ruleScores);
-	const apiKey = envString('PERPLEXITY_API_KEY') || envString('PPLX_API_KEY');
-	if (!apiKey) return buildFailedLiveResult(engine, ruleScore, 'PERPLEXITY_API_KEY가 .env에 설정되지 않았습니다.');
+	const perplexityKeyName = envString('PERPLEXITY_API_KEY') ? 'PERPLEXITY_API_KEY' : envString('PPLX_API_KEY') ? 'PPLX_API_KEY' : '';
+	const prefix = '[Perplexity Error Detail]:';
+	const apiKey = perplexityKeyName ? envString(perplexityKeyName) : '';
+	if (!apiKey) {
+		const failure = failureOfKind(engine, 'missing_key', 'PERPLEXITY_API_KEY / PPLX_API_KEY');
+		console.error(prefix, failure.message);
+		return failedResult(engine, ruleScore, failure);
+	}
 
+	const models = resolvePerplexityModels();
 	console.info('[Perplexity Live Check] request', {
-		model: 'sonar',
+		key: perplexityKeyName,
+		models,
 		query: input.targetQuery,
 		siteName: input.siteName,
 		location: input.location,
 		category: input.category,
 	});
 
-	const attempts: Array<{ withSchema: boolean }> = [{ withSchema: true }, { withSchema: false }];
-
 	try {
-		let lastError = 'Perplexity HTTP error';
-		for (const attempt of attempts) {
+		let lastFailure: LiveEngineFailure = failureOfKind(engine, 'unknown');
+		for (const model of models) {
 			const response = await fetchJson(
 				PERPLEXITY_URL,
 				{
@@ -706,38 +813,43 @@ async function runPerplexity(input: LiveCheckEngineInput, signal: AbortSignal): 
 						'Content-Type': 'application/json',
 					},
 					body: JSON.stringify({
-						model: 'sonar',
+						model,
 						temperature: 0.1,
+						max_tokens: 1200,
 						messages: [
-							{ role: 'system', content: systemPromptFor(input) },
-							{ role: 'user', content: perplexityUserPrompt(input) },
+							{ role: 'system', content: SEARCH_SYSTEM_PROMPT },
+							{ role: 'user', content: searchQuestion(input) },
 						],
-						...(attempt.withSchema ? { response_format: PERPLEXITY_CITATION_SCHEMA } : {}),
 					}),
 				},
 				signal,
 			);
 
-			console.info('[Perplexity Live Check] response', { withSchema: attempt.withSchema, status: response.status, ok: response.ok });
+			console.info('[Perplexity Live Check] response', {
+				model,
+				status: response.status,
+				ok: response.ok,
+				latencyMs: response.latencyMs,
+				requestId: response.requestId,
+			});
 			if (!response.ok) {
-				lastError = apiErrorMessage(response.data, `Perplexity HTTP ${response.status}`);
-				// Structured-output schema rejected (e.g. unsupported on this
-				// account/model tier) — retry once without it before failing.
+				lastFailure = providerFailure(engine, prefix, response, model);
+				if (stopsModelFallback(lastFailure.detail.kind)) break;
 				continue;
 			}
 
-			const extracted = extractPerplexityText(response.data);
+			const extracted = extractPerplexity(response.data);
 			if (!extracted.text) {
-				lastError = 'Perplexity가 빈 응답을 반환했습니다.';
+				lastFailure = emptyBodyFailure(engine, prefix, model, response.data);
 				continue;
 			}
-			return toLiveResult(engine, extracted.text, extracted.urls, input, ruleScore);
+			return toLiveResult(engine, extracted, input, ruleScore);
 		}
 
-		throw new Error(lastError);
+		throw lastFailure;
 	} catch (err) {
-		console.error('[Perplexity Live Check Error]:', err);
-		return buildFailedLiveResult(engine, ruleScore, timeoutError(err));
+		if (!(err instanceof LiveEngineFailure)) console.error(prefix, err);
+		return failedResult(engine, ruleScore, err);
 	}
 }
 
@@ -755,9 +867,10 @@ async function runWithTimeout(
 	const controller = new AbortController();
 	const timer = setTimeout(() => controller.abort(), LIVE_CHECK_TIMEOUT_MS);
 	try {
-		return await RUNNERS[engine](input, controller.signal);
+		const result = await RUNNERS[engine](input, controller.signal);
+		return { ...result, checkedAt: new Date().toISOString() };
 	} catch (error) {
-		return buildFailedLiveResult(engine, ruleScoreFor(engine, input.ruleScores), timeoutError(error));
+		return { ...failedResult(engine, ruleScoreFor(engine, input.ruleScores), error), checkedAt: new Date().toISOString() };
 	} finally {
 		clearTimeout(timer);
 	}
@@ -779,18 +892,20 @@ export async function runLiveEngineChecks(input: LiveCheckEngineInput): Promise<
 		const engine = LIVE_GROUNDED_ENGINE_IDS[index];
 		if (item.status === 'fulfilled') return item.value;
 		console.error(`[${engine} Live Check Error]:`, item.reason);
-		return buildFailedLiveResult(engine, ruleScoreFor(engine, input.ruleScores), timeoutError(item.reason));
+		return failedResult(engine, ruleScoreFor(engine, input.ruleScores), item.reason);
 	});
 	console.info(
 		'[Live Check] done',
 		results.map((item) => ({
 			engine: item.engine,
+			observation: item.observation,
+			failureKind: item.failureKind,
+			httpStatus: item.httpStatus,
+			isLive: item.isLive,
+			searchEvidence: item.searchEvidence,
 			isLiveGrounded: item.isLiveGrounded,
 			isCited: item.isCited,
-			mentionType: item.mentionType,
-			tier: item.tier,
 			liveScore: item.liveScore,
-			error: item.error,
 		})),
 	);
 	return results;

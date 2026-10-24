@@ -263,21 +263,22 @@ function uncitedChatGpt(
 ): Pick<EngineAnalysis, 'reasonTitle' | 'reasonDetails' | 'actionRequired'> {
 	const details: string[] = [];
 	const actions: string[] = [];
+	// These are technical-readiness observations from the crawl, not findings from the AI answer.
 	if (!signals.isHttps) {
 		details.push(
 			en
-				? 'Non-secure protocol (HTTP): ChatGPT Search strongly limits or filters link citations from sites without TLS.'
-				: '🔴 비보안 프로토콜(HTTP): ChatGPT Search는 보안 연결이 없는 사이트의 링크 인용을 강하게 제한/필터링합니다.',
+				? 'Non-secure protocol (HTTP) signal: the site was not confirmed as HTTPS. A missing secure connection can weigh against link citations in AI search.'
+				: '비보안 프로토콜(HTTP) 신호: 사이트가 HTTPS로 확인되지 않았습니다. 보안 연결이 없으면 AI 검색의 링크 인용에 불리할 수 있습니다.',
 		);
-		actions.push(en ? 'Apply an HTTPS certificate immediately' : 'HTTPS 보안 인증서 즉시 적용');
+		actions.push(en ? 'Confirm HTTPS is applied site-wide' : 'HTTPS 전면 적용 확인');
 	}
 	if (!signals.bingPlacesRegistered) {
 		details.push(
 			en
-				? 'Bing Places not linked: official NAP is missing from the Bing local index that powers OpenAI live search.'
-				: 'Bing Places 미연동: OpenAI의 실시간 검색 기반인 Bing 로컬 인덱스에 공식 NAP(상호·주소·연락처) 데이터가 등록되지 않았습니다.',
+				? 'Bing Places link not confirmed: no Bing Places signal was found on the public pages. This is not a lookup of the Bing index itself.'
+				: 'Bing Places 연동 신호 미확인: 공개 페이지에서 Bing Places 연동 신호를 찾지 못했습니다. Bing 색인 상태를 직접 조회한 결과는 아닙니다.',
 		);
-		actions.push(en ? 'Register Bing Places' : 'Bing Places 등록');
+		actions.push(en ? 'Check and, if missing, register Bing Places' : 'Bing Places 등록 여부 확인 후 필요 시 등록');
 	}
 	if (!signals.hasLlmsTxt || !signals.hasJsonLd) {
 		const missing = [
@@ -286,18 +287,18 @@ function uncitedChatGpt(
 		].filter(Boolean);
 		details.push(
 			en
-				? `${missing.join(' and ')} missing: there is no official summary the AI crawler can read directly.`
-				: `${missing.join(' 및 ')} 부재: AI 크롤러가 직접 읽을 수 있는 공식 요약 문서가 없습니다.`,
+				? `${missing.join(' and ')} not found: no official summary an AI crawler can read directly was detected.`
+				: `${missing.join(' 및 ')} 미확인: AI 크롤러가 바로 읽을 수 있는 공식 요약 문서를 확인하지 못했습니다.`,
 		);
 		actions.push(en ? 'Ship JSON-LD schema (and /llms.txt)' : 'JSON-LD 스키마 배포');
 	}
 	if (details.length === 0) {
 		details.push(
 			en
-				? 'The page is indexed, but trust signals were not strong enough for ChatGPT Search to adopt it as an official answer source.'
-				: '검색봇 색인은 되었으나 ChatGPT Search가 공식 정답 출처로 채택할 신뢰 신호가 부족합니다.',
+				? 'The basic signals are present. There is still room to strengthen the trust signals AI search can use as an official source.'
+				: '기본 신호는 확인되었습니다. AI 검색이 공식 출처로 활용할 신뢰 신호를 더 보강할 여지가 있습니다.',
 		);
-		actions.push(en ? 'Sync on-page schema and Bing local signals' : '온페이지 스키마 및 Bing 로컬 동기화 필요');
+		actions.push(en ? 'Sync on-page schema and Bing local signals' : '온페이지 스키마 및 Bing 로컬 동기화 점검');
 	}
 	const httpsInTitle = !signals.isHttps;
 	const bingInTitle = !signals.bingPlacesRegistered;
@@ -305,19 +306,19 @@ function uncitedChatGpt(
 		reasonTitle:
 			httpsInTitle && bingInTitle
 				? en
-					? 'HTTP filtering and missing Bing local signals'
-					: '비보안(HTTP) 필터링 및 Bing 로컬 신호 부재'
+					? 'HTTPS and Bing local signals to check'
+					: 'HTTPS·Bing 로컬 신호 점검 필요'
 				: httpsInTitle
 					? en
-						? 'Non-secure HTTP filtering blocked citation'
-						: '비보안(HTTP) 필터링으로 인용 제한'
+						? 'HTTPS signal to check'
+						: 'HTTPS 적용 점검 필요'
 					: bingInTitle
 						? en
-							? 'Bing local index has no official NAP'
-							: 'Bing 로컬 인덱스에 공식 NAP 부재'
+							? 'Bing local signal to check'
+							: 'Bing 로컬 신호 점검 필요'
 						: en
-							? 'Structured signals too thin for ChatGPT Search'
-							: 'ChatGPT Search 채택에 필요한 구조화 신호 부족',
+							? 'Room to strengthen structured signals'
+							: '구조화 신호 보강 여지',
 		reasonDetails: details,
 		actionRequired: joinActions(actions),
 	};
@@ -330,37 +331,38 @@ function uncitedGemini(
 	const details: string[] = [];
 	const actions: string[] = [];
 	const schema = schemaLabel(signals);
+	// These are technical-readiness observations from the crawl, not findings from the AI answer.
 	if (!signals.googleMapsLinked) {
 		details.push(
 			en
-				? 'Google Knowledge Graph unidentified: GBP and website NAP do not match, so the official organization was not confirmed.'
-				: 'Google Knowledge Graph 미식별: 구글 비즈니스 프로필(GBP)과 웹사이트의 NAP 정보가 일치하지 않아 공식 기관으로 확정하지 못했습니다.',
+				? 'Google Business Profile (GBP) link not confirmed: the match between the website NAP and a GBP listing could not be verified from the public pages.'
+				: 'Google 비즈니스 프로필(GBP) 연동 신호 미확인: 공개 페이지에서 웹사이트 NAP와 GBP의 일치 여부를 확인하지 못했습니다. (Knowledge Graph 등록 상태를 직접 조회한 결과는 아닙니다.)',
 		);
-		actions.push(en ? 'Sync Google Business Profile (Maps) precisely' : '구글 지도(GBP) 정밀 동기화');
+		actions.push(en ? 'Check and sync Google Business Profile (Maps)' : '구글 지도(GBP) 연동 상태 확인 및 동기화');
 	}
 	if (!signals.isHttps) {
 		details.push(
 			en
-				? 'HTTPS missing penalty: Google Grounding excludes non-secure sites from AI Overview sources.'
-				: '🔴 HTTPS 미적용 감점: Google Grounding 알고리즘은 비보안 웹사이트의 AI Overview 출처 채택을 배제합니다.',
+				? 'HTTPS not confirmed: a missing secure connection can weigh against being used as a Google-based answer source.'
+				: 'HTTPS 미확인: 보안 연결이 없으면 Google 기반 답변의 출처로 활용되는 데 불리할 수 있습니다.',
 		);
-		actions.unshift(en ? 'Switch to HTTPS' : 'HTTPS 전환');
+		actions.unshift(en ? 'Confirm HTTPS is applied' : 'HTTPS 적용 확인');
 	}
 	if (!signals.hasLocalBusiness || !signals.hasJsonLd) {
 		details.push(
 			en
-				? `Missing ${schema} structured schema — E-E-A-T expertise score fell short.`
-				: `구조화 스키마(${schema}) 누락으로 전문성(E-E-A-T) 점수 미달.`,
+				? `${schema} structured schema not found — a stronger expertise (E-E-A-T) signal is possible.`
+				: `구조화 스키마(${schema}) 미확인 — 전문성(E-E-A-T) 신호를 더 보강할 수 있습니다.`,
 		);
-		actions.push(en ? `Inject ${schema} schema` : `${schema} 스키마 주입`);
+		actions.push(en ? `Add ${schema} schema` : `${schema} 스키마 추가`);
 	}
 	if (details.length === 0) {
 		details.push(
 			en
-				? 'Gemini Grounding indexed the page but did not promote it to an official answer source.'
-				: '검색봇 색인은 되었으나 Gemini Grounding이 공식 정답 출처로 채택할 신뢰 신호가 부족합니다.',
+				? 'The basic signals are present. There is still room to strengthen the trust signals Gemini can use as an official source.'
+				: '기본 신호는 확인되었습니다. Gemini가 공식 출처로 활용할 신뢰 신호를 더 보강할 여지가 있습니다.',
 		);
-		actions.push(en ? 'Sync GBP and on-page schema' : 'GBP 및 온페이지 스키마 동기화 필요');
+		actions.push(en ? 'Sync GBP and on-page schema' : 'GBP 및 온페이지 스키마 동기화 점검');
 	}
 	const gbpInTitle = !signals.googleMapsLinked;
 	const httpsInTitle = !signals.isHttps;
@@ -368,19 +370,19 @@ function uncitedGemini(
 		reasonTitle:
 			gbpInTitle && httpsInTitle
 				? en
-					? 'GBP not linked and HTTPS trust missing'
-					: 'Google 비즈니스(GBP) 미연동 및 HTTPS 신뢰도 결여'
+					? 'GBP link and HTTPS signals to check'
+					: 'Google 비즈니스(GBP) 연동·HTTPS 신호 점검 필요'
 				: gbpInTitle
 					? en
-						? 'Google Business Profile not linked'
-						: 'Google 비즈니스(GBP) 미연동'
+						? 'Google Business Profile link to check'
+						: 'Google 비즈니스(GBP) 연동 점검 필요'
 					: httpsInTitle
 						? en
-							? 'HTTPS trust missing for Grounding'
-							: 'HTTPS 신뢰도 결여로 Grounding 탈락'
+							? 'HTTPS signal to check'
+							: 'HTTPS 적용 점검 필요'
 						: en
-							? 'E-E-A-T / schema signals too thin for Gemini'
-							: 'Gemini 채택에 필요한 E-E-A-T·스키마 신호 부족',
+							? 'Room to strengthen E-E-A-T / schema signals'
+							: 'E-E-A-T·스키마 신호 보강 여지',
 		reasonDetails: details,
 		actionRequired: joinActions(actions),
 	};
@@ -389,16 +391,16 @@ function uncitedGemini(
 function uncitedDefault(en: boolean): Pick<EngineAnalysis, 'reasonTitle' | 'reasonDetails' | 'actionRequired'> {
 	return {
 		reasonTitle: en
-			? 'Structured signals and local-platform links are thin'
-			: '구조화 신호 및 로컬 플랫폼 연동 부족',
+			? 'Room to strengthen structured signals and local-platform links'
+			: '구조화 신호 및 로컬 플랫폼 연동 보강 여지',
 		reasonDetails: [
 			en
-				? 'The page is indexed, but trust signals were not strong enough to be adopted as an official answer source.'
-				: '검색봇 색인은 되었으나 공식 정답 출처로 채택될 신뢰 신호가 부족합니다.',
+				? 'There is room to strengthen the trust signals an AI engine can use as an official source. This is a readiness check, not a finding from the AI answer.'
+				: 'AI 엔진이 공식 출처로 활용할 신뢰 신호를 더 보강할 여지가 있습니다. 기술 준비도 점검이며, AI 응답에서 관찰한 결과는 아닙니다.',
 		],
 		actionRequired: en
-			? 'Sync on-page schema and local platform profiles'
-			: '온페이지 스키마 및 로컬 플랫폼 동기화 필요',
+			? 'Check on-page schema and local platform profiles'
+			: '온페이지 스키마 및 로컬 플랫폼 점검',
 	};
 }
 
@@ -407,19 +409,19 @@ function uncitedPerplexity(signals: EngineInsightSignals, en: boolean) {
 	if (!signals.hasFaq && !signals.hasJsonLd) {
 		details.push(
 			en
-				? 'No FAQPage / official summary document for Perplexity to quote as a first-party source.'
-				: 'Perplexity가 1차 출처로 인용할 FAQPage·공식 요약 문서가 없습니다.',
+				? 'No FAQPage / official summary document was found for Perplexity to quote as a first-party source.'
+				: 'Perplexity가 1차 출처로 인용할 FAQPage·공식 요약 문서를 확인하지 못했습니다.',
 		);
 	}
 	details.push(
 		en
-			? 'Third-party footprint and on-page entity text were not strong enough for a live citation.'
-			: '외부 디지털 풋프린트와 온페이지 엔티티 텍스트가 실시간 인용 채택 기준에 미달했습니다.',
+			? 'There is room to strengthen the third-party footprint and on-page entity text. This is a readiness check, not a finding from the AI answer.'
+			: '외부 디지털 풋프린트와 온페이지 엔티티 텍스트를 더 보강할 여지가 있습니다. 기술 준비도 점검이며, AI 응답에서 관찰한 결과는 아닙니다.',
 	);
 	return {
 		reasonTitle: en
-			? 'No citable first-party document in the live crawl'
-			: '실시간 크롤에서 인용 가능한 1차 문서 부재',
+			? 'Citable first-party document to check'
+			: '인용 가능한 1차 문서 확인 필요',
 		reasonDetails: details,
 		actionRequired: en
 			? 'Publish FAQ/HowTo JSON-LD and keep official pages crawlable'
@@ -432,19 +434,19 @@ function uncitedClaude(signals: EngineInsightSignals, en: boolean) {
 	if (!signals.hasFaq) {
 		details.push(
 			en
-				? 'FAQPage schema is missing, so Claude cannot lift on-page facts into the answer.'
-				: 'FAQPage 스키마가 없어 Claude가 본문 팩트를 답변으로 끌어올 근거가 부족합니다.',
+				? 'FAQPage schema was not found, which gives a model less on-page fact material to quote.'
+				: 'FAQPage 스키마를 확인하지 못했습니다. 모델이 본문 팩트를 인용할 재료가 적을 수 있습니다.',
 		);
 	}
 	details.push(
 		en
-			? 'Query–domain entity matching was too weak for a direct answer link.'
-			: '검색 쿼리와 도메인 엔티티 매칭이 약해 답변 내 직접 링크로 채택되지 않았습니다.',
+			? 'There is room to strengthen query–domain entity matching. This is a readiness check, not a finding from the AI answer.'
+			: '검색 쿼리와 도메인 엔티티 매칭 신호를 더 보강할 여지가 있습니다. 기술 준비도 점검이며, AI 응답에서 관찰한 결과는 아닙니다.',
 	);
 	return {
 		reasonTitle: en
-			? 'Weak domain–entity match for a direct citation'
-			: '도메인-엔티티 매칭 부족으로 직접 인용 실패',
+			? 'Domain–entity match signal to strengthen'
+			: '도메인-엔티티 매칭 신호 보강 여지',
 		reasonDetails: details,
 		actionRequired: en
 			? 'Align Title/Description with the query entity and add FAQPage schema'
