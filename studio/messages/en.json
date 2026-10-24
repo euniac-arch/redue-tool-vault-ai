@@ -3243,6 +3243,13 @@
 			},
 			"noSearchEvidenceBadge": "Answer received · no search evidence (estimate kept)",
 			"noSearchEvidenceTooltip": "An AI answer came back, but nothing shows a web search ran (no search sources or citations), so exposure was not judged. This does not mean the site was not exposed.",
+			"noCitationBadge": "Answer succeeded, but no domain or brand mention",
+			"noCitationTooltip": "The API answer is valid. The official domain and brand name were not found in the text. This is not an error, and the estimated score is kept. It is not a web-search citation result.",
+			"textMentionBadge": "Brand found in the answer text · no web-search source",
+			"textMentionTooltip": "The answer text names the brand. There is no web-search source list, so this is a text check, not a search citation.",
+			"textDomainBadge": "Official domain found in the answer text · no web-search source",
+			"textDomainTooltip": "The answer text contains the official domain. There is no web-search source list, so this is not treated as a retrieved citation.",
+			"textMatchScoreLabel": "Score from the answer text",
 			"mockBadge": "Test data (not a measurement)",
 			"estimatedScoreLabel": "Estimated readiness · not measured",
 			"checkedAtLabel": "Checked {time}",
@@ -3251,7 +3258,9 @@
 				"official_cited": "Official domain cited",
 				"brand_mentioned": "Brand mentioned · official domain not cited",
 				"official_in_results": "Official domain among retrieved results · not cited in the answer",
-				"not_observed": "Mention or citation not observed for this query"
+				"not_observed": "Mention or citation not observed for this query",
+				"text_mention": "Brand found in the answer text · no web-search source",
+				"text_domain": "Official domain found in the answer text · no web-search source"
 			},
 			"liveCheckApiNotice": "API-based measurement is one observation for this query. It is not the search result or exposure probability of the consumer ChatGPT or Gemini apps.",
 			"persist": {
@@ -3274,7 +3283,7 @@
 			"insightCitedPath": "Detected citation path:",
 			"insightActionRequired": "Suggested action (advisory):",
 			"insightNextStep": "Recommended next step:",
-			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Only answers with web-search evidence (search sources or citations) are shown as measured. Today Gemini and Perplexity use web search. ChatGPT and Claude are called without a web-search tool, so no search evidence is confirmed and their estimated scores are kept.",
+			"liveCheckFooterNotice": "Copilot and Clova cards are Bing/Naver index-based simulation estimates, not live API measurements. Gemini and Perplexity count as measured only when the response shows a web search. ChatGPT and Claude are called without a web-search tool: a brand or official domain in the answer text is a partial text check, and neither is an error or a confirmed non-exposure. The estimated score stays when the text names neither.",
 			"fixGuideTitle": "💡 Fix & recommended actions",
 			"fixGuideToggleExpand": "View fix guide",
 			"fixGuideToggleCollapse": "Hide fix guide",

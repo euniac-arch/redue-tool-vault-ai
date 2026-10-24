@@ -351,9 +351,23 @@ function MeasurementBadge({
 }) {
 	const t = useTranslations('audit.aiEngines');
 	const failKind: LiveFailureKind = live?.failureKind ?? 'unknown';
-	/** A real answer arrived but nothing shows a web search ran. Not a failure, not a measurement. */
-	const noSearchEvidence = live?.observation === 'no_search_evidence';
+	const textMatch = live?.statusDetail === 'TEXT_MENTION' || live?.statusDetail === 'TEXT_DOMAIN';
+	const noCitation = live?.statusDetail === 'NO_CITATION' || live?.observation === 'answer_no_mention';
 	const badgeTone = 'bg-amber-500/15 text-amber-700 ring-amber-400/30 dark:text-amber-300';
+	const failureBadgeKind =
+		live?.statusDetail === 'BILLING_ERROR'
+			? 'billing'
+			: live?.statusDetail === 'RATE_LIMIT'
+				? 'rate_limit'
+				: live?.statusDetail === 'AUTH_ERROR'
+					? 'auth'
+					: live?.statusDetail === 'TIMEOUT'
+						? 'timeout'
+						: live?.statusDetail === 'EMPTY_BODY'
+							? 'empty_body'
+							: live?.statusDetail === 'PARSE_ERROR'
+								? 'parse_error'
+								: failKind;
 
 	if (!liveAttempted) {
 		return (
@@ -372,6 +386,46 @@ function MeasurementBadge({
 				<span className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-extrabold text-sky-300 ring-1 ring-sky-400/30">
 					<span aria-hidden>🔵</span>
 					{t('approxBadge')}
+				</span>
+			</div>
+		);
+	}
+
+	if (textMatch) {
+		const key = live?.statusDetail === 'TEXT_DOMAIN' ? 'textDomain' : 'textMention';
+		return (
+			<div className="group relative mt-2 inline-flex">
+				<span
+					className="inline-flex items-center gap-1 rounded-full bg-sky-500/15 px-2 py-0.5 text-[10px] font-extrabold text-sky-700 ring-1 ring-sky-400/30 dark:text-sky-300"
+					title={t(`${key}Tooltip`)}
+				>
+					<span aria-hidden>🔵</span>
+					{t(`${key}Badge`)}
+				</span>
+				<span
+					role="tooltip"
+					className="pointer-events-none invisible absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-slate-200 bg-white p-2 text-left text-[11px] leading-relaxed text-slate-600 opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+				>
+					{t(`${key}Tooltip`)}
+				</span>
+			</div>
+		);
+	}
+
+	if (noCitation) {
+		return (
+			<div className="group relative mt-2 inline-flex">
+				<span
+					className="inline-flex items-center gap-1 rounded-full bg-slate-500/15 px-2 py-0.5 text-[10px] font-extrabold text-slate-600 ring-1 ring-slate-400/30 dark:text-slate-300"
+					title={t('noCitationTooltip')}
+				>
+					{t('noCitationBadge')}
+				</span>
+				<span
+					role="tooltip"
+					className="pointer-events-none invisible absolute bottom-full left-0 z-50 mb-2 w-64 rounded-lg border border-slate-200 bg-white p-2 text-left text-[11px] leading-relaxed text-slate-600 opacity-0 shadow-lg transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+				>
+					{t('noCitationTooltip')}
 				</span>
 			</div>
 		);
@@ -400,8 +454,9 @@ function MeasurementBadge({
 	}
 
 	if (failed) {
-		const badgeText = noSearchEvidence ? t('noSearchEvidenceBadge') : t(`failKind.${failKind}.badge`);
-		const tooltipText = noSearchEvidence ? t('noSearchEvidenceTooltip') : t(`failKind.${failKind}.tooltip`);
+		const noSearchEvidence = live?.observation === 'no_search_evidence';
+		const badgeText = noSearchEvidence ? t('noSearchEvidenceBadge') : t(`failKind.${failureBadgeKind}.badge`);
+		const tooltipText = noSearchEvidence ? t('noSearchEvidenceTooltip') : t(`failKind.${failureBadgeKind}.tooltip`);
 		return (
 			<div className="group relative mt-2 inline-flex">
 				<span
@@ -548,7 +603,9 @@ function EngineScoreBlock({
 						<div className="flex flex-col items-end">
 							<span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-300">
 								<span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" aria-hidden />
-								{t('liveResultLabel')}
+								{live.statusDetail === 'TEXT_MENTION' || live.statusDetail === 'TEXT_DOMAIN'
+									? t('textMatchScoreLabel')
+									: t('liveResultLabel')}
 							</span>
 							<div className="flex items-baseline gap-1">
 								<span className={`text-2xl font-black tabular-nums ${TIER_SCORE_CLASS[color]}`}>
@@ -584,7 +641,9 @@ function EvidenceSnippetBox({ live }: { live: LiveEngineCheckResult }) {
 		live.observation === 'official_cited' ||
 		live.observation === 'brand_mentioned' ||
 		live.observation === 'official_in_results' ||
-		live.observation === 'not_observed'
+		live.observation === 'not_observed' ||
+		live.observation === 'text_mention' ||
+		live.observation === 'text_domain'
 			? live.observation
 			: null;
 	return (
@@ -642,8 +701,10 @@ function EngineCard({
 }) {
 	const t = useTranslations('audit.aiEngines');
 	const isProxy = isProxyIndexEngine(engine.engine);
-	const failed = Boolean(live && (live.fallbackToRuleScore || !live.isLiveGrounded));
-	const grounded = Boolean(!isProxy && live?.isLiveGrounded && !live.fallbackToRuleScore);
+	const textMatch = live?.statusDetail === 'TEXT_MENTION' || live?.statusDetail === 'TEXT_DOMAIN';
+	const noCitation = live?.statusDetail === 'NO_CITATION' || live?.observation === 'answer_no_mention';
+	const failed = Boolean(live && !textMatch && !noCitation && !live.isMock && (live.fallbackToRuleScore || !live.isLiveGrounded));
+	const grounded = Boolean(!isProxy && !textMatch && live?.isLiveGrounded && !live.fallbackToRuleScore && live.searchEvidence !== false);
 	const readinessScore = engine.readinessScore ?? engine.score;
 	const meta = getRatingMeta(readinessScore, lang);
 	const engineId = isEngineId(engine.engine) ? engine.engine : null;
@@ -652,7 +713,7 @@ function EngineCard({
 	const title = engine.engineLabel || engine.engineName;
 	const factors = engine.causeFactors ?? [];
 	const visibility = engine.visibility ?? null;
-	const showDual = grounded;
+	const showDual = grounded || Boolean(!isProxy && textMatch);
 	const analysis =
 		grounded && live
 			? getEngineInsight(
@@ -689,7 +750,7 @@ function EngineCard({
 				readinessScore={readinessScore}
 				live={live}
 				showDual={showDual}
-				estimateOnly={Boolean(live) && !isProxy && !grounded}
+				estimateOnly={Boolean(live) && !isProxy && !grounded && !textMatch}
 				lastGrounded={!isProxy && !grounded ? lastGrounded : undefined}
 				lang={lang}
 			/>

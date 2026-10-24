@@ -3243,6 +3243,13 @@
 			},
 			"noSearchEvidenceBadge": "응답 완료 · 검색 근거 미확인 (추정 점수 유지)",
 			"noSearchEvidenceTooltip": "AI 응답은 받았지만 웹 검색을 수행한 근거(검색 출처·인용)가 확인되지 않아 노출 여부를 판정하지 않았습니다. 이 결과는 미노출을 의미하지 않습니다.",
+			"noCitationBadge": "응답은 성공했으나 도메인/브랜드 언급 없음",
+			"noCitationTooltip": "API 응답은 정상입니다. 본문에서 공식 도메인이나 브랜드명을 찾지 못했습니다. 오류가 아니며, 추정 점수를 유지합니다. 웹 검색 출처가 있는 결과와는 다릅니다.",
+			"textMentionBadge": "응답 본문에서 브랜드 확인 · 웹 검색 출처 없음",
+			"textMentionTooltip": "응답 본문에 브랜드명이 있습니다. 웹 검색 출처(citations)는 없어 검색 인용 실측이 아니라 본문 기준의 부분 확인입니다.",
+			"textDomainBadge": "응답 본문에서 공식 도메인 확인 · 웹 검색 출처 없음",
+			"textDomainTooltip": "응답 본문에 공식 도메인이 있습니다. 웹 검색 출처는 없어, 검색 결과에서 인용된 것으로 보지 않습니다.",
+			"textMatchScoreLabel": "응답 본문 기준 점수",
 			"mockBadge": "테스트 데이터 (실측 아님)",
 			"estimatedScoreLabel": "추정 준비도 · 실측 아님",
 			"checkedAtLabel": "조회 {time}",
@@ -3251,7 +3258,9 @@
 				"official_cited": "공식 도메인 인용 확인",
 				"brand_mentioned": "브랜드 언급 확인 · 공식 도메인 인용 미확인",
 				"official_in_results": "검색 결과 후보에 공식 도메인 포함 · 답변 인용은 미확인",
-				"not_observed": "이번 질의에서 언급·인용 미확인"
+				"not_observed": "이번 질의에서 언급·인용 미확인",
+				"text_mention": "응답 본문에서 브랜드 확인 · 웹 검색 출처 없음",
+				"text_domain": "응답 본문에서 공식 도메인 확인 · 웹 검색 출처 없음"
 			},
 			"liveCheckApiNotice": "API 기반 측정은 이번 질의 1회에 대한 관찰 결과입니다. 소비자용 ChatGPT·Gemini 앱의 검색 결과나 실제 노출 확률을 뜻하지 않습니다.",
 			"persist": {
@@ -3274,7 +3283,7 @@
 			"insightCitedPath": "인용 감지 경로:",
 			"insightActionRequired": "권장 조치(참고):",
 			"insightNextStep": "권장 조치:",
-			"liveCheckFooterNotice": "Copilot과 Clova 카드는 실시간 API 실측이 아닌 Bing·네이버 색인 기반 시뮬레이션 추정 데이터입니다. 웹 검색 근거(검색 출처·인용)가 확인된 응답만 실측으로 표시하며, 현재 Gemini와 Perplexity가 웹 검색을 사용합니다. ChatGPT와 Claude는 웹 검색 도구 없이 호출하므로 검색 근거가 확인되지 않아 추정 점수가 유지됩니다.",
+			"liveCheckFooterNotice": "Copilot과 Clova 카드는 Bing·네이버 색인 기반 추정입니다. Gemini와 Perplexity는 웹 검색 출처가 있을 때만 실측입니다. ChatGPT와 Claude는 웹 검색 도구 없이 호출하므로, 본문에 브랜드나 공식 도메인이 있을 때만 부분 확인하고 없으면 추정 점수를 유지합니다. 본문에 없다는 것은 오류나 미노출 확정이 아닙니다.",
 			"fixGuideTitle": "💡 해결 방법 & 추천 조치",
 			"fixGuideToggleExpand": "해결 방법 보기",
 			"fixGuideToggleCollapse": "해결 방법 닫기",

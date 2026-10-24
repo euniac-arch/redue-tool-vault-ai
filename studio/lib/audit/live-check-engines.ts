@@ -531,11 +531,20 @@ function toLiveResult(
 ): LiveEngineCheckResult {
 	const searchEngine = engine === 'gemini' || engine === 'perplexity';
 	const aliases = input.brandAliases ?? [];
-	const parsed = searchEngine
-		? groundingObservationFromSearch(extracted.text, input.siteName, input.siteUrl, extracted.answerUrls, aliases)
-		: extracted.search.performed
-			? parseLiveCheckPayload(extracted.text, input.siteName, input.siteUrl, extracted.answerUrls, aliases)
-			: { isCited: false, mentionType: 'none' as const, rank: null, evidenceSnippet: '' };
+	// ChatGPT and Claude have no citations array. Their answer text is still scanned for the
+	// brand and official domain, so a JSON parse failure must not turn a real answer into an error.
+	let parsed: ReturnType<typeof groundingObservationFromSearch>;
+	if (searchEngine || extracted.search.performed) {
+		parsed = searchEngine
+			? groundingObservationFromSearch(extracted.text, input.siteName, input.siteUrl, extracted.answerUrls, aliases)
+			: parseLiveCheckPayload(extracted.text, input.siteName, input.siteUrl, extracted.answerUrls, aliases);
+	} else {
+		try {
+			parsed = parseLiveCheckPayload(extracted.text, input.siteName, input.siteUrl, extracted.answerUrls, aliases);
+		} catch {
+			parsed = { isCited: false, mentionType: 'none', rank: null, evidenceSnippet: '' };
+		}
+	}
 	return buildLiveEngineResult(engine, parsed, ruleScore, {
 		rawResponseText: extracted.text,
 		targetBrand: input.siteName,
@@ -610,6 +619,7 @@ async function runOpenAI(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 
 		const extracted = extractOpenAI(response.data);
 		if (!extracted.text) throw emptyBodyFailure(engine, prefix, 'gpt-4o-mini', response.data);
+		console.log('[ChatGPT Raw Content]:', scrubSecrets(extracted.text).slice(0, 4000));
 		return toLiveResult(engine, extracted, input, ruleScore);
 	} catch (err) {
 		if (!(err instanceof LiveEngineFailure)) console.error(prefix, err);
@@ -690,6 +700,7 @@ async function runClaude(input: LiveCheckEngineInput, signal: AbortSignal): Prom
 				lastFailure = emptyBodyFailure(engine, prefix, model, response.data);
 				continue;
 			}
+			console.log('[Claude Raw Content]:', scrubSecrets(extracted.text).slice(0, 4000));
 			return toLiveResult(engine, extracted, input, ruleScore);
 		}
 
@@ -899,6 +910,7 @@ export async function runLiveEngineChecks(input: LiveCheckEngineInput): Promise<
 		results.map((item) => ({
 			engine: item.engine,
 			observation: item.observation,
+			statusDetail: item.statusDetail,
 			failureKind: item.failureKind,
 			httpStatus: item.httpStatus,
 			isLive: item.isLive,

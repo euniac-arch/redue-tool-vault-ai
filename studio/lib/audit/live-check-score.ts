@@ -11,7 +11,9 @@ import { uniqueHttpUrls } from '@/lib/audit/engine-insight';
 import {
 	brandAliases,
 	detectCitedRank,
+	mentionsBrandName,
 	mentionsBrandOrSite,
+	textContainsOfficialDomain,
 	urlMatchesSite,
 } from '@/lib/audit/live-check-mentions';
 import { classifyCitations } from '@/lib/audit/universal-sov-engine';
@@ -22,8 +24,10 @@ import type {
 	LiveCitationMention,
 	LiveEngineCheckResult,
 	LiveGroundedEngineId,
+	LiveFailureKind,
 	LiveObservationStatus,
 	LiveReachLevel,
+	LiveStatusDetail,
 	MentionType,
 } from '@/types/live-engine-check';
 
@@ -466,9 +470,20 @@ function withObservation(result: LiveEngineCheckResult, context: LiveResultConte
 				? 'official_in_results'
 				: 'not_observed';
 
+	const statusDetail: LiveStatusDetail =
+		result.statusDetail ??
+		(officialCited
+			? 'OFFICIAL_CITED'
+			: result.isCited
+				? 'BRAND_MENTIONED'
+				: officialInResults
+					? 'OFFICIAL_IN_RESULTS'
+					: 'NOT_OBSERVED');
+
 	return {
 		...result,
 		observation,
+		statusDetail,
 		searchEvidence: context?.search ? context.search.performed : true,
 		searchSourceCount: context?.search?.sourceCount,
 		brandMentioned,
@@ -477,30 +492,91 @@ function withObservation(result: LiveEngineCheckResult, context: LiveResultConte
 	};
 }
 
-/** An answer arrived but the response shows no web search. No exposure verdict is made. */
-function buildNoSearchEvidenceResult(
+const STATUS_DETAIL_BY_KIND: Record<LiveFailureKind, LiveStatusDetail> = {
+	missing_key: 'AUTH_ERROR',
+	auth: 'AUTH_ERROR',
+	billing: 'BILLING_ERROR',
+	rate_limit: 'RATE_LIMIT',
+	model_unavailable: 'PROVIDER_ERROR',
+	bad_request: 'PROVIDER_ERROR',
+	timeout: 'TIMEOUT',
+	network: 'PROVIDER_ERROR',
+	empty_body: 'EMPTY_BODY',
+	parse_error: 'PARSE_ERROR',
+	provider_error: 'PROVIDER_ERROR',
+	unknown: 'PROVIDER_ERROR',
+};
+
+function excerptAround(text: string, needle: string): string {
+	const idx = text.toLowerCase().indexOf(needle.toLowerCase());
+	const slice = idx < 0 ? text.slice(0, 180) : text.slice(Math.max(0, idx - 40), idx + needle.length + 80);
+	return slice.replace(/\s+/g, ' ').trim();
+}
+
+/**
+ * ChatGPT and Claude are called without a web-search tool, so they have no citations array.
+ * A positive brand name or the official domain inside the answer text is a partial text match.
+ * Neither one is an error: the answer simply did not name the target.
+ * A negated sentence that contains the brand is not a match.
+ */
+function buildUngroundedAnswerResult(
 	engine: LiveGroundedEngineId,
 	ruleScore: number,
 	context: LiveResultContext | undefined,
 ): LiveEngineCheckResult {
-	return {
+	const text = (context?.rawResponseText || '').trim();
+	const brand = context?.targetBrand || '';
+	const siteUrl = context?.targetDomain || '';
+	const domainInText = Boolean(siteUrl) && textContainsOfficialDomain(text, siteUrl);
+	const brandInText = Boolean(brand) && mentionsBrandName(text, brand, context?.brandAliases ?? []);
+	const base = {
 		engine,
 		isLive: true,
-		isGrounding: false,
-		isLiveGrounded: false,
-		isCited: false,
-		reachLevel: 'Level 1',
-		liveScore: clamp(ruleScore, 0, 100),
-		evidenceSnippet: '응답은 완료되었지만 웹 검색을 수행한 근거(검색 출처·인용)를 확인하지 못해 노출 여부를 판정하지 않았습니다.',
-		fallbackToRuleScore: true,
+		searchEvidence: false as const,
+		searchSourceCount: 0,
 		citedRank: null,
-		statusLabel: '응답 완료 · 검색 근거 미확인',
-		statusColor: 'yellow',
-		observation: 'no_search_evidence',
-		searchEvidence: false,
-		searchSourceCount: context?.search?.sourceCount ?? 0,
-		brandMentioned: false,
-		officialCited: false,
+		fallbackToRuleScore: false,
+	};
+
+	if (!domainInText && !brandInText) {
+		return {
+			...base,
+			isGrounding: false,
+			isLiveGrounded: false,
+			isCited: false,
+			reachLevel: 'Level 1',
+			liveScore: clamp(ruleScore, 0, 100),
+			evidenceSnippet: '응답은 정상적으로 받았지만, 본문에서 공식 도메인이나 브랜드명을 확인하지 못했습니다.',
+			fallbackToRuleScore: true,
+			statusLabel: '응답은 성공했으나 도메인/브랜드 언급 없음',
+			statusColor: 'yellow',
+			observation: 'answer_no_mention',
+			statusDetail: 'NO_CITATION',
+			brandMentioned: false,
+			officialCited: false,
+			officialInResults: false,
+		};
+	}
+
+	const domain = domainInText;
+	const needle = domain ? (text.match(/https?:\/\/[^\s"'<>)\]]+/i)?.[0] ?? brand) : brand;
+	return {
+		...base,
+		isGrounding: true,
+		isLiveGrounded: true,
+		isCited: domain,
+		mentionType: 'simple_mention',
+		reachLevel: domain ? 'Level 2' : 'Level 1',
+		liveScore: domain ? 80 : 75,
+		evidenceSnippet: sanitizeEvidenceSnippet(excerptAround(text, needle || brand), true),
+		citationUrl: domain ? asHttpUrl(text.match(/https?:\/\/[^\s"'<>)\]]+/gi)?.find((url) => urlMatchesSite(url, siteUrl)) ?? '') || undefined : undefined,
+		tier: 'NEUTRAL',
+		statusLabel: domain ? '응답 본문에서 공식 도메인 확인' : '응답 본문에서 브랜드 확인',
+		statusColor: 'blue',
+		observation: domain ? 'text_domain' : 'text_mention',
+		statusDetail: domain ? 'TEXT_DOMAIN' : 'TEXT_MENTION',
+		brandMentioned: brandInText || domain,
+		officialCited: domain,
 		officialInResults: false,
 	};
 }
@@ -626,6 +702,7 @@ export function buildFailedLiveResult(
 		statusColor: 'yellow',
 		error,
 		observation: emptyBody ? 'empty_body' : 'request_failed',
+		statusDetail: STATUS_DETAIL_BY_KIND[detail?.kind ?? 'unknown'],
 		failureKind: detail?.kind ?? 'unknown',
 		httpStatus: detail?.httpStatus,
 		providerErrorCode: detail?.providerCode,
@@ -650,6 +727,7 @@ export function buildMockLiveResult(engine: LiveGroundedEngineId, ruleScore: num
 		statusLabel: '테스트 데이터 (실측 아님)',
 		statusColor: 'yellow',
 		observation: 'mock',
+		statusDetail: 'MOCK',
 		searchEvidence: false,
 		isMock: true,
 	};
@@ -671,9 +749,31 @@ export function buildLiveEngineResult(
 	ruleScore: number,
 	context?: LiveResultContext,
 ): LiveEngineCheckResult {
-	// A body without search evidence is never an exposure verdict, however it reads.
+	// No web-search evidence. ChatGPT and Claude have no citations array, so a brand or official
+	// domain in the answer text is a partial match, and neither is stored as an error.
+	// Gemini and Perplexity stay ungraded here: their text alone is not search evidence.
 	if (context?.search && !context.search.performed) {
-		return buildNoSearchEvidenceResult(engine, ruleScore, context);
+		if (engine === 'chatgpt' || engine === 'claude') return buildUngroundedAnswerResult(engine, ruleScore, context);
+		return {
+			engine,
+			isLive: true,
+			isGrounding: false,
+			isLiveGrounded: false,
+			isCited: false,
+			reachLevel: 'Level 1' as const,
+			liveScore: clamp(ruleScore, 0, 100),
+			evidenceSnippet: '응답은 완료되었지만 웹 검색을 수행한 근거(검색 출처·인용)를 확인하지 못해 노출 여부를 판정하지 않았습니다.',
+			fallbackToRuleScore: true,
+			citedRank: null,
+			statusLabel: '응답 완료 · 검색 근거 미확인',
+			statusColor: 'yellow' as const,
+			observation: 'no_search_evidence' as const,
+			searchEvidence: false,
+			searchSourceCount: context?.search?.sourceCount ?? 0,
+			brandMentioned: false,
+			officialCited: false,
+			officialInResults: false,
+		};
 	}
 
 	const composedText = composeGroundingText(parsed, context);

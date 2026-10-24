@@ -109,7 +109,7 @@ function engineLevelReasonFallback(
 
 function isUnexposed(engine: AIEngineTestResult, live?: LiveEngineCheckResult): boolean {
 	// Only a grounded observation can say "not exposed". Failures and answers without search evidence say nothing.
-	if (live && live.isLiveGrounded !== false && live.fallbackToRuleScore !== true) {
+	if (live && live.searchEvidence !== false && live.isLiveGrounded !== false && live.fallbackToRuleScore !== true) {
 		if (live.mentionType === 'none' || live.tier === 'NOT_FOUND') return true;
 		if (live.isCited === false) return true;
 	}
@@ -117,7 +117,7 @@ function isUnexposed(engine: AIEngineTestResult, live?: LiveEngineCheckResult): 
 }
 
 function isOfficialCite(engine: AIEngineTestResult, live?: LiveEngineCheckResult): boolean {
-	if (live?.mentionType === 'recommended' || live?.isCited === true) return true;
+	if (live && live.searchEvidence !== false && (live.mentionType === 'recommended' || live.isCited === true)) return true;
 	return engine.depthLevel === 2 || engine.depthLevel === 3;
 }
 

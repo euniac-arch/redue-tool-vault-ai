@@ -121,6 +121,47 @@ export function mentionsBrandOrSite(
 	return brandAliases(siteName, siteUrl, extraAliases).some((alias) => hasPositiveMention(hay, alias.toLowerCase()));
 }
 
+/** Brand-name aliases only. The site host is not included, so a domain match stays a separate check. */
+function brandNameAliases(siteName: string, extraAliases: readonly string[] = []): string[] {
+	const aliases = new Set<string>();
+	const name = siteName.trim();
+	if (name) {
+		aliases.add(name);
+		aliases.add(name.replace(/\s+/g, ''));
+		const stripped = name.replace(/(의원|병원|클리닉|한의원|치과)$/u, '').trim();
+		if (stripped.length >= 2) aliases.add(stripped);
+	}
+	for (const extra of extraAliases) {
+		const value = extra.trim();
+		if (value.length >= 2) aliases.add(value);
+	}
+	return [...aliases].filter((alias) => alias.length >= 2);
+}
+
+/**
+ * Positive brand-name mention in answer text. A negated sentence
+ * ("나인원의원이 언급되지 않았습니다") does not count. The hostname is not an alias here.
+ */
+export function mentionsBrandName(text: string, siteName: string, extraAliases: readonly string[] = []): boolean {
+	const hay = text.toLowerCase();
+	if (!hay.trim()) return false;
+	return brandNameAliases(siteName, extraAliases).some((alias) => hasPositiveMention(hay, alias.toLowerCase()));
+}
+
+/**
+ * The official domain appears in the answer as a URL or as a bare host.
+ * Matching is by parsed host (www ignored, subdomains allowed). A lookalike
+ * suffix or the host used as a subdomain of another domain does not match.
+ */
+export function textContainsOfficialDomain(text: string, siteUrl: string): boolean {
+	const host = normalizedHost(siteUrl);
+	if (!host || !host.includes('.')) return false;
+	const urls = text.match(/https?:\/\/[^\s"'<>)\]]+/gi) ?? [];
+	if (urls.some((url) => urlMatchesSite(url, siteUrl))) return true;
+	const escaped = host.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	return new RegExp(`(?:^|[^a-z0-9-])(?:www\\.)?${escaped}(?![a-z0-9.-])`, 'i').test(text);
+}
+
 function normalizedHost(value: string): string {
 	const raw = value.trim();
 	if (!raw) return '';

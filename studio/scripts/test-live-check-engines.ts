@@ -27,7 +27,7 @@ type Call = { host: string; body: Record<string, unknown>; url: string };
 type Reply = { status: number; json: unknown } | 'hang' | 'throw';
 
 const realFetch = globalThis.fetch;
-const realConsole = { info: console.info, error: console.error, warn: console.warn };
+const realConsole = { info: console.info, error: console.error, warn: console.warn, log: console.log };
 const calls: Call[] = [];
 let handler: (call: Call) => Reply = () => ({ status: 500, json: {} });
 
@@ -35,11 +35,13 @@ function quiet() {
 	console.info = () => undefined;
 	console.error = () => undefined;
 	console.warn = () => undefined;
+	console.log = () => undefined;
 }
 function loud() {
 	console.info = realConsole.info;
 	console.error = realConsole.error;
 	console.warn = realConsole.warn;
+	console.log = realConsole.log;
 }
 
 function stubFetch() {
@@ -137,8 +139,8 @@ async function main() {
 	let results = await runLiveEngineChecks(input);
 	let p = pick(results, 'perplexity');
 	let g = pick(results, 'gemini');
-	assert('perplexity credit exhaustion is classified billing with HTTP 401 kept', p?.failureKind === 'billing' && p.httpStatus === 401, { kind: p?.failureKind, status: p?.httpStatus });
-	assert('gemini credit exhaustion is classified billing with HTTP 402 kept', g?.failureKind === 'billing' && g.httpStatus === 402, { kind: g?.failureKind, status: g?.httpStatus });
+	assert('perplexity credit exhaustion is classified billing with HTTP 401 kept', p?.failureKind === 'billing' && p.httpStatus === 401 && p.statusDetail === 'BILLING_ERROR', { kind: p?.failureKind, status: p?.httpStatus, detail: p?.statusDetail });
+	assert('gemini credit exhaustion is classified billing with HTTP 402 kept', g?.failureKind === 'billing' && g.httpStatus === 402 && g.statusDetail === 'BILLING_ERROR', { kind: g?.failureKind, status: g?.httpStatus, detail: g?.statusDetail });
 	assert('a billing failure keeps the estimated rule score and is not live', p?.isLive === false && p.fallbackToRuleScore === true && p.liveScore === 63 && g?.liveScore === 61);
 	assert('a billing failure is request_failed, never a non-exposure verdict', p?.observation === 'request_failed' && g?.observation === 'request_failed' && p.isLiveGrounded === false && p.isCited === false && p.tier !== 'NOT_FOUND');
 	assert('the request id and provider code are kept', p?.providerRequestId === 'req-test-1' && Boolean(p.providerErrorCode));
@@ -154,7 +156,7 @@ async function main() {
 	results = await runLiveEngineChecks(input);
 	p = pick(results, 'perplexity');
 	g = pick(results, 'gemini');
-	assert('429 rate limits are not billing', p?.failureKind === 'rate_limit' && g?.failureKind === 'rate_limit', { p: p?.failureKind, g: g?.failureKind });
+	assert('429 rate limits are not billing', p?.failureKind === 'rate_limit' && g?.failureKind === 'rate_limit' && p.statusDetail === 'RATE_LIMIT' && g.statusDetail === 'RATE_LIMIT', { p: p?.failureKind, g: g?.failureKind });
 	assert('a rate limit does not try every model', calls.filter((c) => c.host === 'gemini').length === 1);
 
 	// ── C. Search engines with real evidence.
@@ -229,16 +231,33 @@ async function main() {
 	assert('no_search_evidence is neither a failure kind nor a non-exposure verdict', p?.failureKind === undefined && p.tier !== 'NOT_FOUND' && p.isCited === false);
 	assert('the answer is still recorded as a real body', p?.isLive === true);
 
-	// ── H. ChatGPT and Claude run without a search tool, so they are never graded as exposure results.
+	// ── H. ChatGPT and Claude have no citations array. The answer text is checked instead.
 	onlyEngines({
 		openai: { status: 200, json: { choices: [{ message: { content: JSON.stringify({ isCited: true, mentionType: 'recommended', rank: 1, evidenceSnippet: '스카이피부과의원 추천', reachLevel: 'Level 3', citationUrl: 'https://sky-clinic.com' }) } }] } },
 		anthropic: { status: 200, json: { content: [{ type: 'tool_use', name: 'report_citation_check', input: { isCited: true, mentionType: 'recommended', rank: 1, evidenceSnippet: '스카이피부과의원', reachLevel: 'Level 3' } }] } },
 	});
 	results = await runLiveEngineChecks(input);
-	const c = pick(results, 'chatgpt');
-	const cl = pick(results, 'claude');
-	assert('chatgpt without a search tool is no_search_evidence even when the judge says cited', c?.observation === 'no_search_evidence' && c.isLiveGrounded === false && c.liveScore === 62, c);
-	assert('claude without a search tool is no_search_evidence even when the judge says cited', cl?.observation === 'no_search_evidence' && cl.isLiveGrounded === false && cl.liveScore === 64, cl);
+	let c = pick(results, 'chatgpt');
+	let cl = pick(results, 'claude');
+	assert('chatgpt text that contains the official domain is a partial text match, not a search citation', c?.statusDetail === 'TEXT_DOMAIN' && c.observation === 'text_domain' && c.isLive === true && c.isLiveGrounded === true && c.searchEvidence === false && c.officialCited === true && c.liveScore === 80 && c.fallbackToRuleScore === false, c);
+	assert('claude text that names the brand but not the domain is a brand text match', cl?.statusDetail === 'TEXT_MENTION' && cl.observation === 'text_mention' && cl.brandMentioned === true && cl.officialCited === false && cl.searchEvidence === false && cl.liveScore === 75 && !cl.failureKind, cl);
+
+	onlyEngines({
+		openai: { status: 200, json: { choices: [{ message: { content: '강남에는 여러 피부과가 있습니다. 특정 병원은 확인하지 못했습니다.' } }] } },
+		anthropic: { status: 200, json: { content: [{ type: 'text', text: '스카이피부과의원이 언급되지 않았습니다.' }] } },
+	});
+	results = await runLiveEngineChecks(input);
+	c = pick(results, 'chatgpt');
+	cl = pick(results, 'claude');
+	assert('chatgpt text with neither brand nor domain is NO_CITATION, not an error', c?.statusDetail === 'NO_CITATION' && c.observation === 'answer_no_mention' && c.isLive === true && c.isLiveGrounded === false && c.fallbackToRuleScore === true && c.liveScore === 62 && !c.failureKind && !c.error, c);
+	assert('a negated brand sentence is not a text mention', cl?.statusDetail === 'NO_CITATION' && cl.brandMentioned === false && cl.isLiveGrounded === false, cl);
+
+	onlyEngines({
+		openai: { status: 200, json: { choices: [{ message: { content: '자세한 안내는 https://notsky-clinic.com 과 https://sky-clinic.com.evil.io 를 보세요.' } }] } },
+	});
+	results = await runLiveEngineChecks(input);
+	c = pick(results, 'chatgpt');
+	assert('a lookalike domain in chatgpt text is not an official-domain match', c?.statusDetail === 'NO_CITATION' && c.officialCited === false, c);
 
 	// ── I. Engine isolation: a thrown or hung engine does not change the others.
 	onlyEngines({
@@ -292,6 +311,7 @@ async function main() {
 	const engineSource = readFileSync(path.resolve(__dirname, '../lib/audit/live-check-engines.ts'), 'utf8');
 	assert('each engine has its own AbortController and allSettled', engineSource.includes('new AbortController()') && engineSource.includes('Promise.allSettled'));
 	assert('no key is placed in a url or logged', !/\?key=\$\{/.test(engineSource) && !/console\.\w+\([^)]*apiKey/.test(engineSource));
+	assert('chatgpt and claude raw answers are logged for debugging', engineSource.includes("console.log('[ChatGPT Raw Content]:'") && engineSource.includes("console.log('[Claude Raw Content]:'"));
 }
 
 main()

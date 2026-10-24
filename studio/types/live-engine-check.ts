@@ -61,11 +61,35 @@ export type LiveObservationStatus =
 	| 'request_failed'
 	| 'empty_body'
 	| 'no_search_evidence'
+	| 'answer_no_mention'
+	| 'text_mention'
+	| 'text_domain'
 	| 'brand_mentioned'
 	| 'official_cited'
 	| 'official_in_results'
 	| 'not_observed'
 	| 'mock';
+
+/**
+ * Stable code stored with the result and read by the UI.
+ * Billing stays separate from a successful answer that simply did not name the target.
+ */
+export type LiveStatusDetail =
+	| 'BILLING_ERROR'
+	| 'RATE_LIMIT'
+	| 'AUTH_ERROR'
+	| 'TIMEOUT'
+	| 'EMPTY_BODY'
+	| 'PARSE_ERROR'
+	| 'PROVIDER_ERROR'
+	| 'NO_CITATION'
+	| 'TEXT_MENTION'
+	| 'TEXT_DOMAIN'
+	| 'OFFICIAL_CITED'
+	| 'BRAND_MENTIONED'
+	| 'OFFICIAL_IN_RESULTS'
+	| 'NOT_OBSERVED'
+	| 'MOCK';
 
 export interface LiveEngineCheckResult {
 	engine: LiveCheckEngineId;
@@ -101,6 +125,8 @@ export interface LiveEngineCheckResult {
 
 	/** What this call showed. Drives the badge and wording in the UI. */
 	observation?: LiveObservationStatus;
+	/** Stable code persisted with the row: BILLING_ERROR, NO_CITATION, TEXT_MENTION, and so on. */
+	statusDetail?: LiveStatusDetail;
 	failureKind?: LiveFailureKind;
 	httpStatus?: number;
 	providerErrorCode?: string;
